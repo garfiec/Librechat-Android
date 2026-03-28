@@ -17,7 +17,7 @@ ktor = "3.0.3"
 kotlinx-serialization = "1.7.3"
 
 # Local Data
-room = "2.6.1"
+room = "2.8.4"
 datastore = "1.1.1"
 security-crypto = "1.1.0-alpha06"
 
