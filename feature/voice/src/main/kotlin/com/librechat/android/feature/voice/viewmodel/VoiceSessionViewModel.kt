@@ -108,6 +108,9 @@ class VoiceSessionViewModel(
             var selectedAgentId = agentId
             var resolvedParentMessageId: String? = null
 
+            var lastUserText = ""
+            var lastAssistantText = ""
+
             if (existingId != null) {
                 when (val conversationResult = conversationRepository.getConversation(existingId)) {
                     is Result.Success -> {
@@ -119,7 +122,10 @@ class VoiceSessionViewModel(
                     }
                     else -> Unit
                 }
-                resolvedParentMessageId = resolveParentMessageId(existingId)
+                val ctx = resolveResumeContext(existingId)
+                resolvedParentMessageId = ctx.parentMessageId
+                lastUserText = ctx.lastUserText
+                lastAssistantText = ctx.lastAssistantText
             }
 
             _state.update {
@@ -129,6 +135,8 @@ class VoiceSessionViewModel(
                     selectedModel = selectedModel,
                     selectedAgentId = selectedAgentId,
                     lastParentMessageId = resolvedParentMessageId,
+                    lastUserText = lastUserText,
+                    lastAssistantText = lastAssistantText,
                     isSessionReady = true,
                 )
             }
@@ -395,10 +403,25 @@ class VoiceSessionViewModel(
         }
     }
 
-    private suspend fun resolveParentMessageId(conversationId: String): String? {
+    private data class ResumeContext(
+        val parentMessageId: String?,
+        val lastUserText: String,
+        val lastAssistantText: String,
+    )
+
+    private suspend fun resolveResumeContext(conversationId: String): ResumeContext {
         return when (val messagesResult = messageRepository.getMessages(conversationId)) {
-            is Result.Success -> messagesResult.data.lastOrNull()?.messageId
-            else -> null
+            is Result.Success -> {
+                val messages = messagesResult.data
+                val lastUser = messages.lastOrNull { it.isCreatedByUser }
+                val lastAssistant = messages.lastOrNull { !it.isCreatedByUser }
+                ResumeContext(
+                    parentMessageId = messages.lastOrNull()?.messageId,
+                    lastUserText = lastUser?.extractReadableText().orEmpty(),
+                    lastAssistantText = lastAssistant?.extractReadableText().orEmpty(),
+                )
+            }
+            else -> ResumeContext(null, "", "")
         }
     }
 

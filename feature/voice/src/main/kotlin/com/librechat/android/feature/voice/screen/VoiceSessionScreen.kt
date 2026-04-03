@@ -258,8 +258,9 @@ fun VoiceSessionScreen(
                                         phase == VoicePhase.SPEAKING
                                     ) {
                                         val down = awaitFirstDown(requireUnconsumed = false)
-                                        awaitPointerUp(down.id)
+                                        down.consume()
                                         viewModel.cancelVoicePipeline()
+                                        awaitPointerUp(down.id)
                                         return@awaitEachGesture
                                     }
                                     val down = awaitFirstDown(requireUnconsumed = false)

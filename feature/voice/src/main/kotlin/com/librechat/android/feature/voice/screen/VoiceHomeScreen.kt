@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.librechat.android.core.model.UserFavorite
 import com.librechat.android.feature.voice.R
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import com.librechat.android.feature.voice.screen.components.FavoriteModelPicker
 import com.librechat.android.feature.voice.viewmodel.VoiceSessionViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -112,7 +115,7 @@ fun VoiceHomeScreen(
                         )
                         val subtitle = listOfNotNull(
                             conversation.model,
-                            conversation.updatedAt,
+                            conversation.updatedAt?.let { formatHumanDate(it) },
                         ).joinToString(" · ")
                         if (subtitle.isNotBlank()) {
                             Text(
@@ -151,3 +154,11 @@ fun VoiceHomeScreen(
         }
     }
 }
+
+private val humanDateFormatter = DateTimeFormatter.ofPattern("dd MMMM yyyy HH:mm", Locale.FRENCH)
+
+private fun formatHumanDate(iso: String): String =
+    runCatching {
+        ZonedDateTime.parse(iso).withZoneSameInstant(java.time.ZoneId.systemDefault())
+            .format(humanDateFormatter)
+    }.getOrDefault(iso)
