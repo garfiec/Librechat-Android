@@ -98,12 +98,13 @@ class UserApi constructor(
 
     suspend fun getFavorites(): List<UserFavorite> =
         client.get {
-            url { path("api/user/favorites") }
+            // LibreChat mounts favorites under user settings (see api/server/routes/settings.js).
+            url { path("api/user/settings/favorites") }
         }.body()
 
     suspend fun updateFavorites(favorites: List<UserFavorite>): User =
         client.post {
-            url { path("api/user/favorites") }
+            url { path("api/user/settings/favorites") }
             setBody(UpdateFavoritesRequest(favorites = favorites))
         }.body()
 
