@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":feature:settings"))
     implementation(project(":feature:agents"))
     implementation(project(":feature:files"))
+    implementation(project(":feature:voice"))
 
     implementation(libs.activity.compose)
     implementation(libs.navigation.compose)

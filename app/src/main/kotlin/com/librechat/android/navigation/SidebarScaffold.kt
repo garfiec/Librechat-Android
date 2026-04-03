@@ -26,6 +26,7 @@ fun SidebarScaffold(
     onSettingsCategorySelected: (SettingsCategory) -> Unit,
     onAgentsClick: () -> Unit,
     onFilesClick: () -> Unit,
+    onVoiceClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val sidebarMode by viewModel.sidebarMode.collectAsStateWithLifecycle()
@@ -56,6 +57,7 @@ fun SidebarScaffold(
                     onSettingsClick = onSettingsClick,
                     onAgentsClick = onAgentsClick,
                     onFilesClick = onFilesClick,
+                    onVoiceClick = onVoiceClick,
                 )
             }
             is SidebarMode.Settings -> {

@@ -15,6 +15,7 @@ import com.librechat.android.feature.chat.di.chatModule
 import com.librechat.android.feature.conversations.di.conversationsModule
 import com.librechat.android.feature.files.di.filesModule
 import com.librechat.android.feature.settings.di.settingsModule
+import com.librechat.android.feature.voice.di.voiceModule
 import com.librechat.android.navigation.appModule
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -50,6 +51,7 @@ class LibreChatApplication : Application(), ImageLoaderFactory {
                     settingsModule,
                     agentsModule,
                     filesModule,
+                    voiceModule,
                 )
             }
         } catch (e: Exception) {

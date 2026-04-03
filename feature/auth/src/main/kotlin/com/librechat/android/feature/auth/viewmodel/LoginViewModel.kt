@@ -1,6 +1,7 @@
 package com.librechat.android.feature.auth.viewmodel
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,7 +10,8 @@ import com.librechat.android.core.data.datastore.ServerDataStore
 import com.librechat.android.core.data.repository.AuthRepository
 import com.librechat.android.core.data.repository.ConfigRepository
 import com.librechat.android.core.model.LoginOutcome
-import com.librechat.android.feature.auth.oauth.OAuthManager
+import com.librechat.android.core.model.StartupConfig
+import com.librechat.android.feature.auth.oauth.OAuthWebViewActivity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +26,8 @@ data class LoginUiState(
     val isLoggedIn: Boolean = false,
     val twoFactorTempToken: String? = null,
     val registrationEnabled: Boolean = false,
+    /** When false, hide email/password (e.g. GitHub-only servers). */
+    val emailLoginEnabled: Boolean = true,
     val socialLoginEnabled: Boolean = false,
     val socialLogins: List<String> = emptyList(),
 )
@@ -31,7 +35,6 @@ data class LoginUiState(
 class LoginViewModel(
     private val authRepository: AuthRepository,
     private val configRepository: ConfigRepository,
-    private val oAuthManager: OAuthManager,
     private val serverDataStore: ServerDataStore,
 ) : ViewModel() {
 
@@ -42,10 +45,13 @@ class LoginViewModel(
         viewModelScope.launch {
             configRepository.startupConfig.collect { config ->
                 if (config != null) {
+                    val providers = mergeSocialProviders(config)
                     _uiState.value = _uiState.value.copy(
                         registrationEnabled = config.registrationEnabled,
-                        socialLoginEnabled = config.socialLoginEnabled,
-                        socialLogins = config.socialLogins.orEmpty(),
+                        emailLoginEnabled = config.emailLoginEnabled,
+                        // Many LibreChat instances set githubLoginEnabled / googleLoginEnabled without socialLogins[]
+                        socialLoginEnabled = providers.isNotEmpty(),
+                        socialLogins = providers,
                     )
                 }
             }
@@ -98,19 +104,12 @@ class LoginViewModel(
         }
     }
 
-    fun launchOAuth(context: Context, provider: String) {
-        oAuthManager.launchOAuth(context, provider)
+    fun createOAuthIntent(context: Context, provider: String): Intent {
+        val base = serverDataStore.getBaseUrl().trimEnd('/')
+        return OAuthWebViewActivity.createIntent(context, base, provider)
     }
 
-    fun checkOAuthResult() {
-        val serverUrl = serverDataStore.getBaseUrl()
-        if (serverUrl.isBlank()) return
-
-        val refreshToken = oAuthManager.extractTokenFromCookies(serverUrl) ?: return
-
-        // Clear the cookie immediately to avoid re-reading on next onResume
-        oAuthManager.clearOAuthCookie(serverUrl)
-
+    fun completeOAuthWithRefreshToken(refreshToken: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
@@ -129,6 +128,24 @@ class LoginViewModel(
                 }
                 is Result.Loading -> { /* no-op */ }
             }
+        }
+    }
+
+    private companion object {
+        /**
+         * Builds the list of OAuth provider ids for the login screen.
+         * Backend may send [StartupConfig.socialLogins] and/or per-provider booleans.
+         */
+        fun mergeSocialProviders(config: StartupConfig): List<String> {
+            val order = LinkedHashSet<String>()
+            config.socialLogins?.forEach { order.add(it.lowercase()) }
+            if (config.githubLoginEnabled) order.add("github")
+            if (config.googleLoginEnabled) order.add("google")
+            if (config.discordLoginEnabled) order.add("discord")
+            if (config.facebookLoginEnabled) order.add("facebook")
+            if (config.appleLoginEnabled) order.add("apple")
+            if (config.openidLoginEnabled) order.add("openid")
+            return order.toList()
         }
     }
 }

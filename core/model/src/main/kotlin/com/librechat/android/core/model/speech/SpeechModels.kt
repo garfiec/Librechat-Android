@@ -16,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 
 @Serializable
 data class SpeechToTextResponse(
-    val text: String,
+    val text: String? = null,
 )
 
 @Serializable

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
@@ -91,6 +92,7 @@ fun DrawerContent(
     onSettingsClick: () -> Unit,
     onAgentsClick: () -> Unit,
     onFilesClick: () -> Unit,
+    onVoiceClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.drawerUiState.collectAsStateWithLifecycle()
@@ -102,6 +104,7 @@ fun DrawerContent(
         onSettingsClick = onSettingsClick,
         onAgentsClick = onAgentsClick,
         onFilesClick = onFilesClick,
+        onVoiceClick = onVoiceClick,
         onToggleFavorite = viewModel::toggleFavorite,
         onRefresh = viewModel::refreshConversations,
         onLoadMore = viewModel::loadMoreConversations,
@@ -119,6 +122,7 @@ fun DrawerContent(
     onSettingsClick: () -> Unit,
     onAgentsClick: () -> Unit,
     onFilesClick: () -> Unit,
+    onVoiceClick: () -> Unit,
     modifier: Modifier = Modifier,
     onToggleFavorite: (String) -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -352,6 +356,11 @@ fun DrawerContent(
             icon = Icons.Default.Folder,
             label = stringResource(R.string.files),
             onClick = onFilesClick,
+        )
+        DrawerFooterItem(
+            icon = Icons.Default.GraphicEq,
+            label = stringResource(R.string.voice_mode),
+            onClick = onVoiceClick,
         )
         DrawerFooterItem(
             icon = Icons.Default.Settings,

@@ -57,6 +57,8 @@ import com.librechat.android.feature.settings.navigation.PRESET_MANAGER_ROUTE
 import com.librechat.android.feature.settings.navigation.SETTINGS_TABBED_ROUTE
 import com.librechat.android.feature.settings.navigation.SHARED_LINKS_ROUTE
 import com.librechat.android.feature.settings.navigation.settingsGraph
+import com.librechat.android.feature.voice.navigation.navigateToVoiceHome
+import com.librechat.android.feature.voice.navigation.voiceGraph
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -246,6 +248,9 @@ fun TabletLayout(
                                 launchSingleTop = true
                             }
                         },
+                        onVoiceClick = {
+                            navController.navigateToVoiceHome()
+                        },
                         modifier = Modifier
                             .width(SidebarWidth)
                             .fillMaxHeight(),
@@ -399,6 +404,7 @@ private fun MainContent(
                 },
             )
             filesGraph()
+            voiceGraph(navController)
             settingsGraph(
                 onLogout = {
                     navHostViewModel.logout()

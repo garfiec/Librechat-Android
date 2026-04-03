@@ -9,6 +9,11 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.path
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 
 class ConfigApi constructor(
     private val client: HttpClient,
@@ -36,10 +41,44 @@ class ConfigApi constructor(
         return lenientJson.decodeFromString(text)
     }
 
-    suspend fun getModels(): Map<String, List<String>> =
-        client.get {
+    /**
+     * Fetches models per endpoint. The server returns each endpoint as an array of either
+     * strings (legacy) or objects with an `id` field (current LibreChat / provider APIs).
+     */
+    suspend fun getModels(): Map<String, List<String>> {
+        val response = client.get {
             url { path("api/models") }
-        }.body()
+        }
+        val text = response.bodyAsText()
+        val element = lenientJson.parseToJsonElement(text)
+        return parseModelsPayload(element)
+    }
+
+    private fun parseModelsPayload(element: JsonElement): Map<String, List<String>> {
+        val rootObject = element as? JsonObject ?: return emptyMap()
+        val data = rootObject["data"]
+        val mapObject = when {
+            data is JsonObject -> data
+            else -> rootObject
+        }
+        return mapObject.entries.associate { (key, value) ->
+            key to normalizeModelIds(value)
+        }
+    }
+
+    private fun normalizeModelIds(value: JsonElement): List<String> {
+        val arr = value as? JsonArray ?: return emptyList()
+        return arr.mapNotNull { item ->
+            when (item) {
+                is JsonPrimitive -> if (item.isString) item.content.takeIf { it.isNotBlank() } else null
+                is JsonObject -> {
+                    item["id"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+                        ?: item["model"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+                }
+                else -> null
+            }
+        }
+    }
 
     suspend fun getCategories(): List<Category> =
         client.get {

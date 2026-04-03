@@ -8,7 +8,6 @@ import com.librechat.android.core.data.repository.ConfigRepository
 import com.librechat.android.core.model.LoginOutcome
 import com.librechat.android.core.model.StartupConfig
 import com.librechat.android.core.model.User
-import com.librechat.android.feature.auth.oauth.OAuthManager
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -31,7 +30,6 @@ class LoginViewModelTest {
 
     private val authRepository = mockk<AuthRepository>(relaxed = true)
     private val configRepository = mockk<ConfigRepository>(relaxed = true)
-    private val oAuthManager = mockk<OAuthManager>(relaxed = true)
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
 
     private val configFlow = MutableStateFlow<StartupConfig?>(null)
@@ -52,7 +50,6 @@ class LoginViewModelTest {
     private fun createViewModel() = LoginViewModel(
         authRepository = authRepository,
         configRepository = configRepository,
-        oAuthManager = oAuthManager,
         serverDataStore = serverDataStore,
     )
 
@@ -217,6 +214,25 @@ class LoginViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.socialLogins).isEmpty()
+    }
+
+    @Test
+    fun `githubLoginEnabled without socialLogins shows GitHub OAuth`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        configFlow.value = StartupConfig(
+            emailLoginEnabled = false,
+            githubLoginEnabled = true,
+            socialLoginEnabled = false,
+            socialLogins = null,
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.emailLoginEnabled).isFalse()
+        assertThat(state.socialLoginEnabled).isTrue()
+        assertThat(state.socialLogins).containsExactly("github")
     }
 
     @Test

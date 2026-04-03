@@ -58,6 +58,8 @@ import com.librechat.android.feature.settings.navigation.SETTINGS_GENERAL_ROUTE
 import com.librechat.android.feature.settings.navigation.SETTINGS_TABBED_ROUTE
 import com.librechat.android.feature.settings.navigation.SHARED_LINKS_ROUTE
 import com.librechat.android.feature.settings.navigation.settingsGraph
+import com.librechat.android.feature.voice.navigation.navigateToVoiceHome
+import com.librechat.android.feature.voice.navigation.voiceGraph
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import timber.log.Timber
@@ -293,6 +295,10 @@ private fun PhoneLayout(
                             launchSingleTop = true
                         }
                     },
+                    onVoiceClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigateToVoiceHome()
+                    },
                 )
             }
         },
@@ -384,6 +390,7 @@ private fun PhoneLayout(
                     },
                 )
                 filesGraph()
+                voiceGraph(navController)
                 settingsGraph(
                     onLogout = {
                         navHostViewModel.logout()

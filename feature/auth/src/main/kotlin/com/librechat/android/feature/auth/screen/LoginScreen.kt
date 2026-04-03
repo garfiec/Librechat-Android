@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,10 +28,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.librechat.android.feature.auth.R
+import com.librechat.android.feature.auth.oauth.OAuthWebViewContract
 import com.librechat.android.feature.auth.viewmodel.LoginViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -46,9 +46,10 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Check for OAuth result when returning from Chrome Custom Tab
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.checkOAuthResult()
+    val oauthLauncher = rememberLauncherForActivityResult(OAuthWebViewContract()) { token ->
+        if (!token.isNullOrBlank()) {
+            viewModel.completeOAuthWithRefreshToken(token)
+        }
     }
 
     LaunchedEffect(uiState.isLoggedIn) {
@@ -79,26 +80,28 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        OutlinedTextField(
-            value = uiState.email,
-            onValueChange = viewModel::onEmailChanged,
-            label = { Text(stringResource(R.string.email_label)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !uiState.isLoading,
-        )
+        if (uiState.emailLoginEnabled) {
+            OutlinedTextField(
+                value = uiState.email,
+                onValueChange = viewModel::onEmailChanged,
+                label = { Text(stringResource(R.string.email_label)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !uiState.isLoading,
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
-            value = uiState.password,
-            onValueChange = viewModel::onPasswordChanged,
-            label = { Text(stringResource(R.string.password_label)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            enabled = !uiState.isLoading,
-        )
+            OutlinedTextField(
+                value = uiState.password,
+                onValueChange = viewModel::onPasswordChanged,
+                label = { Text(stringResource(R.string.password_label)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                enabled = !uiState.isLoading,
+            )
+        }
 
         if (uiState.error != null) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -109,35 +112,37 @@ fun LoginScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        if (uiState.emailLoginEnabled) {
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Button(
-            onClick = viewModel::login,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isLoading,
-        ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.height(20.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text(stringResource(R.string.continue_button))
+            Button(
+                onClick = viewModel::login,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading,
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text(stringResource(R.string.continue_button))
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        TextButton(onClick = onNavigateToForgotPassword) {
-            Text(stringResource(R.string.forgot_password))
-        }
+            TextButton(onClick = onNavigateToForgotPassword) {
+                Text(stringResource(R.string.forgot_password))
+            }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        if (uiState.registrationEnabled) {
-            TextButton(onClick = onNavigateToRegister) {
-                Text(stringResource(R.string.no_account_sign_up))
+            if (uiState.registrationEnabled) {
+                TextButton(onClick = onNavigateToRegister) {
+                    Text(stringResource(R.string.no_account_sign_up))
+                }
             }
         }
 
@@ -146,23 +151,25 @@ fun LoginScreen(
         if (uiState.socialLoginEnabled && socialLogins.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            HorizontalDivider(modifier = Modifier.fillMaxWidth())
+            if (uiState.emailLoginEnabled) {
+                HorizontalDivider(modifier = Modifier.fillMaxWidth())
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = stringResource(R.string.or_continue_with),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
+                Text(
+                    text = stringResource(R.string.or_continue_with),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             socialLogins.forEach { provider ->
                 OutlinedButton(
-                    onClick = { viewModel.launchOAuth(context, provider) },
+                    onClick = { oauthLauncher.launch(viewModel.createOAuthIntent(context, provider)) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading,
                 ) {

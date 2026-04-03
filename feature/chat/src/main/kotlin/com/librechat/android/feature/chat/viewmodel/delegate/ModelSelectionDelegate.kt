@@ -255,8 +255,9 @@ class ModelSelectionDelegate(
                     stateHandle.update { copy(agents = result.data) }
                 }
                 is Result.Error -> {
-                    Timber.e(result.exception, "Failed to load models")
-                    stateHandle.update { copy(error = "Could not load available models") }
+                    // Agents are optional; servers may disable the feature or return 403/404.
+                    Timber.d(result.exception, "Agents list unavailable: ${result.message}")
+                    stateHandle.update { copy(agents = emptyList()) }
                 }
                 is Result.Loading -> { /* no-op */ }
             }

@@ -3,10 +3,10 @@ plugins {
 }
 
 android {
-    namespace = "com.librechat.android.feature.auth"
+    namespace = "com.librechat.android.feature.voice"
 }
 
 dependencies {
     implementation(project(":core:network"))
-    testImplementation(libs.kotlinx.serialization.json)
+    implementation(libs.timber)
 }

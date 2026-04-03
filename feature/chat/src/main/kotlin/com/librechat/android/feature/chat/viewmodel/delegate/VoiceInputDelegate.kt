@@ -46,7 +46,7 @@ class VoiceInputDelegate(
         stateHandle.scope.launch {
             when (val result = speechRepository.transcribeAudio(audioData, mimeType)) {
                 is Result.Success -> {
-                    val transcribedText = result.data.text
+                    val transcribedText = result.data.text.orEmpty()
                     val currentInput = stateHandle.state.inputText
                     val separator = if (currentInput.isNotBlank() && !currentInput.endsWith(" ")) " " else ""
                     stateHandle.update {

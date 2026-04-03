@@ -14,9 +14,9 @@
 - `TWO_FACTOR_ROUTE` takes `{tempToken}` nav argument
 
 ## OAuth Flow
-- `OAuthManager` opens Chrome Custom Tabs to `{serverUrl}/api/oauth/{provider}`
-- On return (Activity.onResume), `CookieManager.getCookie()` extracts `refreshToken=` cookie
-- Cookie is cleared after extraction to prevent stale reads
+- `OAuthWebViewActivity` loads `{serverUrl}/oauth/{provider}` in an in-app `WebView` (same cookie jar as `CookieManager`)
+- Chrome Custom Tabs were dropped: their cookies are not visible to the app’s `CookieManager`, so users stayed on the web UI
+- After login, when the page is back on the LibreChat host, the activity reads the httpOnly `refreshToken` cookie and returns it via `ActivityResult` to `LoginScreen`
 - Supported providers configured by server: Google, GitHub, Discord, Facebook, Apple, OpenID
 
 ## Token Storage
