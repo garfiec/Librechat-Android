@@ -56,9 +56,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.librechat.android.R
-import com.librechat.android.core.model.EModelEndpoint
-import com.librechat.android.core.ui.components.isMonochromeIcon
-import com.librechat.android.core.ui.components.toIconRes
+import com.librechat.android.core.ui.components.endpointIconRes
+import com.librechat.android.core.ui.components.isMonochromeEndpointIcon
 
 /**
  * Lightweight snapshot of fields DrawerConversationItem actually renders.
@@ -69,7 +68,7 @@ data class DrawerConversationDisplayData(
     val conversationId: String,
     val title: String,
     val model: String?,
-    val endpoint: EModelEndpoint?,
+    val endpoint: String?,
     val relativeTime: String,
     val isActive: Boolean,
     val isFavorite: Boolean,
@@ -379,8 +378,8 @@ private fun DrawerConversationItem(
     modifier: Modifier = Modifier,
     onToggleFavorite: () -> Unit = {},
 ) {
-    val endpointIconRes = remember(data.endpoint) {
-        data.endpoint?.toIconRes()
+    val endpointDrawable = remember(data.endpoint) {
+        endpointIconRes(data.endpoint)
     }
 
     val backgroundColor = if (data.isActive) {
@@ -417,10 +416,10 @@ private fun DrawerConversationItem(
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
-        } else if (endpointIconRes != null) {
-            val isMonochrome = data.endpoint?.isMonochromeIcon() == true
+        } else if (endpointDrawable != null) {
+            val isMonochrome = isMonochromeEndpointIcon(data.endpoint)
             Icon(
-                painter = painterResource(id = endpointIconRes),
+                painter = painterResource(id = endpointDrawable),
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
                 tint = if (isMonochrome) {

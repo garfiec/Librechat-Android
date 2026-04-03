@@ -45,8 +45,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -64,6 +62,8 @@ import com.librechat.android.feature.chat.R
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
+import com.mikepenz.markdown.model.MarkdownColors
+import com.mikepenz.markdown.model.MarkdownTypography
 
 /**
  * Markdown content rendering with full CommonMark support. Uses a hybrid approach:
@@ -98,125 +98,152 @@ fun MarkdownContent(
     val segments = remember(text) { parseMarkdownSegments(text) }
     val isSearchActive = !searchQuery.isNullOrBlank()
 
+    val mdColors = markdownColor(
+        text = MaterialTheme.colorScheme.onSurface,
+        codeText = MaterialTheme.colorScheme.onSurface,
+        linkText = MaterialTheme.colorScheme.primary,
+        codeBackground = MaterialTheme.colorScheme.surfaceContainerHigh,
+        inlineCodeBackground = MaterialTheme.colorScheme.surfaceContainerHigh,
+        dividerColor = MaterialTheme.colorScheme.outlineVariant,
+    )
+    val bodyLarge = MaterialTheme.typography.bodyLarge
+    val bodyMedium = MaterialTheme.typography.bodyMedium
+    val mdTypography = markdownTypography(
+        h1 = MaterialTheme.typography.headlineLarge.scaleFontSize(fontSizeMultiplier),
+        h2 = MaterialTheme.typography.headlineMedium.scaleFontSize(fontSizeMultiplier),
+        h3 = MaterialTheme.typography.headlineSmall.scaleFontSize(fontSizeMultiplier),
+        h4 = MaterialTheme.typography.titleLarge.scaleFontSize(fontSizeMultiplier),
+        h5 = MaterialTheme.typography.titleMedium.scaleFontSize(fontSizeMultiplier),
+        h6 = MaterialTheme.typography.titleSmall.scaleFontSize(fontSizeMultiplier),
+        text = bodyLarge.scaleFontSize(fontSizeMultiplier),
+        paragraph = bodyLarge.scaleFontSize(fontSizeMultiplier),
+        quote = bodyLarge.copy(fontStyle = FontStyle.Italic).scaleFontSize(fontSizeMultiplier),
+        code = bodyMedium.copy(fontFamily = FontFamily.Monospace).scaleFontSize(fontSizeMultiplier),
+        inlineCode = bodyLarge.copy(fontFamily = FontFamily.Monospace).scaleFontSize(fontSizeMultiplier),
+        ordered = bodyLarge.scaleFontSize(fontSizeMultiplier),
+        bullet = bodyLarge.scaleFontSize(fontSizeMultiplier),
+        list = bodyLarge.scaleFontSize(fontSizeMultiplier),
+    )
+
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .semantics {
-                contentDescription = text
-            },
+            .fillMaxWidth(),
     ) {
         // Track occurrence offset across segments for focused highlighting
         var occurrenceOffset = 0
 
         segments.forEachIndexed { index, segment ->
-            when (segment) {
-                is MarkdownSegment.CodeBlock -> {
-                    if (index > 0) Spacer(modifier = Modifier.height(8.dp))
-                    if (segment.language?.lowercase() == "mermaid") {
-                        MermaidDiagram(
-                            code = segment.code,
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
-                    } else {
-                        CodeBlock(
-                            code = segment.code,
-                            language = segment.language,
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
+            key(index) {
+                when (segment) {
+                    is MarkdownSegment.CodeBlock -> {
+                        if (index > 0) Spacer(modifier = Modifier.height(8.dp))
+                        if (segment.language?.lowercase() == "mermaid") {
+                            MermaidDiagram(
+                                code = segment.code,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        } else {
+                            CodeBlock(
+                                code = segment.code,
+                                language = segment.language,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        }
+                        if (isSearchActive) {
+                            occurrenceOffset += countOccurrences(segment.code, searchQuery!!)
+                        }
+                        if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                     }
-                    // Code blocks can also contain matches; count them for offset tracking
-                    if (isSearchActive) {
-                        occurrenceOffset += countOccurrences(segment.code, searchQuery!!)
+                    is MarkdownSegment.LatexBlock -> {
+                        if (index > 0) Spacer(modifier = Modifier.height(8.dp))
+                        LatexBlock(
+                            latex = segment.latex,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            useKatex = useKatex,
+                        )
+                        if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                     }
-                    if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
-                }
-                is MarkdownSegment.LatexBlock -> {
-                    if (index > 0) Spacer(modifier = Modifier.height(8.dp))
-                    LatexBlock(
-                        latex = segment.latex,
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        useKatex = useKatex,
-                    )
-                    if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
-                }
-                is MarkdownSegment.InlineLatexText -> {
-                    Column {
-                        segment.segments.forEach { inlineSegment ->
-                            when (inlineSegment) {
-                                is InlineSegment.Text -> {
-                                    if (inlineSegment.text.isNotBlank()) {
-                                        if (isSearchActive) {
-                                            val segmentOccurrences = countOccurrences(inlineSegment.text, searchQuery!!)
-                                            val focusedInSegment = searchFocusedOccurrence - occurrenceOffset
-                                            val hasFocus = focusedInSegment in 0 until segmentOccurrences
-                                            HighlightedTextSegment(
-                                                content = inlineSegment.text,
-                                                searchQuery = searchQuery,
-                                                focusedOccurrence = focusedInSegment,
-                                                fontSizeMultiplier = fontSizeMultiplier,
-                                                onPositioned = if (hasFocus) onFocusedOccurrencePositioned else null,
-                                            )
-                                            occurrenceOffset += segmentOccurrences
-                                        } else {
-                                            MarkdownTextSegment(
-                                                content = inlineSegment.text,
-                                                fontSizeMultiplier = fontSizeMultiplier,
-                                            )
+                    is MarkdownSegment.InlineLatexText -> {
+                        Column {
+                            segment.segments.forEach { inlineSegment ->
+                                when (inlineSegment) {
+                                    is InlineSegment.Text -> {
+                                        if (inlineSegment.text.isNotBlank()) {
+                                            if (isSearchActive) {
+                                                val segmentOccurrences = countOccurrences(inlineSegment.text, searchQuery!!)
+                                                val focusedInSegment = searchFocusedOccurrence - occurrenceOffset
+                                                val hasFocus = focusedInSegment in 0 until segmentOccurrences
+                                                HighlightedTextSegment(
+                                                    content = inlineSegment.text,
+                                                    searchQuery = searchQuery,
+                                                    focusedOccurrence = focusedInSegment,
+                                                    fontSizeMultiplier = fontSizeMultiplier,
+                                                    onPositioned = if (hasFocus) onFocusedOccurrencePositioned else null,
+                                                )
+                                                occurrenceOffset += segmentOccurrences
+                                            } else {
+                                                MarkdownTextSegment(
+                                                    content = inlineSegment.text,
+                                                    colors = mdColors,
+                                                    typography = mdTypography,
+                                                )
+                                            }
                                         }
                                     }
-                                }
-                                is InlineSegment.Latex -> {
-                                    LatexInline(
-                                        latex = inlineSegment.latex,
-                                        useKatex = useKatex,
-                                    )
+                                    is InlineSegment.Latex -> {
+                                        LatexInline(
+                                            latex = inlineSegment.latex,
+                                            useKatex = useKatex,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                is MarkdownSegment.Table -> {
-                    if (index > 0) Spacer(modifier = Modifier.height(8.dp))
-                    MarkdownTableWithFullscreen(
-                        headers = segment.headers,
-                        alignments = segment.alignments,
-                        rows = segment.rows,
-                        fontSizeMultiplier = fontSizeMultiplier,
-                        modifier = Modifier.padding(vertical = 4.dp),
-                    )
-                    if (isSearchActive) {
-                        val tableText = (segment.headers + segment.rows.flatten()).joinToString(" ")
-                        occurrenceOffset += countOccurrences(tableText, searchQuery!!)
-                    }
-                    if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
-                }
-                is MarkdownSegment.TextBlock -> {
-                    if (isSearchActive) {
-                        val segmentOccurrences = countOccurrences(segment.text, searchQuery!!)
-                        val focusedInSegment = searchFocusedOccurrence - occurrenceOffset
-                        val hasFocus = focusedInSegment in 0 until segmentOccurrences
-                        HighlightedTextSegment(
-                            content = segment.text,
-                            searchQuery = searchQuery,
-                            focusedOccurrence = focusedInSegment,
+                    is MarkdownSegment.Table -> {
+                        if (index > 0) Spacer(modifier = Modifier.height(8.dp))
+                        MarkdownTableWithFullscreen(
+                            headers = segment.headers,
+                            alignments = segment.alignments,
+                            rows = segment.rows,
                             fontSizeMultiplier = fontSizeMultiplier,
-                            onPositioned = if (hasFocus) onFocusedOccurrencePositioned else null,
+                            modifier = Modifier.padding(vertical = 4.dp),
                         )
-                        occurrenceOffset += segmentOccurrences
-                    } else {
-                        val hasCitations = remember(segment.text) {
-                            segment.text.contains(CITATION_REGEX)
+                        if (isSearchActive) {
+                            val tableText = (segment.headers + segment.rows.flatten()).joinToString(" ")
+                            occurrenceOffset += countOccurrences(tableText, searchQuery!!)
                         }
-                        if (hasCitations) {
-                            CitationText(
-                                text = segment.text,
-                                fontSizeMultiplier = fontSizeMultiplier,
-                            )
-                        } else {
-                            MarkdownTextSegment(
+                        if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    is MarkdownSegment.TextBlock -> {
+                        if (isSearchActive) {
+                            val segmentOccurrences = countOccurrences(segment.text, searchQuery!!)
+                            val focusedInSegment = searchFocusedOccurrence - occurrenceOffset
+                            val hasFocus = focusedInSegment in 0 until segmentOccurrences
+                            HighlightedTextSegment(
                                 content = segment.text,
+                                searchQuery = searchQuery,
+                                focusedOccurrence = focusedInSegment,
                                 fontSizeMultiplier = fontSizeMultiplier,
+                                onPositioned = if (hasFocus) onFocusedOccurrencePositioned else null,
                             )
+                            occurrenceOffset += segmentOccurrences
+                        } else {
+                            val hasCitations = remember(segment.text) {
+                                segment.text.contains(CITATION_REGEX)
+                            }
+                            if (hasCitations) {
+                                CitationText(
+                                    text = segment.text,
+                                    fontSizeMultiplier = fontSizeMultiplier,
+                                )
+                            } else {
+                                MarkdownTextSegment(
+                                    content = segment.text,
+                                    colors = mdColors,
+                                    typography = mdTypography,
+                                )
+                            }
                         }
                     }
                 }
@@ -275,52 +302,38 @@ internal fun TextStyle.scaleFontSize(multiplier: Float): TextStyle {
     return copy(fontSize = scaledFontSize, lineHeight = scaledLineHeight)
 }
 
+private val MARKDOWN_SYNTAX = Regex("[#*_~`\\[>|]|\\d+\\. |^-\\s", RegexOption.MULTILINE)
+
 /**
- * Renders a text segment using the multiplatform-markdown-renderer library for
- * full CommonMark support (headings, tables, lists, blockquotes, links, etc.).
- * Links are clickable via the ambient [LocalUriHandler].
+ * Renders a text segment. When the text contains markdown syntax (headings, bold,
+ * lists, links, etc.), delegates to the full mikepenz [Markdown] renderer.
+ * For plain text without any markdown indicators, renders a lightweight [Text]
+ * composable directly -- skipping the expensive AST parse entirely.
+ *
+ * [colors] and [typography] are pre-computed by the parent [MarkdownContent]
+ * so they're allocated once per message rather than once per segment.
  */
 @Composable
 private fun MarkdownTextSegment(
     content: String,
+    colors: MarkdownColors,
+    typography: MarkdownTypography,
     modifier: Modifier = Modifier,
-    fontSizeMultiplier: Float = 1.0f,
 ) {
-    val colors = markdownColor(
-        text = MaterialTheme.colorScheme.onSurface,
-        codeText = MaterialTheme.colorScheme.onSurface,
-        linkText = MaterialTheme.colorScheme.primary,
-        codeBackground = MaterialTheme.colorScheme.surfaceContainerHigh,
-        inlineCodeBackground = MaterialTheme.colorScheme.surfaceContainerHigh,
-        dividerColor = MaterialTheme.colorScheme.outlineVariant,
-    )
-    val bodyLarge = MaterialTheme.typography.bodyLarge
-    val bodyMedium = MaterialTheme.typography.bodyMedium
-    val typography = markdownTypography(
-        h1 = MaterialTheme.typography.headlineLarge.scaleFontSize(fontSizeMultiplier),
-        h2 = MaterialTheme.typography.headlineMedium.scaleFontSize(fontSizeMultiplier),
-        h3 = MaterialTheme.typography.headlineSmall.scaleFontSize(fontSizeMultiplier),
-        h4 = MaterialTheme.typography.titleLarge.scaleFontSize(fontSizeMultiplier),
-        h5 = MaterialTheme.typography.titleMedium.scaleFontSize(fontSizeMultiplier),
-        h6 = MaterialTheme.typography.titleSmall.scaleFontSize(fontSizeMultiplier),
-        text = bodyLarge.scaleFontSize(fontSizeMultiplier),
-        paragraph = bodyLarge.scaleFontSize(fontSizeMultiplier),
-        quote = bodyLarge.copy(fontStyle = FontStyle.Italic).scaleFontSize(fontSizeMultiplier),
-        code = bodyMedium.copy(fontFamily = FontFamily.Monospace).scaleFontSize(fontSizeMultiplier),
-        inlineCode = bodyLarge.copy(fontFamily = FontFamily.Monospace).scaleFontSize(fontSizeMultiplier),
-        ordered = bodyLarge.scaleFontSize(fontSizeMultiplier),
-        bullet = bodyLarge.scaleFontSize(fontSizeMultiplier),
-        list = bodyLarge.scaleFontSize(fontSizeMultiplier),
-    )
-
-    // The Markdown composable caches internally keyed on content. Wrapping
-    // in key(fontSizeMultiplier) forces disposal and recreation when the
-    // user changes the font size setting, so the new typography takes effect.
-    key(fontSizeMultiplier) {
+    val needsMarkdown = remember(content) { content.contains(MARKDOWN_SYNTAX) }
+    if (needsMarkdown) {
         Markdown(
             content = content,
             colors = colors,
             typography = typography,
+            modifier = modifier
+                .fillMaxWidth(),
+        )
+    } else {
+        Text(
+            text = content,
+            style = typography.text,
+            color = colors.text,
             modifier = modifier
                 .fillMaxWidth(),
         )
@@ -491,7 +504,14 @@ private fun extractHtmlBlocks(segments: List<MarkdownSegment>): List<MarkdownSeg
  * 4. Within remaining text blocks, extract GFM-style tables
  * 5. Within remaining text, detect inline LaTeX (`$...$`) and split accordingly
  */
+private val segmentCache = object : LinkedHashMap<String, List<MarkdownSegment>>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<MarkdownSegment>>): Boolean {
+        return size > 128
+    }
+}
+
 internal fun parseMarkdownSegments(text: String): List<MarkdownSegment> {
+    segmentCache[text]?.let { return it }
     // --- Pass 1: split on fenced code blocks ---
     val afterCodeBlocks = mutableListOf<MarkdownSegment>()
     var lastIndex = 0
@@ -631,6 +651,7 @@ internal fun parseMarkdownSegments(text: String): List<MarkdownSegment> {
         finalSegments.add(MarkdownSegment.InlineLatexText(inlineSegments))
     }
 
+    segmentCache[text] = finalSegments
     return finalSegments
 }
 

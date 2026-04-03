@@ -1,7 +1,6 @@
 package com.librechat.android.feature.chat.components
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,8 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.librechat.android.core.common.ChatLayoutConstants
 import com.librechat.android.core.ui.components.AvatarImage
-
-// Shared BubbleShape is imported from MessageBubble.kt
 
 /**
  * Dedicated composable for rendering a message that is currently being streamed.
@@ -123,31 +120,14 @@ private fun ThreadStreamingBubble(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Streaming content with blinking cursor
-        val contentStartPadding = if (showAvatars) 36.dp else 0.dp
+        val contentStartPadding = if (showAvatars && !showBubbles) 36.dp else 0.dp
         Column(
             modifier = Modifier
                 .padding(start = contentStartPadding)
                 .fillMaxWidth()
-                .then(
-                    if (showBubbles) {
-                        Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = BubbleShape,
-                            )
-                            .padding(12.dp)
-                    } else {
-                        Modifier
-                    },
-                )
                 .semantics {
                     liveRegion = LiveRegionMode.Polite
-                    contentDescription = if (streamingContent.isNotBlank()) {
-                        "Assistant is responding: $streamingContent"
-                    } else {
-                        "Assistant is generating a response"
-                    }
+                    contentDescription = "Assistant is generating a response"
                 },
         ) {
             if (streamingContent.isNotBlank()) {
@@ -198,28 +178,13 @@ private fun TwoSidedStreamingBubble(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .then(
-                    if (showBubbles) {
-                        Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = BubbleShape,
-                            )
-                            .padding(12.dp)
-                    } else {
-                        Modifier.padding(
-                            horizontal = 4.dp,
-                            vertical = 8.dp,
-                        )
-                    },
+                .padding(
+                    horizontal = 4.dp,
+                    vertical = 8.dp,
                 )
                 .semantics {
                     liveRegion = LiveRegionMode.Polite
-                    contentDescription = if (streamingContent.isNotBlank()) {
-                        "Assistant is responding: $streamingContent"
-                    } else {
-                        "Assistant is generating a response"
-                    }
+                    contentDescription = "Assistant is generating a response"
                 },
         ) {
             Text(
@@ -227,11 +192,7 @@ private fun TwoSidedStreamingBubble(
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.SemiBold,
                 ),
-                color = if (showBubbles) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(4.dp))
             if (streamingContent.isNotBlank()) {

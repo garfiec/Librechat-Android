@@ -51,15 +51,22 @@ class ConversationRepositoryImpl(
     }
 
     override suspend fun getConversation(id: String): Result<Conversation> {
-        // Try local cache first
-        val cached = conversationDao.getById(id)
-        if (cached != null) return Result.Success(cached.toModel())
-
-        // Fetch from network
-        return safeApiCall {
+        val networkResult = safeApiCall {
             val conversation = conversationsApi.getConversation(id)
             conversationDao.upsert(conversation.toEntity())
             conversation
+        }
+        return when (networkResult) {
+            is Result.Success -> networkResult
+            is Result.Error -> {
+                val cached = conversationDao.getById(id)
+                if (cached != null) {
+                    Result.Success(cached.toModel())
+                } else {
+                    networkResult
+                }
+            }
+            is Result.Loading -> networkResult
         }
     }
 

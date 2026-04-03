@@ -39,6 +39,9 @@ media3 = "1.2.0"
 # Image Loading
 coil = "2.7.0"
 
+# Performance
+profileinstaller = "1.4.1"
+
 # Logging
 timber = "5.0.1"
 
@@ -136,6 +139,9 @@ media3-datasource = { group = "androidx.media3", name = "media3-datasource", ver
 
 # Image Loading
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+
+# Performance
+profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 
 # Logging
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }

@@ -38,7 +38,7 @@ class VoiceSessionViewModel(
     private val _state = MutableStateFlow(VoiceSessionState())
     val state: StateFlow<VoiceSessionState> = _state.asStateFlow()
 
-    private var initialized = false
+    private var initJob: Job? = null
     private var activeTurnJob: Job? = null
     private val recorder = VoiceRecorder(appContext)
     private val audioPlayer = VoiceAudioPlayer(appContext)
@@ -82,26 +82,38 @@ class VoiceSessionViewModel(
         model: String?,
         agentId: String?,
     ) {
-        if (initialized) return
-        initialized = true
+        initJob?.cancel()
+        initJob = viewModelScope.launch {
+            val existingId = conversationId?.takeIf { it.isNotBlank() }
+            val resuming = existingId != null
+            _state.update {
+                it.copy(
+                    isSessionReady = !resuming,
+                    conversationId = conversationId,
+                    selectedEndpoint = endpoint ?: "agents",
+                    selectedModel = model,
+                    selectedAgentId = agentId,
+                    error = null,
+                )
+            }
 
-        viewModelScope.launch {
             var selectedEndpoint = endpoint ?: "agents"
             var selectedModel = model
             var selectedAgentId = agentId
             var resolvedParentMessageId: String? = null
 
-            if (!conversationId.isNullOrBlank()) {
-                when (val conversationResult = conversationRepository.getConversation(conversationId)) {
+            if (existingId != null) {
+                when (val conversationResult = conversationRepository.getConversation(existingId)) {
                     is Result.Success -> {
                         val convo = conversationResult.data
-                        selectedEndpoint = convo.endpoint?.toSerialName() ?: selectedEndpoint
+                        val wire = convo.endpoint?.takeIf { it.isNotBlank() }
+                        if (wire != null) selectedEndpoint = wire
                         selectedModel = convo.model ?: selectedModel
                         selectedAgentId = convo.agentId ?: selectedAgentId
                     }
                     else -> Unit
                 }
-                resolvedParentMessageId = resolveParentMessageId(conversationId)
+                resolvedParentMessageId = resolveParentMessageId(existingId)
             }
 
             _state.update {
@@ -111,6 +123,7 @@ class VoiceSessionViewModel(
                     selectedModel = selectedModel,
                     selectedAgentId = selectedAgentId,
                     lastParentMessageId = resolvedParentMessageId,
+                    isSessionReady = true,
                 )
             }
         }
@@ -123,6 +136,7 @@ class VoiceSessionViewModel(
     }
 
     fun startListening() {
+        if (!_state.value.isSessionReady) return
         if (_state.value.phase == VoicePhase.TRANSCRIBING || _state.value.phase == VoicePhase.THINKING) return
         if (audioPlayer.isPlaying()) {
             bargeIn()
@@ -310,6 +324,7 @@ class VoiceSessionViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        initJob?.cancel()
         activeTurnJob?.cancel()
         recorder.cancel()
         audioPlayer.stop()
@@ -355,16 +370,4 @@ private fun modelsForEndpoint(
     availableModels[endpoint]?.let { return it }
     val key = availableModels.keys.firstOrNull { it.equals(endpoint, ignoreCase = true) }
     return key?.let { availableModels[it] }
-}
-
-private fun com.librechat.android.core.model.EModelEndpoint.toSerialName(): String = when (this) {
-    com.librechat.android.core.model.EModelEndpoint.AZURE_OPENAI -> "azureOpenAI"
-    com.librechat.android.core.model.EModelEndpoint.OPENAI -> "openAI"
-    com.librechat.android.core.model.EModelEndpoint.GOOGLE -> "google"
-    com.librechat.android.core.model.EModelEndpoint.ANTHROPIC -> "anthropic"
-    com.librechat.android.core.model.EModelEndpoint.ASSISTANTS -> "assistants"
-    com.librechat.android.core.model.EModelEndpoint.AZURE_ASSISTANTS -> "azureAssistants"
-    com.librechat.android.core.model.EModelEndpoint.AGENTS -> "agents"
-    com.librechat.android.core.model.EModelEndpoint.CUSTOM -> "custom"
-    com.librechat.android.core.model.EModelEndpoint.BEDROCK -> "bedrock"
 }

@@ -28,9 +28,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.librechat.android.core.common.extensions.toInstantOrNull
 import com.librechat.android.core.model.Conversation
-import com.librechat.android.core.model.EModelEndpoint
-import com.librechat.android.core.ui.components.isMonochromeIcon
-import com.librechat.android.core.ui.components.toIconRes
+import com.librechat.android.core.ui.components.endpointIconRes
+import com.librechat.android.core.ui.components.isMonochromeEndpointIcon
 import com.librechat.android.feature.conversations.R
 import java.time.Instant
 import java.time.ZoneId
@@ -46,7 +45,7 @@ import java.time.temporal.ChronoUnit
 data class ConversationDisplayData(
     val conversationId: String,
     val title: String,
-    val endpoint: EModelEndpoint?,
+    val endpoint: String?,
     val model: String?,
     val updatedAt: String?,
     val isBookmarked: Boolean,
@@ -73,11 +72,11 @@ fun ConversationItem(
     }
 
     val endpointLabel = remember(data.endpoint) {
-        data.endpoint?.toDisplayLabel() ?: "Chat"
+        endpointWireDisplayLabel(data.endpoint)
     }
 
-    val endpointIconRes = remember(data.endpoint) {
-        data.endpoint?.toIconRes()
+    val endpointDrawable = remember(data.endpoint) {
+        endpointIconRes(data.endpoint)
     }
 
     Row(
@@ -87,10 +86,10 @@ fun ConversationItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (endpointIconRes != null) {
-            val isMonochrome = data.endpoint?.isMonochromeIcon() == true
+        if (endpointDrawable != null) {
+            val isMonochrome = isMonochromeEndpointIcon(data.endpoint)
             Icon(
-                painter = painterResource(id = endpointIconRes),
+                painter = painterResource(id = endpointDrawable),
                 contentDescription = endpointLabel,
                 modifier = Modifier.size(24.dp),
                 tint = if (isMonochrome) {
@@ -197,14 +196,18 @@ private fun Instant.toRelativeTimeString(): String {
     }
 }
 
-private fun EModelEndpoint.toDisplayLabel(): String = when (this) {
-    EModelEndpoint.OPENAI -> "OpenAI"
-    EModelEndpoint.AZURE_OPENAI -> "Azure"
-    EModelEndpoint.GOOGLE -> "Google"
-    EModelEndpoint.ANTHROPIC -> "Anthropic"
-    EModelEndpoint.ASSISTANTS -> "Assistants"
-    EModelEndpoint.AZURE_ASSISTANTS -> "Azure Assistants"
-    EModelEndpoint.AGENTS -> "Agents"
-    EModelEndpoint.CUSTOM -> "Custom"
-    EModelEndpoint.BEDROCK -> "Bedrock"
+private fun endpointWireDisplayLabel(wire: String?): String {
+    if (wire.isNullOrBlank()) return "Chat"
+    return when (wire) {
+        "openAI" -> "OpenAI"
+        "azureOpenAI" -> "Azure"
+        "google" -> "Google"
+        "anthropic" -> "Anthropic"
+        "assistants" -> "Assistants"
+        "azureAssistants" -> "Azure Assistants"
+        "agents" -> "Agents"
+        "custom" -> "Custom"
+        "bedrock" -> "Bedrock"
+        else -> wire
+    }
 }

@@ -33,6 +33,19 @@ enum class EModelEndpoint {
     BEDROCK,
 }
 
+/** JSON `endpoint` value for built-ins (matches each enum’s @SerialName). */
+fun EModelEndpoint.toSerialName(): String = when (this) {
+    EModelEndpoint.AZURE_OPENAI -> "azureOpenAI"
+    EModelEndpoint.OPENAI -> "openAI"
+    EModelEndpoint.GOOGLE -> "google"
+    EModelEndpoint.ANTHROPIC -> "anthropic"
+    EModelEndpoint.ASSISTANTS -> "assistants"
+    EModelEndpoint.AZURE_ASSISTANTS -> "azureAssistants"
+    EModelEndpoint.AGENTS -> "agents"
+    EModelEndpoint.CUSTOM -> "custom"
+    EModelEndpoint.BEDROCK -> "bedrock"
+}
+
 @Serializable
 enum class ContentType {
     @SerialName("text")

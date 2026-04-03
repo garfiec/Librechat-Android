@@ -17,6 +17,7 @@
         android:name=".LibreChatApplication"
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
+        android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="LibreChat"
         android:networkSecurityConfig="@xml/network_security_config"

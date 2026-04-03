@@ -14,8 +14,9 @@ data class ChatRequest(
     val text: String,
     val conversationId: String? = null,
     val parentMessageId: String,
-    val endpoint: EModelEndpoint,
-    val endpointType: EModelEndpoint? = null,
+    /** Built-in serial (`openAI`, `agents`, …) or custom YAML name (`OpenRouter`, `OpenClaw`, …). */
+    val endpoint: String,
+    val endpointType: String? = null,
     val model: String? = null,
     @SerialName("agent_id") val agentId: String? = null,
     val isContinued: Boolean = false,

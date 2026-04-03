@@ -38,6 +38,7 @@ dependencies {
     implementation(libs.compose.material3.wsc)
     implementation(libs.bundles.lifecycle)
     implementation(libs.coil.compose)
+    implementation(libs.profileinstaller)
     implementation(libs.timber)
 
     debugImplementation(libs.leakcanary)

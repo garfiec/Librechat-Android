@@ -15,6 +15,8 @@ enum class VoicePhase {
 @Immutable
 data class VoiceSessionState(
     val phase: VoicePhase = VoicePhase.IDLE,
+    /** False until [VoiceSessionViewModel.initializeSession] finishes loading an existing conversation. */
+    val isSessionReady: Boolean = false,
     val conversationId: String? = null,
     val selectedEndpoint: String = "agents",
     val selectedModel: String? = null,

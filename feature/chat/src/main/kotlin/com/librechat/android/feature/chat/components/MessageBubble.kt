@@ -34,12 +34,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -311,35 +311,11 @@ private fun ThreadMessageBubble(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Message content -- indented to align with the text after avatar
-        val contentStartPadding = if (showAvatars) 36.dp else 0.dp
-
-        // When bubbles are ON in thread mode, wrap content in a subtle rounded background
-        val threadBubbleBackground = if (showBubbles) {
-            if (isUser) {
-                MaterialTheme.colorScheme.secondaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
-        } else {
-            null
-        }
+        val contentStartPadding = if (showAvatars && !showBubbles) 36.dp else 0.dp
 
         Column(
             modifier = Modifier
-                .padding(start = contentStartPadding)
-                .then(
-                    if (threadBubbleBackground != null) {
-                        Modifier
-                            .background(
-                                color = threadBubbleBackground,
-                                shape = BubbleShape,
-                            )
-                            .padding(12.dp)
-                    } else {
-                        Modifier
-                    },
-                ),
+                .padding(start = contentStartPadding),
         ) {
             MessageContentAndActions(
                 message = message,
@@ -449,35 +425,7 @@ private fun TwoSidedMessageBubble(
         else -> null
     }
 
-    // Use secondaryContainer for user bubbles (better dark mode contrast than primaryContainer)
-    // and surfaceVariant for agent bubbles. Text uses onSecondaryContainer/onSurfaceVariant.
-    val bubbleBackground = if (showBubbles) {
-        if (isUser) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        }
-    } else {
-        null
-    }
-
-    // Composite search highlight over bubble background so the highlight is visible
-    // even when an opaque bubble background is present.
-    val effectiveBubbleBackground = if (searchBackground != null && bubbleBackground != null) {
-        searchBackground.compositeOver(bubbleBackground)
-    } else {
-        searchBackground ?: bubbleBackground
-    }
-
-    val textColor = if (showBubbles) {
-        if (isUser) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
+    val textColor = MaterialTheme.colorScheme.onSurface
 
     Row(
         modifier = modifier
@@ -507,15 +455,14 @@ private fun TwoSidedMessageBubble(
             Spacer(modifier = Modifier.width(6.dp))
         }
 
-        // Bubble content
         Column(
             modifier = Modifier
                 .weight(1f)
                 .then(
-                    if (effectiveBubbleBackground != null) {
+                    if (searchBackground != null) {
                         Modifier
                             .background(
-                                color = effectiveBubbleBackground,
+                                color = searchBackground,
                                 shape = BubbleShape,
                             )
                             .padding(12.dp)
@@ -659,19 +606,21 @@ private fun MessageContentAndActions(
 
         val contentParts = message.content
         if (!contentParts.isNullOrEmpty()) {
-            contentParts.forEach { part ->
-                ContentPartRenderer(
-                    part = part,
-                    baseUrl = baseUrl,
-                    fontSizeMultiplier = fontSizeMultiplier,
-                    useKatex = useKatex,
-                    attachments = message.attachments.orEmpty(),
-                    showImageDescriptions = showImageDescriptions,
-                    searchQuery = if (isSearchMatch) searchQuery else null,
-                    searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
-                    onFocusedOccurrencePositioned = if (isCurrentSearchMatch) onFocusedOccurrencePositioned else null,
-                    modifier = Modifier.padding(vertical = 2.dp),
-                )
+            contentParts.forEachIndexed { partIndex, part ->
+                key(partIndex) {
+                    ContentPartRenderer(
+                        part = part,
+                        baseUrl = baseUrl,
+                        fontSizeMultiplier = fontSizeMultiplier,
+                        useKatex = useKatex,
+                        attachments = message.attachments.orEmpty(),
+                        showImageDescriptions = showImageDescriptions,
+                        searchQuery = if (isSearchMatch) searchQuery else null,
+                        searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
+                        onFocusedOccurrencePositioned = if (isCurrentSearchMatch) onFocusedOccurrencePositioned else null,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
+                }
             }
         } else if (message.text.isNotBlank()) {
             MarkdownContent(

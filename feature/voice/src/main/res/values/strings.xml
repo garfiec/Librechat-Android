@@ -16,6 +16,7 @@
     <string name="voice_idle">Ready</string>
     <string name="voice_last_you">You</string>
     <string name="voice_last_assistant">Assistant</string>
+    <string name="voice_loading_session">Loading conversation\u2026</string>
     <string name="voice_resume">Resume</string>
     <string name="voice_stop_playback">Stop playback</string>
 </resources>

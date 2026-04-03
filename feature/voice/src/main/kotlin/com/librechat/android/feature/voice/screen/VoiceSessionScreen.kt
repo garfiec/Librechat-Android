@@ -65,6 +65,7 @@ fun VoiceSessionScreen(
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val phaseState = rememberUpdatedState(state.phase)
+    val sessionReadyState = rememberUpdatedState(state.isSessionReady)
     var isMicHeld by remember { mutableStateOf(false) }
 
     val audioPermissionLauncher = rememberLauncherForActivityResult(
@@ -84,7 +85,10 @@ fun VoiceSessionScreen(
         )
     }
 
-    val micBusy = state.phase == VoicePhase.TRANSCRIBING || state.phase == VoicePhase.THINKING
+    val micBusy =
+        state.phase == VoicePhase.TRANSCRIBING ||
+            state.phase == VoicePhase.THINKING ||
+            !state.isSessionReady
     val micPressedVisual = isMicHeld || state.phase == VoicePhase.LISTENING
 
     Column(
@@ -112,7 +116,11 @@ fun VoiceSessionScreen(
         VoiceOrb(phase = state.phase)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = phaseLabel(state.phase),
+            text = when {
+                !state.isSessionReady && !conversationId.isNullOrBlank() ->
+                    stringResource(R.string.voice_loading_session)
+                else -> phaseLabel(state.phase)
+            },
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Medium,
         )
@@ -165,6 +173,10 @@ fun VoiceSessionScreen(
                             return@awaitEachGesture
                         }
                         awaitFirstDown(requireUnconsumed = false)
+                        if (!sessionReadyState.value) {
+                            waitForUpOrCancellation()
+                            return@awaitEachGesture
+                        }
                         val canRecord = ContextCompat.checkSelfPermission(
                             context,
                             Manifest.permission.RECORD_AUDIO,
@@ -195,8 +207,9 @@ fun VoiceSessionScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = when (state.phase) {
-                            VoicePhase.THINKING -> stringResource(R.string.voice_thinking)
+                        text = when {
+                            !state.isSessionReady -> stringResource(R.string.voice_loading_session)
+                            state.phase == VoicePhase.THINKING -> stringResource(R.string.voice_thinking)
                             else -> stringResource(R.string.voice_transcribing)
                         },
                         style = MaterialTheme.typography.labelMedium,

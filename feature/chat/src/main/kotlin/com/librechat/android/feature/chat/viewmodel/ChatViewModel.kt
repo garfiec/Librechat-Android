@@ -26,7 +26,6 @@ import com.librechat.android.core.data.repository.PromptRepository
 import com.librechat.android.core.data.repository.ShareRepository
 import com.librechat.android.core.data.repository.SpeechRepository
 import com.librechat.android.core.data.repository.UserRepository
-import com.librechat.android.core.model.EModelEndpoint
 import com.librechat.android.core.model.Preset
 import com.librechat.android.core.model.StreamEvent
 import com.librechat.android.core.model.request.EphemeralAgent
@@ -44,7 +43,6 @@ import com.librechat.android.feature.chat.viewmodel.delegate.ModelSelectionDeleg
 import com.librechat.android.feature.chat.viewmodel.delegate.PresetPromptDelegate
 import com.librechat.android.feature.chat.viewmodel.delegate.TextToSpeechDelegate
 import com.librechat.android.feature.chat.viewmodel.delegate.VoiceInputDelegate
-import com.librechat.android.feature.chat.viewmodel.delegate.toSerialName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -332,9 +330,9 @@ class ChatViewModel(
             val result = conversationRepository.getConversation(conversationId)
             val conversation = result.getOrNull()
             if (conversation != null) {
-                val endpoint = conversation.endpoint?.toSerialName()
+                val endpoint = conversation.endpoint?.takeIf { it.isNotBlank() }
                 val model = conversation.model
-                val isAgentConversation = endpoint == EModelEndpoint.AGENTS.toSerialName()
+                val isAgentConversation = endpoint.equals(EndpointConstants.AGENTS, ignoreCase = true)
                 val resolvedModel = if (isAgentConversation) {
                     conversation.agentId ?: model
                 } else {

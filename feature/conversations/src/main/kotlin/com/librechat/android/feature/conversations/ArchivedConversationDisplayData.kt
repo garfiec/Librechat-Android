@@ -15,7 +15,7 @@ data class ArchivedConversationDisplayData(
 fun Conversation.toArchivedDisplayData() = ArchivedConversationDisplayData(
     id = conversationId ?: "",
     title = title ?: "New Chat",
-    endpoint = endpoint?.name?.lowercase() ?: "chat",
+    endpoint = endpoint?.takeIf { it.isNotBlank() } ?: "chat",
     model = model,
     archivedAt = updatedAt,
 )

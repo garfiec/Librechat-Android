@@ -8,6 +8,7 @@ import com.librechat.android.core.data.repository.AgentRepository
 import com.librechat.android.core.data.repository.ConfigRepository
 import com.librechat.android.core.data.repository.McpRepository
 import com.librechat.android.core.model.EModelEndpoint
+import com.librechat.android.core.model.toSerialName
 import com.librechat.android.core.model.mcp.McpServer
 import com.librechat.android.core.model.request.AddedConversation
 import com.librechat.android.core.ui.components.ModelParameters
@@ -334,15 +335,3 @@ internal fun McpServer.toDisplayData() = McpServerDisplayData(
     description = description,
     isConnected = isConnected,
 )
-
-internal fun EModelEndpoint.toSerialName(): String = when (this) {
-    EModelEndpoint.AZURE_OPENAI -> "azureOpenAI"
-    EModelEndpoint.OPENAI -> "openAI"
-    EModelEndpoint.GOOGLE -> "google"
-    EModelEndpoint.ANTHROPIC -> "anthropic"
-    EModelEndpoint.ASSISTANTS -> "assistants"
-    EModelEndpoint.AZURE_ASSISTANTS -> "azureAssistants"
-    EModelEndpoint.AGENTS -> "agents"
-    EModelEndpoint.CUSTOM -> "custom"
-    EModelEndpoint.BEDROCK -> "bedrock"
-}

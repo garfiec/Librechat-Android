@@ -156,9 +156,17 @@ fun CodeBlock(
  * and numbers for common languages. Uses a priority-ordered token list so that
  * earlier matches (e.g. comments) take precedence over later ones (e.g. keywords).
  */
+private val highlightCache = object : LinkedHashMap<Pair<String, String?>, AnnotatedString>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<String, String?>, AnnotatedString>): Boolean {
+        return size > 96
+    }
+}
+
 private fun highlightSyntax(code: String, language: String?): AnnotatedString {
+    val cacheKey = code to language
+    highlightCache[cacheKey]?.let { return it }
     val tokenRules = getTokenRules(language) ?: return AnnotatedString(code)
-    return buildAnnotatedString {
+    val result = buildAnnotatedString {
         // Collect all matches, sort by position, resolve overlaps
         val tokens = mutableListOf<SyntaxToken>()
         for (rule in tokenRules) {
@@ -207,6 +215,8 @@ private fun highlightSyntax(code: String, language: String?): AnnotatedString {
             append(code.substring(pos))
         }
     }
+    highlightCache[cacheKey] = result
+    return result
 }
 
 private data class SyntaxToken(

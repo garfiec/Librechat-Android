@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -310,27 +311,29 @@ private fun TextContentPart(
                 mutableStateOf<com.librechat.android.feature.chat.components.artifact.Artifact?>(null)
             }
 
-            segments.forEach { segment ->
-                when (segment) {
-                    is ArtifactSegment.Text -> {
-                        MarkdownContent(
-                            text = segment.text,
-                            fontSizeMultiplier = fontSizeMultiplier,
-                            useKatex = useKatex,
-                            searchQuery = searchQuery,
-                            searchFocusedOccurrence = searchFocusedOccurrence,
-                            onFocusedOccurrencePositioned = onFocusedOccurrencePositioned,
-                        )
-                    }
-                    is ArtifactSegment.ArtifactReference -> {
-                        val versions = versionMap[segment.artifact.identifier] ?: listOf(segment.artifact)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        ArtifactButton(
-                            artifact = segment.artifact,
-                            onClick = { activeArtifact = segment.artifact },
-                            versionCount = versions.size,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+            segments.forEachIndexed { segIndex, segment ->
+                key(segIndex) {
+                    when (segment) {
+                        is ArtifactSegment.Text -> {
+                            MarkdownContent(
+                                text = segment.text,
+                                fontSizeMultiplier = fontSizeMultiplier,
+                                useKatex = useKatex,
+                                searchQuery = searchQuery,
+                                searchFocusedOccurrence = searchFocusedOccurrence,
+                                onFocusedOccurrencePositioned = onFocusedOccurrencePositioned,
+                            )
+                        }
+                        is ArtifactSegment.ArtifactReference -> {
+                            val versions = versionMap[segment.artifact.identifier] ?: listOf(segment.artifact)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            ArtifactButton(
+                                artifact = segment.artifact,
+                                onClick = { activeArtifact = segment.artifact },
+                                versionCount = versions.size,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
                 }
             }
