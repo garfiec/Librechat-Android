@@ -1,5 +1,6 @@
 package com.librechat.android.feature.voice.di
 
+import com.librechat.android.core.data.datastore.SettingsDataStore
 import com.librechat.android.feature.voice.viewmodel.VoiceSessionViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -15,6 +16,7 @@ val voiceModule = module {
             messageRepository = get(),
             userRepository = get(),
             configRepository = get(),
+            settingsDataStore = get<SettingsDataStore>(),
         )
     }
 }

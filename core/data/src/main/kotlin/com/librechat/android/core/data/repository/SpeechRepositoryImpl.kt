@@ -15,8 +15,9 @@ class SpeechRepositoryImpl(
     override suspend fun transcribeAudio(
         audioData: ByteArray,
         mimeType: String,
+        language: String?,
     ): Result<SpeechToTextResponse> =
-        safeApiCall { speechApi.speechToText(audioData, mimeType) }
+        safeApiCall { speechApi.speechToText(audioData, mimeType, language) }
 
     override suspend fun synthesizeSpeech(
         text: String,

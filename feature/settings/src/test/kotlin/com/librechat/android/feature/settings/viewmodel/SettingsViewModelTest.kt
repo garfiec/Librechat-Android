@@ -55,6 +55,8 @@ class SettingsViewModelTest {
     private val shareRepository = mockk<ShareRepository>(relaxed = true)
     private val keyRepository = mockk<KeyRepository>(relaxed = true)
 
+    private val uiLanguageFlow = MutableStateFlow("en")
+
     private val testUser = User(
         email = "test@example.com",
         name = "Test User",
@@ -90,6 +92,10 @@ class SettingsViewModelTest {
         every { settingsDataStore.autoSendAfterStt } returns MutableStateFlow(false)
         every { settingsDataStore.sttEngine } returns MutableStateFlow("")
         every { settingsDataStore.sttLanguage } returns MutableStateFlow("")
+        every { settingsDataStore.uiLanguage } returns uiLanguageFlow
+        coEvery { settingsDataStore.setUiLanguage(any()) } coAnswers {
+            uiLanguageFlow.value = invocation.args[0] as String
+        }
         every { settingsDataStore.chatLayoutStyle } returns MutableStateFlow(ChatLayoutConstants.THREAD)
         every { settingsDataStore.showAvatars } returns MutableStateFlow(true)
         every { settingsDataStore.showBubbles } returns MutableStateFlow(false)

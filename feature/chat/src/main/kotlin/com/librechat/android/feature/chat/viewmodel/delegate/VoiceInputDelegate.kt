@@ -2,16 +2,20 @@ package com.librechat.android.feature.chat.viewmodel.delegate
 
 import android.content.Context
 import com.librechat.android.core.common.result.Result
+import com.librechat.android.core.data.datastore.SettingsDataStore
 import com.librechat.android.core.data.repository.SpeechRepository
+import com.librechat.android.core.model.speech.resolveWhisperLanguageCode
 import com.librechat.android.feature.chat.audio.VoiceRecorder
 import com.librechat.android.feature.chat.viewmodel.ChatStateHandle
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class VoiceInputDelegate(
     private val stateHandle: ChatStateHandle,
     private val appContext: Context,
     private val speechRepository: SpeechRepository,
+    private val settingsDataStore: SettingsDataStore,
     private val autoSendAfterStt: StateFlow<Boolean>,
     private val onTranscriptionComplete: () -> Unit,
 ) {
@@ -44,7 +48,8 @@ class VoiceInputDelegate(
 
         stateHandle.update { copy(isTranscribing = true) }
         stateHandle.scope.launch {
-            when (val result = speechRepository.transcribeAudio(audioData, mimeType)) {
+            val language = resolveWhisperLanguageCode(settingsDataStore.sttLanguage.first())
+            when (val result = speechRepository.transcribeAudio(audioData, mimeType, language)) {
                 is Result.Success -> {
                     val transcribedText = result.data.text.orEmpty()
                     val currentInput = stateHandle.state.inputText

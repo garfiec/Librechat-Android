@@ -127,6 +127,11 @@ class SettingsDataStore(
         prefs[KEY_STT_LANGUAGE] ?: ""
     }
 
+    /** BCP-47 / ISO-639-1 UI language code (e.g. "fr", "en") for in-app language preference. */
+    val uiLanguage: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_UI_LANGUAGE] ?: "en"
+    }
+
     val ttsEngine: Flow<String> = dataStore.data.map { prefs ->
         prefs[KEY_TTS_ENGINE] ?: ""
     }
@@ -276,6 +281,12 @@ class SettingsDataStore(
         }
     }
 
+    suspend fun setUiLanguage(languageCode: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_UI_LANGUAGE] = languageCode
+        }
+    }
+
     suspend fun setTtsEngine(engine: String) {
         dataStore.edit { prefs ->
             prefs[KEY_TTS_ENGINE] = engine
@@ -374,6 +385,7 @@ class SettingsDataStore(
         private val KEY_AUTO_SEND_AFTER_STT = booleanPreferencesKey("auto_send_after_stt")
         private val KEY_STT_ENGINE = stringPreferencesKey("stt_engine")
         private val KEY_STT_LANGUAGE = stringPreferencesKey("stt_language")
+        private val KEY_UI_LANGUAGE = stringPreferencesKey("ui_language")
         private val KEY_TTS_ENGINE = stringPreferencesKey("tts_engine")
         private val KEY_TTS_VOICE = stringPreferencesKey("tts_voice")
         private val KEY_TTS_CACHING = booleanPreferencesKey("tts_caching")

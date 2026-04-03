@@ -20,7 +20,11 @@ import io.ktor.http.path
 class SpeechApi constructor(
     private val client: HttpClient,
 ) {
-    suspend fun speechToText(audioData: ByteArray, mimeType: String): SpeechToTextResponse {
+    suspend fun speechToText(
+        audioData: ByteArray,
+        mimeType: String,
+        language: String? = null,
+    ): SpeechToTextResponse {
         val extension = mimeTypeToExtension(mimeType)
         return client.submitFormWithBinaryData(
             formData = formData {
@@ -28,6 +32,9 @@ class SpeechApi constructor(
                     append(HttpHeaders.ContentDisposition, "filename=\"audio.$extension\"")
                     append(HttpHeaders.ContentType, mimeType)
                 })
+                if (!language.isNullOrBlank()) {
+                    append("language", language)
+                }
             },
         ) {
             url { path("api/files/speech/stt") }

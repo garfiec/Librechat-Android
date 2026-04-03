@@ -8,7 +8,8 @@
     <string name="voice_no_favorites">No favorite models found.</string>
     <string name="voice_close">Close</string>
     <string name="voice_mic_permission_required">Microphone access is required. Allow it in Settings, then try again.</string>
-    <string name="voice_hold_to_talk">Hold to talk</string>
+    <string name="voice_push_to_talk">Push to talk</string>
+    <string name="voice_listening_button">Listening</string>
     <string name="voice_listening">Listening\u2026</string>
     <string name="voice_transcribing">Transcribing\u2026</string>
     <string name="voice_thinking">Thinking\u2026</string>
@@ -19,4 +20,6 @@
     <string name="voice_loading_session">Loading conversation\u2026</string>
     <string name="voice_resume">Resume</string>
     <string name="voice_stop_playback">Stop playback</string>
+    <string name="voice_cancel_processing">Cancel</string>
+    <string name="voice_cancel_processing_cd">Cancel voice processing</string>
 </resources>

@@ -296,6 +296,10 @@ class SettingsViewModel(
     private val latexRendererPref: StateFlow<LatexRenderer> = settingsDataStore.latexRenderer
         .stateIn(viewModelScope, SharingStarted.Eagerly, LatexRenderer.KATEX)
 
+    /** In-app UI language (ISO code), persisted so it survives process death. */
+    private val uiLanguagePref: StateFlow<String> = settingsDataStore.uiLanguage
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "en")
+
     /** Additional preferences combined separately to stay within the 5-arg combine limit. */
     private data class AdditionalPreferences(
         val tabletSidebarGestureEnabled: Boolean,
@@ -329,40 +333,77 @@ class SettingsViewModel(
         base.copy(chatLayoutStyle = layoutStyle, showAvatars = showAvatars, showBubbles = showBubbles, latexRenderer = latexRenderer)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AdditionalPreferences(true, false, "", "", true))
 
-    /** The single public UI state that merges DataStore preferences with imperative state. */
-    val uiState: StateFlow<SettingsUiState> = combine(
+    /** Holder so we can merge [uiLanguagePref] without exceeding the 5-flow [combine] overload. */
+    private data class UiStateMergeInputs(
+        val state: SettingsUiState,
+        val prefs: DataStorePreferences,
+        val extra: ExtraPreferences,
+        val deviceTts: DeviceTtsPreferences,
+        val additional: AdditionalPreferences,
+    )
+
+    private val uiStateMergeInputs: StateFlow<UiStateMergeInputs> = combine(
         _uiState,
         dataStorePreferences,
         extraPreferences,
         deviceTtsPreferences,
         additionalPreferences,
     ) { state, prefs, extra, deviceTts, additional ->
-        val selectedVoice = extra.selectedVoiceId?.let { id -> state.availableVoices.find { it.id == id } }
-        state.copy(
-            themeMode = prefs.themeMode,
-            serverUrl = prefs.serverUrl,
-            chatFontSize = prefs.chatFontSize,
-            autoScrollEnabled = prefs.autoScrollEnabled,
-            showThinkingBlocks = prefs.showThinkingBlocks,
-            autoReadEnabled = extra.autoRead,
+        UiStateMergeInputs(state, prefs, extra, deviceTts, additional)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        UiStateMergeInputs(
+            SettingsUiState(),
+            DataStorePreferences(
+                themeMode = ThemeMode.SYSTEM,
+                serverUrl = "",
+                chatFontSize = ChatFontSize.MEDIUM,
+                autoScrollEnabled = true,
+                showThinkingBlocks = true,
+                autoReadEnabled = false,
+                selectedVoiceId = "",
+            ),
+            ExtraPreferences(false, null, false, false, "device"),
+            DeviceTtsPreferences(1.0f, 1.0f, "", "", ""),
+            AdditionalPreferences(true, false, "", "", true),
+        ),
+    )
+
+    /** The single public UI state that merges DataStore preferences with imperative state. */
+    val uiState: StateFlow<SettingsUiState> = combine(
+        uiStateMergeInputs,
+        uiLanguagePref,
+    ) { inputs, uiLang ->
+        val selectedVoice = inputs.extra.selectedVoiceId?.let { id ->
+            inputs.state.availableVoices.find { it.id == id }
+        }
+        inputs.state.copy(
+            themeMode = inputs.prefs.themeMode,
+            serverUrl = inputs.prefs.serverUrl,
+            chatFontSize = inputs.prefs.chatFontSize,
+            autoScrollEnabled = inputs.prefs.autoScrollEnabled,
+            showThinkingBlocks = inputs.prefs.showThinkingBlocks,
+            autoReadEnabled = inputs.extra.autoRead,
             selectedVoice = selectedVoice,
-            showImageDescriptions = extra.showImageDescriptions,
-            dismissKeyboardOnSend = extra.dismissKeyboardOnSend,
-            ttsSource = extra.ttsSource,
-            ttsSpeechRate = deviceTts.speechRate,
-            ttsPitch = deviceTts.pitch,
-            ttsDeviceVoiceName = deviceTts.voiceName,
-            ttsEngine = deviceTts.ttsEngine,
-            ttsVoice = deviceTts.ttsVoice,
-            ttsCaching = additional.ttsCaching,
-            tabletSidebarGestureEnabled = additional.tabletSidebarGestureEnabled,
-            sttAutoSend = additional.autoSendAfterStt,
-            sttEngine = additional.sttEngine,
-            sttLanguage = additional.sttLanguage,
-            chatLayoutStyle = additional.chatLayoutStyle,
-            showAvatars = additional.showAvatars,
-            showBubbles = additional.showBubbles,
-            latexRenderer = additional.latexRenderer,
+            showImageDescriptions = inputs.extra.showImageDescriptions,
+            dismissKeyboardOnSend = inputs.extra.dismissKeyboardOnSend,
+            ttsSource = inputs.extra.ttsSource,
+            ttsSpeechRate = inputs.deviceTts.speechRate,
+            ttsPitch = inputs.deviceTts.pitch,
+            ttsDeviceVoiceName = inputs.deviceTts.voiceName,
+            ttsEngine = inputs.deviceTts.ttsEngine,
+            ttsVoice = inputs.deviceTts.ttsVoice,
+            ttsCaching = inputs.additional.ttsCaching,
+            tabletSidebarGestureEnabled = inputs.additional.tabletSidebarGestureEnabled,
+            sttAutoSend = inputs.additional.autoSendAfterStt,
+            sttEngine = inputs.additional.sttEngine,
+            sttLanguage = inputs.additional.sttLanguage,
+            chatLayoutStyle = inputs.additional.chatLayoutStyle,
+            showAvatars = inputs.additional.showAvatars,
+            showBubbles = inputs.additional.showBubbles,
+            latexRenderer = inputs.additional.latexRenderer,
+            selectedLanguage = uiLang,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -525,7 +566,10 @@ class SettingsViewModel(
     }
 
     fun setLanguage(languageCode: String) {
-        _uiState.update { it.copy(selectedLanguage = languageCode, showLanguageDialog = false) }
+        viewModelScope.launch {
+            settingsDataStore.setUiLanguage(languageCode)
+        }
+        _uiState.update { it.copy(showLanguageDialog = false) }
     }
 
     // ── Fork settings ──────────────────────────────────────────────

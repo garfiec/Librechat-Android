@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.librechat.android.core.common.result.Result
+import com.librechat.android.core.data.datastore.SettingsDataStore
 import com.librechat.android.core.data.repository.ChatRepository
 import com.librechat.android.core.data.repository.ConfigRepository
 import com.librechat.android.core.data.repository.ConversationRepository
@@ -13,16 +14,20 @@ import com.librechat.android.core.data.repository.UserRepository
 import com.librechat.android.core.model.ContentType
 import com.librechat.android.core.model.StreamEvent
 import com.librechat.android.core.model.UserFavorite
+import com.librechat.android.core.model.speech.resolveWhisperLanguageCode
 import com.librechat.android.feature.voice.R
 import com.librechat.android.feature.voice.audio.VoiceAudioPlayer
 import com.librechat.android.feature.voice.audio.VoiceRecorder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
 
 class VoiceSessionViewModel(
@@ -33,6 +38,7 @@ class VoiceSessionViewModel(
     private val messageRepository: MessageRepository,
     private val userRepository: UserRepository,
     private val configRepository: ConfigRepository,
+    private val settingsDataStore: SettingsDataStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(VoiceSessionState())
@@ -174,9 +180,25 @@ class VoiceSessionViewModel(
         }
     }
 
+    /** Stops STT/chat/TTS for the current turn and returns UI to [VoicePhase.IDLE]. */
+    fun cancelVoicePipeline() {
+        audioPlayer.stop()
+        activeTurnJob?.cancel()
+        activeTurnJob = null
+        recorder.cancel()
+        _state.update {
+            it.copy(
+                phase = VoicePhase.IDLE,
+                error = null,
+                streamingText = "",
+            )
+        }
+    }
+
     private suspend fun runTurnAfterRecording(audioData: ByteArray) {
         _state.update { it.copy(phase = VoicePhase.TRANSCRIBING, error = null, streamingText = "") }
-        val transcribedText = when (val stt = speechRepository.transcribeAudio(audioData, recorder.mimeType)) {
+        val language = resolveWhisperLanguageCode(settingsDataStore.sttLanguage.first())
+        val transcribedText = when (val stt = speechRepository.transcribeAudio(audioData, recorder.mimeType, language)) {
             is Result.Success -> stt.data.text.orEmpty()
             is Result.Error -> {
                 _state.update {
@@ -205,101 +227,159 @@ class VoiceSessionViewModel(
         }
 
         val responseBuilder = StringBuilder()
+        val chunkBuffer = StringBuilder()
         var createdConversationId: String? = _state.value.conversationId
         var lastParentMessageId = _state.value.lastParentMessageId
+        var firstChunkSent = false
+        var streamError = false
 
-        chatRepository.startChat(
-            text = transcribedText,
-            conversationId = _state.value.conversationId,
-            endpoint = _state.value.selectedEndpoint,
-            model = _state.value.selectedModel,
-            parentMessageId = _state.value.lastParentMessageId,
-            agentId = _state.value.selectedAgentId,
-        ).collect { event ->
-            when (event) {
-                is StreamEvent.ContentDelta -> {
-                    responseBuilder.append(event.chunk)
-                    _state.update { it.copy(streamingText = responseBuilder.toString()) }
-                }
-                is StreamEvent.Created -> {
-                    if (event.conversationId.isNotBlank()) {
-                        createdConversationId = event.conversationId
-                    }
-                    if (event.messageId.isNotBlank()) {
-                        lastParentMessageId = event.messageId
-                    }
-                }
-                is StreamEvent.Final -> {
-                    lastParentMessageId = event.responseMessage?.messageId ?: lastParentMessageId
-                    val finalText = event.responseMessage?.extractReadableText()
-                    if (!finalText.isNullOrBlank()) {
-                        responseBuilder.clear()
-                        responseBuilder.append(finalText)
-                    }
-                }
-                is StreamEvent.Error -> {
-                    _state.update {
-                        it.copy(
-                            phase = VoicePhase.IDLE,
-                            error = event.message,
-                        )
-                    }
-                    return@collect
-                }
-                else -> Unit
-            }
-        }
+        val ttsChannel = Channel<String>(Channel.UNLIMITED)
 
-        val responseText = responseBuilder.toString().trim()
-        if (responseText.isBlank()) {
-            _state.update {
-                it.copy(
-                    phase = VoicePhase.IDLE,
-                    conversationId = createdConversationId,
-                    lastParentMessageId = lastParentMessageId,
-                    streamingText = "",
-                )
-            }
-            return
-        }
-
-        _state.update {
-            it.copy(
-                phase = VoicePhase.SPEAKING,
-                conversationId = createdConversationId,
-                lastParentMessageId = lastParentMessageId,
-                lastAssistantText = responseText,
-                streamingText = "",
-                turnCount = it.turnCount + 1,
-            )
-        }
-        when (val tts = speechRepository.synthesizeSpeech(responseText)) {
-            is Result.Success -> {
-                audioPlayer.play(
-                    audioBytes = tts.data,
-                    onCompleted = {
-                        _state.update { current -> current.copy(phase = VoicePhase.IDLE) }
-                    },
-                    onError = { message ->
-                        _state.update { current ->
-                            current.copy(
-                                phase = VoicePhase.IDLE,
-                                error = message,
+        coroutineScope {
+            // Single sequential consumer: calls TTS in order, enqueues audio in order.
+            val ttsConsumerJob = launch {
+                for (chunkText in ttsChannel) {
+                    when (val tts = speechRepository.synthesizeSpeech(chunkText)) {
+                        is Result.Success -> {
+                            audioPlayer.enqueue(
+                                audioBytes = tts.data,
+                                onAllCompleted = {
+                                    _state.update { s -> s.copy(phase = VoicePhase.IDLE) }
+                                },
+                                onError = { message ->
+                                    _state.update { s ->
+                                        s.copy(phase = VoicePhase.IDLE, error = message)
+                                    }
+                                },
                             )
                         }
-                    },
-                )
+                        is Result.Error -> Timber.w("TTS chunk failed: ${tts.message}")
+                        is Result.Loading -> Unit
+                    }
+                }
+                audioPlayer.markEndOfStream()
             }
-            is Result.Error -> {
+
+            chatRepository.startChat(
+                text = transcribedText,
+                conversationId = _state.value.conversationId,
+                endpoint = _state.value.selectedEndpoint,
+                model = _state.value.selectedModel,
+                parentMessageId = _state.value.lastParentMessageId,
+                agentId = _state.value.selectedAgentId,
+            ).collect { event ->
+                when (event) {
+                    is StreamEvent.ContentDelta -> {
+                        responseBuilder.append(event.chunk)
+                        chunkBuffer.append(event.chunk)
+                        _state.update { it.copy(streamingText = responseBuilder.toString()) }
+                        val ready = extractReadyChunk(chunkBuffer, firstChunkSent)
+                        if (ready != null) {
+                            if (!firstChunkSent) {
+                                firstChunkSent = true
+                                _state.update {
+                                    it.copy(
+                                        phase = VoicePhase.SPEAKING,
+                                        conversationId = createdConversationId,
+                                        lastParentMessageId = lastParentMessageId,
+                                    )
+                                }
+                            }
+                            ttsChannel.send(ready)
+                        }
+                    }
+                    is StreamEvent.Created -> {
+                        if (event.conversationId.isNotBlank()) {
+                            createdConversationId = event.conversationId
+                        }
+                        if (event.messageId.isNotBlank()) {
+                            lastParentMessageId = event.messageId
+                        }
+                    }
+                    is StreamEvent.Final -> {
+                        lastParentMessageId = event.responseMessage?.messageId ?: lastParentMessageId
+                        val finalText = event.responseMessage?.extractReadableText()
+                        if (!finalText.isNullOrBlank()) {
+                            responseBuilder.clear()
+                            responseBuilder.append(finalText)
+                        }
+                    }
+                    is StreamEvent.Error -> {
+                        streamError = true
+                        _state.update {
+                            it.copy(phase = VoicePhase.IDLE, error = event.message)
+                        }
+                        return@collect
+                    }
+                    else -> Unit
+                }
+            }
+
+            // Stream finished: send leftover text, then close the channel.
+            val leftover = chunkBuffer.toString().trim()
+            val responseText = responseBuilder.toString().trim()
+
+            if (!firstChunkSent && responseText.isBlank()) {
+                ttsChannel.close()
                 _state.update {
                     it.copy(
                         phase = VoicePhase.IDLE,
-                        error = tts.message ?: "Text-to-speech failed",
+                        conversationId = createdConversationId,
+                        lastParentMessageId = lastParentMessageId,
+                        streamingText = "",
                     )
                 }
+                return@coroutineScope
             }
-            is Result.Loading -> Unit
+
+            _state.update {
+                it.copy(
+                    conversationId = createdConversationId,
+                    lastParentMessageId = lastParentMessageId,
+                    lastAssistantText = responseText,
+                    streamingText = "",
+                    turnCount = it.turnCount + 1,
+                )
+            }
+
+            if (!firstChunkSent) {
+                _state.update { it.copy(phase = VoicePhase.SPEAKING) }
+            }
+
+            if (leftover.isNotBlank()) {
+                ttsChannel.send(leftover)
+            }
+
+            ttsChannel.close()
+            ttsConsumerJob.join()
         }
+    }
+
+    /**
+     * Splits accumulated text at sentence boundaries.
+     * First chunk triggers at ~80 chars to minimise time-to-first-audio.
+     * Subsequent chunks are longer (~200 chars) for fewer TTS round-trips.
+     */
+    private fun extractReadyChunk(buffer: StringBuilder, hasStarted: Boolean): String? {
+        val minLen = if (hasStarted) 200 else 80
+        if (buffer.length < minLen) return null
+        val text = buffer.toString()
+        val boundary = findSentenceBoundary(text, minLen)
+        if (boundary <= 0) return null
+        val chunk = text.substring(0, boundary).trim()
+        buffer.delete(0, boundary)
+        return chunk.ifBlank { null }
+    }
+
+    private fun findSentenceBoundary(text: String, minLen: Int): Int {
+        val sentenceEnders = charArrayOf('.', '!', '?', '\n', ';')
+        for (i in text.indices.reversed()) {
+            if (i < minLen - 1) break
+            if (text[i] in sentenceEnders) return i + 1
+        }
+        val commaPos = text.lastIndexOf(',')
+        if (commaPos >= minLen - 1) return commaPos + 1
+        return -1
     }
 
     fun bargeIn() {

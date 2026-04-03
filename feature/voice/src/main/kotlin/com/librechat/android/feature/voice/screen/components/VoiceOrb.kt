@@ -14,12 +14,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import com.librechat.android.feature.voice.screen.voiceFeedbackGlowColor
+import com.librechat.android.feature.voice.screen.voiceFeedbackLoadingGlowColor
 import com.librechat.android.feature.voice.viewmodel.VoicePhase
 
 @Composable
 fun VoiceOrb(
     phase: VoicePhase,
     modifier: Modifier = Modifier,
+    loadingSession: Boolean = false,
 ) {
     val transition = rememberInfiniteTransition(label = "voice_orb")
     val pulse = transition.animateFloat(
@@ -27,7 +30,11 @@ fun VoiceOrb(
         targetValue = 1.12f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = if (phase == VoicePhase.LISTENING) 600 else 1200,
+                durationMillis = when {
+                    loadingSession -> 900
+                    phase == VoicePhase.LISTENING -> 600
+                    else -> 1200
+                },
             ),
             repeatMode = RepeatMode.Reverse,
         ),
@@ -49,13 +56,8 @@ fun VoiceOrb(
         val center = Offset(size.width / 2f, size.height / 2f)
         val baseRadius = size.minDimension * 0.22f
 
-        val glowColor = when (phase) {
-            VoicePhase.LISTENING -> Color(0xFF4FC3F7)
-            VoicePhase.TRANSCRIBING -> Color(0xFF9575CD)
-            VoicePhase.THINKING -> Color(0xFFFFB74D)
-            VoicePhase.SPEAKING -> Color(0xFF81C784)
-            VoicePhase.IDLE -> Color(0xFF90A4AE)
-        }
+        val glowColor =
+            if (loadingSession) voiceFeedbackLoadingGlowColor() else voiceFeedbackGlowColor(phase)
 
         drawCircle(
             brush = Brush.radialGradient(

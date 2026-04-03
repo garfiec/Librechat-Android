@@ -9,4 +9,5 @@ android {
 dependencies {
     implementation(project(":core:network"))
     implementation(libs.timber)
+    implementation(libs.markdown.renderer.m3)
 }

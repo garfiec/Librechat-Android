@@ -1,0 +1,64 @@
+# Baseline Profile — AOT-compiled on install for smooth first-launch performance.
+# ProfileInstaller picks this up automatically.
+
+# ── App entry points ──────────────────────────────────────────────────
+HSPLcom/librechat/android/LibreChatApplication;->onCreate()V
+HSPLcom/librechat/android/LibreChatApplication;->newImageLoader()Lcoil/ImageLoader;
+HSPLcom/librechat/android/MainActivity;->onCreate(Landroid/os/Bundle;)V
+
+# ── Compose runtime hot path ─────────────────────────────────────────
+HSPLandroidx/compose/runtime/**->**(**)**
+HSPLandroidx/compose/ui/**->**(**)**
+HSPLandroidx/compose/foundation/**->**(**)**
+HSPLandroidx/compose/foundation/lazy/**->**(**)**
+HSPLandroidx/compose/material3/**->**(**)**
+HSPLandroidx/compose/animation/**->**(**)**
+
+# ── LazyColumn / scrolling infrastructure ─────────────────────────────
+HSPLandroidx/compose/foundation/lazy/LazyColumn*->**(**)**
+HSPLandroidx/compose/foundation/lazy/LazyList*->**(**)**
+HSPLandroidx/compose/foundation/lazy/LazyListScrollPosition*->**(**)**
+HSPLandroidx/compose/foundation/lazy/LazyListState*->**(**)**
+HSPLandroidx/compose/foundation/lazy/layout/**->**(**)**
+HSPLandroidx/compose/foundation/gestures/**->**(**)**
+
+# ── Navigation ────────────────────────────────────────────────────────
+HSPLandroidx/navigation/compose/**->**(**)**
+
+# ── Coil image loading ───────────────────────────────────────────────
+HSPLcoil/**->**(**)**
+
+# ── Chat feature (message list rendering — the critical scroll path) ──
+HSPLcom/librechat/android/feature/chat/components/MessageListKt**->**(**)**
+HSPLcom/librechat/android/feature/chat/components/MessageBubbleKt**->**(**)**
+HSPLcom/librechat/android/feature/chat/components/MarkdownContentKt**->**(**)**
+HSPLcom/librechat/android/feature/chat/components/ContentPartRendererKt**->**(**)**
+HSPLcom/librechat/android/feature/chat/components/StreamingMessageBubbleKt**->**(**)**
+HSPLcom/librechat/android/feature/chat/screen/ChatScreenKt**->**(**)**
+
+# ── Core UI components reused in lists ────────────────────────────────
+HSPLcom/librechat/android/core/ui/components/**->**(**)**
+HSPLcom/librechat/android/core/ui/theme/**->**(**)**
+
+# ── Conversation list (drawer / sidebar) ──────────────────────────────
+HSPLcom/librechat/android/feature/conversations/screen/**->**(**)**
+HSPLcom/librechat/android/navigation/DrawerContentKt**->**(**)**
+
+# ── Data layer hot paths (Room queries, repositories) ─────────────────
+HSPLcom/librechat/android/core/data/repository/**->**(**)**
+
+# ── Koin DI resolution ───────────────────────────────────────────────
+HSPLorg/koin/**->**(**)**
+
+# ── Kotlin coroutines / flows (used everywhere) ──────────────────────
+HSPLkotlinx/coroutines/**->**(**)**
+
+# ── Markdown renderer (heavy composable during scroll) ────────────────
+HSPLcom/mikepenz/markdown/**->**(**)**
+
+# ── OkHttp / Ktor networking (image + API calls) ─────────────────────
+HSPLokhttp3/**->**(**)**
+HSPLio/ktor/**->**(**)**
+
+# ── Lifecycle / ViewModel ─────────────────────────────────────────────
+HSPLandroidx/lifecycle/**->**(**)**

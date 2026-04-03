@@ -92,6 +92,7 @@ class ChatViewModel(
     private val voiceDelegate =
         VoiceInputDelegate(
             stateHandle, appContext, speechRepository,
+            settingsDataStore = settingsDataStore,
             autoSendAfterStt = settingsDataStore.autoSendAfterStt
                 .stateIn(viewModelScope, SharingStarted.Eagerly, false),
             onTranscriptionComplete = ::sendMessage,
