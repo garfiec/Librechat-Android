@@ -5,6 +5,8 @@ import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.network.api.AuthApi
 import com.garfiec.librechat.core.network.api.UserApi
 import com.garfiec.librechat.core.network.client.TokenManager
@@ -14,6 +16,8 @@ class AuthRepositoryImpl(
     private val userApi: UserApi,
     private val tokenManager: TokenManager,
     private val sessionCacheCleaner: SessionCacheCleaner,
+    private val database: LibreChatDatabase,
+    private val settingsDataStore: SettingsDataStore,
 ) : AuthRepository {
 
     override suspend fun login(email: String, password: String): Result<LoginOutcome> {
@@ -82,6 +86,8 @@ class AuthRepositoryImpl(
             } finally {
                 tokenManager.clearTokens()
                 sessionCacheCleaner.clearSessionCaches()
+                database.clearAllUserData()
+                settingsDataStore.clearUserData()
             }
         }
     }

@@ -19,4 +19,7 @@ interface PresetDao {
 
     @Query("DELETE FROM presets WHERE presetId = :presetId")
     suspend fun deleteById(presetId: String)
+
+    @Query("DELETE FROM presets")
+    suspend fun deleteAll()
 }

@@ -19,4 +19,7 @@ interface ConversationTagDao {
 
     @Query("DELETE FROM conversation_tags WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM conversation_tags")
+    suspend fun deleteAll()
 }

@@ -49,6 +49,16 @@ abstract class LibreChatDatabase : RoomDatabase() {
     abstract fun presetDao(): PresetDao
     abstract fun conversationTagDao(): ConversationTagDao
     abstract fun draftDao(): DraftDao
+
+    suspend fun clearAllUserData() {
+        conversationDao().deleteAll()
+        messageDao().deleteAll()
+        fileDao().deleteAll()
+        agentDao().deleteAll()
+        presetDao().deleteAll()
+        conversationTagDao().deleteAll()
+        draftDao().deleteAll()
+    }
 }
 
 // Room KSP auto-generates the actual implementations for each platform

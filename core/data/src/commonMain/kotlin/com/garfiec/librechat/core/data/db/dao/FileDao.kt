@@ -22,4 +22,7 @@ interface FileDao {
 
     @Query("DELETE FROM files WHERE fileId = :fileId")
     suspend fun deleteById(fileId: String)
+
+    @Query("DELETE FROM files")
+    suspend fun deleteAll()
 }

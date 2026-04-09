@@ -41,4 +41,7 @@ interface MessageDao {
 
     @Query("UPDATE messages SET text = :text, content = NULL WHERE messageId = :messageId")
     suspend fun updateText(messageId: String, text: String)
+
+    @Query("DELETE FROM messages")
+    suspend fun deleteAll()
 }

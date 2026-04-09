@@ -19,4 +19,7 @@ interface DraftDao {
 
     @Query("SELECT * FROM drafts ORDER BY updated_at DESC")
     fun observeAllDrafts(): Flow<List<DraftEntity>>
+
+    @Query("DELETE FROM drafts")
+    suspend fun deleteAll()
 }

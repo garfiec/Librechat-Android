@@ -308,6 +308,17 @@ class SettingsDataStore(
         }
     }
 
+    suspend fun clearUserData() {
+        dataStore.edit { prefs ->
+            prefs.remove(KEY_BOOKMARKED_CONVERSATIONS)
+            prefs.remove(KEY_LAST_USED_ENDPOINT)
+            prefs.remove(KEY_LAST_USED_MODEL)
+            prefs.remove(KEY_SELECTED_VOICE_ID)
+            prefs.remove(KEY_SELECTED_MCP_SERVERS)
+            prefs.remove(KEY_ENABLED_TOOLS)
+        }
+    }
+
     suspend fun toggleBookmark(conversationId: String) {
         dataStore.edit { prefs ->
             val current = prefs[KEY_BOOKMARKED_CONVERSATIONS] ?: emptySet()

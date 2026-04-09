@@ -93,6 +93,8 @@ val dataModule = module {
             userApi = get(),
             tokenManager = get(),
             sessionCacheCleaner = get(),
+            database = get(),
+            settingsDataStore = get(),
         )
     }
 
