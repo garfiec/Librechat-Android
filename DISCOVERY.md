@@ -134,8 +134,33 @@ POST /api/auth/2fa/verify-temp → { token, user }
 ### Configuration
 ```
 GET /api/config             → startup config (models, features, auth methods, interface config)
-GET /api/endpoints          → available AI providers and models
+GET /api/endpoints          → available AI providers and models  (JWT required as of v0.8.5)
+POST /api/user/settings/favorites → update user favorites (agent/model pins, v0.8.5+)
+GET  /api/user/settings/favorites → list user favorites (v0.8.5+)
+POST /api/prompts/groups/:id/use  → record prompt-group usage for analytics (v0.8.5+)
 ```
+
+**v0.8.5 notes**
+- `GET /api/config` response payload is now split into a pre-auth and post-auth variant.
+  Pre-auth fields (what `validateServerUrl` / `fetchStartupConfig` rely on) are unchanged
+  from v0.8.4; post-auth adds fields driven by the logged-in user (not consumed by mobile).
+- `GET /api/config` removed `instanceProjectId`. Mobile previously used it as an OR fallback
+  in `ConfigRepositoryImpl.isValidLibreChatConfig`; cleanup landed in v0.8.5 sync.
+- `GET /api/config` added `allowAccountDeletion: Boolean`. Mobile honors this and hides
+  the Delete Account button when `false`. Defaults to `true` for older servers that omit the field.
+- `GET /api/endpoints` now requires JWT (was public in v0.8.4). Mobile already called it
+  post-auth, so this is non-breaking.
+- Favorites schema: each entry is `{ agentId } XOR { model, endpoint }`. Server enforces
+  50 entries max / 256-character max per string; mobile short-circuits oversize writes.
+  `POST` replaces the entire list (upsert-by-overwrite), and the response echoes the stored list.
+
+### Out of scope (admin panel)
+```
+/api/admin/auth/**   → admin-only SAML + Social OAuth callbacks (v0.8.5, web-only)
+/api/admin/config/** → admin YAML config endpoints
+/api/admin/grants/**, /api/admin/groups/**, /api/admin/roles/**, /api/admin/users/**
+```
+Admin panel is a web-only surface in upstream; mobile intentionally does not implement it.
 
 ### Conversations
 ```
