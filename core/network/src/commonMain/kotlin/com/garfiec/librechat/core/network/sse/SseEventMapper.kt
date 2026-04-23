@@ -257,9 +257,41 @@ class SseEventMapper(private val json: Json) {
             "on_run_step_completed" -> mapRunStepCompleted(data, agentId, groupId)
             "on_chat_model_end" -> null
             "on_agent_update" -> null
+            "on_summarize_start" -> null // Lifecycle only; no useful payload to surface
+            "on_summarize_delta" -> null // Partial summary tokens; we only render the final summary
+            "on_summarize_complete" -> mapSummarizeComplete(data, agentId, groupId)
             "attachment" -> mapAttachment(data)
-            else -> null
+            else -> null // Forward-compat: unknown agent-library events drop silently.
         }
+    }
+
+    private fun mapSummarizeComplete(
+        data: JsonObject,
+        agentId: String?,
+        groupId: Int?,
+    ): StreamEvent? {
+        // {"id":"...","agentId":"...","summary":{"type":"summary","content":[{"type":"text","text":"..."}],...}}
+        val summary = data["summary"]?.jsonObject ?: return null
+        val contentArray = summary["content"]?.jsonArray ?: return null
+
+        val textBuilder = StringBuilder()
+        for (element in contentArray) {
+            val part = element.jsonObject
+            val type = part["type"]?.jsonPrimitive?.contentOrNull
+            if (type == "text") {
+                val text = part["text"]?.jsonPrimitive?.contentOrNull
+                if (text != null) textBuilder.append(text)
+            }
+        }
+
+        val text = textBuilder.toString()
+        if (text.isEmpty()) return null
+
+        return StreamEvent.ContextSummary(
+            summary = text,
+            agentId = agentId ?: data["agentId"]?.jsonPrimitive?.contentOrNull,
+            groupId = groupId,
+        )
     }
 
     private fun mapMessageDelta(

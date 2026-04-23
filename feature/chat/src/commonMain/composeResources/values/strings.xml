@@ -109,6 +109,12 @@
     <string name="cd_collapse_thinking">Collapse thinking block</string>
     <string name="cd_expand_thinking">Expand thinking block</string>
 
+    <!-- Content descriptions - Summary (context compaction, v0.8.5+) -->
+    <string name="label_summary">Summarized earlier messages</string>
+    <string name="cd_summary_indicator">Summary indicator</string>
+    <string name="cd_collapse_summary">Collapse summary block</string>
+    <string name="cd_expand_summary">Expand summary block</string>
+
     <!-- Content descriptions - Tool calls -->
     <string name="cd_tool_call">Tool call</string>
     <string name="cd_collapse_tool_call">Collapse tool call %1$s</string>
@@ -232,6 +238,8 @@
     <!-- Model selector sheet -->
     <string name="cd_selected">Selected</string>
     <string name="cd_public_agent">Public agent</string>
+    <string name="cd_pin_favorite">Pin as favorite</string>
+    <string name="cd_unpin_favorite">Unpin favorite</string>
     <string name="cd_collapse_section">Collapse %1$s</string>
     <string name="cd_expand_section">Expand %1$s</string>
 

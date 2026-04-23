@@ -77,4 +77,19 @@ sealed interface StreamEvent {
         val messageId: String,
         val parentMessageId: String,
     ) : StreamEvent
+
+    /**
+     * Emitted when the server compacts earlier turns of a long agent chat into
+     * a summary. The final summarized text is carried here; the chat UI surfaces
+     * it as a "Summarized earlier messages" affordance rather than a normal
+     * assistant message.
+     *
+     * Derived from the `Agents.SummarizeCompleteEvent` LangGraph event introduced
+     * with context compaction in v0.8.5.
+     */
+    data class ContextSummary(
+        val summary: String,
+        val agentId: String? = null,
+        val groupId: Int? = null,
+    ) : StreamEvent
 }

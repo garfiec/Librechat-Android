@@ -1064,6 +1064,11 @@ class ChatViewModel(
                 flushStreamingBuffer()
             }
             is StreamEvent.Step -> { /* no-op */ }
+            is StreamEvent.ContextSummary -> {
+                // Server compacted earlier turns into a summary. The compacted text is
+                // persisted to the final message as a SUMMARY content part and rendered
+                // there; nothing extra to do during streaming.
+            }
         }
     }
 
