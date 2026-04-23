@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
+import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
@@ -59,6 +60,7 @@ class SettingsViewModelTest {
     private val balanceRepository = mockk<BalanceRepository>(relaxed = true)
     private val shareRepository = mockk<ShareRepository>(relaxed = true)
     private val keyRepository = mockk<KeyRepository>(relaxed = true)
+    private val configRepository = mockk<ConfigRepository>(relaxed = true)
 
     private val testUser = User(
         email = "test@example.com",
@@ -107,6 +109,8 @@ class SettingsViewModelTest {
         coEvery { memoryRepository.getMemories() } returns Result.Success(emptyList())
         coEvery { speechRepository.getVoices() } returns Result.Success(emptyList())
         coEvery { balanceRepository.getBalance() } returns Result.Error(message = "Not available")
+
+        every { configRepository.startupConfig } returns MutableStateFlow(null)
     }
 
     @After
@@ -129,6 +133,7 @@ class SettingsViewModelTest {
         balanceRepository = balanceRepository,
         shareRepository = shareRepository,
         keyRepository = keyRepository,
+        configRepository = configRepository,
     )
 
     @Test

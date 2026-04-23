@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,6 +72,7 @@ fun AccountSettingsScreen(
     onLogout: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToApiKeys: () -> Unit,
+    onNavigateToFavorites: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -95,6 +97,7 @@ fun AccountSettingsScreen(
         AccountSettingsContent(
             onLogout = onLogout,
             onNavigateToApiKeys = onNavigateToApiKeys,
+            onNavigateToFavorites = onNavigateToFavorites,
             snackbarHostState = snackbarHostState,
             modifier = Modifier
                 .fillMaxSize()
@@ -111,6 +114,7 @@ fun AccountSettingsScreen(
 fun AccountSettingsContent(
     onLogout: () -> Unit,
     onNavigateToApiKeys: () -> Unit,
+    onNavigateToFavorites: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: SettingsViewModel = koinViewModel(),
@@ -195,6 +199,14 @@ fun AccountSettingsContent(
                         onClick = onNavigateToApiKeys,
                     )
                 }
+                item(key = "favorites_row") {
+                    AccountSettingsRow(
+                        icon = Icons.Default.Star,
+                        title = stringResource(Res.string.favorites),
+                        subtitle = stringResource(Res.string.favorites_subtitle),
+                        onClick = onNavigateToFavorites,
+                    )
+                }
 
                 // Danger zone
                 item(key = "danger_header") {
@@ -203,6 +215,7 @@ fun AccountSettingsContent(
                 item(key = "danger_actions") {
                     DangerZone(
                         isLoading = uiState.isLoading,
+                        allowAccountDeletion = uiState.allowAccountDeletion,
                         onLogoutClick = { showLogoutDialog = true },
                         onDeleteClick = { showDeleteDialog = true },
                     )
@@ -445,6 +458,7 @@ private fun AccountInfo(
 @Composable
 private fun DangerZone(
     isLoading: Boolean,
+    allowAccountDeletion: Boolean,
     onLogoutClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
@@ -461,16 +475,18 @@ private fun DangerZone(
         ) {
             Text(stringResource(Res.string.action_sign_out))
         }
-        Button(
-            onClick = onDeleteClick,
-            enabled = !isLoading,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError,
-            ),
-        ) {
-            Text(stringResource(Res.string.delete_account))
+        if (allowAccountDeletion) {
+            Button(
+                onClick = onDeleteClick,
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
+            ) {
+                Text(stringResource(Res.string.delete_account))
+            }
         }
     }
 }

@@ -57,11 +57,12 @@ class ConfigRepositoryImpl(
 
     /**
      * Validates that the config response contains fields specific to LibreChat.
-     * The `serverDomain` and `instanceProjectId` fields are distinctive to LibreChat's
-     * /api/config endpoint and unlikely to appear in arbitrary JSON APIs.
+     * `serverDomain` is a required field on LibreChat's /api/config and has
+     * defaulted to a non-blank value since v0.7; arbitrary JSON APIs will not
+     * populate it.
      */
     private fun isValidLibreChatConfig(config: StartupConfig): Boolean {
-        return config.serverDomain.isNotBlank() || config.instanceProjectId != null
+        return config.serverDomain.isNotBlank()
     }
 
     override suspend fun fetchStartupConfig(): Result<StartupConfig> {

@@ -36,7 +36,7 @@ data class StartupConfig(
     val turnstile: TurnstileConfig? = null,
     val balance: BalanceConfig? = null,
     val analyticsGtmId: String? = null,
-    val instanceProjectId: String? = null,
+    val allowAccountDeletion: Boolean = true,
     val bundlerURL: String? = null,
     val staticBundlerURL: String? = null,
     val sharePointFilePickerEnabled: Boolean? = null,

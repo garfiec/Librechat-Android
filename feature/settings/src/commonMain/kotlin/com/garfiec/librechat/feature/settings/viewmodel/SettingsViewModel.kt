@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
+import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
@@ -70,6 +71,13 @@ data class SettingsUiState(
     val error: String? = null,
     val isLoggedOut: Boolean = false,
     val isAccountDeleted: Boolean = false,
+    /**
+     * Mirrors `StartupConfig.allowAccountDeletion`. New in v0.8.5 — older servers
+     * don't send the flag, so it defaults to `true` and the Delete Account button
+     * stays visible. When the server sends `false`, mobile hides the button to
+     * avoid a guaranteed 403 on submission.
+     */
+    val allowAccountDeletion: Boolean = true,
     // Chat preferences
     val chatFontSize: ChatFontSize = ChatFontSize.MEDIUM,
     val autoScrollEnabled: Boolean = true,
@@ -194,6 +202,7 @@ class SettingsViewModel(
     private val balanceRepository: BalanceRepository,
     shareRepository: ShareRepository,
     keyRepository: KeyRepository,
+    private val configRepository: ConfigRepository,
 ) : ViewModel() {
 
     /** Raw state for everything not driven by DataStore flows. */
@@ -372,6 +381,15 @@ class SettingsViewModel(
         speechDelegate.loadVoices()
         loadBalance()
         speechDelegate.loadDeviceVoices()
+        observeAccountDeletionPolicy()
+    }
+
+    private fun observeAccountDeletionPolicy() {
+        viewModelScope.launch {
+            configRepository.startupConfig.collect { config ->
+                _uiState.update { it.copy(allowAccountDeletion = config?.allowAccountDeletion ?: true) }
+            }
+        }
     }
 
     // ── Account & user profile ─────────────────────────────────────
