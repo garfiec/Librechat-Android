@@ -538,6 +538,7 @@ fun AgentEditorScreen(
                     AgentSharingSection(
                         sharingState = uiState.sharingState,
                         onSharingChange = viewModel::onSharingChanged,
+                        showCollaborativeToggle = uiState.showCollaborativeToggle,
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))

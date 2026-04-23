@@ -21,6 +21,18 @@ interface ConfigRepository {
     val startupConfig: StateFlow<StartupConfig?>
     val endpointConfigs: StateFlow<Map<String, EndpointConfig>>
     val availableModels: StateFlow<Map<String, List<String>>>
+
+    /**
+     * The backend version detected from `/api/config` (via the `version` field
+     * or the `customFooter` pattern). `null` until [checkBackendVersion] runs
+     * or if the backend does not expose its version.
+     *
+     * UI code should consult [com.garfiec.librechat.core.common.BackendVersion.isCompatible]
+     * when branching on this value and consult `VERSION_GATES.md` at the repo root
+     * when adding new gates.
+     */
+    val detectedBackendVersion: StateFlow<String?>
+
     suspend fun validateServerUrl(url: String): Result<StartupConfig>
     suspend fun fetchStartupConfig(): Result<StartupConfig>
     suspend fun fetchEndpoints(): Result<Map<String, EndpointConfig>>

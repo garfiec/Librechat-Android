@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -88,6 +89,12 @@ data class AgentEditorUiState(
     val isCodeInterpreterAvailable: Boolean = true,
     // Sharing
     val sharingState: AgentSharingState = AgentSharingState(),
+    /**
+     * Whether to show the Collaborative toggle in [AgentSharingSection]. Upstream
+     * v0.8.5 removed `isCollaborative` + `projectIds` from the agent model in favor
+     * of ACL permissions, so the toggle is hidden on v0.8.5+. See VERSION_GATES.md.
+     */
+    val showCollaborativeToggle: Boolean = true,
     // Handoff
     val handoffAgentIds: List<String> = emptyList(),
     val allAgents: List<AgentHandoffDisplayData> = emptyList(),
@@ -129,9 +136,25 @@ class AgentEditorViewModel(
         loadMcpTools()
         loadAllAgents()
         loadCodeInterpreterAvailability()
+        observeServerVersion()
         if (editAgentId != null) {
             loadAgent(editAgentId)
             loadActions()
+        }
+    }
+
+    /**
+     * Observes the detected backend version and hides the Collaborative toggle
+     * on v0.8.5+ where the server no longer honors `isCollaborative`/`projectIds`.
+     * See VERSION_GATES.md at the repo root.
+     */
+    private fun observeServerVersion() {
+        viewModelScope.launch {
+            configRepository.detectedBackendVersion.collect { version ->
+                val show = version == null ||
+                    !BackendVersion.isCompatibleOrNewer(version, "0.8.5")
+                _uiState.value = _uiState.value.copy(showCollaborativeToggle = show)
+            }
         }
     }
 
@@ -628,7 +651,14 @@ class AgentEditorViewModel(
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
 
             val isPublic = state.sharingState.visibility == AgentVisibility.PUBLIC
-            val isCollaborative = state.sharingState.isCollaborative
+            // On v0.8.5+ the server dropped `isCollaborative` / `projectIds` in favor
+            // of ACL permissions. When the toggle is hidden we omit the field so the
+            // server doesn't silently ignore it. See VERSION_GATES.md.
+            val isCollaborative = if (state.showCollaborativeToggle) {
+                state.sharingState.isCollaborative
+            } else {
+                null
+            }
 
             val supportContact = if (state.supportContact.name.isNotBlank() ||
                 state.supportContact.email.isNotBlank()

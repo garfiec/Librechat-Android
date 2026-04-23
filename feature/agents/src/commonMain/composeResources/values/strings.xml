@@ -181,6 +181,7 @@
     <string name="label_visibility">Visibility</string>
     <string name="label_collaborative">Collaborative</string>
     <string name="collaborative_description">Allow other users to modify this agent</string>
+    <string name="collaborative_managed_server_side">Access permissions are managed server-side in this version.</string>
 
     <!-- Visibility labels -->
     <string name="visibility_private">Private</string>

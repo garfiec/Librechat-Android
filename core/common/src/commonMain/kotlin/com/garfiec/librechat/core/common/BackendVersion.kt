@@ -61,6 +61,27 @@ object BackendVersion {
     }
 
     /**
+     * Checks whether [actual] is greater than or equal to [minimum] (feature-gate check).
+     *
+     * Use this when branching on whether a backend feature was introduced in a
+     * specific version. Patch differences are ignored. Returns true when [actual]
+     * cannot be parsed (fail-open: assume feature is present). Returns false when
+     * [minimum] cannot be parsed (degenerate threshold).
+     *
+     * @param actual The version detected from the server (e.g., "0.8.5").
+     * @param minimum The minimum version at which the gated feature appears (e.g., "0.8.5").
+     * @return true if [actual] ≥ [minimum] by (major, minor), false otherwise.
+     */
+    fun isCompatibleOrNewer(actual: String, minimum: String): Boolean {
+        val actualVersion = parse(actual) ?: return true
+        val minimumVersion = parse(minimum) ?: return false
+        if (actualVersion.major != minimumVersion.major) {
+            return actualVersion.major > minimumVersion.major
+        }
+        return actualVersion.minor >= minimumVersion.minor
+    }
+
+    /**
      * Extracts a version string from a LibreChat customFooter value.
      * The default footer format is: `[LibreChat vX.Y.Z](https://librechat.ai) - ...`
      * Also handles variations like `LibreChat v0.8.2` without markdown links.

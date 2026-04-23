@@ -29,6 +29,9 @@ class ConfigRepositoryImpl(
     private val _availableModels = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     override val availableModels: StateFlow<Map<String, List<String>>> = _availableModels.asStateFlow()
 
+    private val _detectedBackendVersion = MutableStateFlow<String?>(null)
+    override val detectedBackendVersion: StateFlow<String?> = _detectedBackendVersion.asStateFlow()
+
     override suspend fun validateServerUrl(url: String): Result<StartupConfig> {
         return try {
             val config = configApi.getStartupConfig()
@@ -163,6 +166,8 @@ class ConfigRepositoryImpl(
             val detectedVersion = config?.version?.trimStart('v', 'V')
                 // Strategy 2: Parse customFooter for version pattern
                 ?: BackendVersion.extractVersionFromFooter(config?.customFooter)
+
+            _detectedBackendVersion.value = detectedVersion
 
             if (detectedVersion != null) {
                 Logger.d { "Backend version detected: $detectedVersion (supported: $supported)" }

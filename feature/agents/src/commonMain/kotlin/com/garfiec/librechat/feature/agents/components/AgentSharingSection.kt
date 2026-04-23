@@ -36,13 +36,20 @@ import com.garfiec.librechat.feature.agents.resources.*
 import com.garfiec.librechat.feature.agents.resources.Res
 import org.jetbrains.compose.resources.stringResource
 
-/** Visibility (Private/Team/Public) and collaborative toggle; maps to agent model isPublic/isCollaborative. */
+/**
+ * Visibility (Private/Team/Public) and collaborative toggle; maps to agent model
+ * isPublic/isCollaborative.
+ *
+ * [showCollaborativeToggle] is gated on server version — see VERSION_GATES.md.
+ * Upstream v0.8.5 removed the `isCollaborative` field; hide the toggle on v0.8.5+.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentSharingSection(
     sharingState: AgentSharingState,
     onSharingChange: (AgentSharingState) -> Unit,
     modifier: Modifier = Modifier,
+    showCollaborativeToggle: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -107,30 +114,39 @@ fun AgentSharingSection(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Collaborative toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(Res.string.label_collaborative),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Text(
-                            text = stringResource(Res.string.collaborative_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Collaborative toggle (hidden on v0.8.5+ servers)
+                if (showCollaborativeToggle) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(Res.string.label_collaborative),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = stringResource(Res.string.collaborative_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = sharingState.isCollaborative,
+                            onCheckedChange = {
+                                onSharingChange(sharingState.copy(isCollaborative = it))
+                            },
                         )
                     }
-                    Switch(
-                        checked = sharingState.isCollaborative,
-                        onCheckedChange = {
-                            onSharingChange(sharingState.copy(isCollaborative = it))
-                        },
+                } else {
+                    Text(
+                        text = stringResource(Res.string.collaborative_managed_server_side),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
             }
