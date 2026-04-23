@@ -17,6 +17,16 @@ import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.path
+import kotlinx.serialization.Serializable
+
+/**
+ * Response payload for `POST /api/prompts/groups/:id/use`.
+ * Added in upstream v0.8.5 for server-side usage analytics.
+ */
+@Serializable
+data class PromptUseResponse(
+    val numberOfGenerations: Int = 0,
+)
 
 class PromptsApi constructor(
     private val client: HttpClient,
@@ -126,5 +136,14 @@ class PromptsApi constructor(
         client.get {
             url { path("api/prompts") }
             parameter("groupId", groupId)
+        }.body()
+
+    /**
+     * Records a prompt-group usage event for analytics (v0.8.5+).
+     * Fire-and-forget — callers should not block UI on the response.
+     */
+    suspend fun recordPromptGroupUse(groupId: String): PromptUseResponse =
+        client.post {
+            url { path("api/prompts/groups/$groupId/use") }
         }.body()
 }

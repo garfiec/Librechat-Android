@@ -74,4 +74,11 @@ class PromptRepositoryImpl(
             promptsApi.getPromptsByGroupId(groupId)
         }
     }
+
+    override suspend fun recordPromptGroupUse(groupId: String): Result<Unit> {
+        return safeApiCall {
+            promptsApi.recordPromptGroupUse(groupId)
+            Unit
+        }
+    }
 }

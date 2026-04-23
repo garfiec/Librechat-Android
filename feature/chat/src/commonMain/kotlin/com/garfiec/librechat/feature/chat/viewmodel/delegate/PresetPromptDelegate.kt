@@ -123,6 +123,7 @@ class PresetPromptDelegate(
             currentInput + (displayData.command ?: displayData.name) + " "
         }
         stateHandle.update { copy(inputText = newText) }
+        recordUseFor(displayData)
     }
 
     fun handleSlashCommand(displayData: PromptMentionDisplayData) {
@@ -142,6 +143,24 @@ class PresetPromptDelegate(
         }
         stateHandle.update {
             copy(inputText = promptText ?: (displayData.command ?: displayData.name))
+        }
+        recordUseFor(displayData)
+    }
+
+    /**
+     * Fire-and-forget telemetry ping for `POST /api/prompts/groups/:id/use` (v0.8.5+).
+     * Errors are swallowed — analytics is never a user-facing failure.
+     */
+    private fun recordUseFor(displayData: PromptMentionDisplayData) {
+        val group = cachedPromptGroups.find {
+            it.name == displayData.name && it.command == displayData.command
+        } ?: return
+        val groupId = group.id ?: return
+        stateHandle.scope.launch {
+            when (val result = promptRepository.recordPromptGroupUse(groupId)) {
+                is Result.Error -> Logger.d(result.exception) { "recordPromptGroupUse failed (non-fatal): ${result.message}" }
+                else -> Unit
+            }
         }
     }
 }

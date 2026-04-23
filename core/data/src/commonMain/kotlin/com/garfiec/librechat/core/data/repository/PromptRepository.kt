@@ -20,4 +20,10 @@ interface PromptRepository {
     suspend fun addPromptToGroup(groupId: String, request: AddPromptToGroupRequest): Result<Prompt>
     suspend fun updatePromptProductionTag(promptId: String, request: UpdatePromptTagRequest): Result<Prompt>
     suspend fun getPromptsByGroupId(groupId: String): Result<List<Prompt>>
+
+    /**
+     * Records that a prompt group was used (v0.8.5+ server-side analytics).
+     * Fire-and-forget — failures are swallowed since this is telemetry only.
+     */
+    suspend fun recordPromptGroupUse(groupId: String): Result<Unit>
 }
