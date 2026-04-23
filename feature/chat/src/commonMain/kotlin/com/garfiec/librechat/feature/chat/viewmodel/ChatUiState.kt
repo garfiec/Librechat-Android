@@ -133,6 +133,16 @@ data class ChatUiState(
     val pendingNavigationConversationId: String? = null,
     // Model comparison state
     val comparisonState: ComparisonState = ComparisonState(),
+    /**
+     * User-pinned agent IDs (v0.8.5 favorites). Pinned agents sort to the top
+     * of the "My Agents" group in [ModelSelectorSheet] and get a filled star.
+     */
+    val favoriteAgentIds: Set<String> = emptySet(),
+    /**
+     * User-pinned model keys. Each key is `"$endpoint::$model"` — compare with
+     * `FavoritesDelegate.favoriteModelKey(endpoint, model)`.
+     */
+    val favoriteModelKeys: Set<String> = emptySet(),
 ) {
     /**
      * Effective tool set that merges [enabledTools] with the web search state from

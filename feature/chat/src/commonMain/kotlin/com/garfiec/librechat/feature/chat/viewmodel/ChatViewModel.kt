@@ -16,6 +16,7 @@ import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.DraftRepository
+import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.data.repository.PresetRepository
@@ -35,6 +36,7 @@ import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.FavoritesDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.InConversationSearchDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
@@ -66,6 +68,7 @@ class ChatViewModel(
     private val configRepository: ConfigRepository,
     private val conversationRepository: ConversationRepository,
     private val draftRepository: DraftRepository,
+    favoritesRepository: FavoritesRepository,
     presetRepository: PresetRepository,
     promptRepository: PromptRepository,
     shareRepository: ShareRepository,
@@ -92,6 +95,7 @@ class ChatViewModel(
     private val conversationActionsDelegate =
         ConversationActionsDelegate(stateHandle, conversationRepository, shareRepository)
     private val presetPromptDelegate = PresetPromptDelegate(stateHandle, presetRepository, promptRepository)
+    private val favoritesDelegate = FavoritesDelegate(stateHandle, favoritesRepository)
     private val modelDelegate =
         ModelSelectionDelegate(stateHandle, configRepository, agentRepository, mcpRepository, settingsDataStore)
 
@@ -273,6 +277,7 @@ class ChatViewModel(
 
         presetPromptDelegate.loadPresets()
         presetPromptDelegate.loadAvailablePrompts()
+        favoritesDelegate.load()
         modelDelegate.loadMcpServers()
         loadUserProfile()
         modelDelegate.loadAgents()
@@ -1456,6 +1461,10 @@ class ChatViewModel(
     fun editPreset(preset: Preset) = presetPromptDelegate.editPreset(preset)
     fun handlePromptMention(displayData: PromptMentionDisplayData) = presetPromptDelegate.handlePromptMention(displayData)
     fun handleSlashCommand(displayData: PromptMentionDisplayData) = presetPromptDelegate.handleSlashCommand(displayData)
+
+    // Favorites (v0.8.5)
+    fun toggleAgentFavorite(agentId: String) = favoritesDelegate.toggleAgent(agentId)
+    fun toggleModelFavorite(endpoint: String, model: String) = favoritesDelegate.toggleModel(endpoint, model)
 
     // Model selection and comparison
     fun onModelSelected(endpoint: String, model: String) = modelDelegate.onModelSelected(endpoint, model)

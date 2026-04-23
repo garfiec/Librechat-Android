@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.settings.di
 
 import com.garfiec.librechat.feature.settings.viewmodel.ApiKeysViewModel
+import com.garfiec.librechat.feature.settings.viewmodel.FavoritesViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.McpViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.MemoriesViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PresetManagerViewModel
@@ -16,6 +17,7 @@ val settingsModule = module {
 
     viewModelOf(::SettingsViewModel)
     viewModelOf(::ApiKeysViewModel)
+    viewModelOf(::FavoritesViewModel)
     viewModelOf(::MemoriesViewModel)
     viewModelOf(::McpViewModel)
     viewModelOf(::PresetManagerViewModel)

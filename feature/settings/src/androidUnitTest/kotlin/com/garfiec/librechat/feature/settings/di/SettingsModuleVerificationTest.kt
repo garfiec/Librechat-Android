@@ -8,7 +8,9 @@ import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.repository.ApiKeyRepository
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
+import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
+import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.MemoryRepository
@@ -31,7 +33,9 @@ class SettingsModuleVerificationTest {
                 Application::class,
                 UserRepository::class,
                 AuthRepository::class,
+                ConfigRepository::class,
                 ConversationRepository::class,
+                FavoritesRepository::class,
                 McpRepository::class,
                 MemoryRepository::class,
                 SpeechRepository::class,

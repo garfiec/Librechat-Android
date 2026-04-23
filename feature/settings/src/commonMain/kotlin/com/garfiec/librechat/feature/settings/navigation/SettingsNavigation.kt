@@ -51,6 +51,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             onNavigateToSharedLinks = { onNavigate(SharedLinks) },
             onNavigateToPresets = { onNavigate(PresetManager) },
             onNavigateToApiKeys = { onNavigate(ApiKeys) },
+            onNavigateToFavorites = { onNavigate(Favorites) },
         )
     }
     entry<SettingsGeneral> {
@@ -69,6 +70,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             onLogout = onLogout,
             onNavigateBack = onBack,
             onNavigateToApiKeys = { onNavigate(ApiKeys) },
+            onNavigateToFavorites = { onNavigate(Favorites) },
         )
     }
     entry<SettingsData> {
@@ -107,6 +109,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             onNavigateBack = onBack,
         )
     }
+    favoritesEntry(onBack = onBack)
 }
 
 val settingsSerializersModule = SerializersModule {
@@ -121,5 +124,6 @@ val settingsSerializersModule = SerializersModule {
         subclass(ApiKeys::class, ApiKeys.serializer())
         subclass(Memories::class, Memories.serializer())
         subclass(McpServers::class, McpServers.serializer())
+        subclass(Favorites::class, Favorites.serializer())
     }
 }

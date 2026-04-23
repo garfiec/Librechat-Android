@@ -12,6 +12,7 @@ import com.garfiec.librechat.core.network.api.BannerApi
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.api.ConfigApi
 import com.garfiec.librechat.core.network.api.ConversationsApi
+import com.garfiec.librechat.core.network.api.FavoritesApi
 import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
 import com.garfiec.librechat.core.network.api.KeysApi
@@ -50,6 +51,7 @@ class DataModuleVerificationTest {
                 ChatApi::class,
                 ConversationsApi::class,
                 MessagesApi::class,
+                FavoritesApi::class,
                 FilesApi::class,
                 FilesExtApi::class,
                 AgentsApi::class,

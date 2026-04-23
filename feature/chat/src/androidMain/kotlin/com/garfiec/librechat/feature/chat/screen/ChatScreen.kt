@@ -741,6 +741,10 @@ actual fun ChatScreen(
             },
             onDismiss = { showModelSheet = false },
             serverUrl = uiState.serverUrl,
+            favoriteAgentIds = uiState.favoriteAgentIds,
+            favoriteModelKeys = uiState.favoriteModelKeys,
+            onToggleAgentFavorite = viewModel::toggleAgentFavorite,
+            onToggleModelFavorite = viewModel::toggleModelFavorite,
         )
     }
 
@@ -758,6 +762,10 @@ actual fun ChatScreen(
             },
             onDismiss = { showSecondaryModelSheet = false },
             serverUrl = uiState.serverUrl,
+            favoriteAgentIds = uiState.favoriteAgentIds,
+            favoriteModelKeys = uiState.favoriteModelKeys,
+            onToggleAgentFavorite = viewModel::toggleAgentFavorite,
+            onToggleModelFavorite = viewModel::toggleModelFavorite,
         )
     }
 }

@@ -115,6 +115,13 @@
     <string name="api_keys_subtitle">Manage API keys for programmatic access</string>
     <string name="presets">Presets</string>
     <string name="presets_subtitle">Manage conversation presets</string>
+    <string name="favorites">Favorites</string>
+    <string name="favorites_subtitle">Manage pinned agents and models</string>
+    <string name="favorites_title">Favorites</string>
+    <string name="favorites_empty_title">No favorites yet</string>
+    <string name="favorites_empty_message">Pin agents or models from the model selector to see them here.</string>
+    <string name="favorites_count_of">%1$d of %2$d</string>
+    <string name="favorites_unpin_cd">Unpin favorite</string>
 
     <!-- About info -->
     <string name="app_version_label">App version</string>

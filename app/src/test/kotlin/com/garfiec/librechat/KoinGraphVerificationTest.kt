@@ -18,6 +18,7 @@ import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.DraftRepository
+import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
@@ -38,6 +39,7 @@ import com.garfiec.librechat.core.network.api.BannerApi
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.api.ConfigApi
 import com.garfiec.librechat.core.network.api.ConversationsApi
+import com.garfiec.librechat.core.network.api.FavoritesApi
 import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
 import com.garfiec.librechat.core.network.api.KeysApi
@@ -121,6 +123,7 @@ class KoinGraphVerificationTest {
             ChatApi::class,
             ConfigApi::class,
             ConversationsApi::class,
+            FavoritesApi::class,
             FilesApi::class,
             FilesExtApi::class,
             KeysApi::class,
@@ -148,6 +151,7 @@ class KoinGraphVerificationTest {
             ConfigRepository::class,
             ConversationRepository::class,
             DraftRepository::class,
+            FavoritesRepository::class,
             FileRepository::class,
             KeyRepository::class,
             McpRepository::class,
