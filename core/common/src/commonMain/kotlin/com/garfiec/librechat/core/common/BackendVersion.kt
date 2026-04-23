@@ -68,6 +68,16 @@ object BackendVersion {
      * cannot be parsed (fail-open: assume feature is present). Returns false when
      * [minimum] cannot be parsed (degenerate threshold).
      *
+     * **Contract for callers:** null-check or explicitly handle the unknown-version
+     * case before invoking. The fail-open default here is intentional because in
+     * practice this helper is called only after `ConfigRepositoryImpl.checkBackendVersion()`
+     * has persisted either a parsed-valid version string or an explicit `null` to
+     * `ConfigRepository.detectedBackendVersion` — garbage never reaches this helper.
+     * This is a deliberate divergence from the "default to older-server behavior on
+     * unknown version" guideline in `VERSION_GATES.md` §Guidelines #2: that guideline
+     * is the callsite rule, and this helper only runs once the callsite has resolved
+     * the unknown-version case upstream.
+     *
      * @param actual The version detected from the server (e.g., "0.8.5").
      * @param minimum The minimum version at which the gated feature appears (e.g., "0.8.5").
      * @return true if [actual] ≥ [minimum] by (major, minor), false otherwise.
