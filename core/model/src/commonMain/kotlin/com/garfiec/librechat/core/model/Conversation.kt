@@ -27,6 +27,7 @@ data class Conversation(
     @SerialName("reasoning_effort") val reasoningEffort: String? = null,
     val effort: String? = null,
     @SerialName("thinkingLevel") val thinkingLevel: String? = null,
+    val thinkingDisplay: String? = null,
     val stop: List<String>? = null,
     val iconURL: String? = null,
     val greeting: String? = null,

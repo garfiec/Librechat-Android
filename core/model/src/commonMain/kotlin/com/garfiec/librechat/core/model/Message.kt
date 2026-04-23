@@ -29,6 +29,7 @@ data class Message(
     val feedback: Feedback? = null,
     @SerialName("thread_id") val threadId: String? = null,
     val metadata: JsonObject? = null,
+    val contextMeta: JsonObject? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null,
     val title: String? = null,

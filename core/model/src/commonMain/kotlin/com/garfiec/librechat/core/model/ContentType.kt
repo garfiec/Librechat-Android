@@ -32,6 +32,9 @@ enum class ContentType {
     @SerialName("agent_update")
     AGENT_UPDATE,
 
+    @SerialName("summary")
+    SUMMARY,
+
     @SerialName("error")
     ERROR,
 }
