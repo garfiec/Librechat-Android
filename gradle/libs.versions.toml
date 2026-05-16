@@ -39,7 +39,7 @@ browser = "1.10.0"
 markdown-renderer = "0.40.2"
 
 # Media
-media3 = "1.10.0"
+media3 = "1.10.1"
 
 # Image Loading
 coil3 = "3.4.0"
