@@ -392,7 +392,7 @@ class ChatViewModel(
                 modelDelegate.loadMcpServers()
             }
             if (role?.hasAccess(PermissionType.AGENTS, Permission.USE) != false) {
-                modelDelegate.loadAgents()
+                modelDelegate.loadAgents(isNewConversation)
             }
         }
     }

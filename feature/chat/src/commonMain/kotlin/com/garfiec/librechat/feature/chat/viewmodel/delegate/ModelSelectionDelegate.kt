@@ -125,12 +125,6 @@ class ModelSelectionDelegate(
                     selectedModel = fallbackModel,
                 )
             }
-            // Persist fallback so the next new chat starts with a valid model
-            if (fallbackModel != null) {
-                stateHandle.scope.launch {
-                    settingsDataStore.setLastUsedModel(firstEndpoint.key, fallbackModel)
-                }
-            }
         }
     }
 
@@ -259,7 +253,7 @@ class ModelSelectionDelegate(
         return agentId.contains("____")
     }
 
-    fun loadAgents() {
+    fun loadAgents(isNewConversation: Boolean) {
         stateHandle.scope.launch {
             // Skip the fetch entirely when the role denies AGENTS.USE; otherwise
             // the server would return 403 and we'd have to decide whether it's a
@@ -270,15 +264,17 @@ class ModelSelectionDelegate(
             when (val result = agentRepository.getAgents()) {
                 is Result.Success -> {
                     stateHandle.update { copy(agents = result.data) }
-                    // Auto-select first agent when on agents endpoint with no model selected
+                    // Auto-select the first agent only for a brand-new chat with no
+                    // model selected yet. For existing conversations, loadConversationModel
+                    // owns the model — auto-selecting here would flash the first agent and
+                    // clobber the persisted last-used model.
                     val state = stateHandle.state
-                    if (state.selectedEndpoint == EndpointConstants.AGENTS &&
+                    if (isNewConversation &&
+                        state.selectedEndpoint == EndpointConstants.AGENTS &&
                         state.selectedModel == null &&
                         result.data.isNotEmpty()
                     ) {
-                        val firstAgent = result.data.first()
-                        stateHandle.update { copy(selectedModel = firstAgent.id) }
-                        settingsDataStore.setLastUsedModel(EndpointConstants.AGENTS, firstAgent.id)
+                        stateHandle.update { copy(selectedModel = result.data.first().id) }
                     }
                 }
                 is Result.Error -> {
