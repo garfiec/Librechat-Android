@@ -95,6 +95,7 @@ actual fun MarkdownContent(
     searchFocusedOccurrence: Int,
     onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
     immediate: Boolean,
+    streaming: Boolean,
 ) {
     val segments = remember(text) { parseMarkdownSegments(text) }
     val isSearchActive = !searchQuery.isNullOrBlank()
@@ -163,6 +164,7 @@ actual fun MarkdownContent(
                                                 content = inlineSegment.text,
                                                 fontSizeMultiplier = fontSizeMultiplier,
                                                 immediate = immediate,
+                                                streaming = streaming,
                                             )
                                         }
                                     }
@@ -219,6 +221,7 @@ actual fun MarkdownContent(
                                 content = segment.text,
                                 fontSizeMultiplier = fontSizeMultiplier,
                                 immediate = immediate,
+                                streaming = streaming,
                             )
                         }
                     }
@@ -289,6 +292,7 @@ private fun MarkdownTextSegment(
     modifier: Modifier = Modifier,
     fontSizeMultiplier: Float = 1.0f,
     immediate: Boolean = false,
+    streaming: Boolean = false,
 ) {
     val colors = markdownColor(
         text = MaterialTheme.colorScheme.onSurface,
@@ -329,6 +333,7 @@ private fun MarkdownTextSegment(
             typography = typography,
             modifier = modifier.fillMaxWidth(),
             immediate = immediate,
+            streaming = streaming,
         )
     }
 }

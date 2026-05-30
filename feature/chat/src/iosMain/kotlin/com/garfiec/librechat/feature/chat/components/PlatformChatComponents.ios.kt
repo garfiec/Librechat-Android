@@ -379,6 +379,7 @@ actual fun MarkdownContent(
     searchQuery: String?, searchFocusedOccurrence: Int,
     onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
     immediate: Boolean,
+    streaming: Boolean,
 ) {
     val segments = remember(text) { parseMarkdownSegments(text) }
 
@@ -444,6 +445,7 @@ actual fun MarkdownContent(
                                                 typography = typography,
                                                 modifier = Modifier.fillMaxWidth(),
                                                 immediate = immediate,
+                                                streaming = streaming,
                                             )
                                         }
                                     }
@@ -477,6 +479,7 @@ actual fun MarkdownContent(
                             typography = typography,
                             modifier = Modifier.fillMaxWidth(),
                             immediate = immediate,
+                            streaming = streaming,
                         )
                     }
                 }

@@ -148,7 +148,12 @@ private fun ThreadStreamingBubble(
                 },
         ) {
             if (streamingContent.isNotBlank()) {
-                MarkdownContent(text = streamingContent, fontSizeMultiplier = fontSizeMultiplier, useKatex = useKatex)
+                MarkdownContent(
+                    text = streamingContent,
+                    fontSizeMultiplier = fontSizeMultiplier,
+                    useKatex = useKatex,
+                    streaming = true,
+                )
                 StreamingIndicator()
             } else {
                 StreamingIndicator()
@@ -231,7 +236,12 @@ private fun TwoSidedStreamingBubble(
             )
             Spacer(modifier = Modifier.height(4.dp))
             if (streamingContent.isNotBlank()) {
-                MarkdownContent(text = streamingContent, fontSizeMultiplier = fontSizeMultiplier, useKatex = useKatex)
+                MarkdownContent(
+                    text = streamingContent,
+                    fontSizeMultiplier = fontSizeMultiplier,
+                    useKatex = useKatex,
+                    streaming = true,
+                )
                 StreamingIndicator()
             } else {
                 StreamingIndicator()
