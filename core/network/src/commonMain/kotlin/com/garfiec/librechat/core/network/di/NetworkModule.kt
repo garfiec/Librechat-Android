@@ -67,6 +67,7 @@ val networkModule = module {
             json = get(),
             tokenManager = get(),
             serverUrlProvider = get(),
+            redactor = get(),
         )
     }
 

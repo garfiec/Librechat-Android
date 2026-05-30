@@ -84,6 +84,7 @@ val iosSharedModule = module {
             json = get(),
             tokenManager = get(),
             serverUrlProvider = get(),
+            redactor = get(),
         )
     }
 

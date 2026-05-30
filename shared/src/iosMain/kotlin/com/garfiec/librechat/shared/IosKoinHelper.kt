@@ -36,6 +36,11 @@ fun startIosKoin() {
     Logger.setMinSeverity(Severity.Debug)
     Logger.withTag("Koin").d { "startIosKoin: initializing Koin DI" }
 
+    // Install a writer-less crash hook BEFORE startKoin so a DI-init failure (the most crash-prone
+    // phase of launch) still surfaces a readable NSException + Kotlin stack instead of an opaque
+    // SIGABRT. It's upgraded with the persistent writer once Koin can supply it (below).
+    runCatching { installCrashReporting() }
+
     val app = startKoin {
         modules(iosSharedModule, sharedAppModule)
     }

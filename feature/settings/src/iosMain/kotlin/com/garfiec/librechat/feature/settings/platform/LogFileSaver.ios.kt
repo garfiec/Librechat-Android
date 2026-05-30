@@ -9,6 +9,7 @@ import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
 import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSData
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.Foundation.create
@@ -66,6 +67,15 @@ actual fun LogFileSaver(
             applicationActivities = null,
         )
 
+        // Report the outcome from the share-sheet result (not from presentation): the temp file is
+        // cleaned up and success is only signalled if the user actually completed the share. A cancel
+        // resets without claiming success — matching the Android SAF actual.
+        activityVc.completionWithItemsHandler = { _, completed, _, _ ->
+            runCatching { NSFileManager.defaultManager.removeItemAtPath(tempPath, null) }
+            onComplete(completed, null)
+            onReset()
+        }
+
         // iPad: anchor the popover to the root view to avoid an unanchored-popover crash.
         activityVc.popoverPresentationController?.let { popover ->
             val view = rootVc.view
@@ -81,8 +91,6 @@ actual fun LogFileSaver(
         }
 
         rootVc.presentViewController(activityVc, animated = true, completion = null)
-        onComplete(true, null)
-        onReset()
     }
 }
 

@@ -10,6 +10,7 @@ import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
 import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSData
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSTimer
 import platform.Foundation.NSURL
@@ -99,6 +100,15 @@ actual fun FileSaver(
             applicationActivities = null,
         )
 
+        // Report the outcome from the share-sheet result (not from presentation): clean up the temp
+        // file and only signal success if the user actually completed the share; a cancel resets
+        // without claiming success — matching the Android SAF actual.
+        activityVc.completionWithItemsHandler = { _, completed, _, _ ->
+            runCatching { NSFileManager.defaultManager.removeItemAtPath(tempPath, null) }
+            onComplete(completed, null)
+            onReset()
+        }
+
         // iPad: anchor the popover to the root view to avoid an unanchored-popover crash.
         activityVc.popoverPresentationController?.let { popover ->
             val view = rootVc.view
@@ -114,8 +124,6 @@ actual fun FileSaver(
         }
 
         rootVc.presentViewController(activityVc, animated = true, completion = null)
-        onComplete(true, null)
-        onReset()
     }
 }
 

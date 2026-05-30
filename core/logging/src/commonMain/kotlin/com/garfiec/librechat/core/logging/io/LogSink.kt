@@ -28,6 +28,16 @@ internal class LogSink(
     private val active = fileFactory(activePath)
     private val previous = fileFactory(previousPath)
 
+    /**
+     * Running size of the active segment, maintained in memory so the hot append path never stats
+     * the file. Seeded once from disk (a prior run's active segment may carry over). Only the single
+     * drain coroutine mutates it via [append]/[rotate]/[clear]; [appendBlocking] (rare crash path)
+     * intentionally leaves it untouched — the bounded drift is at most one record.
+     */
+    private var activeBytes: Long = runCatching {
+        if (active.exists()) active.sizeBytes() else 0L
+    }.getOrDefault(0L)
+
     init {
         runCatching { active.ensureParentDir() }
         pruneByAge()
@@ -38,7 +48,8 @@ internal class LogSink(
         runCatching {
             active.ensureParentDir()
             active.appendLine(line)
-            if (active.sizeBytes() >= config.segmentCapBytes) rotate()
+            activeBytes += line.encodeToByteArray().size + 1 // +1 for the trailing newline
+            if (activeBytes >= config.segmentCapBytes) rotate()
         }
     }
 
@@ -66,6 +77,7 @@ internal class LogSink(
             if (active.exists()) active.delete()
             if (previous.exists()) previous.delete()
             active.ensureParentDir()
+            activeBytes = 0L
         }
     }
 
@@ -73,6 +85,7 @@ internal class LogSink(
         runCatching {
             if (previous.exists()) previous.delete()
             active.renameTo(previousPath)
+            activeBytes = 0L // fresh active segment starts empty
         }
     }
 

@@ -11,13 +11,12 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSFileModificationDate
 import platform.Foundation.NSFileSize
 import platform.Foundation.NSNumber
-import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.create
+import platform.Foundation.dataWithContentsOfFile
 import platform.Foundation.fileHandleForWritingAtPath
-import platform.Foundation.stringWithContentsOfFile
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.writeToFile
+import platform.posix.memcpy
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 internal class IosLogFile(private val path: String) : LogFileHandle {
@@ -50,8 +49,17 @@ internal class IosLogFile(private val path: String) : LogFileHandle {
         return size.longLongValue
     }
 
-    override fun readText(): String =
-        NSString.stringWithContentsOfFile(path, NSUTF8StringEncoding, null) ?: ""
+    override fun readText(): String {
+        // Read raw bytes and decode lossily (invalid sequences → U+FFFD) rather than
+        // NSString.stringWithContentsOfFile, which returns nil for the WHOLE file on a single bad
+        // byte — a partial/interleaved write at the tail would otherwise drop the entire segment.
+        val data = NSData.dataWithContentsOfFile(path) ?: return ""
+        val length = data.length.toInt()
+        if (length == 0) return ""
+        val bytes = ByteArray(length)
+        bytes.usePinned { pinned -> memcpy(pinned.addressOf(0), data.bytes, data.length) }
+        return bytes.decodeToString()
+    }
 
     override fun delete() {
         if (fm.fileExistsAtPath(path)) fm.removeItemAtPath(path, null)

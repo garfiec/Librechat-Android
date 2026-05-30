@@ -5,12 +5,17 @@ package com.garfiec.librechat.core.logging.redact
  * per-call-site discipline. Runs over every record's `msg` and every `attrs` value before it
  * reaches disk.
  *
- * Two strategies:
- *  - **Hash** identifying-but-correlatable values (tokens, emails, hosts, conversation/message IDs)
- *    to a short salted FNV-1a digest, so the same value is recognizable within an export without
- *    being recoverable.
- *  - **Drop** free-form content (message/conversation text) by attr-key denylist — content has no
- *    diagnostic value and is the highest-risk PII, so it never reaches disk at all.
+ * Three strategies:
+ *  - **Hash** identifying-but-correlatable values (tokens, emails, hosts, conversation/message IDs,
+ *    bare UUIDs/ObjectIds anywhere in free text or inside URL/path segments) to a short salted
+ *    FNV-1a digest, so the same value is recognizable within an export without being recoverable.
+ *  - **Drop** free-form content (message/conversation text, server response bodies, JSON object
+ *    literals) — content has no diagnostic value and is the highest-risk PII, so it never reaches
+ *    disk at all.
+ *  - **Allowlist** attr keys: only keys known to carry low-cardinality, non-identifying values pass
+ *    through (still shape-scrubbed). Any *unknown* attr key is dropped by default rather than
+ *    emitted raw, so a future call site that logs `fileName`/`username`/etc. cannot silently leak
+ *    PII into an exportable log. Add new safe keys to [safeKeys] deliberately.
  *
  * Redaction is idempotent: re-running it over already-redacted output is stable.
  */
@@ -24,6 +29,10 @@ class LogRedactor(private val salt: String = DEFAULT_SALT) {
         // never reach disk. Drops everything from the marker to end-of-line. Idempotent: the
         // replacement contains no further "JSON input:" marker.
         out = jsonInputRegex.replace(out, "JSON input: <redacted>")
+        // Drop inline JSON object literals carrying a quoted member, regardless of the surrounding
+        // phrasing — exception messages from any serializer (not just the "JSON input:" form) can
+        // echo `{"title":"…"}`-style content. Replacement has no quotes inside braces → idempotent.
+        out = jsonObjectRegex.replace(out, "{<redacted>}")
         // Each replacement is shaped so it cannot re-match the same regex → redact() is idempotent.
         // bearer: drop the space after "Bearer" so `bearer\s+\S+` no longer matches.
         out = bearerRegex.replace(out) { m -> m.groupValues[1].trimEnd() + ":" + hash8(m.groupValues[2]) }
@@ -31,6 +40,11 @@ class LogRedactor(private val salt: String = DEFAULT_SALT) {
         out = refreshRegex.replace(out) { m -> "refreshtoken:" + hash8(m.groupValues[2]) }
         out = jwtRegex.replace(out) { m -> "jwt:" + hash8(m.value) }
         out = emailRegex.replace(out) { m -> "email:" + hash8(m.value) }
+        // Hash bare identifiers (UUIDs, Mongo ObjectIds) wherever they appear — including inside
+        // URL/request paths, which would otherwise leak conversation/message IDs verbatim. Runs
+        // before urlRegex so an id inside a kept path is already hashed.
+        out = uuidRegex.replace(out) { m -> "id:" + hash8(m.value) }
+        out = objectIdRegex.replace(out) { m -> "id:" + hash8(m.value) }
         // url: drop the scheme/`://` so `https?://` no longer matches; keep path (diagnostically useful).
         out = urlRegex.replace(out) { m -> "url:" + hash8(m.groupValues[1] + m.groupValues[2]) + m.groupValues[3] }
         return out
@@ -41,9 +55,11 @@ class LogRedactor(private val salt: String = DEFAULT_SALT) {
         return attrs.mapValues { (key, value) ->
             when (key.lowercase()) {
                 in contentKeys -> "<redacted len=${value.length}>"
-                in idHashKeys -> hash8(value)
-                in secretKeys -> hash8(value)
-                else -> redact(value)
+                in hashKeys -> hash8(value)
+                in safeKeys -> redact(value)
+                // Safe-by-default: an unrecognized key may carry free-form PII (e.g. a filename or
+                // display name) with no recognizable shape, so it is dropped rather than emitted.
+                else -> "<redacted len=${value.length}>"
             }
         }
     }
@@ -66,22 +82,45 @@ class LogRedactor(private val salt: String = DEFAULT_SALT) {
 
         // kotlinx.serialization echoes the offending payload after "JSON input:" — strip to EOL.
         private val jsonInputRegex = Regex("JSON input:.*")
+        // A brace-delimited object literal containing a quoted member (e.g. `{"text":"…"}`). Requires
+        // two quotes inside the braces so `{}` and brace-free text are untouched.
+        private val jsonObjectRegex = Regex("\\{[^{}]*\"[^{}]*\"[^{}]*\\}")
         private val bearerRegex = Regex("(?i)(authorization\\s*[:=]\\s*bearer\\s+)(\\S+)")
         private val refreshRegex = Regex("(?i)(refreshtoken=)([^;&\\s\"]+)")
         private val jwtRegex = Regex("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+")
-        private val emailRegex = Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")
+        // Email — also matches IP-literal/single-label hosts (user@localhost, user@10.0.0.1), which a
+        // dotted-TLD-only pattern would miss. Over-matching a stray `a@b` token in a log is acceptable.
+        private val emailRegex = Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9][A-Za-z0-9._-]*")
         private val urlRegex = Regex("(?i)(https?://)([^/\\s:?#]+)([^\\s]*)")
+        // Bare identifiers anywhere in text (incl. URL/path segments): UUID and 24-char Mongo ObjectId.
+        private val uuidRegex =
+            Regex("\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b")
+        private val objectIdRegex = Regex("\\b[0-9a-fA-F]{24}\\b")
 
         // attr keys whose VALUE is free-form content → dropped entirely (length kept for debugging).
         private val contentKeys = setOf("message", "content", "text", "prompt", "title", "body", "query")
 
-        // attr keys that are identifiers → hashed so they correlate without exposing the raw id.
-        private val idHashKeys = setOf("conversationid", "messageid", "userid", "parentmessageid", "email")
-
-        // attr keys that are secrets → hashed (never kept verbatim).
-        private val secretKeys = setOf(
+        // attr keys that are identifiers or secrets → hashed so they correlate without exposing the raw value.
+        private val hashKeys = setOf(
+            "conversationid", "messageid", "userid", "parentmessageid", "email",
             "authorization", "cookie", "set-cookie", "x-api-key", "api-key", "apikey",
             "token", "accesstoken", "refreshtoken", "password", "secret",
+        )
+
+        // ALLOWLIST: attr keys known to carry low-cardinality, non-identifying values. Only these pass
+        // through (after a defensive shape-scrub). Every key emitted by a Diag call site must appear
+        // here; an omitted key is dropped (safe-by-default), so add new keys deliberately.
+        private val safeKeys = setOf(
+            // build / device / platform (startup header)
+            "versionname", "versioncode", "gitsha", "osname", "osversion", "devicemodel",
+            // backend version + server-config snapshot flags
+            "supportedbackendversion", "detectedbackendversion", "compatible",
+            "registrationenabled", "emailloginenabled", "socialloginenabled", "passwordresetenabled",
+            "sharedlinksenabled", "websearch", "modelspecs", "endpointcount",
+            // network / SSE / HTTP failure attribution
+            "status", "method", "path", "endpoint", "attempt", "timeoutsec", "failedfields",
+            // auth / lifecycle / breadcrumb / watchdog / crash
+            "event", "reason", "screen", "blockedms", "throwable",
         )
     }
 }

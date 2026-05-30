@@ -85,6 +85,45 @@ class LogRedactorTest {
     }
 
     @Test
+    fun request_path_ids_are_hashed_but_route_kept() {
+        // HTTP failure logs the request path under the "path" attr; id segments must not leak.
+        val convId = "123e4567-e89b-12d3-a456-426614174000"
+        val out = redactor.redactAttrs(mapOf("path" to "/api/messages/$convId"))
+        assertFalse(out["path"]!!.contains(convId), "raw conversation id leaked in path: ${out["path"]}")
+        assertTrue(out["path"]!!.startsWith("/api/messages/id:"), "route shape should survive: ${out["path"]}")
+    }
+
+    @Test
+    fun mongo_object_id_in_free_text_is_hashed() {
+        val out = redactor.redact("loaded conversation 6831ab9c2d4e5f0011223344 ok")
+        assertFalse(out.contains("6831ab9c2d4e5f0011223344"), "raw object id leaked: $out")
+        assertTrue(out.contains("id:"), out)
+    }
+
+    @Test
+    fun unknown_attr_key_is_dropped_by_default() {
+        // Safe-by-default: a key not on the allowlist may carry free-form PII (filename, name…).
+        val out = redactor.redactAttrs(mapOf("fileName" to "JohnSmith_tax_2025.pdf"))
+        assertFalse(out["fileName"]!!.contains("JohnSmith"), "unknown key leaked raw PII: ${out["fileName"]}")
+        assertEquals("<redacted len=22>", out["fileName"])
+    }
+
+    @Test
+    fun email_without_dotted_tld_is_redacted() {
+        val out = redactor.redact("login failed for admin@localhost retry")
+        assertFalse(out.contains("admin@localhost"), "single-label-host email leaked: $out")
+        assertTrue(out.contains("email:"), out)
+    }
+
+    @Test
+    fun embedded_json_object_without_marker_is_dropped() {
+        // A serializer error phrased without "JSON input:" still echoes object literals with content.
+        val out = redactor.redact("Field error near {\"text\":\"secret note\"} at offset 12")
+        assertFalse(out.contains("secret note"), "json object content leaked: $out")
+        assertTrue(out.contains("{<redacted>}"), out)
+    }
+
+    @Test
     fun hash_is_stable_for_same_value() {
         val a = redactor.redact("user alice@example.com")
         val b = redactor.redact("user alice@example.com")
