@@ -24,20 +24,20 @@ class MermaidRenderCacheTest {
     }
 
     @Test
-    fun `put for existing key updates value without growing insertion order`() {
+    fun `re-put refreshes recency and updates value without growing the cache`() {
         val cache = MermaidRenderCache(maxEntries = 3)
         cache.put("a", "1")
         cache.put("b", "b1")
         cache.put("c", "c1")
-        // Duplicate puts on existing keys must NOT push them later in insertion
-        // order — otherwise the next eviction would target the wrong key.
+        // Re-putting 'a' updates its value AND marks it most-recently-used, so it
+        // must outlive 'b' (now the least-recently-used) on the next eviction.
         cache.put("a", "2")
         cache.put("a", "3")
         cache.put("a", "4")
-        cache.put("d", "d1") // evicts the OLDEST insertion: 'a'
+        cache.put("d", "d1") // over cap -> evicts the LRU entry: 'b'
 
-        assertThat(cache["a"]).isNull()
-        assertThat(cache["b"]).isEqualTo("b1")
+        assertThat(cache["b"]).isNull()
+        assertThat(cache["a"]).isEqualTo("4")
         assertThat(cache["c"]).isEqualTo("c1")
         assertThat(cache["d"]).isEqualTo("d1")
     }
