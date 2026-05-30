@@ -56,7 +56,7 @@ jobs:
         # Pinned to a commit SHA (not a moving tag) so a compromise of the action's
         # repo can't inject code into this secret-bearing job. Dependabot keeps it
         # current — see .github/dependabot.yml.
-        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
 
       # Fail in seconds if the signing secrets are missing/blank, before doing any
       # work — rather than deep inside the Gradle signing task after a full build.
