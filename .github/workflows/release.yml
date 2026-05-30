@@ -148,7 +148,7 @@ jobs:
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           tag_name: ${{ steps.bump.outputs.tag }}
-          name: "LibreChat Mobile ${{ steps.bump.outputs.tag }}"
+          name: ${{ steps.bump.outputs.tag }}
           draft: true
           # A hyphenated version (e.g. 0.2.0-rc1) is a pre-release; Obtainium then
           # ignores it unless the user opts into "Include prereleases".
