@@ -82,16 +82,19 @@ class LogRedactor(private val salt: String = DEFAULT_SALT) {
 
         // kotlinx.serialization echoes the offending payload after "JSON input:" — strip to EOL.
         private val jsonInputRegex = Regex("JSON input:.*")
+
         // A brace-delimited object literal containing a quoted member (e.g. `{"text":"…"}`). Requires
         // two quotes inside the braces so `{}` and brace-free text are untouched.
         private val jsonObjectRegex = Regex("\\{[^{}]*\"[^{}]*\"[^{}]*\\}")
         private val bearerRegex = Regex("(?i)(authorization\\s*[:=]\\s*bearer\\s+)(\\S+)")
         private val refreshRegex = Regex("(?i)(refreshtoken=)([^;&\\s\"]+)")
         private val jwtRegex = Regex("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+")
+
         // Email — also matches IP-literal/single-label hosts (user@localhost, user@10.0.0.1), which a
         // dotted-TLD-only pattern would miss. Over-matching a stray `a@b` token in a log is acceptable.
         private val emailRegex = Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9][A-Za-z0-9._-]*")
         private val urlRegex = Regex("(?i)(https?://)([^/\\s:?#]+)([^\\s]*)")
+
         // Bare identifiers anywhere in text (incl. URL/path segments): UUID and 24-char Mongo ObjectId.
         private val uuidRegex =
             Regex("\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b")
