@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
@@ -41,7 +42,25 @@ import org.jetbrains.compose.resources.stringResource
 fun StreamingToolCallCard(
     toolCall: ActiveToolCall,
     modifier: Modifier = Modifier,
+    baseUrl: String = "",
+    streamingAttachments: List<Attachment> = emptyList(),
+    showImageDescriptions: Boolean = true,
 ) {
+    // Image-gen tool calls render as an ImageGenCard placeholder (matching web): a
+    // faux-progress spinner while generating, swapping to the real image the moment
+    // its attachment SSE event arrives (linked by toolCallId) — before the final reload.
+    if (isImageGenToolCall(toolCall.name.lowercase())) {
+        val imageResult = remember(toolCall, streamingAttachments, baseUrl) {
+            parseStreamingImageGenResult(toolCall, baseUrl, streamingAttachments)
+        }
+        ImageGenCard(
+            result = imageResult,
+            modifier = modifier,
+            showDescription = showImageDescriptions,
+        )
+        return
+    }
+
     var isExpanded by remember { mutableStateOf(false) }
     val canExpand = toolCall.isComplete && !toolCall.output.isNullOrBlank()
 

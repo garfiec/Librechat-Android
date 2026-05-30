@@ -434,6 +434,7 @@ actual fun ChatScreen(
                         isStreaming = uiState.isStreaming,
                         streamingContent = uiState.streamingContent,
                         activeToolCalls = uiState.activeToolCalls,
+                        streamingAttachments = uiState.streamingAttachments,
                         onSiblingNavigation = viewModel::switchBranch,
                         onEditMessage = viewModel::startEditing,
                         onRegenerateMessage = { messageId -> viewModel.regenerateMessage(messageId) },

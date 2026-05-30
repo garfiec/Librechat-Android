@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -23,7 +24,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,12 +42,18 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.pow
+import kotlin.random.Random
 
 data class ImageGenResult(
     val imageUrl: String? = null,
     val prompt: String? = null,
     val isGenerating: Boolean = false,
+    /** Image-gen quality ("low" | "medium" | "high"). Tunes the faux-progress
+     *  duration while [isGenerating], matching the web client. */
+    val quality: String? = null,
 )
 
 /** Renders a DALL-E / image generation result card. [ImageGenResult.isGenerating] drives spinner vs image display. */
@@ -55,6 +64,41 @@ fun ImageGenCard(
     showDescription: Boolean = true,
 ) {
     var showFullscreen by remember { mutableStateOf(false) }
+
+    // Faux progress, ported from web's OpenAIImageGen (the server sends no real
+    // progress). Ticks 0.1 → 0.9 over a quality-tuned duration with jitter, then
+    // snaps to done the moment the real image (imageUrl) lands and isGenerating flips.
+    var fauxProgress by remember { mutableFloatStateOf(0.1f) }
+    LaunchedEffect(result.isGenerating, result.quality) {
+        if (!result.isGenerating) {
+            fauxProgress = 1f
+            return@LaunchedEffect
+        }
+        fauxProgress = 0.1f
+        val baseDuration = when (result.quality?.lowercase()) {
+            "low" -> 10_000
+            "high" -> 50_000
+            else -> 20_000
+        }
+        val jitter = (baseDuration * 0.3f).toInt().coerceAtLeast(1)
+        val totalDuration = Random.nextInt(jitter) + baseDuration
+        val updateInterval = 200L
+        val totalSteps = (totalDuration / updateInterval).toInt().coerceAtLeast(1)
+        var step = 0
+        while (step < totalSteps) {
+            delay(updateInterval)
+            step++
+            val ratio = step.toFloat() / totalSteps
+            val mapRatio = if (ratio < 0.8f) {
+                ratio.pow(1.1f)
+            } else {
+                val sub = (ratio - 0.8f) / 0.2f
+                0.8f + (1f - (1f - sub).pow(2)) * 0.2f
+            }
+            fauxProgress = (0.1f + mapRatio * 0.8f).coerceAtMost(0.9f)
+        }
+        fauxProgress = 0.9f
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -80,9 +124,9 @@ fun ImageGenCard(
                 )
                 if (result.isGenerating) {
                     Spacer(modifier = Modifier.width(8.dp))
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
+                    Text(
+                        text = "${(fauxProgress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -141,13 +185,18 @@ fun ImageGenCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(160.dp)
-                        .background(
-                            MaterialTheme.colorScheme.surfaceContainerHighest,
-                            RoundedCornerShape(8.dp),
-                        ),
-                    contentAlignment = Alignment.Center,
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    PixelRevealCard(
+                        progress = fauxProgress,
+                        modifier = Modifier.fillMaxSize(),
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                        ),
+                    )
                 }
             }
 

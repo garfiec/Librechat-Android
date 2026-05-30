@@ -37,6 +37,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -59,6 +60,7 @@ fun MessageList(
     onCopyMessage: (messageId: String) -> Unit,
     modifier: Modifier = Modifier,
     activeToolCalls: List<ActiveToolCall> = emptyList(),
+    streamingAttachments: List<Attachment> = emptyList(),
     onFeedback: (messageId: String, rating: String?) -> Unit = { _, _ -> },
     onContinue: (messageId: String) -> Unit = {},
     onReadAloud: (messageId: String) -> Unit = {},
@@ -441,6 +443,9 @@ fun MessageList(
                                 horizontal = 16.dp,
                                 vertical = 4.dp,
                             ),
+                            baseUrl = baseUrl,
+                            streamingAttachments = streamingAttachments,
+                            showImageDescriptions = showImageDescriptions,
                         )
                     }
                 }

@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.components
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.content.AgentToolCall
+import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -219,21 +220,7 @@ internal fun parseImageGenResult(
     val toolCallId = toolCall.id
     if (toolCallId != null) {
         val attachment = attachments.firstOrNull { it.toolCallId == toolCallId }
-        val filepath = attachment?.filepath
-        if (filepath != null) {
-            imageUrl = when {
-                filepath.startsWith("http") -> filepath
-                filepath.startsWith("/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
-                baseUrl.isNotBlank() -> "$baseUrl/$filepath"
-                else -> filepath
-            }
-        }
-        if (imageUrl == null) {
-            val fileId = attachment?.fileId
-            if (fileId != null && baseUrl.isNotBlank()) {
-                imageUrl = "$baseUrl/api/files/$fileId"
-            }
-        }
+        imageUrl = resolveAttachmentUrl(attachment, baseUrl)
     }
 
     if (imageUrl == null && !outputStr.isNullOrBlank()) {
@@ -272,6 +259,64 @@ internal fun parseImageGenResult(
         prompt = prompt,
         isGenerating = outputStr.isNullOrBlank() && imageUrl == null,
     )
+}
+
+/**
+ * Builds an [ImageGenResult] for an in-progress (streaming) image-gen tool call.
+ *
+ * Mirrors the web client: during streaming the prompt/quality are available from the
+ * tool-call args immediately, while the generated image arrives later as a separate
+ * `attachment` SSE event (linked by `toolCallId`). [ImageGenResult.isGenerating] stays
+ * true until the matching attachment lands, at which point the placeholder swaps to the
+ * real image — all before the final message reload.
+ */
+internal fun parseStreamingImageGenResult(
+    toolCall: ActiveToolCall,
+    baseUrl: String,
+    attachments: List<Attachment>,
+): ImageGenResult {
+    val (prompt, quality) = parseImageGenArgs(toolCall.input)
+    val attachment = attachments.firstOrNull { it.toolCallId == toolCall.id }
+    val imageUrl = resolveAttachmentUrl(attachment, baseUrl)
+    return ImageGenResult(
+        imageUrl = imageUrl,
+        prompt = prompt,
+        isGenerating = imageUrl == null,
+        quality = quality,
+    )
+}
+
+/** Extracts (prompt, quality) from a raw image-gen tool-call args JSON string. */
+private fun parseImageGenArgs(argsJson: String?): Pair<String?, String?> {
+    if (argsJson.isNullOrBlank()) return null to null
+    return try {
+        val obj = toolCallJson.parseToJsonElement(argsJson).jsonObject
+        val prompt = obj["prompt"]?.jsonPrimitive?.contentOrNull
+        val quality = obj["quality"]?.jsonPrimitive?.contentOrNull
+        prompt to quality
+    } catch (e: Exception) {
+        log.d(e) { "Failed to parse streaming image gen args" }
+        null to null
+    }
+}
+
+/** Resolves an attachment's `filepath`/`fileId` to a fully-qualified image URL. */
+private fun resolveAttachmentUrl(attachment: Attachment?, baseUrl: String): String? {
+    if (attachment == null) return null
+    val filepath = attachment.filepath
+    if (filepath != null) {
+        return when {
+            filepath.startsWith("http") -> filepath
+            filepath.startsWith("/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
+            baseUrl.isNotBlank() -> "$baseUrl/$filepath"
+            else -> filepath
+        }
+    }
+    val fileId = attachment.fileId
+    if (fileId != null && baseUrl.isNotBlank()) {
+        return "$baseUrl/api/files/$fileId"
+    }
+    return null
 }
 
 internal fun parseLogContent(toolCall: AgentToolCall?): LogContent {

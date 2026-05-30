@@ -1056,6 +1056,7 @@ class ChatViewModel(
                 val newToolCall = ActiveToolCall(
                     id = event.toolCallId,
                     name = event.toolName,
+                    input = event.input,
                 )
                 val isComparison = _uiState.value.comparisonState.isEnabled
                 if (isComparison && modelDelegate.isSecondaryEvent(event.agentId)) {

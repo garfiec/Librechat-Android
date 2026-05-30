@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.MessageNode
@@ -33,6 +34,7 @@ fun SecondaryMessageList(
     streamingContent: String,
     modifier: Modifier = Modifier,
     activeToolCalls: List<ActiveToolCall> = emptyList(),
+    streamingAttachments: List<Attachment> = emptyList(),
     error: String? = null,
     baseUrl: String = "",
     fontSizeMultiplier: Float = 1.0f,
@@ -131,6 +133,8 @@ fun SecondaryMessageList(
                                     horizontal = 16.dp,
                                     vertical = 4.dp,
                                 ),
+                                baseUrl = baseUrl,
+                                streamingAttachments = streamingAttachments,
                             )
                         }
                     }

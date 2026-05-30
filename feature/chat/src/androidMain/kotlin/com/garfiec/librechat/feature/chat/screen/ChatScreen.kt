@@ -452,6 +452,7 @@ actual fun ChatScreen(
                                     } else {
                                         uiState.activeToolCalls
                                     },
+                                    streamingAttachments = uiState.streamingAttachments,
                                     onSiblingNavigation = viewModel::switchBranch,
                                     onEditMessage = viewModel::startEditing,
                                     onRegenerateMessage = viewModel::regenerateMessage,
@@ -507,6 +508,7 @@ actual fun ChatScreen(
                                     isStreaming = comparisonState.secondaryIsStreaming,
                                     streamingContent = comparisonState.secondaryStreamingContent,
                                     activeToolCalls = comparisonState.secondaryActiveToolCalls,
+                                    streamingAttachments = uiState.streamingAttachments,
                                     error = null,
                                     baseUrl = uiState.serverUrl,
                                     fontSizeMultiplier = fontSizeMultiplier,
@@ -572,6 +574,7 @@ actual fun ChatScreen(
                                 isStreaming = uiState.isStreaming,
                                 streamingContent = uiState.streamingContent,
                                 activeToolCalls = uiState.activeToolCalls,
+                                streamingAttachments = uiState.streamingAttachments,
                                 onSiblingNavigation = viewModel::switchBranch,
                                 onEditMessage = viewModel::startEditing,
                                 onRegenerateMessage = viewModel::regenerateMessage,

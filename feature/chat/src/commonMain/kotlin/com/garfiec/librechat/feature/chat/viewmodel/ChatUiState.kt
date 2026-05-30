@@ -75,6 +75,9 @@ data class ActiveToolCall(
     val name: String,
     val isComplete: Boolean = false,
     val output: String? = null,
+    /** Raw tool-call arguments JSON from [StreamEvent.ToolCallStart]. Holds the
+     *  image prompt/quality for image-gen tools so a placeholder can render mid-stream. */
+    val input: String? = null,
 )
 
 @Immutable
