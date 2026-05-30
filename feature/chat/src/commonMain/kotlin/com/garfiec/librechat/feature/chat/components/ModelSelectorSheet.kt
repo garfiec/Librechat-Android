@@ -56,6 +56,7 @@ import com.garfiec.librechat.core.ui.components.ErrorBanner
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.FuzzyMatch
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.filterModelsByEndpoint
 import org.jetbrains.compose.resources.stringResource
 
 private val IconSize = 20.dp
@@ -121,11 +122,7 @@ fun ModelSelectorSheet(
 
     // Filter to only show models for endpoints the user's server has enabled
     val filteredByEndpoint = remember(availableModels, endpointConfigs) {
-        if (endpointConfigs.isEmpty()) {
-            availableModels
-        } else {
-            availableModels.filterKeys { it in endpointConfigs }
-        }
+        filterModelsByEndpoint(availableModels, endpointConfigs)
     }
 
     // Filter agents by search query (fuzzy matching), sorted by score when searching.

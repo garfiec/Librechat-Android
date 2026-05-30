@@ -281,28 +281,13 @@ class ChatViewModel(
             }
         }
 
-        // Eagerly load last-used model from DataStore so refilterModels can
-        // use it as a fallback.
-        viewModelScope.launch {
-            val endpoint = settingsDataStore.lastUsedEndpoint.first()
-            val model = settingsDataStore.lastUsedModel.first()
-            modelDelegate.cachedLastUsedEndpoint = endpoint
-            modelDelegate.cachedLastUsedModel = model
-            modelDelegate.lastUsedModelLoaded = true
-            // For new chats, apply the last-used model directly as the
-            // initial selection. refilterModels will validate it when
-            // the available models list arrives.
-            if (isNewConversation && endpoint != null && model != null) {
-                _uiState.update {
-                    it.copy(
-                        selectedEndpoint = endpoint,
-                        selectedModel = model,
-                    )
-                }
-            }
-            // Re-run validation now that we have the DataStore values.
-            modelDelegate.refilterModels(isNewConversation)
-        }
+        // Single authority for a new chat's initial model selection. Continuous so
+        // the retained NewChat landing VM re-syncs to last-used when it changes
+        // (a model picked later inside a conversation), and deterministic so the
+        // selection no longer races between the last-used read, agent auto-select,
+        // and model fallbacks. No-ops for existing conversations (loadConversationModel
+        // owns those). See ModelSelectionDelegate.seedInitialSelection.
+        modelDelegate.seedInitialSelection(isNewConversation)
 
         viewModelScope.launch {
             configRepository.endpointConfigs.collect { configs ->
@@ -324,8 +309,9 @@ class ChatViewModel(
         }
 
         viewModelScope.launch {
-            configRepository.availableModels.collect { models ->
-                _uiState.update { it.copy(availableModels = models) }
+            // refilterModels publishes the filtered availableModels into state; no
+            // need to write the raw map first (it would only be overwritten).
+            configRepository.availableModels.collect {
                 modelDelegate.refilterModels(isNewConversation)
             }
         }
@@ -391,9 +377,11 @@ class ChatViewModel(
             if (role?.hasAccess(PermissionType.MCP_SERVERS, Permission.USE) != false) {
                 modelDelegate.loadMcpServers()
             }
-            if (role?.hasAccess(PermissionType.AGENTS, Permission.USE) != false) {
-                modelDelegate.loadAgents(isNewConversation)
-            }
+            // Always call loadAgents — it self-gates on the AGENTS.USE permission and
+            // flips its agentsLoaded flag on every path (including denial). Skipping it
+            // here would leave the flag false and park the seeder on the agents tier
+            // forever (no model on the landing) for agents-denied users.
+            modelDelegate.loadAgents()
         }
     }
 

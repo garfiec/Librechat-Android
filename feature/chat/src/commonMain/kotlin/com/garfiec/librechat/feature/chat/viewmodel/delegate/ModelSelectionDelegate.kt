@@ -9,6 +9,8 @@ import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
+import com.garfiec.librechat.core.model.Agent
+import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.mcp.McpServer
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
@@ -19,6 +21,11 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ComparisonState
 import com.garfiec.librechat.feature.chat.viewmodel.resolveEndpointDispatch
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class ModelSelectionDelegate(
@@ -35,15 +42,12 @@ class ModelSelectionDelegate(
     val secondaryComparisonBuffer = StringBuilder()
 
     /**
-     * Cached last-used endpoint/model from DataStore. Loaded eagerly so
-     * [refilterModels] can use them as a fallback without waiting for a
-     * separate coroutine to complete. Null until the DataStore read finishes.
+     * Cached last-used endpoint/model from DataStore, kept in sync by
+     * [seedInitialSelection]. Used by [refilterModels]' existing-conversation
+     * fallback. Null until the first DataStore emission.
      */
     var cachedLastUsedEndpoint: String? = null
     var cachedLastUsedModel: String? = null
-
-    /** True once the DataStore read for last-used model has completed. */
-    var lastUsedModelLoaded = false
 
     /**
      * True once the conversation's model has been loaded from the server.
@@ -54,27 +58,52 @@ class ModelSelectionDelegate(
     var conversationModelLoaded = false
 
     /**
-     * Re-filters availableModels by endpointConfigs keys and validates the
-     * currently selected model against the filtered list.
+     * True once [loadAgents] has finished on ANY path (success, error, or
+     * permission-denied). [seedInitialSelection] uses this to tell "agents not
+     * loaded yet" (wait) from "agents loaded and genuinely empty" (fall through).
+     *
+     * Modeled as a flow (not a plain `var`) so it is an arm of the seeder's
+     * `combine`: the error / permission-denied paths flip it without publishing a
+     * new agent list, and a bare var would leave those transitions invisible to
+     * the seeder — it would stay parked on the agents tier forever (no model on
+     * the landing). `internal` for the delegate's unit tests.
+     */
+    internal val agentsLoaded = MutableStateFlow(false)
+
+    /**
+     * The last-used (endpoint, model) pair this delegate last applied as the
+     * active selection. Lets [seedInitialSelection] re-apply a *changed* last-used
+     * even over an already-valid selection (the retained-landing resync) without
+     * re-applying an unchanged value on every unrelated emission.
+     */
+    private var lastAppliedLastUsed: Pair<String, String>? = null
+
+    /**
+     * Re-filters availableModels into UI state and, for EXISTING conversations,
+     * corrects a selection that the latest models/configs invalidated.
+     *
+     * New-chat seeding is owned entirely by [seedInitialSelection] — this method
+     * deliberately does not seed/fallback for new chats, so the two never race.
      */
     fun refilterModels(isNewConversation: Boolean) {
-        val rawModels = configRepository.availableModels.value
-        val endpointCfgs = configRepository.endpointConfigs.value
-        val filtered = if (endpointCfgs.isEmpty()) {
-            rawModels.filterValues { it.isNotEmpty() }
-        } else {
-            rawModels.filterKeys { it in endpointCfgs }
-                .filterValues { it.isNotEmpty() }
-        }
+        val filtered = filterModelsByEndpoint(
+            configRepository.availableModels.value,
+            configRepository.endpointConfigs.value,
+        )
         stateHandle.update { copy(availableModels = filtered) }
 
         // Don't validate against an empty models list — models haven't
         // loaded yet. When they arrive this method will be called again.
         if (filtered.isEmpty()) return
 
+        // New chats: the seeder is the single authority for the selection.
+        // It re-resolves on every input change (availableModels/endpointConfigs
+        // are arms of its combine), so there is nothing to correct here.
+        if (isNewConversation) return
+
         // For existing conversations, don't apply fallbacks until the
         // conversation model has been loaded.
-        if (!isNewConversation && !conversationModelLoaded) return
+        if (!conversationModelLoaded) return
 
         // Validate current selection. The previous version exempted the
         // agents endpoint from the `currentModel in modelsForEndpoint` check,
@@ -93,13 +122,11 @@ class ModelSelectionDelegate(
 
         if (selectionValid) return
 
-        // --- Fallback chain ---
-
-        // Fallback 1: Try the last-used model from DataStore.
-        // Apply the same agents-endpoint guard as the validation above —
-        // a stale lastUsedModel that isn't an agent_id must not be restored
-        // as the agents-endpoint selection, or it'll be sent to the chat
-        // start request as an agent_id and the server will reject it.
+        // --- Corrective fallback (existing conversations only) ---
+        // The loaded conversation's model vanished server-side. Prefer the
+        // last-used model (same agents-endpoint guard as the validation above —
+        // a stale lastUsedModel that isn't an agent_id must not be restored as
+        // the agents-endpoint selection), then fall back to the first model.
         val lastEndpoint = cachedLastUsedEndpoint
         val lastModel = cachedLastUsedModel
         if (lastEndpoint != null && lastModel != null) {
@@ -115,18 +142,229 @@ class ModelSelectionDelegate(
             }
         }
 
-        // Fallback 2: First available model from any endpoint
         val firstEndpoint = filtered.entries.firstOrNull()
         if (firstEndpoint != null) {
-            val fallbackModel = firstEndpoint.value.firstOrNull()
             stateHandle.update {
                 copy(
                     selectedEndpoint = firstEndpoint.key,
-                    selectedModel = fallbackModel,
+                    selectedModel = firstEndpoint.value.firstOrNull(),
                 )
             }
         }
     }
+
+    /**
+     * Single authority for a NEW chat's initial model selection.
+     *
+     * Continuous (not one-shot): the NewChat landing ViewModel is retained in the
+     * back stack, so when last-used changes (e.g. the user picks a different model
+     * inside a conversation) this re-syncs the blank landing to it. Gated on
+     * `conversationId == null` so a started conversation's model is never overridden.
+     *
+     * Deterministic: every input (last-used, config models, endpoint configs, agent
+     * list) is an arm of one `combine`, so each change re-resolves the precedence
+     * atomically — replacing the three coroutines that used to race to seed the
+     * selection. Precedence, with WAIT-on-unresolved so a lower tier never wins
+     * while a higher-precedence input is still loading:
+     *   1. last-used (endpoint + model), if present and valid
+     *   2. first agent, when the active endpoint is agents
+     *   3. first available config model
+     */
+    fun seedInitialSelection(isNewConversation: Boolean) {
+        stateHandle.scope.launch {
+            combine(
+                settingsDataStore.lastUsedEndpoint,
+                settingsDataStore.lastUsedModel,
+                configRepository.availableModels,
+                configRepository.endpointConfigs,
+                agentsInput(),
+            ) { lastEndpoint, lastModel, rawModels, endpointCfgs, agents ->
+                SeedInputs(
+                    lastEndpoint = lastEndpoint,
+                    lastModel = lastModel,
+                    rawModels = rawModels,
+                    endpointConfigs = endpointCfgs,
+                    agents = agents.agents,
+                    agentsLoaded = agents.loaded,
+                    conversationId = agents.conversationId,
+                )
+            }.collect { input ->
+                // Keep the cached last-used fresh for refilterModels' existing-
+                // conversation corrective fallback. This runs for every conversation
+                // (new and existing) — the old eager one-shot read in ChatViewModel
+                // populated the cache for both, and dropping it would leave that
+                // fallback reading nulls for existing conversations.
+                cachedLastUsedEndpoint = input.lastEndpoint
+                cachedLastUsedModel = input.lastModel
+                // Seeding applies only to the blank new-chat landing. Never override
+                // an existing/started conversation's model (loadConversationModel
+                // owns those).
+                if (!isNewConversation || input.conversationId != null) return@collect
+                applySeed(input)
+            }
+        }
+    }
+
+    /**
+     * The agents arm of the seeder's [combine]: the (agents, conversationId) pair
+     * from state plus the [agentsLoaded] flag, so a load-completion with an
+     * unchanged (empty) agent list — error or permission-denied — still re-triggers
+     * the seeder and lets it fall through past the agents tier.
+     */
+    private fun agentsInput(): Flow<AgentsInput> = combine(
+        stateHandle.stateFlow.map { it.agents to it.conversationId }.distinctUntilChanged(),
+        agentsLoaded,
+    ) { agentsAndConvId, loaded ->
+        AgentsInput(
+            agents = agentsAndConvId.first,
+            conversationId = agentsAndConvId.second,
+            loaded = loaded,
+        )
+    }
+
+    private fun applySeed(input: SeedInputs) {
+        val filtered = filterModelsByEndpoint(input.rawModels, input.endpointConfigs)
+        val state = stateHandle.state
+
+        val lastUsed = if (input.lastEndpoint != null && input.lastModel != null) {
+            input.lastEndpoint to input.lastModel
+        } else {
+            null
+        }
+        val lastUsedSelectability = lastUsed?.let {
+            selectability(it.first, it.second, filtered, input.endpointConfigs, input.agents, input.agentsLoaded)
+        }
+        fun applyLastUsed(): Boolean {
+            if (lastUsed != null && lastUsedSelectability == Selectability.VALID) {
+                applySelection(lastUsed.first, lastUsed.second)
+                lastAppliedLastUsed = lastUsed
+                return true
+            }
+            return false
+        }
+
+        // Re-sync: when last-used CHANGES to a new valid value, re-apply it even
+        // over a currently-valid selection, so the retained landing follows a model
+        // picked elsewhere. Also covers the very first valid last-used emission.
+        if (lastUsed != lastAppliedLastUsed && applyLastUsed()) return
+
+        val currentSelectability = selectability(
+            state.selectedEndpoint,
+            state.selectedModel,
+            filtered,
+            input.endpointConfigs,
+            input.agents,
+            input.agentsLoaded,
+        )
+        when (currentSelectability) {
+            // Already usable — leave it (the re-sync above handled last-used changes).
+            Selectability.VALID -> return
+            // The input needed to judge the current selection hasn't arrived yet.
+            // Don't reseed through the lower tiers (that would clobber a legitimately-
+            // loading choice), but DO let a known-good last-used take over rather than
+            // waiting on an input that may never resolve.
+            Selectability.PENDING -> {
+                applyLastUsed()
+                return
+            }
+            // Definitively unusable — fall through to tier resolution.
+            Selectability.INVALID -> {}
+        }
+
+        // Tier 1: last-used.
+        if (lastUsed != null) {
+            when (lastUsedSelectability) {
+                Selectability.VALID -> {
+                    applyLastUsed()
+                    return
+                }
+                // WAIT: last-used's endpoint/agents not loaded yet — don't fall
+                // through to a lower tier and lose to it.
+                Selectability.PENDING -> return
+                // Stale (removed server-side) or absent — fall through.
+                Selectability.INVALID, null -> {}
+            }
+        }
+
+        // Tier 2: first agent, when the active endpoint is agents.
+        if (state.selectedEndpoint == EndpointConstants.AGENTS) {
+            if (!input.agentsLoaded) return // WAIT for the agent list
+            val firstAgent = input.agents.firstOrNull()
+            if (firstAgent != null) {
+                applySelection(EndpointConstants.AGENTS, firstAgent.id)
+                return
+            }
+            // Agents loaded and genuinely empty — fall through.
+        }
+
+        // Tier 3: first available config model.
+        if (filtered.isEmpty()) return // WAIT for models
+        val firstEntry = filtered.entries.firstOrNull() ?: return
+        applySelection(firstEntry.key, firstEntry.value.firstOrNull())
+    }
+
+    private fun applySelection(endpoint: String, model: String?) {
+        stateHandle.update {
+            copy(selectedEndpoint = endpoint, selectedModel = model)
+        }
+    }
+
+    /**
+     * Three-state validity for a candidate (endpoint, model):
+     * - VALID: usable right now
+     * - PENDING: the input needed to judge it hasn't loaded yet (agents list, or
+     *   this endpoint's model list) — callers should WAIT, not fall through
+     * - INVALID: definitively not usable (null, or absent from a loaded list)
+     *
+     * Agents are validated against the authoritative fetched [agents] list, not
+     * `availableModels` (agents are fetched separately and may not appear there).
+     */
+    private fun selectability(
+        endpoint: String?,
+        model: String?,
+        filtered: Map<String, List<String>>,
+        endpointConfigs: Map<String, EndpointConfig>,
+        agents: List<Agent>,
+        agentsLoaded: Boolean,
+    ): Selectability {
+        if (endpoint == null || model == null) return Selectability.INVALID
+        if (endpoint == EndpointConstants.AGENTS) {
+            return when {
+                !agentsLoaded -> Selectability.PENDING
+                agents.any { it.id == model } -> Selectability.VALID
+                else -> Selectability.INVALID
+            }
+        }
+        val modelsForEndpoint = filtered[endpoint]
+        return when {
+            modelsForEndpoint != null && model in modelsForEndpoint -> Selectability.VALID
+            modelsForEndpoint != null -> Selectability.INVALID // models loaded, model gone
+            // modelsForEndpoint == null: distinguish "this endpoint's models haven't
+            // loaded yet" (PENDING) from "this endpoint is no longer configured"
+            // (INVALID). Once configs have loaded, an endpoint absent from them was
+            // removed server-side — don't WAIT on it forever.
+            endpointConfigs.isNotEmpty() && endpoint !in endpointConfigs -> Selectability.INVALID
+            else -> Selectability.PENDING
+        }
+    }
+
+    private enum class Selectability { VALID, PENDING, INVALID }
+
+    private data class SeedInputs(
+        val lastEndpoint: String?,
+        val lastModel: String?,
+        val rawModels: Map<String, List<String>>,
+        val endpointConfigs: Map<String, EndpointConfig>,
+        val agents: List<Agent>,
+        val agentsLoaded: Boolean,
+        val conversationId: String?,
+    )
+
+    private data class AgentsInput(
+        val agents: List<Agent>,
+        val conversationId: String?,
+        val loaded: Boolean,
+    )
 
     fun onModelSelected(endpoint: String, model: String) {
         stateHandle.update {
@@ -253,33 +491,34 @@ class ModelSelectionDelegate(
         return agentId.contains("____")
     }
 
-    fun loadAgents(isNewConversation: Boolean) {
+    /**
+     * Fetches the agent list into state. Auto-selecting the first agent for a new
+     * chat is NOT done here — [seedInitialSelection] owns selection. This sets
+     * [agentsLoaded] on every exit path so the seeder can distinguish "agents
+     * still loading" (wait) from "agents loaded and empty" (fall through).
+     */
+    fun loadAgents() {
         stateHandle.scope.launch {
             // Skip the fetch entirely when the role denies AGENTS.USE; otherwise
             // the server would return 403 and we'd have to decide whether it's a
             // genuine 403 (rate limit, tenancy) vs. permission denial.
             if (permissionGate.awaitRole()?.hasAccess(PermissionType.AGENTS, Permission.USE) == false) {
+                agentsLoaded.value = true
                 return@launch
             }
             when (val result = agentRepository.getAgents()) {
                 is Result.Success -> {
+                    // Set agentsLoaded BEFORE publishing the agent list so the
+                    // seeder emission carrying the agents already sees the flag —
+                    // otherwise tier 2 could fall through to a config model in the
+                    // one-emission window before the flag flips.
+                    agentsLoaded.value = true
                     stateHandle.update { copy(agents = result.data) }
-                    // Auto-select the first agent only for a brand-new chat with no
-                    // model selected yet. For existing conversations, loadConversationModel
-                    // owns the model — auto-selecting here would flash the first agent and
-                    // clobber the persisted last-used model.
-                    val state = stateHandle.state
-                    if (isNewConversation &&
-                        state.selectedEndpoint == EndpointConstants.AGENTS &&
-                        state.selectedModel == null &&
-                        result.data.isNotEmpty()
-                    ) {
-                        stateHandle.update { copy(selectedModel = result.data.first().id) }
-                    }
                 }
                 is Result.Error -> {
                     Logger.e(result.exception) { "Failed to load agents" }
                     stateHandle.update { copy(error = "Could not load available agents") }
+                    agentsLoaded.value = true
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -347,6 +586,22 @@ class ModelSelectionDelegate(
         stateHandle.update { copy(modelParameters = parameters) }
     }
 }
+
+/**
+ * Filters availableModels to the endpoints the user's server has enabled, dropping
+ * endpoints with empty model lists. Single source of truth for "which models are
+ * usable" — shared by [ModelSelectionDelegate] (seeding/validation) and the model
+ * selector UI so they can't drift apart.
+ */
+internal fun filterModelsByEndpoint(
+    rawModels: Map<String, List<String>>,
+    endpointConfigs: Map<String, EndpointConfig>,
+): Map<String, List<String>> =
+    if (endpointConfigs.isEmpty()) {
+        rawModels.filterValues { it.isNotEmpty() }
+    } else {
+        rawModels.filterKeys { it in endpointConfigs }.filterValues { it.isNotEmpty() }
+    }
 
 // --- Display data mapping extensions ---
 
