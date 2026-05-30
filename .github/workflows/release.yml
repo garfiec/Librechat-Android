@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0   # full history for auto-generated release notes
           # Pushing the bump commit + tag to the ruleset-protected default branch needs an
@@ -121,7 +121,7 @@ jobs:
       # subject name matches the downloaded asset (verification is by digest regardless).
       - name: Attest build provenance
         id: attest
-        # GitHub-owned action → moving major tag, consistent with actions/checkout@v5 and
+        # GitHub-owned action → moving major tag, consistent with actions/checkout@v6 and
         # actions/setup-java@v5; Dependabot tracks it via .github/dependabot.yml.
         uses: actions/attest-build-provenance@v4
         with:
