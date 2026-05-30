@@ -131,7 +131,7 @@ jobs:
       - name: Post APK link to PR
         if: always() && github.event_name == 'pull_request' && steps.upload_apk.outputs.artifact-url != ''
         continue-on-error: true
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: android-debug-apk
           message: |
