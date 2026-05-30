@@ -20,6 +20,7 @@ rootProject.name = "LibreChat-Mobile"
 
 include(":app")
 include(":core:common")
+include(":core:logging")
 include(":core:model")
 include(":core:network")
 include(":core:data")

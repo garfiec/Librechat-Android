@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.feature.settings.platform.LogFileSaver
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsViewModel
@@ -100,6 +101,12 @@ fun DataSettingsContent(
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showRevokeKeysDialog by remember { mutableStateOf(false) }
 
+    // Diagnostic-log export → platform file saver (issue #96)
+    var pendingLogsFileName by remember { mutableStateOf<String?>(null) }
+    var pendingLogsContent by remember { mutableStateOf<String?>(null) }
+    var logsSaverResult by remember { mutableStateOf<String?>(null) }
+    val logsExportedMsg = stringResource(Res.string.logs_exported)
+
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message = error)
@@ -111,6 +118,36 @@ fun DataSettingsContent(
             snackbarHostState.showSnackbar(message = "Export is coming soon")
             viewModel.dismissExportComingSoon()
         }
+    }
+
+    // When the ViewModel finishes reading the buffer, hand the payload to the platform saver.
+    LaunchedEffect(uiState.logsExportReady) {
+        val payload = uiState.logsExportReady ?: return@LaunchedEffect
+        pendingLogsContent = payload.content
+        pendingLogsFileName = payload.fileName
+        viewModel.consumeLogsExport()
+    }
+
+    LogFileSaver(
+        triggerFileName = pendingLogsFileName,
+        content = pendingLogsContent,
+        onComplete = { success, errorMessage ->
+            if (success) {
+                logsSaverResult = logsExportedMsg
+            } else if (errorMessage != null) {
+                logsSaverResult = errorMessage
+            }
+        },
+        onReset = {
+            pendingLogsFileName = null
+            pendingLogsContent = null
+        },
+    )
+
+    LaunchedEffect(logsSaverResult) {
+        val msg = logsSaverResult ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message = msg)
+        logsSaverResult = null
     }
 
     LaunchedEffect(uiState.mcpReinitializeMessage) {
@@ -134,6 +171,11 @@ fun DataSettingsContent(
                     onClearAllChats = viewModel::clearAllChats,
                     onViewArchive = onNavigateToArchive,
                     onExportAllData = viewModel::exportAllData,
+                    logsBufferBytes = uiState.logsBufferBytes,
+                    isLogsExporting = uiState.isLogsExporting,
+                    isLogsClearing = uiState.isLogsClearing,
+                    onExportLogs = viewModel::exportLogs,
+                    onClearLogs = viewModel::clearLogs,
                 )
             }
             item(key = "data_extra_actions") {

@@ -34,6 +34,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.ui.components.BannerDisplay
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.agents.navigation.agentsEntries
@@ -89,6 +90,10 @@ fun LibreChatNavHost(
     LaunchedEffect(navigator.currentRoute) {
         val conversationId = (navigator.currentRoute as? Chat)?.conversationId
         navHostViewModel.setActiveConversation(conversationId)
+
+        // Navigation breadcrumb: route type name only — low cardinality, content-free.
+        val screen = navigator.currentRoute?.let { it::class.simpleName } ?: "none"
+        Diag.i("Breadcrumb", attrs = mapOf("screen" to screen)) { "nav" }
     }
 
     // Handle session expiry

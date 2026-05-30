@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
+import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.config.StartupConfig
 import com.garfiec.librechat.core.network.api.ConfigApi
@@ -32,6 +33,44 @@ class ConfigRepositoryImpl(
     private val _detectedBackendVersion = MutableStateFlow<String?>(null)
     override val detectedBackendVersion: StateFlow<String?> = _detectedBackendVersion.asStateFlow()
 
+    /**
+     * Identity of the last config we logged a snapshot for, so we emit one snapshot
+     * per fetch/change rather than on every recomposition or duplicate fetch.
+     */
+    private var loggedConfigSignature: Int? = null
+
+    /**
+     * Emits a single redacted, low-cardinality snapshot of the server config to the
+     * diagnostic log on first fetch and whenever the relevant feature flags change.
+     * NEVER includes serverDomain, URLs, secrets (turnstile/balance), or analyticsGtmId.
+     */
+    private fun logConfigSnapshot(config: StartupConfig) {
+        // Fold the detected backend version and endpoint count into the signature so a snapshot
+        // re-emits once the version is detected (it's resolved after the first config fetch) or the
+        // endpoint set changes — otherwise the export would forever show detectedBackendVersion=unknown.
+        var signature = config.hashCode()
+        signature = 31 * signature + (_detectedBackendVersion.value?.hashCode() ?: 0)
+        signature = 31 * signature + _endpointConfigs.value.size
+        if (signature == loggedConfigSignature) return
+        loggedConfigSignature = signature
+
+        Diag.i(
+            "ServerConfig",
+            attrs = mapOf(
+                "registrationEnabled" to config.registrationEnabled.toString(),
+                "emailLoginEnabled" to config.emailLoginEnabled.toString(),
+                "socialLoginEnabled" to config.socialLoginEnabled.toString(),
+                "passwordResetEnabled" to config.passwordResetEnabled.toString(),
+                "sharedLinksEnabled" to config.sharedLinksEnabled.toString(),
+                "webSearch" to (config.webSearch != null).toString(),
+                "modelSpecs" to (config.modelSpecs != null).toString(),
+                "endpointCount" to _endpointConfigs.value.size.toString(),
+                "detectedBackendVersion" to (_detectedBackendVersion.value ?: "unknown"),
+                "supportedBackendVersion" to BackendVersion.SUPPORTED_BACKEND_VERSION,
+            ),
+        ) { "server config snapshot" }
+    }
+
     override suspend fun validateServerUrl(url: String): Result<StartupConfig> {
         return try {
             val config = configApi.getStartupConfig()
@@ -40,6 +79,7 @@ class ConfigRepositoryImpl(
             } else {
                 _startupConfig.value = config
                 configCache.saveStartupConfig(config)
+                logConfigSnapshot(config)
                 Result.Success(config)
             }
         } catch (e: SerializationException) {
@@ -80,6 +120,7 @@ class ConfigRepositoryImpl(
             val config = configApi.getStartupConfig()
             _startupConfig.value = config
             configCache.saveStartupConfig(config)
+            logConfigSnapshot(config)
             config
         }
 
@@ -169,15 +210,37 @@ class ConfigRepositoryImpl(
 
             _detectedBackendVersion.value = detectedVersion
 
+            // Re-emit the config snapshot now that the backend version is resolved, so the export's
+            // version-mismatch signal is accurate (the first snapshot ran before detection).
+            config?.let { logConfigSnapshot(it) }
+
             if (detectedVersion != null) {
-                Logger.d { "Backend version detected: $detectedVersion (supported: $supported)" }
+                val compatible = BackendVersion.isCompatible(supported, detectedVersion)
+                // Dedicated structured record emitted the moment the version is resolved, carrying the
+                // compatibility verdict — greppable by tag for triage (versions are server software
+                // facts, not PII). The holistic ServerConfig snapshot above also includes the version.
+                Diag.i(
+                    "BackendVersion",
+                    attrs = mapOf(
+                        "detectedBackendVersion" to detectedVersion,
+                        "supportedBackendVersion" to supported,
+                        "compatible" to compatible.toString(),
+                    ),
+                ) { "backend version detected" }
                 VersionCheckResult(
                     backendVersion = detectedVersion,
                     supportedVersion = supported,
-                    isCompatible = BackendVersion.isCompatible(supported, detectedVersion),
+                    isCompatible = compatible,
                 )
             } else {
-                Logger.d { "Backend version could not be determined, skipping check" }
+                Diag.i(
+                    "BackendVersion",
+                    attrs = mapOf(
+                        "detectedBackendVersion" to "unknown",
+                        "supportedBackendVersion" to supported,
+                        "compatible" to "true",
+                    ),
+                ) { "backend version could not be determined" }
                 VersionCheckResult(
                     backendVersion = null,
                     supportedVersion = supported,
@@ -192,6 +255,7 @@ class ConfigRepositoryImpl(
         _availableModels.value = emptyMap()
         _startupConfig.value = null
         _detectedBackendVersion.value = null
+        loggedConfigSignature = null
         configCache.clear()
     }
 }

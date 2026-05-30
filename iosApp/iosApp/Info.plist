@@ -23,6 +23,10 @@
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
 	<string>100</string>
+	<!-- Overwritten at build time by the "Stamp Git SHA" build phase. AppInfo.gitSha reads this
+	     key; the "unknown" literal is the fallback when there's no git checkout. -->
+	<key>GitSHA</key>
+	<string>unknown</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

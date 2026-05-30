@@ -239,6 +239,17 @@
     <string name="export_coming_soon">Export is coming soon</string>
     <string name="error_could_not_load_settings">Could not load settings</string>
 
+    <!-- Diagnostic logs (issue #96) -->
+    <string name="section_diagnostic_logs">Diagnostic Logs</string>
+    <string name="export_diagnostic_logs">Export diagnostic logs</string>
+    <string name="export_diagnostic_logs_with_size">Export diagnostic logs (%1$s)</string>
+    <string name="exporting_logs">Exporting…</string>
+    <string name="clear_diagnostic_logs">Clear diagnostic logs</string>
+    <string name="clearing_logs">Clearing…</string>
+    <string name="logs_exported">Diagnostic logs exported</string>
+    <string name="dialog_title_clear_logs">Clear Diagnostic Logs</string>
+    <string name="dialog_clear_logs_message">This will permanently delete all stored diagnostic logs from this device. This action cannot be undone.</string>
+
     <!-- Speech settings -->
     <string name="auto_send_after_speech">Auto-send after speech</string>
     <string name="auto_send_after_speech_desc">Automatically send the message after speech-to-text finishes</string>

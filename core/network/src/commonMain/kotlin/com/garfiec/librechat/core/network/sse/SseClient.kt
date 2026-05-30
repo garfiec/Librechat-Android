@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.network.sse
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.StreamEvent
 import io.ktor.http.HttpStatusCode
 import io.ktor.utils.io.ByteChannel
@@ -85,18 +87,37 @@ class SseClient(
                     }
 
                     HttpStatusCode.Unauthorized.value -> {
-                        Logger.w("SSE") { "SSE: 401 Unauthorized for $streamPath" }
+                        Diag.w(
+                            "SSE",
+                            origin = LogOrigin.SERVER,
+                            attrs = mapOf(
+                                "status" to e.statusCode.toString(),
+                                "attempt" to attempt.toString(),
+                            ),
+                        ) { "SSE 401 Unauthorized" }
                         emit(StreamEvent.Error(message = "Unauthorized", code = "401"))
                         done = true
                     }
 
                     else -> {
-                        Logger.w("SSE") { "SSE: unexpected status ${e.statusCode} for $streamPath" }
+                        Diag.w(
+                            "SSE",
+                            origin = LogOrigin.SERVER,
+                            attrs = mapOf(
+                                "status" to e.statusCode.toString(),
+                                "attempt" to attempt.toString(),
+                            ),
+                        ) { "SSE unexpected status" }
                         attempt++
                     }
                 }
             } catch (e: SseStreamException) {
-                Logger.w("SSE", e) { "SSE I/O error (attempt $attempt)" }
+                Diag.w(
+                    "SSE",
+                    origin = LogOrigin.NETWORK,
+                    throwable = e,
+                    attrs = mapOf("attempt" to attempt.toString()),
+                ) { "SSE I/O error" }
                 attempt++
                 if (attempt > maxRetries) {
                     emit(StreamEvent.Error(message = "Connection lost. Please check your network and try again.", isNetworkError = true))
@@ -105,7 +126,12 @@ class SseClient(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Logger.w("SSE", e) { "SSE connection error (attempt $attempt)" }
+                Diag.w(
+                    "SSE",
+                    origin = LogOrigin.NETWORK,
+                    throwable = e,
+                    attrs = mapOf("attempt" to attempt.toString()),
+                ) { "SSE connection error" }
                 attempt++
                 if (attempt > maxRetries) {
                     emit(StreamEvent.Error(message = "Connection failed. Please try again."))
@@ -137,7 +163,11 @@ class SseClient(
         } catch (e: CancellationException) {
             throw e // Re-throw cancellation — SKIE handles this gracefully
         } catch (e: Exception) {
-            Logger.e("SSE", e) { "SSE: unhandled exception escaped flow" }
+            Diag.e(
+                "SSE",
+                origin = LogOrigin.CLIENT,
+                throwable = e,
+            ) { "SSE unhandled exception escaped flow" }
             emit(StreamEvent.Error(message = "Unexpected error: ${e.message}"))
         }
     }

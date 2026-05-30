@@ -15,6 +15,7 @@ kotlin {
             implementation(project(":core:network"))
             implementation(project(":core:model"))
             implementation(project(":core:common"))
+            implementation(project(":core:logging"))
             implementation(libs.datastore.preferences)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)

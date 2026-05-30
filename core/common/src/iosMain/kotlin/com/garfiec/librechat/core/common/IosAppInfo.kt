@@ -11,8 +11,8 @@ internal class IosAppInfo : AppInfo {
     override val versionCode: Long =
         (bundle.objectForInfoDictionaryKey("CFBundleVersion") as? String)?.toLongOrNull() ?: 0L
 
-    // Reads an Info.plist "GitSHA" key if the iOS build injects one; until that's wired into the
-    // Xcode/xcconfig build, this resolves to "unknown". Android bakes the real value via BuildConfig.
+    // Reads the Info.plist "GitSHA" key stamped by the "Stamp Git SHA" Xcode build phase
+    // (git rev-parse --short=8). Falls back to "unknown" if absent. Android bakes it via BuildConfig.
     override val gitSha: String =
         bundle.objectForInfoDictionaryKey("GitSHA") as? String ?: "unknown"
 }

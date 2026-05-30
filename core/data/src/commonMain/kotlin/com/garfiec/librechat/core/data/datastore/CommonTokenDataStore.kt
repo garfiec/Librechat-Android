@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.data.datastore
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.response.RefreshResponse
 import com.garfiec.librechat.core.network.client.CookieHelper
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
@@ -73,7 +75,11 @@ abstract class CommonTokenDataStore(
     override suspend fun refreshAccessToken(): Boolean = refreshMutex.withLock {
         val storedRefreshToken = readRefreshToken()
         if (storedRefreshToken.isNullOrBlank()) {
-            Logger.w { "No refresh token available" }
+            Diag.w(
+                "Auth",
+                origin = LogOrigin.CLIENT,
+                attrs = mapOf("event" to "session_expired", "reason" to "no_refresh_token"),
+            ) { "No refresh token available" }
             return false
         }
 
@@ -92,16 +98,34 @@ abstract class CommonTokenDataStore(
             Logger.d { "Token refreshed successfully" }
             true
         } catch (e: ClientRequestException) {
-            Logger.w(e) { "Auth error during token refresh (status=${e.response.status})" }
+            Diag.w(
+                "Auth",
+                origin = LogOrigin.SERVER,
+                throwable = e,
+                attrs = mapOf(
+                    "event" to "refresh_failed",
+                    "status" to e.response.status.value.toString(),
+                ),
+            ) { "Auth error during token refresh" }
             clearTokensLocked()
             false
         } catch (e: Exception) {
             if (isKeystoreException(e)) {
-                Logger.e(e) { "Keystore corruption—clearing tokens" }
+                Diag.e(
+                    "Auth",
+                    origin = LogOrigin.CLIENT,
+                    throwable = e,
+                    attrs = mapOf("event" to "keystore_corruption"),
+                ) { "Keystore corruption—clearing tokens" }
                 onKeystoreCorruption()
                 clearTokensLocked()
             } else {
-                Logger.w(e) { "Error during token refresh" }
+                Diag.w(
+                    "Auth",
+                    origin = LogOrigin.NETWORK,
+                    throwable = e,
+                    attrs = mapOf("event" to "refresh_failed"),
+                ) { "Error during token refresh" }
             }
             false
         }

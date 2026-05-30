@@ -3,6 +3,7 @@ package com.garfiec.librechat.shared
 import com.garfiec.librechat.core.common.di.KoinQualifiers
 import com.garfiec.librechat.core.common.di.commonModule
 import com.garfiec.librechat.core.data.di.dataModule
+import com.garfiec.librechat.core.logging.di.loggingModule
 import com.garfiec.librechat.core.network.api.AgentsApi
 import com.garfiec.librechat.core.network.api.ApiKeysApi
 import com.garfiec.librechat.core.network.api.AuthApi
@@ -57,6 +58,7 @@ import org.koin.dsl.module
 val iosSharedModule = module {
 
     includes(commonModule)
+    includes(loggingModule)
     includes(dataModule)
     includes(authModule)
     includes(chatModule)

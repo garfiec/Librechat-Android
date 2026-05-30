@@ -3,7 +3,13 @@ package com.garfiec.librechat.shared
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
+import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.logging.PersistentLogWriter
+import com.garfiec.librechat.core.logging.PlatformInfo
+import com.garfiec.librechat.core.logging.logStartupHeader
+import com.garfiec.librechat.core.logging.startMainThreadWatchdog
 import com.garfiec.librechat.shared.navigation.sharedAppModule
+import kotlinx.coroutines.CoroutineExceptionHandler
 import org.koin.core.context.startKoin
 import platform.Foundation.NSLog
 
@@ -24,11 +30,9 @@ private class IosNSLogWriter : LogWriter() {
  * Call from Swift: IosKoinHelperKt.startIosKoin()
  */
 fun startIosKoin() {
-    // Route Kermit logs through NSLog for OS log visibility
+    // Route Kermit logs through NSLog for OS log visibility. The persistent file writer is added
+    // after Koin starts (below), once its dependencies are resolvable.
     Logger.setLogWriters(IosNSLogWriter())
-
-    // Install crash reporting hook early so all Kotlin exceptions get proper stack traces
-    installCrashReporting()
     Logger.setMinSeverity(Severity.Debug)
     Logger.withTag("Koin").d { "startIosKoin: initializing Koin DI" }
 
@@ -37,4 +41,30 @@ fun startIosKoin() {
     }
     IosKoinAccessor.koin = app.koin
     Logger.withTag("Koin").d { "startIosKoin: Koin initialized successfully" }
+
+    // Wire diagnostic logging now that Koin can supply the writer + platform info. All of this is
+    // best-effort: a logging-setup failure must never prevent the app from launching.
+    runCatching {
+        val writer: PersistentLogWriter = app.koin.get()
+
+        // Keep NSLog visibility AND add the persistent file sink.
+        Logger.setLogWriters(IosNSLogWriter(), writer)
+
+        // Install the Kotlin/Native crash hook with the writer so unhandled exceptions are persisted
+        // synchronously before the process dies.
+        installCrashReporting(writer)
+
+        val appInfo: AppInfo = app.koin.get()
+        val platformInfo: PlatformInfo = app.koin.get()
+        logStartupHeader(appInfo = appInfo, platformInfo = platformInfo)
+
+        // The watchdog owns its own isolated supervised scope; hand it the diagnostic exception
+        // handler so escaped failures reach the crash-record path (and can't poison ApplicationScope).
+        val exceptionHandler: CoroutineExceptionHandler = app.koin.get()
+        startMainThreadWatchdog(exceptionHandler)
+    }.onFailure {
+        // Fall back to a crash hook with no writer so we still get readable NSException reports.
+        runCatching { installCrashReporting() }
+        Logger.withTag("Koin").e(it) { "Diagnostic logging init failed (non-fatal)" }
+    }
 }

@@ -21,6 +21,7 @@ import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
+import com.garfiec.librechat.core.logging.DiagnosticLogRepository
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.feature.settings.util.ContentReader
 import com.garfiec.librechat.feature.settings.util.PlatformCacheCleaner
@@ -68,6 +69,7 @@ class SettingsViewModelTest {
     private val roleRepository = mockk<RoleRepository>(relaxed = true)
     private val permissionGate = mockk<PermissionGate>(relaxed = true)
     private val configRepository = mockk<ConfigRepository>(relaxed = true)
+    private val diagnosticLogRepository = mockk<DiagnosticLogRepository>(relaxed = true)
 
     private val testUser = User(
         email = "test@example.com",
@@ -147,6 +149,7 @@ class SettingsViewModelTest {
         roleRepository = roleRepository,
         permissionGate = permissionGate,
         configRepository = configRepository,
+        diagnosticLogRepository = diagnosticLogRepository,
         appInfo = object : AppInfo {
             override val versionName = "0.1.0"
             override val versionCode = 1L

@@ -39,9 +39,15 @@ internal fun DataSettingsSection(
     onClearAllChats: () -> Unit,
     onViewArchive: () -> Unit,
     onExportAllData: () -> Unit,
+    logsBufferBytes: Long,
+    isLogsExporting: Boolean,
+    isLogsClearing: Boolean,
+    onExportLogs: () -> Unit,
+    onClearLogs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    var showClearLogsDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
         Column(
@@ -112,6 +118,36 @@ internal fun DataSettingsSection(
                 Text(stringResource(Res.string.export_all_data))
             }
 
+            // Export diagnostic logs (issue #96). Label includes the buffer size when known.
+            OutlinedButton(
+                onClick = onExportLogs,
+                enabled = !isLogsExporting,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    when {
+                        isLogsExporting -> stringResource(Res.string.exporting_logs)
+                        logsBufferBytes > 0 -> stringResource(
+                            Res.string.export_diagnostic_logs_with_size,
+                            formatBytes(logsBufferBytes),
+                        )
+                        else -> stringResource(Res.string.export_diagnostic_logs)
+                    },
+                )
+            }
+
+            // Clear diagnostic logs (destructive)
+            OutlinedButton(
+                onClick = { showClearLogsDialog = true },
+                enabled = !isLogsClearing,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Text(stringResource(if (isLogsClearing) Res.string.clearing_logs else Res.string.clear_diagnostic_logs))
+            }
+
             Spacer(modifier = Modifier.height(0.dp))
         }
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
@@ -146,5 +182,45 @@ internal fun DataSettingsSection(
                 },
             )
         }
+
+        // Clear diagnostic logs confirmation dialog
+        if (showClearLogsDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearLogsDialog = false },
+                title = { Text(stringResource(Res.string.dialog_title_clear_logs)) },
+                text = { Text(stringResource(Res.string.dialog_clear_logs_message)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showClearLogsDialog = false
+                            onClearLogs()
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) {
+                        Text(stringResource(Res.string.clear_all))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearLogsDialog = false }) {
+                        Text(stringResource(Res.string.action_cancel))
+                    }
+                },
+            )
+        }
     } // Column
+}
+
+/**
+ * Compact human-readable byte size (e.g. `123 KB`, `1.2 MB`) for the export-logs button label.
+ * Uses binary (1024) units; one decimal place above KB.
+ */
+private fun formatBytes(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024) return "${kb.toInt()} KB"
+    val mb = kb / 1024.0
+    val rounded = (mb * 10).toLong() / 10.0
+    return "$rounded MB"
 }

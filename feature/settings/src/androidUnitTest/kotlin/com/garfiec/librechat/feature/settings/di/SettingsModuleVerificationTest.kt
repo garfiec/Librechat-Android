@@ -21,6 +21,7 @@ import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
+import com.garfiec.librechat.core.logging.DiagnosticLogRepository
 import com.garfiec.librechat.feature.settings.util.ContentReader
 import com.garfiec.librechat.feature.settings.util.PlatformCacheCleaner
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.SpeechSettingsFactory
@@ -56,6 +57,7 @@ class SettingsModuleVerificationTest {
                 ContentReader::class,
                 PlatformCacheCleaner::class,
                 SpeechSettingsFactory::class,
+                DiagnosticLogRepository::class,
             ),
         )
     }

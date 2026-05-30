@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.network.sse
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.logging.LogOrigin
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readUTF8Line
 import kotlinx.coroutines.TimeoutCancellationException
@@ -23,7 +25,11 @@ class SseLineParser(
                         channel.readUTF8Line()
                     }
                 } catch (e: TimeoutCancellationException) {
-                    Logger.w("SSE") { "SSE stream stalled: no data for ${lineReadTimeoutMs / 1000}s" }
+                    Diag.w(
+                        "SSE",
+                        origin = LogOrigin.NETWORK,
+                        attrs = mapOf("timeoutSec" to (lineReadTimeoutMs / 1000).toString()),
+                    ) { "SSE stream stalled: no data" }
                     throw SseStreamException("Stream stalled: no data received for ${lineReadTimeoutMs / 1000}s", e)
                 } ?: break
 

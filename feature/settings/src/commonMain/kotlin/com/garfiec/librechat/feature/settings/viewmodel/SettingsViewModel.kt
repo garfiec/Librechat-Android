@@ -25,6 +25,7 @@ import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
+import com.garfiec.librechat.core.logging.DiagnosticLogRepository
 import com.garfiec.librechat.core.model.Memory
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.mcp.McpApiKeyConfig
@@ -59,6 +60,13 @@ data class SettingsCommand(
     val name: String,
     val description: String,
     val enabled: Boolean = true,
+)
+
+/** One-shot diagnostic-log export payload handed from the ViewModel to the platform file saver. */
+@Immutable
+data class LogsExportPayload(
+    val content: String,
+    val fileName: String,
 )
 
 val DEFAULT_COMMANDS = listOf(
@@ -113,6 +121,18 @@ data class SettingsUiState(
     val archivedCount: Int = 0,
     val isClearing: Boolean = false,
     val showExportComingSoon: Boolean = false,
+    // Diagnostic logs (issue #96)
+    val isLogsExporting: Boolean = false,
+    val isLogsClearing: Boolean = false,
+    val logsBufferBytes: Long = 0,
+    /**
+     * One-shot export payload. Set when [SettingsViewModel.exportLogs] finishes reading the
+     * buffer; the screen observes it, hands it to the platform `LogFileSaver`, then calls
+     * [SettingsViewModel.consumeLogsExport] to clear it (so a recomposition doesn't re-trigger
+     * the save). Mirrors the conversations `ExportReady` event but state-based, since Settings
+     * has no events SharedFlow.
+     */
+    val logsExportReady: LogsExportPayload? = null,
     // Security (2FA)
     val isTwoFactorEnabled: Boolean = false,
     val isTwoFactorLoading: Boolean = false,
@@ -240,6 +260,7 @@ class SettingsViewModel(
     private val roleRepository: RoleRepository,
     private val permissionGate: PermissionGate,
     private val configRepository: ConfigRepository,
+    diagnosticLogRepository: DiagnosticLogRepository,
     appInfo: AppInfo,
 ) : ViewModel() {
 
@@ -260,7 +281,14 @@ class SettingsViewModel(
     private val mcpDelegate = McpServerDelegate(stateHandle, mcpRepository)
     private val twoFactorDelegate = TwoFactorSecurityDelegate(stateHandle, authRepository)
     private val dataDelegate =
-        DataManagementDelegate(stateHandle, cacheCleaner, conversationRepository, shareRepository, keyRepository)
+        DataManagementDelegate(
+            stateHandle,
+            cacheCleaner,
+            conversationRepository,
+            shareRepository,
+            keyRepository,
+            diagnosticLogRepository,
+        )
 
     /** Combined DataStore preferences flow. */
     private val dataStorePreferences: StateFlow<DataStorePreferences> = combine(
@@ -433,6 +461,7 @@ class SettingsViewModel(
         loadRoleGatedData()
         observePermissionFlags()
         observeAccountDeletionPolicy()
+        dataDelegate.loadLogsBufferSize()
     }
 
     /**
@@ -805,6 +834,11 @@ class SettingsViewModel(
     fun deleteSharedLink(shareId: String) = dataDelegate.deleteSharedLink(shareId)
     fun clearCache() = dataDelegate.clearCache()
     fun revokeAllKeys() = dataDelegate.revokeAllKeys()
+
+    // Diagnostic logs (issue #96)
+    fun exportLogs() = dataDelegate.exportLogs()
+    fun clearLogs() = dataDelegate.clearLogs()
+    fun consumeLogsExport() = dataDelegate.consumeLogsExport()
 
     // Speech settings
     fun setAutoSendAfterStt(enabled: Boolean) = speechDelegate.setAutoSendAfterStt(enabled)

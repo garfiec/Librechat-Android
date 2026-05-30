@@ -1,22 +1,29 @@
 package com.garfiec.librechat.feature.conversations.platform
 
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import co.touchlab.kermit.Logger
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.useContents
+import kotlinx.cinterop.usePinned
+import platform.CoreGraphics.CGRectMake
+import platform.Foundation.NSData
+import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSTimer
+import platform.Foundation.NSURL
+import platform.Foundation.create
+import platform.Foundation.writeToFile
+import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIAlertController
 import platform.UIKit.UIAlertControllerStyleAlert
 import platform.UIKit.UIApplication
 import platform.UIKit.UIPasteboard
+import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
 import platform.UIKit.UIWindowScene
+import platform.UIKit.popoverPresentationController
 
 actual fun copyToClipboard(text: String, label: String) {
     UIPasteboard.generalPasteboard.string = text
@@ -46,6 +53,18 @@ actual fun showToast(message: String) {
     }
 }
 
+/**
+ * iOS conversation export. Writes [content] to a temp file under [NSTemporaryDirectory], then
+ * presents a `UIActivityViewController` share sheet so the user can Save to Files / AirDrop /
+ * Mail the export. Replaces the prior "not available on iOS" placeholder dialog.
+ *
+ * cinterop notes (see project iOS gotchas + `core:logging` LogFile.ios.kt):
+ * - `NSData` is built from a Kotlin `String` via `ByteArray.usePinned { NSData.create(...) }`.
+ * - No `String as NSString` casts.
+ * - iPad requires a popover anchor or `UIActivityViewController` crashes; we anchor to the
+ *   root view's center.
+ */
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Composable
 actual fun FileSaver(
     triggerFileName: String?,
@@ -53,42 +72,63 @@ actual fun FileSaver(
     onComplete: (success: Boolean, message: String?) -> Unit,
     onReset: () -> Unit,
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(triggerFileName) {
+        val fileName = triggerFileName
+        val text = content
+        if (fileName == null || text == null) return@LaunchedEffect
 
-    if (triggerFileName != null && content != null && !showDialog) {
-        showDialog = true
-    }
+        val rootVc = getRootViewController()
+        if (rootVc == null) {
+            onComplete(false, "Could not present share sheet")
+            onReset()
+            return@LaunchedEffect
+        }
 
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showDialog = false
-                onComplete(false, null)
-                onReset()
-            },
-            title = {
-                Text(
-                    text = "Export Not Available",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            },
-            text = {
-                Text(
-                    text = "File export is not yet available on iOS. This feature will be added in a future update.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDialog = false
-                        onComplete(false, "File export not yet available on iOS")
-                        onReset()
-                    },
-                ) {
-                    Text("OK")
-                }
-            },
+        val tempPath = NSTemporaryDirectory() + fileName
+        val data = text.toNSData()
+        val wrote = data.writeToFile(tempPath, atomically = true)
+        if (!wrote) {
+            onComplete(false, "Could not write export file")
+            onReset()
+            return@LaunchedEffect
+        }
+
+        val url = NSURL.fileURLWithPath(tempPath)
+        val activityVc = UIActivityViewController(
+            activityItems = listOf(url),
+            applicationActivities = null,
         )
+
+        // iPad: anchor the popover to the root view to avoid an unanchored-popover crash.
+        activityVc.popoverPresentationController?.let { popover ->
+            val view = rootVc.view
+            popover.sourceView = view
+            view?.bounds?.useContents {
+                popover.sourceRect = CGRectMake(
+                    x = size.width / 2.0,
+                    y = size.height / 2.0,
+                    width = 0.0,
+                    height = 0.0,
+                )
+            }
+        }
+
+        rootVc.presentViewController(activityVc, animated = true, completion = null)
+        onComplete(true, null)
+        onReset()
+    }
+}
+
+private fun getRootViewController(): UIViewController? {
+    val scene = UIApplication.sharedApplication.connectedScenes.firstOrNull() as? UIWindowScene
+    return scene?.keyWindow?.rootViewController
+}
+
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+private fun String.toNSData(): NSData {
+    val bytes = this.encodeToByteArray()
+    if (bytes.isEmpty()) return NSData()
+    return bytes.usePinned { pinned ->
+        NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
     }
 }

@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.network.sse
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
@@ -78,7 +80,12 @@ class SseEventMapper(private val json: Json) {
             }
             mapJsonObject(root)
         } catch (e: Exception) {
-            Logger.w("SSE", e) { "SSE parse error: event=${event.event}" }
+            Diag.w(
+                "SSE",
+                origin = LogOrigin.CLIENT,
+                throwable = e,
+                attrs = mapOf("event" to event.event),
+            ) { "SSE parse error" }
             StreamEvent.Error(message = "Parse error: ${e.message}")
         }
     }
@@ -158,7 +165,11 @@ class SseEventMapper(private val json: Json) {
         val allFieldsNull = conversation == null && requestMessage == null &&
             responseMessage == null && legacyMessage == null
         if (allFieldsNull && parseErrors.isNotEmpty()) {
-            Logger.e("SSE") { "Final event: all fields failed to parse -- $parseErrors" }
+            Diag.e(
+                "SSE",
+                origin = LogOrigin.CLIENT,
+                attrs = mapOf("event" to "final", "failedFields" to parseErrors.size.toString()),
+            ) { "Final event: all fields failed to parse" }
             return StreamEvent.Error(
                 message = "Failed to parse final event: ${parseErrors.joinToString("; ")}",
             )

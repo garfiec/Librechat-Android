@@ -61,6 +61,21 @@
 			shellPath = /bin/sh;
 			shellScript = "# Stamp the iOS bundle version from version.properties, the single source of\n# truth shared with Android. versionName -> CFBundleShortVersionString; a derived\n# XXYYZZ versionCode (MAJOR*10000 + MINOR*100 + PATCH) -> CFBundleVersion, using the\n# same formula as Android so both platforms report the same version. This runs as the\n# last build phase (after Info.plist is in the bundle, before codesign), so the value\n# always reflects version.properties regardless of the committed Info.plist literals.\nset -eu\nPROPS=\"$SRCROOT/../version.properties\"\nif [ ! -f \"$PROPS\" ]; then\n    echo \"error: version.properties not found at $PROPS\"\n    exit 1\nfi\nVERSION_NAME=$(grep -E '^versionName=' \"$PROPS\" | cut -d'=' -f2 | tr -d '[:space:]')\nif [ -z \"$VERSION_NAME\" ]; then\n    echo \"error: versionName missing or malformed in $PROPS\"\n    exit 1\nfi\nCORE=${VERSION_NAME%%-*}\n# Split into MAJOR/MINOR/PATCH on '.'; any missing component defaults to 0.\nIFS=.\nset -f\nset -- $CORE\nset +f\nunset IFS\nMAJOR=${1:-0}\nMINOR=${2:-0}\nPATCH=${3:-0}\n# Treat any empty or non-numeric component as 0, the same way Android parses it.\ncase \"$MAJOR\" in \"\"|*[!0-9]*) MAJOR=0 ;; esac\ncase \"$MINOR\" in \"\"|*[!0-9]*) MINOR=0 ;; esac\ncase \"$PATCH\" in \"\"|*[!0-9]*) PATCH=0 ;; esac\nif [ \"$MINOR\" -gt 99 ] || [ \"$PATCH\" -gt 99 ]; then\n    echo \"error: versionName '$VERSION_NAME' exceeds the XXYYZZ scheme (MINOR/PATCH must be <= 99)\"\n    exit 1\nfi\n# Force base 10 so a zero-padded component (e.g. 08) is not interpreted as octal.\nVERSION_CODE=$((10#$MAJOR * 10000 + 10#$MINOR * 100 + 10#$PATCH))\nPLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $VERSION_NAME\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $VERSION_CODE\" \"$PLIST\"\necho \"Stamped iOS version $VERSION_NAME ($VERSION_CODE) into $PLIST\"\n";
 		};
+		SSS00003 /* Stamp Git SHA */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Stamp Git SHA";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Bake the short git SHA into the built Info.plist so AppInfo.gitSha reports the\n# source commit (used in diagnostic startup headers and Settings -> About). Mirrors\n# the Android BuildConfig.GIT_SHA. Runs after Info.plist is in the bundle. Never fails\n# the build: a missing git checkout falls back to 'unknown'.\nset -u\nGIT_SHA=$(git -C \"$SRCROOT/..\" rev-parse --short=8 HEAD 2>/dev/null || echo unknown)\nPLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n/usr/libexec/PlistBuddy -c \"Set :GitSHA $GIT_SHA\" \"$PLIST\" || /usr/libexec/PlistBuddy -c \"Add :GitSHA string $GIT_SHA\" \"$PLIST\"\necho \"Stamped GitSHA $GIT_SHA into $PLIST\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -148,6 +163,7 @@
 				CCC00001 /* Embed Frameworks */,
 				SSS00001 /* Copy Compose Resources */,
 				SSS00002 /* Stamp Version from version.properties */,
+				SSS00003 /* Stamp Git SHA */,
 			);
 			buildRules = (
 			);
