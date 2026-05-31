@@ -3,6 +3,8 @@ package com.garfiec.librechat.feature.chat.util
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import platform.CoreGraphics.CGImageGetHeight
 import platform.CoreGraphics.CGImageGetWidth
 import platform.Foundation.NSData
@@ -24,29 +26,34 @@ fun clipboardHasImage(): Boolean {
  * Reads the first image from the system clipboard and returns it as [IosImageData],
  * or null if no image is available.
  *
- * The image is converted to PNG format for consistent server-side handling.
+ * The image is converted to PNG format for consistent server-side handling. The
+ * pasteboard handle is grabbed on the calling (Main) thread, but the PNG encode —
+ * which is heavy for a full-resolution screenshot — runs on [Dispatchers.Default]
+ * so it never blocks the UI click handler.
  */
 @OptIn(ExperimentalForeignApi::class)
-fun readClipboardImage(): IosImageData? {
+suspend fun readClipboardImage(): IosImageData? {
     val image: UIImage = UIPasteboard.generalPasteboard.image ?: return null
 
-    val pngData: NSData = UIImagePNGRepresentation(image) ?: return null
-    val bytes = pngData.toByteArray() ?: return null
-    if (bytes.isEmpty()) return null
+    return withContext(Dispatchers.Default) {
+        val pngData: NSData = UIImagePNGRepresentation(image) ?: return@withContext null
+        val bytes = pngData.toByteArray() ?: return@withContext null
+        if (bytes.isEmpty()) return@withContext null
 
-    val cgImage = image.CGImage
-    val width = if (cgImage != null) CGImageGetWidth(cgImage).toInt() else null
-    val height = if (cgImage != null) CGImageGetHeight(cgImage).toInt() else null
+        val cgImage = image.CGImage
+        val width = if (cgImage != null) CGImageGetWidth(cgImage).toInt() else null
+        val height = if (cgImage != null) CGImageGetHeight(cgImage).toInt() else null
 
-    val timestamp = NSDate().timeIntervalSince1970.toLong()
+        val timestamp = NSDate().timeIntervalSince1970.toLong()
 
-    return IosImageData(
-        bytes = bytes,
-        filename = "clipboard_$timestamp.png",
-        mimeType = "image/png",
-        width = width,
-        height = height,
-    )
+        IosImageData(
+            bytes = bytes,
+            filename = "clipboard_$timestamp.png",
+            mimeType = "image/png",
+            width = width,
+            height = height,
+        )
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)

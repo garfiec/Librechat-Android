@@ -81,6 +81,7 @@ import com.garfiec.librechat.feature.chat.util.readClipboardImage
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.asString
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -506,12 +507,14 @@ actual fun ChatScreen(
                 onRemoveFile = viewModel::removeFile,
                 hasClipboardImage = hasClipboardImage,
                 onPasteImage = {
-                    val imageData = readClipboardImage()
-                    if (imageData != null) {
-                        viewModel.onFilesSelected(listOf(imageData))
+                    coroutineScope.launch {
+                        val imageData = readClipboardImage()
+                        if (imageData != null) {
+                            viewModel.onFilesSelected(listOf(imageData))
+                        }
+                        // Re-check clipboard after paste
+                        hasClipboardImage = clipboardHasImage()
                     }
-                    // Re-check clipboard after paste
-                    hasClipboardImage = clipboardHasImage()
                 },
                 onAttachFiles = {
                     openDocumentPicker { files ->

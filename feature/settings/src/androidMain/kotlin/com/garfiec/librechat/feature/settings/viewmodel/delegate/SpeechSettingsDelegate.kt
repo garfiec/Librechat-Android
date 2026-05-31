@@ -11,7 +11,10 @@ import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.model.speech.TtsVoice
 import com.garfiec.librechat.feature.settings.screen.DeviceVoiceInfo
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsStateHandle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -22,6 +25,7 @@ class SpeechSettingsDelegate(
     private val context: Context,
     private val speechRepository: SpeechRepository,
     private val settingsDataStore: SettingsDataStore,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : SpeechSettingsContract {
 
     private var currentMediaPlayer: MediaPlayer? = null
@@ -42,16 +46,29 @@ class SpeechSettingsDelegate(
     }
 
     override fun loadDeviceVoices() {
-        deviceTtsEngine = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val voices = deviceTtsEngine?.voices?.map { voice ->
-                    DeviceVoiceInfo(
-                        name = voice.name,
-                        locale = voice.locale.displayName,
-                    )
-                }?.sortedBy { it.name } ?: emptyList()
-                stateHandle.update { copy(availableDeviceVoices = voices) }
+        stateHandle.scope.launch {
+            // TextToSpeech construction touches disk/IPC; build it off the Main thread.
+            val engine = withContext(ioDispatcher) {
+                lateinit var tts: TextToSpeech
+                tts = TextToSpeech(context) { status ->
+                    if (status == TextToSpeech.SUCCESS) {
+                        // .voices enumeration is heavy; do it off Main before publishing.
+                        stateHandle.scope.launch {
+                            val voices = withContext(ioDispatcher) {
+                                tts.voices?.map { voice ->
+                                    DeviceVoiceInfo(
+                                        name = voice.name,
+                                        locale = voice.locale.displayName,
+                                    )
+                                }?.sortedBy { it.name } ?: emptyList()
+                            }
+                            stateHandle.update { copy(availableDeviceVoices = voices) }
+                        }
+                    }
+                }
+                tts
             }
+            deviceTtsEngine = engine
         }
     }
 
@@ -212,51 +229,62 @@ class SpeechSettingsDelegate(
      * Plays audio bytes via MediaPlayer. Attaches listeners before calling prepare()
      * and wraps prepare/start in try-catch to release on failure (fixes resource leak).
      */
-    private fun playAudioBytes(audioBytes: ByteArray, isPreview: Boolean = false) {
+    private suspend fun playAudioBytes(audioBytes: ByteArray, isPreview: Boolean = false) {
         try {
             // Stop any currently playing audio
             currentMediaPlayer?.release()
             currentMediaPlayer = null
 
-            // Write bytes to a temporary file
-            val voiceTestDir = File(context.cacheDir, "voice_test").apply { mkdirs() }
-            val tempFile = File.createTempFile("voice_test", ".mp3", voiceTestDir)
-            tempFile.deleteOnExit()
-            tempFile.writeBytes(audioBytes)
+            // File write + MediaPlayer prepare are blocking; run them off the Main thread.
+            val mediaPlayer = withContext(ioDispatcher) {
+                val voiceTestDir = File(context.cacheDir, "voice_test").apply { mkdirs() }
+                val tempFile = File.createTempFile("voice_test", ".mp3", voiceTestDir)
+                tempFile.deleteOnExit()
+                tempFile.writeBytes(audioBytes)
 
-            // Create and configure MediaPlayer
-            val mediaPlayer = MediaPlayer()
-            // Attach listeners BEFORE calling prepare() to avoid resource leak
-            mediaPlayer.setDataSource(tempFile.absolutePath)
-            mediaPlayer.setOnCompletionListener {
-                it.release()
-                currentMediaPlayer = null
-                tempFile.delete()
-                if (isPreview) {
-                    stateHandle.update { copy(isTtsPreviewPlaying = false) }
+                val mp = MediaPlayer()
+                // Attach listeners BEFORE calling prepare() to avoid resource leak
+                mp.setDataSource(tempFile.absolutePath)
+                // The MediaPlayer is built on a Looper-less ioDispatcher thread, so these
+                // callbacks fire on the Main looper. release() + temp-file delete are blocking,
+                // so hand them to ioDispatcher rather than running them on Main.
+                mp.setOnCompletionListener { player ->
+                    currentMediaPlayer = null
+                    if (isPreview) {
+                        stateHandle.update { copy(isTtsPreviewPlaying = false) }
+                    }
+                    stateHandle.scope.launch(ioDispatcher) {
+                        player.release()
+                        tempFile.delete()
+                    }
                 }
-            }
-            mediaPlayer.setOnErrorListener { mp, what, extra ->
-                Logger.e { "MediaPlayer error: what=$what, extra=$extra" }
-                mp.release()
-                currentMediaPlayer = null
-                tempFile.delete()
-                stateHandle.update {
-                    copy(error = "Audio playback failed", isTtsPreviewPlaying = false)
+                mp.setOnErrorListener { player, what, extra ->
+                    Logger.e { "MediaPlayer error: what=$what, extra=$extra" }
+                    currentMediaPlayer = null
+                    stateHandle.update {
+                        copy(error = "Audio playback failed", isTtsPreviewPlaying = false)
+                    }
+                    stateHandle.scope.launch(ioDispatcher) {
+                        player.release()
+                        tempFile.delete()
+                    }
+                    true
                 }
-                true
-            }
-            try {
-                mediaPlayer.prepare()
-                mediaPlayer.start()
-            } catch (e: Exception) {
-                // Release MediaPlayer if prepare() or start() throws
-                mediaPlayer.release()
-                tempFile.delete()
-                throw e
+                try {
+                    mp.prepare()
+                    mp.start()
+                } catch (e: Exception) {
+                    // Release MediaPlayer if prepare() or start() throws
+                    mp.release()
+                    tempFile.delete()
+                    throw e
+                }
+                mp
             }
 
             currentMediaPlayer = mediaPlayer
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Logger.e(e) { "Failed to play audio" }
             stateHandle.update {

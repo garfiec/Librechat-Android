@@ -31,8 +31,10 @@ import platform.UIKit.UIViewController
 import platform.UIKit.UIWindowScene
 import platform.UniformTypeIdentifiers.UTType
 import platform.UniformTypeIdentifiers.UTTypeContent
+import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_global_queue
 import platform.darwin.dispatch_get_main_queue
 import platform.posix.memcpy
 
@@ -131,6 +133,9 @@ fun openCamera(onResult: (List<Any>) -> Unit) {
 
 // ── Delegates ──────────────────────────────────────────────────
 
+/** A document whose bytes were materialized inside the security-scoped callback. */
+private class LoadedDocument(val data: NSData, val filename: String)
+
 private class DocumentPickerDelegate(
     private val onResult: (List<Any>) -> Unit,
 ) : NSObject(), UIDocumentPickerDelegateProtocol {
@@ -140,37 +145,51 @@ private class DocumentPickerDelegate(
         controller: UIDocumentPickerViewController,
         didPickDocumentsAtURLs: List<*>,
     ) {
-        val results = mutableListOf<Any>()
+        // Pull each file's bytes into memory while its security-scoped resource
+        // is held — the scope is only valid for the duration of this callback,
+        // so the read must happen here. dataWithContentsOfURL fully materializes
+        // the NSData, so the scope can be released immediately afterward; the
+        // heavy byte-copy + image decode then runs off the Main thread.
+        val loaded = mutableListOf<LoadedDocument>()
         for (item in didPickDocumentsAtURLs) {
             val url = item as? NSURL ?: continue
             val accessing = url.startAccessingSecurityScopedResource()
             try {
                 val data = NSData.dataWithContentsOfURL(url) ?: continue
-                val bytes = data.toByteArray() ?: continue
                 val filename = url.lastPathComponent ?: "file"
-                val mimeType = guessMimeType(filename)
+                loaded.add(LoadedDocument(data = data, filename = filename))
+            } finally {
+                if (accessing) url.stopAccessingSecurityScopedResource()
+            }
+        }
+        activePickerDelegate = null
+
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT.toLong(), 0u)) {
+            val results = mutableListOf<Any>()
+            for (doc in loaded) {
+                val bytes = doc.data.toByteArray() ?: continue
+                val mimeType = guessMimeType(doc.filename)
 
                 if (mimeType.startsWith("image/")) {
-                    val image = UIImage(data = data)
+                    val image = UIImage(data = doc.data)
                     val cgImage = image?.CGImage
                     results.add(
                         IosImageData(
                             bytes = bytes,
-                            filename = filename,
+                            filename = doc.filename,
                             mimeType = mimeType,
                             width = cgImage?.let { CGImageGetWidth(it).toInt() },
                             height = cgImage?.let { CGImageGetHeight(it).toInt() },
                         ),
                     )
                 } else {
-                    results.add(IosFileData(bytes = bytes, filename = filename, mimeType = mimeType))
+                    results.add(IosFileData(bytes = bytes, filename = doc.filename, mimeType = mimeType))
                 }
-            } finally {
-                if (accessing) url.stopAccessingSecurityScopedResource()
+            }
+            dispatch_async(dispatch_get_main_queue()) {
+                onResult(results)
             }
         }
-        activePickerDelegate = null
-        onResult(results)
     }
 
     override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) {
@@ -192,14 +211,29 @@ private class PhotoPickerDelegate(
             return
         }
 
+        // All `results`/`remaining` mutation and the terminal delivery happen on
+        // the Main queue so they're serialized — the per-item image decode runs
+        // off Main inside the loadDataRepresentation callback, which only hops
+        // back to Main to record its outcome. The non-image branches mirror that
+        // hop so every completion path is consistent.
         val results = mutableListOf<Any>()
         var remaining = didFinishPicking.size
+
+        fun completeOne(imageData: IosImageData?) {
+            dispatch_async(dispatch_get_main_queue()) {
+                if (imageData != null) results.add(imageData)
+                remaining--
+                if (remaining == 0) {
+                    activePickerDelegate = null
+                    onResult(results)
+                }
+            }
+        }
 
         for (item in didFinishPicking) {
             val pickerResult = item as? PHPickerResult
             if (pickerResult == null) {
-                remaining--
-                if (remaining == 0) onResult(results)
+                completeOne(null)
                 continue
             }
             val provider = pickerResult.itemProvider
@@ -226,18 +260,10 @@ private class PhotoPickerDelegate(
                     if (imageData == null) {
                         Logger.e { "PHPicker: failed to load image: ${error?.localizedDescription}" }
                     }
-                    dispatch_async(dispatch_get_main_queue()) {
-                        if (imageData != null) results.add(imageData)
-                        remaining--
-                        if (remaining == 0) {
-                            activePickerDelegate = null
-                            onResult(results)
-                        }
-                    }
+                    completeOne(imageData)
                 }
             } else {
-                remaining--
-                if (remaining == 0) onResult(results)
+                completeOne(null)
             }
         }
     }
@@ -255,25 +281,30 @@ private class CameraDelegate(
         picker.dismissViewControllerAnimated(true, completion = null)
         activePickerDelegate = null
 
-        val image = didFinishPickingMediaWithInfo[UIImagePickerControllerOriginalImage] as? UIImage
-        if (image != null) {
-            val data = UIImageJPEGRepresentation(image, 0.85) ?: return
-            val bytes = data.toByteArray() ?: return
+        val image = didFinishPickingMediaWithInfo[UIImagePickerControllerOriginalImage] as? UIImage ?: return
+        // A full-resolution capture (12MP+) is expensive to JPEG-encode and copy.
+        // The UIImage is already in memory, so hand the encode to a background
+        // queue and deliver the result back on Main.
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT.toLong(), 0u)) {
+            val data = UIImageJPEGRepresentation(image, 0.85) ?: return@dispatch_async
+            val bytes = data.toByteArray() ?: return@dispatch_async
             val cgImage = image.CGImage
             val width = cgImage?.let { CGImageGetWidth(it).toInt() }
             val height = cgImage?.let { CGImageGetHeight(it).toInt() }
             val timestamp = NSDate().timeIntervalSince1970.toLong()
-            onResult(
-                listOf(
-                    IosImageData(
-                        bytes = bytes,
-                        filename = "photo_$timestamp.jpg",
-                        mimeType = "image/jpeg",
-                        width = width,
-                        height = height,
+            dispatch_async(dispatch_get_main_queue()) {
+                onResult(
+                    listOf(
+                        IosImageData(
+                            bytes = bytes,
+                            filename = "photo_$timestamp.jpg",
+                            mimeType = "image/jpeg",
+                            width = width,
+                            height = height,
+                        ),
                     ),
-                ),
-            )
+                )
+            }
         }
     }
 

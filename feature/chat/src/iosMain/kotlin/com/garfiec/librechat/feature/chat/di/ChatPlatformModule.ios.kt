@@ -40,6 +40,7 @@ actual val chatPlatformModule: Module = module {
             serverDataStore = get(),
             settingsDataStore = get(),
             platformDelegateFactory = get(),
+            defaultDispatcher = get(KoinQualifiers.Default),
         )
     }
 }

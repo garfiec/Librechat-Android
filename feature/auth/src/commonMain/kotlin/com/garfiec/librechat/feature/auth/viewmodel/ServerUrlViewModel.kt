@@ -31,7 +31,9 @@ class ServerUrlViewModel(
 
     init {
         viewModelScope.launch {
-            val existingUrl = serverDataStore.getBaseUrl()
+            // awaitBaseUrl (not getBaseUrl) so a cold-start relaunch doesn't read "" before
+            // ServerDataStore's async warm-up resolves, which would skip pre-filling the saved URL.
+            val existingUrl = serverDataStore.awaitBaseUrl()
             if (existingUrl.isNotBlank()) {
                 _uiState.value = _uiState.value.copy(
                     url = existingUrl,

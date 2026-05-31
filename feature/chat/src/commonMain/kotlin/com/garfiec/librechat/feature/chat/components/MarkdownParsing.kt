@@ -51,15 +51,26 @@ internal fun looksLikeLatex(content: String): Boolean {
 }
 
 private fun looksLikeHtmlBlock(text: String): Boolean {
-    val match = HTML_OPENING_TAG_REGEX.find(text) ?: return false
+    val tagName = htmlOpeningTagName(text) ?: return false
+    return hasHtmlClosingTag(text, tagName)
+}
+
+/**
+ * Returns the normalized block-level HTML tag name that [text] opens with (the regex is
+ * anchored at `^\s*<`, so leading whitespace/newlines are skipped), or null if [text] does
+ * not begin with a recognized block tag. Split out from [looksLikeHtmlBlock] so callers can
+ * test the opening tag against a single line without scanning a whole joined suffix.
+ */
+private fun htmlOpeningTagName(text: String): String? {
+    val match = HTML_OPENING_TAG_REGEX.find(text) ?: return null
     val tagName = match.groupValues[1].lowercase().let {
         if (it.startsWith("!doctype")) "html" else it
     }
-    if (tagName !in HTML_BLOCK_TAG_NAMES) return false
-    val hasClosingTag = text.contains("</$tagName", ignoreCase = true) ||
-        text.contains("/>")
-    return hasClosingTag
+    return tagName.takeIf { it in HTML_BLOCK_TAG_NAMES }
 }
+
+private fun hasHtmlClosingTag(text: String, tagName: String): Boolean =
+    text.contains("</$tagName", ignoreCase = true) || text.contains("/>")
 
 private fun extractHtmlBlocks(segments: List<MarkdownSegment>): List<MarkdownSegment> {
     val result = mutableListOf<MarkdownSegment>()
@@ -77,13 +88,33 @@ private fun extractHtmlBlocks(segments: List<MarkdownSegment>): List<MarkdownSeg
         }
 
         val lines = text.split('\n')
+        // The original probed looksLikeHtmlBlock on the entire joined tail for every line
+        // (an O(N^2) re-join). Equivalent, cheaper pass: the opening-tag regex is anchored
+        // with `^\s*<`, so a suffix opens a block iff its first non-blank line opens one.
+        // Walk the non-blank lines testing only that single line for an opening tag (no
+        // join); a non-blank line that is not an opening tag can still be followed by one,
+        // so keep scanning. Only when a line opens a recognized tag do we materialize the
+        // tail once (folding in any contiguous leading blank run, which `^\s*` collapses) to
+        // run the closing-tag check, then stop at that first match.
         var htmlStart = -1
-        for (i in lines.indices) {
-            val lineText = lines.subList(i, lines.size).joinToString("\n")
-            if (looksLikeHtmlBlock(lineText)) {
-                htmlStart = i
-                break
+        var lineIdx = 0
+        while (lineIdx < lines.size) {
+            val line = lines[lineIdx]
+            if (line.isBlank()) {
+                lineIdx++
+                continue
             }
+            val tagName = htmlOpeningTagName(line)
+            if (tagName != null) {
+                var start = lineIdx
+                while (start > 0 && lines[start - 1].isBlank()) start--
+                val suffix = lines.subList(start, lines.size).joinToString("\n")
+                if (hasHtmlClosingTag(suffix, tagName)) {
+                    htmlStart = start
+                    break
+                }
+            }
+            lineIdx++
         }
 
         if (htmlStart < 0) {

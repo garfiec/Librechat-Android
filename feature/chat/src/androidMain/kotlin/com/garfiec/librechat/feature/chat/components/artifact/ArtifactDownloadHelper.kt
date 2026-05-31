@@ -6,6 +6,8 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -21,7 +23,7 @@ object ArtifactDownloadHelper {
     /** Files older than this are considered stale and cleaned up opportunistically. */
     private const val STALE_THRESHOLD_MS = 60_000L
 
-    fun share(context: Context, artifact: Artifact) {
+    suspend fun share(context: Context, artifact: Artifact) {
         val intent = try {
             shareViaFile(context, artifact)
         } catch (_: Exception) {
@@ -30,11 +32,15 @@ object ArtifactDownloadHelper {
         context.startActivity(Intent.createChooser(intent, "Share artifact"))
     }
 
-    private fun shareViaFile(context: Context, artifact: Artifact): Intent {
+    private suspend fun shareViaFile(context: Context, artifact: Artifact): Intent {
         val extension = extensionForArtifact(artifact)
         val fileName = sanitizeFileName(artifact.title) + extension
-        val dir = File(context.cacheDir, "artifacts").apply { mkdirs() }
-        val file = File(dir, fileName).apply { writeText(artifact.content) }
+        val dir = File(context.cacheDir, "artifacts")
+        val file = File(dir, fileName)
+        withContext(Dispatchers.IO) {
+            dir.mkdirs()
+            file.writeText(artifact.content)
+        }
 
         // Schedule cleanup: delete this file and any stale artifacts after a delay
         scheduleCleanup(file, dir)

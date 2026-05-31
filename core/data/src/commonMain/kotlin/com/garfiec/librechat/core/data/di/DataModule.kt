@@ -92,11 +92,18 @@ val dataModule = module {
     single {
         ServerDataStore(
             dataStore = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
             ioDispatcher = get(KoinQualifiers.IO),
             keychainFallback = getOrNull(),
         )
     } bind ServerUrlProvider::class
-    singleOf(::ThemeDataStore)
+    single {
+        ThemeDataStore(
+            dataStore = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
     singleOf(::ConfigCacheDataStore)
     singleOf(::RoleCacheDataStore)
     singleOf(::SettingsDataStore)
@@ -145,6 +152,15 @@ val dataModule = module {
             chatApi = get(),
             sseClient = get(),
             connectivityObserver = get(),
+            dispatcher = get(KoinQualifiers.Default),
+        )
+    }
+
+    single<MessageRepository> {
+        MessageRepositoryImpl(
+            messagesApi = get(),
+            messageDao = get(),
+            dispatcher = get(KoinQualifiers.Default),
         )
     }
 
@@ -160,7 +176,6 @@ val dataModule = module {
     singleOf(::BalanceRepositoryImpl) bind BalanceRepository::class
     singleOf(::ConfigRepositoryImpl) bind ConfigRepository::class
     singleOf(::ConversationRepositoryImpl) bind ConversationRepository::class
-    singleOf(::MessageRepositoryImpl) bind MessageRepository::class
     singleOf(::FileRepositoryImpl) bind FileRepository::class
     singleOf(::AgentRepositoryImpl) bind AgentRepository::class
     singleOf(::AgentToolsRepositoryImpl) bind AgentToolsRepository::class

@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.agents.di
 
+import com.garfiec.librechat.core.common.di.KoinQualifiers
 import com.garfiec.librechat.feature.agents.viewmodel.AgentAclViewModel
 import com.garfiec.librechat.feature.agents.viewmodel.AgentDetailViewModel
 import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorViewModel
@@ -38,6 +39,7 @@ val agentsModule = module {
             agentToolsRepository = get(),
             fileRepository = get(),
             contentReader = get(),
+            ioDispatcher = get(KoinQualifiers.IO),
             initialAgentId = params.getOrNull(),
         )
     }

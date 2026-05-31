@@ -16,8 +16,10 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,7 +57,9 @@ fun TabletLayout(
     val dismissedBannerIds by navHostViewModel.dismissedBannerIds.collectAsStateWithLifecycle()
 
     // Persisted sidebar state from DataStore -- single source of truth in the ViewModel.
-    val isSidebarOpen by navHostViewModel.tabletSidebarOpen.collectAsStateWithLifecycle()
+    // Null until the persisted value resolves; treat unknown as closed for boolean callers.
+    val resolvedSidebarOpen by navHostViewModel.tabletSidebarOpen.collectAsStateWithLifecycle()
+    val isSidebarOpen = resolvedSidebarOpen == true
 
     // Whether swipe gesture is enabled (from settings)
     val gestureEnabled by navHostViewModel.tabletSidebarGestureEnabled.collectAsStateWithLifecycle()
@@ -64,7 +68,8 @@ fun TabletLayout(
     val sidebarWidthPx = with(density) { SidebarWidth.toPx() }
 
     // Animatable tracks sidebar reveal in pixels: 0 = closed, sidebarWidthPx = open.
-    val sidebarOffset = remember { Animatable(if (isSidebarOpen) sidebarWidthPx else 0f) }
+    val sidebarOffset = remember { Animatable(0f) }
+    var initialStateApplied by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // Back press closes sidebar before navigating away
@@ -72,11 +77,16 @@ fun TabletLayout(
         navHostViewModel.setTabletSidebarOpen(false)
     }
 
-    // Sync: when ViewModel state changes (e.g. hamburger button, back press),
-    // animate the sidebar to match.
-    LaunchedEffect(isSidebarOpen) {
-        val target = if (isSidebarOpen) sidebarWidthPx else 0f
-        if (sidebarOffset.value != target) {
+    // Sync: when ViewModel state changes (e.g. hamburger button, back press), animate the
+    // sidebar to match. The first resolved value is snapped (not animated) so a tablet that
+    // restores "open" doesn't visibly slide the sidebar in on every cold start.
+    LaunchedEffect(resolvedSidebarOpen) {
+        val resolved = resolvedSidebarOpen ?: return@LaunchedEffect
+        val target = if (resolved) sidebarWidthPx else 0f
+        if (!initialStateApplied) {
+            sidebarOffset.snapTo(target)
+            initialStateApplied = true
+        } else if (sidebarOffset.value != target) {
             sidebarOffset.animateTo(
                 targetValue = target,
                 animationSpec = spring(

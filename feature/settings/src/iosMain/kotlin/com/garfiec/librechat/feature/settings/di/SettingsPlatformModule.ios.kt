@@ -8,6 +8,9 @@ import com.garfiec.librechat.feature.settings.viewmodel.delegate.SpeechSettingsF
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -48,27 +51,31 @@ actual val settingsPlatformModule: Module = module {
     single {
         @OptIn(ExperimentalForeignApi::class)
         object : PlatformCacheCleaner {
-            override fun clearCache() {
-                try {
-                    val paths = NSSearchPathForDirectoriesInDomains(
-                        NSCachesDirectory,
-                        NSUserDomainMask,
-                        true,
-                    )
-                    val cachePath = paths.firstOrNull() as? String
-                    if (cachePath == null) {
-                        Logger.w("CacheCleaner") { "Could not resolve caches directory" }
-                        return
+            override suspend fun clearCache() {
+                withContext(Dispatchers.Default) {
+                    try {
+                        val paths = NSSearchPathForDirectoriesInDomains(
+                            NSCachesDirectory,
+                            NSUserDomainMask,
+                            true,
+                        )
+                        val cachePath = paths.firstOrNull() as? String
+                        if (cachePath == null) {
+                            Logger.w("CacheCleaner") { "Could not resolve caches directory" }
+                            return@withContext
+                        }
+                        val fm = NSFileManager.defaultManager
+                        val contents = fm.contentsOfDirectoryAtPath(cachePath, null) as? List<*>
+                        contents?.forEach { item ->
+                            val name = item as? String ?: return@forEach
+                            fm.removeItemAtPath("$cachePath/$name", null)
+                        }
+                        Logger.i("CacheCleaner") { "Cleared iOS caches directory" }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Logger.w(e) { "Failed to clear caches" }
                     }
-                    val fm = NSFileManager.defaultManager
-                    val contents = fm.contentsOfDirectoryAtPath(cachePath, null) as? List<*>
-                    contents?.forEach { item ->
-                        val name = item as? String ?: return@forEach
-                        fm.removeItemAtPath("$cachePath/$name", null)
-                    }
-                    Logger.i("CacheCleaner") { "Cleared iOS caches directory" }
-                } catch (e: Exception) {
-                    Logger.w(e) { "Failed to clear caches" }
                 }
             }
         }

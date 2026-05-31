@@ -71,6 +71,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
             val isConnected by connectivityObserver.isConnected.collectAsStateWithLifecycle(initialValue = true)
+            // Hold off drawing themed content until the persisted theme has resolved, so a
+            // dark-mode user on a light-system device never sees a one-frame flash of the wrong
+            // theme. The system window background covers the sub-frame gap.
+            val themeReady by themeDataStore.isReady.collectAsStateWithLifecycle()
             val themeMode by themeDataStore.themeMode.collectAsStateWithLifecycle(initialValue = themeDataStore.initialThemeMode)
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
@@ -88,44 +92,46 @@ class MainActivity : ComponentActivity() {
                 insetsController.isAppearanceLightNavigationBars = !darkTheme
             }
 
-            LibreChatTheme(darkTheme = darkTheme) {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        AnimatedVisibility(
-                            visible = !isConnected,
-                            enter = expandVertically(),
-                            exit = shrinkVertically(),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.errorContainer)
-                                    .windowInsetsPadding(WindowInsets.statusBars)
-                                    .padding(vertical = 6.dp, horizontal = 16.dp),
-                                contentAlignment = Alignment.Center,
+            if (themeReady) {
+                LibreChatTheme(darkTheme = darkTheme) {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            AnimatedVisibility(
+                                visible = !isConnected,
+                                enter = expandVertically(),
+                                exit = shrinkVertically(),
                             ) {
-                                Text(
-                                    text = stringResource(R.string.no_connection),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .windowInsetsPadding(WindowInsets.statusBars)
+                                        .padding(vertical = 6.dp, horizontal = 16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.no_connection),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                    )
+                                }
                             }
+                            LibreChatNavHost(
+                                windowSizeClass = windowSizeClass,
+                                deepLinkUri = deepLinkUri,
+                                onDeepLinkConsume = { deepLinkUri = null },
+                                shareNavigationTrigger = shareNavigationTrigger,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(
+                                        if (!isConnected) {
+                                            Modifier.consumeWindowInsets(WindowInsets.statusBars)
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                            )
                         }
-                        LibreChatNavHost(
-                            windowSizeClass = windowSizeClass,
-                            deepLinkUri = deepLinkUri,
-                            onDeepLinkConsume = { deepLinkUri = null },
-                            shareNavigationTrigger = shareNavigationTrigger,
-                            modifier = Modifier
-                                .weight(1f)
-                                .then(
-                                    if (!isConnected) {
-                                        Modifier.consumeWindowInsets(WindowInsets.statusBars)
-                                    } else {
-                                        Modifier
-                                    },
-                                ),
-                        )
                     }
                 }
             }

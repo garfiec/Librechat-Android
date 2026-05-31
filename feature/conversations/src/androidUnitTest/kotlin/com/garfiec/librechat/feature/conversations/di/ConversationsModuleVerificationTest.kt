@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SearchRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.TagRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import org.junit.Test
 import org.koin.test.verify.verify
 
@@ -28,6 +29,7 @@ class ConversationsModuleVerificationTest {
                 ConfigRepository::class,
                 RoleRepository::class,
                 ServerDataStore::class,
+                CoroutineDispatcher::class,
             ),
         )
     }

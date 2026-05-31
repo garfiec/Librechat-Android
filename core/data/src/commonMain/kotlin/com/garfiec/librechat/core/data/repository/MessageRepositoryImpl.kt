@@ -10,18 +10,22 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.request.BranchMessageRequest
 import com.garfiec.librechat.core.model.request.UpdateMessageRequest
 import com.garfiec.librechat.core.network.api.MessagesApi
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 class MessageRepositoryImpl(
     private val messagesApi: MessagesApi,
     private val messageDao: MessageDao,
+    private val dispatcher: CoroutineDispatcher,
 ) : MessageRepository {
 
     override fun observeMessages(conversationId: String): Flow<List<Message>> {
         return messageDao.getMessagesForConversation(conversationId)
             .map { entities -> entities.toModels() }
+            .flowOn(dispatcher)
     }
 
     override suspend fun getMessages(conversationId: String): Result<List<Message>> {

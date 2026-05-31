@@ -39,6 +39,7 @@ class AndroidDelegateFactory(
                 speechRepository = speechRepository,
                 autoSendAfterStt = settingsDataStore.autoSendAfterStt
                     .stateIn(stateHandle.scope, SharingStarted.Eagerly, false),
+                ioDispatcher = ioDispatcher,
                 onTranscriptionComplete = onTranscriptionComplete,
             ),
         )
@@ -54,6 +55,7 @@ class AndroidDelegateFactory(
                 appContext = appContext,
                 speechRepository = speechRepository,
                 settingsDataStore = settingsDataStore,
+                ioDispatcher = ioDispatcher,
                 getMessageText = getMessageText,
             ),
         )

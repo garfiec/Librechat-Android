@@ -50,6 +50,9 @@ fun LibreChatApp() {
     setSingletonImageLoaderFactory(imageLoaderFactory)
 
     val themeDataStore = koinInject<ThemeDataStore>()
+    // Hold off drawing themed content until the persisted theme has resolved, so a dark-mode
+    // user on a light-system device never sees a one-frame flash of the wrong theme.
+    val themeReady by themeDataStore.isReady.collectAsState()
     val themeMode by themeDataStore.themeMode.collectAsState(initial = themeDataStore.initialThemeMode)
     val systemDark = isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
@@ -57,7 +60,9 @@ fun LibreChatApp() {
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> systemDark
     }
-    LibreChatTheme(darkTheme = darkTheme) {
-        LibreChatNavHost()
+    if (themeReady) {
+        LibreChatTheme(darkTheme = darkTheme) {
+            LibreChatNavHost()
+        }
     }
 }

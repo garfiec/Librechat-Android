@@ -47,6 +47,8 @@ import com.garfiec.librechat.feature.settings.viewmodel.delegate.McpServerDelega
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.MemoryManagementDelegate
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.SpeechSettingsFactory
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.TwoFactorSecurityDelegate
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -55,6 +57,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class SettingsCommand(
     val name: String,
@@ -242,6 +245,7 @@ private data class DataStorePreferences(
     val selectedVoiceId: String,
 )
 
+@Suppress("LongParameterList")
 class SettingsViewModel(
     private val contentReader: ContentReader,
     private val cacheCleaner: PlatformCacheCleaner,
@@ -262,6 +266,7 @@ class SettingsViewModel(
     private val configRepository: ConfigRepository,
     diagnosticLogRepository: DiagnosticLogRepository,
     appInfo: AppInfo,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     /** Raw state for everything not driven by DataStore flows. */
@@ -555,7 +560,20 @@ class SettingsViewModel(
     fun uploadAvatar(uri: Any) {
         viewModelScope.launch {
             _uiState.update { it.copy(isAvatarUploading = true) }
-            val bytes = contentReader.readBytes(uri)
+            // Reading bytes off the URI is blocking I/O — keep it off the Main
+            // dispatcher (viewModelScope = Main.immediate) to avoid an ANR on
+            // large images. Mirrors the #92 FileAttachmentDelegate fix.
+            val bytes = try {
+                withContext(ioDispatcher) { contentReader.readBytes(uri) }
+            } catch (e: CancellationException) {
+                // Cooperative cancellation must propagate (SKIE/iOS requirement).
+                throw e
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isAvatarUploading = false, error = "Could not read selected image: ${e.message}")
+                }
+                return@launch
+            }
             if (bytes == null) {
                 _uiState.update {
                     it.copy(isAvatarUploading = false, error = "Could not read selected image")

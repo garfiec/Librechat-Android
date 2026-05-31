@@ -155,6 +155,7 @@ class SettingsViewModelTest {
             override val versionCode = 1L
             override val gitSha = "testsha0"
         },
+        ioDispatcher = testDispatcher,
     )
 
     @Test

@@ -159,10 +159,12 @@ private fun ArtifactPanelContent(
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
                 onClick = {
-                    ArtifactDownloadHelper.share(
-                        context = context,
-                        artifact = currentArtifact,
-                    )
+                    scope.launch {
+                        ArtifactDownloadHelper.share(
+                            context = context,
+                            artifact = currentArtifact,
+                        )
+                    }
                 },
                 modifier = Modifier.size(36.dp),
             ) {

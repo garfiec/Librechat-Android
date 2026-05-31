@@ -270,14 +270,16 @@ actual fun FullscreenImageViewer(
                                     ?: return@launch
 
                                 val imagesDir = File(context.cacheDir, "shared_images")
-                                imagesDir.mkdirs()
                                 val imageFile = File(
                                     imagesDir,
                                     "shared_image_${System.currentTimeMillis()}.png",
                                 )
                                 try {
-                                    imageFile.outputStream().use { out ->
-                                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                    withContext(Dispatchers.IO) {
+                                        imagesDir.mkdirs()
+                                        imageFile.outputStream().use { out ->
+                                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                        }
                                     }
                                 } finally {
                                     bitmap.recycle()

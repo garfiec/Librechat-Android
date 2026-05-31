@@ -45,6 +45,9 @@ import com.garfiec.librechat.feature.files.FilePreviewDisplayData
 import com.garfiec.librechat.feature.files.resources.*
 import com.garfiec.librechat.feature.files.resources.Res
 import com.garfiec.librechat.feature.files.screen.InfoRow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
 
@@ -81,59 +84,64 @@ actual fun PdfPreview(
     LaunchedEffect(file.fileId) {
         loadState = PdfLoadState.Loading
         try {
-            val bytes = onDownloadFile?.invoke(file.fileId, file.userId)
-            if (bytes == null) {
-                loadState = PdfLoadState.Error("Failed to download PDF")
-                return@LaunchedEffect
-            }
+            // Download, disk write, and PdfRenderer page rendering are all blocking.
+            // Run them off the Main thread; only the resulting state lands on Main.
+            val result = withContext(Dispatchers.IO) {
+                val bytes = onDownloadFile?.invoke(file.fileId, file.userId)
+                    ?: return@withContext PdfLoadState.Error("Failed to download PDF")
 
-            val pdfPreviewDir = File(context.cacheDir, "pdf_preview").apply { mkdirs() }
-            val pdfTempFile = File(pdfPreviewDir, "pdf_preview_${file.fileId}.pdf")
-            pdfTempFile.writeBytes(bytes)
-            tempFile = pdfTempFile
+                val pdfPreviewDir = File(context.cacheDir, "pdf_preview").apply { mkdirs() }
+                val pdfTempFile = File(pdfPreviewDir, "pdf_preview_${file.fileId}.pdf")
+                pdfTempFile.writeBytes(bytes)
+                tempFile = pdfTempFile
 
-            val fd = ParcelFileDescriptor.open(
-                pdfTempFile,
-                ParcelFileDescriptor.MODE_READ_ONLY,
-            )
-            val renderer = PdfRenderer(fd)
-            val pageCount = renderer.pageCount
-            Logger.d { "PdfPreview: opened PDF with $pageCount pages" }
-
-            val maxPages = minOf(pageCount, 50)
-            val bitmaps = mutableListOf<Bitmap>()
-            val displayMetrics = context.resources.displayMetrics
-            val targetWidth = displayMetrics.widthPixels
-
-            for (i in 0 until maxPages) {
-                val page = renderer.openPage(i)
-                val scale = targetWidth.toFloat() / page.width
-                val bitmapWidth = targetWidth
-                val bitmapHeight = (page.height * scale).toInt()
-
-                val bitmap = Bitmap.createBitmap(
-                    bitmapWidth,
-                    bitmapHeight,
-                    Bitmap.Config.ARGB_8888,
+                val fd = ParcelFileDescriptor.open(
+                    pdfTempFile,
+                    ParcelFileDescriptor.MODE_READ_ONLY,
                 )
-                bitmap.eraseColor(Color.WHITE)
-                page.render(
-                    bitmap,
-                    null,
-                    null,
-                    PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY,
-                )
-                page.close()
-                bitmaps.add(bitmap)
+                val renderer = PdfRenderer(fd)
+                val pageCount = renderer.pageCount
+                Logger.d { "PdfPreview: opened PDF with $pageCount pages" }
+
+                val maxPages = minOf(pageCount, 50)
+                val bitmaps = mutableListOf<Bitmap>()
+                val displayMetrics = context.resources.displayMetrics
+                val targetWidth = displayMetrics.widthPixels
+
+                for (i in 0 until maxPages) {
+                    val page = renderer.openPage(i)
+                    val scale = targetWidth.toFloat() / page.width
+                    val bitmapWidth = targetWidth
+                    val bitmapHeight = (page.height * scale).toInt()
+
+                    val bitmap = Bitmap.createBitmap(
+                        bitmapWidth,
+                        bitmapHeight,
+                        Bitmap.Config.ARGB_8888,
+                    )
+                    bitmap.eraseColor(Color.WHITE)
+                    page.render(
+                        bitmap,
+                        null,
+                        null,
+                        PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY,
+                    )
+                    page.close()
+                    bitmaps.add(bitmap)
+                }
+
+                renderer.close()
+                fd.close()
+
+                if (pageCount > maxPages) {
+                    Logger.d { "PdfPreview: showing first $maxPages of $pageCount pages" }
+                }
+                PdfLoadState.Success(bitmaps)
             }
 
-            renderer.close()
-            fd.close()
-
-            loadState = PdfLoadState.Success(bitmaps)
-            if (pageCount > maxPages) {
-                Logger.d { "PdfPreview: showing first $maxPages of $pageCount pages" }
-            }
+            loadState = result
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Logger.e(e) { "PdfPreview: failed to render PDF" }
             loadState = PdfLoadState.Error(

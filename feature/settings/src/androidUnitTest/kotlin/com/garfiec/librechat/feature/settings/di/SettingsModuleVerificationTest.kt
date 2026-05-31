@@ -25,6 +25,7 @@ import com.garfiec.librechat.core.logging.DiagnosticLogRepository
 import com.garfiec.librechat.feature.settings.util.ContentReader
 import com.garfiec.librechat.feature.settings.util.PlatformCacheCleaner
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.SpeechSettingsFactory
+import kotlinx.coroutines.CoroutineDispatcher
 import org.junit.Test
 import org.koin.test.verify.verify
 
@@ -58,6 +59,8 @@ class SettingsModuleVerificationTest {
                 PlatformCacheCleaner::class,
                 SpeechSettingsFactory::class,
                 DiagnosticLogRepository::class,
+                // Provided by core:common CommonModule via KoinQualifiers.IO.
+                CoroutineDispatcher::class,
             ),
         )
     }

@@ -3,7 +3,6 @@ package com.garfiec.librechat.shared.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
-import com.garfiec.librechat.core.common.extensions.firstBlocking
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.AuthRepository
@@ -19,6 +18,7 @@ import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
+import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.TokenManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,6 +40,7 @@ class NavHostViewModel(
     private val tagRepository: TagRepository,
     private val tokenManager: TokenManager,
     private val settingsDataStore: SettingsDataStore,
+    private val serverUrlProvider: ServerUrlProvider,
 ) : ViewModel() {
 
     private val bannerStateHolder = BannerStateHolder(bannerRepository, viewModelScope)
@@ -51,6 +52,14 @@ class NavHostViewModel(
             .map { list -> list.filter { SAVED_TAG in it.tags } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Seeded synchronously so first-frame routing (LibreChatNavHost reads isLoggedIn.value
+    // once in a LaunchedEffect to redirect to auth) gets the correct value with no flash.
+    // This is a non-blocking in-memory cache read: TokenManager decrypts the access token at
+    // its own construction (TokenDataStore.init -> initializeTokenCache), so by the time the
+    // VM is built the token is already cached and isAuthenticated is just a null check. The
+    // init{} block below re-resolves the same value asynchronously. (The Keychain/
+    // EncryptedSharedPreferences decrypt itself still runs on Main at TokenDataStore
+    // construction — see report follow-up; it is out of this stream's three files.)
     private val _isLoggedIn = MutableStateFlow(tokenManager.isAuthenticated)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
@@ -61,11 +70,17 @@ class NavHostViewModel(
 
     val sessionExpired: SharedFlow<Unit> = tokenManager.sessionExpiredFlow
 
-    val tabletSidebarOpen: StateFlow<Boolean> = settingsDataStore.tabletSidebarOpen
+    // Seeded `null` (= "not resolved yet") and warmed up by the Eagerly-started collector. The
+    // previous synchronous `firstBlocking` read blocked the Main thread Koin instantiates the VM
+    // on. The nullable seed lets TabletLayout distinguish "unknown" from "closed" so it can snap
+    // to the persisted state on first resolution instead of animating false -> true (a visible
+    // sidebar jump on every tablet cold start).
+    val tabletSidebarOpen: StateFlow<Boolean?> = settingsDataStore.tabletSidebarOpen
+        .map<Boolean, Boolean?> { it }
         .stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
-            firstBlocking(settingsDataStore.tabletSidebarOpen, false),
+            null,
         )
 
     val tabletSidebarGestureEnabled: StateFlow<Boolean> = settingsDataStore.tabletSidebarGestureEnabled
@@ -144,6 +159,10 @@ class NavHostViewModel(
     init {
         viewModelScope.launch {
             try {
+                // Wait for the server URL's async warm-up before any startup network work, so a
+                // logged-in cold start can't fire requests (auth check, version/config fetch,
+                // session tasks) at an empty base URL while ServerDataStore is still resolving.
+                serverUrlProvider.awaitBaseUrl()
                 val loggedIn = authRepository.isLoggedIn()
                 _isLoggedIn.value = loggedIn
                 if (loggedIn) {

@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,7 +68,9 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.cValue
 import kotlinx.cinterop.usePinned
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import platform.AVFAudio.AVAudioPlayer
 import platform.AVFoundation.AVLayerVideoGravityResizeAspect
@@ -110,20 +113,19 @@ actual fun AudioContent(
         Text(stringResource(Res.string.audio_no_data), modifier = modifier)
         return
     }
-    // Decode base64 audio data and play via AVAudioPlayer
-    val audioData = remember(data) {
-        try {
-            val nsData = NSData.create(
-                base64EncodedString = data,
-                options = 0u,
-            )
-            nsData
-        } catch (e: Exception) {
-            Logger.e(e) { "Failed to decode audio data" }
-            null
+    // Decode base64 audio data off the composition thread, then play via AVAudioPlayer.
+    // `decodeState`: null = still decoding, Result wraps the decoded NSData (or null on failure).
+    val decodeState by produceState<Result<NSData?>?>(initialValue = null, data) {
+        value = withContext(Dispatchers.Default) {
+            runCatching {
+                NSData.create(base64EncodedString = data, options = 0u)
+            }.onFailure { Logger.e(it) { "Failed to decode audio data" } }
         }
     }
 
+    // While decoding, render nothing to avoid flashing a failure message.
+    val decodeResult = decodeState ?: return
+    val audioData = decodeResult.getOrNull()
     if (audioData == null) {
         Text(stringResource(Res.string.audio_decode_failed), modifier = modifier)
         return
@@ -325,27 +327,31 @@ actual fun AudioContentPlayerFromBytes(
     audioBytes: ByteArray,
     modifier: Modifier,
 ) {
-    // Write bytes to a temp file and play via AudioContentPlayer
-    val tempPath = remember(audioBytes) {
-        val path = NSTemporaryDirectory() + "audio_${audioBytes.hashCode()}.mp3"
-        val nsData = audioBytes.usePinned { pinned ->
-            NSData.create(
-                bytes = pinned.addressOf(0),
-                length = audioBytes.size.toULong(),
-            )
+    // Write bytes to a temp file off the composition thread, then play via AudioContentPlayer.
+    val tempPath by produceState<String?>(initialValue = null, audioBytes) {
+        value = withContext(Dispatchers.Default) {
+            val path = NSTemporaryDirectory() + "audio_${audioBytes.hashCode()}.mp3"
+            val nsData = audioBytes.usePinned { pinned ->
+                NSData.create(
+                    bytes = pinned.addressOf(0),
+                    length = audioBytes.size.toULong(),
+                )
+            }
+            nsData.writeToFile(path, atomically = true)
+            path
         }
-        nsData.writeToFile(path, atomically = true)
-        path
     }
 
-    DisposableEffect(tempPath) {
+    val path = tempPath ?: return
+
+    DisposableEffect(path) {
         onDispose {
-            NSFileManager.defaultManager.removeItemAtPath(tempPath, null)
+            NSFileManager.defaultManager.removeItemAtPath(path, null)
         }
     }
 
     AudioContentPlayer(
-        audioUrl = tempPath,
+        audioUrl = path,
         modifier = modifier,
     )
 }

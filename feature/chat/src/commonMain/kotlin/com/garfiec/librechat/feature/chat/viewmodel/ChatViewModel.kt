@@ -53,6 +53,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDeleg
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -63,6 +64,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -74,7 +76,7 @@ import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LongParameterList")
 class ChatViewModel(
     initialConversationId: String? = null,
     private val agentRepository: AgentRepository,
@@ -96,6 +98,7 @@ class ChatViewModel(
     serverDataStore: ServerDataStore,
     private val settingsDataStore: SettingsDataStore,
     platformDelegateFactory: PlatformDelegateFactory,
+    private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -402,16 +405,28 @@ class ChatViewModel(
                     )
                 }
             }
-            messageRepository.observeMessages(conversationId).collect { messages ->
-                _uiState.update {
-                    val displayMessages = buildActiveMessagePath(messages, it.activeBranches)
-                    it.copy(
-                        messages = messages,
-                        displayMessages = displayMessages,
-                        screenState = ChatScreenState.ACTIVE,
-                    )
-                }
+            // buildActiveMessagePath is pure/synchronous CPU work; computing it on the Default
+            // dispatcher keeps the tree walk off Main. Combining the active-branch selection in
+            // (rather than peeking _uiState.value inside the map) keeps the branch snapshot
+            // consistent with the emission — no torn read — and means switchBranch only has to
+            // mutate activeBranches: the heavy recompute happens here off Main, not on the click
+            // thread. The result feeds a StateFlow (not a Compose snapshot), so it's safe off-Main.
+            combine(
+                messageRepository.observeMessages(conversationId),
+                _uiState.map { it.activeBranches }.distinctUntilChanged(),
+            ) { messages, branches ->
+                messages to buildActiveMessagePath(messages, branches)
             }
+                .flowOn(defaultDispatcher)
+                .collect { (messages, displayMessages) ->
+                    _uiState.update {
+                        it.copy(
+                            messages = messages,
+                            displayMessages = displayMessages,
+                            screenState = ChatScreenState.ACTIVE,
+                        )
+                    }
+                }
         }
     }
 
@@ -486,19 +501,15 @@ class ChatViewModel(
         }
     }
 
-    private fun rebuildDisplayMessages() {
-        _uiState.update {
-            it.copy(displayMessages = buildActiveMessagePath(it.messages, it.activeBranches))
-        }
-    }
-
     fun switchBranch(parentMessageId: String, siblingIndex: Int) {
+        // Only mutate the branch selection; the observeMessages/activeBranches combine in
+        // loadConversation recomputes displayMessages off the Main thread in response, so the
+        // tree walk no longer runs synchronously on this UI click path.
         _uiState.update {
             val newBranches = it.activeBranches.toMutableMap()
             newBranches[parentMessageId] = siblingIndex
             it.copy(activeBranches = newBranches)
         }
-        rebuildDisplayMessages()
     }
 
     fun onInputChanged(text: String) {

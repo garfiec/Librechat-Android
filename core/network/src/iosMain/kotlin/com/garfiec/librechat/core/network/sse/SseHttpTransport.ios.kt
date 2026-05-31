@@ -137,7 +137,9 @@ actual class SseHttpTransport(
         // them. ServerUrlProvider may or may not return a trailing slash, and
         // SseClient passes the stream path without a leading slash, matching
         // how ChatRepositoryImpl builds it ("api/agents/chat/stream/$streamId").
-        val baseUrl = serverUrlProvider.getBaseUrl().trimEnd('/')
+        // awaitBaseUrl (not getBaseUrl) so a reconnect during the warm-up window can't
+        // build the SSE URL against an empty host.
+        val baseUrl = serverUrlProvider.awaitBaseUrl().trimEnd('/')
         val normalizedPath = streamPath.trimStart('/')
         val queryString = if (resume) "?resume=true" else ""
         val fullUrl = "$baseUrl/$normalizedPath$queryString"

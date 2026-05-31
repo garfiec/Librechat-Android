@@ -66,6 +66,12 @@ object LibreChatHttpClient {
             this.tokenManager = tokenManager
         }
 
+        // Resolve the server-URL warm-up before defaultRequest reads getBaseUrl(), so a
+        // cold-start request can't be built against an empty base URL.
+        install(ServerUrlReadyPlugin) {
+            this.serverUrlProvider = serverUrlProvider
+        }
+
         HttpResponseValidator {
             validateResponse { response ->
                 if (!response.status.isSuccess()) {

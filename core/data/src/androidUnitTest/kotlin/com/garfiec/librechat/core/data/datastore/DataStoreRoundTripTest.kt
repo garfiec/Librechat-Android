@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -40,6 +41,7 @@ class DataStoreRoundTripTest {
         val ds = createDataStore("server")
         val store = ServerDataStore(
             dataStore = ds,
+            appScope = CoroutineScope(testDispatcher),
             ioDispatcher = testDispatcher,
         )
 
@@ -54,6 +56,7 @@ class DataStoreRoundTripTest {
         val ds = createDataStore("server-slash")
         val store = ServerDataStore(
             dataStore = ds,
+            appScope = CoroutineScope(testDispatcher),
             ioDispatcher = testDispatcher,
         )
 
@@ -66,6 +69,7 @@ class DataStoreRoundTripTest {
         val ds = createDataStore("server-has")
         val store = ServerDataStore(
             dataStore = ds,
+            appScope = CoroutineScope(testDispatcher),
             ioDispatcher = testDispatcher,
         )
 
@@ -79,7 +83,7 @@ class DataStoreRoundTripTest {
     @Test
     fun themeDataStore_defaultIsSystem() = runTest(testDispatcher) {
         val ds = createDataStore("theme")
-        val store = ThemeDataStore(ds)
+        val store = ThemeDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         assertThat(store.themeMode.first()).isEqualTo(ThemeMode.SYSTEM)
     }
@@ -87,7 +91,7 @@ class DataStoreRoundTripTest {
     @Test
     fun themeDataStore_roundTrip_allModes() = runTest(testDispatcher) {
         val ds = createDataStore("theme-all")
-        val store = ThemeDataStore(ds)
+        val store = ThemeDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         store.setThemeMode(ThemeMode.LIGHT)
         assertThat(store.themeMode.first()).isEqualTo(ThemeMode.LIGHT)

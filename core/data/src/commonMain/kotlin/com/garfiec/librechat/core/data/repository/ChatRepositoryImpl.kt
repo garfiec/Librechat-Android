@@ -10,14 +10,17 @@ import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.sse.SseClient
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 
 class ChatRepositoryImpl(
     private val chatApi: ChatApi,
     private val sseClient: SseClient,
     private val connectivityObserver: ConnectivityObserver,
+    private val dispatcher: CoroutineDispatcher,
 ) : ChatRepository {
 
     override fun startChat(
@@ -75,7 +78,7 @@ class ChatRepositoryImpl(
         // Phase 2: GET the SSE stream using the streamId
         val streamUrl = "api/agents/chat/stream/$streamId"
         emitAll(sseClient.connect(streamUrl, connectivityFlow = connectivityObserver.isConnected))
-    }
+    }.flowOn(dispatcher)
 
     override suspend fun abortChat(streamId: String): Result<Unit> = safeApiCall {
         chatApi.abortChat(streamId)
@@ -88,5 +91,5 @@ class ChatRepositoryImpl(
     override fun resumeStream(conversationId: String): Flow<StreamEvent> = flow {
         val streamUrl = "api/agents/chat/stream/$conversationId"
         emitAll(sseClient.connect(streamUrl, resume = true, connectivityFlow = connectivityObserver.isConnected))
-    }
+    }.flowOn(dispatcher)
 }

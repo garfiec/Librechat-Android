@@ -29,6 +29,7 @@ import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.ServerUrlReadyPlugin
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.core.network.sse.SseClient
 import com.garfiec.librechat.core.network.sse.SseHttpTransport
@@ -94,6 +95,9 @@ val iosSharedModule = module {
         val serverUrlProvider = get<ServerUrlProvider>()
         HttpClient(Darwin) {
             install(ContentNegotiation) { json(json) }
+            install(ServerUrlReadyPlugin) {
+                this.serverUrlProvider = serverUrlProvider
+            }
             install(HttpTimeout) {
                 requestTimeoutMillis = 15_000
                 connectTimeoutMillis = 10_000

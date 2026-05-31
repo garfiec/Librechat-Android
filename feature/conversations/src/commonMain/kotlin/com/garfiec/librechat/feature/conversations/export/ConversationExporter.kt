@@ -5,6 +5,8 @@ import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.model.ConversationExport
 import com.garfiec.librechat.core.model.Message
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
@@ -13,6 +15,7 @@ import kotlin.time.Clock
 class ConversationExporter(
     private val conversationRepository: ConversationRepository,
     private val messageRepository: MessageRepository,
+    private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val json = Json {
         prettyPrint = true
@@ -36,7 +39,10 @@ class ConversationExporter(
             exportedAt = Clock.System.now().toEpochMilliseconds(),
             version = 1,
         )
-        return Result.Success(json.encodeToString(ConversationExport.serializer(), export))
+        val encoded = withContext(ioDispatcher) {
+            json.encodeToString(ConversationExport.serializer(), export)
+        }
+        return Result.Success(encoded)
     }
 
     suspend fun exportAsMarkdown(conversationId: String): Result<String> {
@@ -51,26 +57,29 @@ class ConversationExporter(
             is Result.Loading -> return Result.Error(message = "Unexpected loading state")
         }
 
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val month = now.monthNumber.toString().padStart(2, '0')
-        val day = now.dayOfMonth.toString().padStart(2, '0')
-        val hour = now.hour.toString().padStart(2, '0')
-        val minute = now.minute.toString().padStart(2, '0')
-        val exportDate = "${now.year}-$month-$day $hour:$minute"
+        val markdown = withContext(ioDispatcher) {
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val month = now.monthNumber.toString().padStart(2, '0')
+            val day = now.dayOfMonth.toString().padStart(2, '0')
+            val hour = now.hour.toString().padStart(2, '0')
+            val minute = now.minute.toString().padStart(2, '0')
+            val exportDate = "${now.year}-$month-$day $hour:$minute"
 
-        val sb = StringBuilder()
-        sb.appendLine("# ${conversation.title ?: "Untitled Conversation"}")
-        sb.appendLine("Exported on $exportDate")
-        sb.appendLine()
-
-        for (message in messages) {
-            val role = if (message.isCreatedByUser) "User" else "Assistant"
-            sb.appendLine("## $role")
-            sb.appendLine(extractMessageText(message))
+            val sb = StringBuilder()
+            sb.appendLine("# ${conversation.title ?: "Untitled Conversation"}")
+            sb.appendLine("Exported on $exportDate")
             sb.appendLine()
+
+            for (message in messages) {
+                val role = if (message.isCreatedByUser) "User" else "Assistant"
+                sb.appendLine("## $role")
+                sb.appendLine(extractMessageText(message))
+                sb.appendLine()
+            }
+            sb.toString().trimEnd()
         }
 
-        return Result.Success(sb.toString().trimEnd())
+        return Result.Success(markdown)
     }
 
     private fun extractMessageText(message: Message): String {

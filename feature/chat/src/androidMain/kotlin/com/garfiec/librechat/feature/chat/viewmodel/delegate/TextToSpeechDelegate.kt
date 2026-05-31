@@ -9,8 +9,11 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class TextToSpeechDelegate(
@@ -18,6 +21,7 @@ class TextToSpeechDelegate(
     private val appContext: Context,
     private val speechRepository: SpeechRepository,
     private val settingsDataStore: SettingsDataStore,
+    private val ioDispatcher: CoroutineDispatcher,
     private val getMessageText: (String) -> String,
 ) {
 
@@ -116,35 +120,46 @@ class TextToSpeechDelegate(
             is Result.Success -> {
                 try {
                     val audioBytes = result.data
-                    val ttsDir = File(appContext.cacheDir, "tts").apply { mkdirs() }
-                    val tempFile = File.createTempFile("tts_", ".mp3", ttsDir)
-                    tempFile.deleteOnExit()
-                    tempFile.writeBytes(audioBytes)
-
                     serverTtsPlayer?.release()
-                    serverTtsPlayer = MediaPlayer().apply {
-                        setDataSource(tempFile.absolutePath)
-                        setOnCompletionListener {
-                            it.release()
-                            serverTtsPlayer = null
-                            tempFile.delete()
-                            stateHandle.update { copy(currentlyReadingMessageId = null) }
-                        }
-                        setOnErrorListener { mp, _, _ ->
-                            mp.release()
-                            serverTtsPlayer = null
-                            tempFile.delete()
-                            stateHandle.update {
-                                copy(
-                                    currentlyReadingMessageId = null,
-                                    error = "Server TTS playback failed",
-                                )
+                    serverTtsPlayer = withContext(ioDispatcher) {
+                        val ttsDir = File(appContext.cacheDir, "tts").apply { mkdirs() }
+                        val tempFile = File.createTempFile("tts_", ".mp3", ttsDir)
+                        tempFile.deleteOnExit()
+                        tempFile.writeBytes(audioBytes)
+
+                        MediaPlayer().apply {
+                            setDataSource(tempFile.absolutePath)
+                            // MediaPlayer is created on a Looper-less ioDispatcher thread, so
+                            // these callbacks fire on the Main looper. release() + temp-file
+                            // delete are blocking, so hand them to ioDispatcher.
+                            setOnCompletionListener { mp ->
+                                serverTtsPlayer = null
+                                stateHandle.update { copy(currentlyReadingMessageId = null) }
+                                stateHandle.scope.launch(ioDispatcher) {
+                                    mp.release()
+                                    tempFile.delete()
+                                }
                             }
-                            true
+                            setOnErrorListener { mp, _, _ ->
+                                serverTtsPlayer = null
+                                stateHandle.update {
+                                    copy(
+                                        currentlyReadingMessageId = null,
+                                        error = "Server TTS playback failed",
+                                    )
+                                }
+                                stateHandle.scope.launch(ioDispatcher) {
+                                    mp.release()
+                                    tempFile.delete()
+                                }
+                                true
+                            }
+                            prepare()
+                            start()
                         }
-                        prepare()
-                        start()
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     stateHandle.update {
                         copy(

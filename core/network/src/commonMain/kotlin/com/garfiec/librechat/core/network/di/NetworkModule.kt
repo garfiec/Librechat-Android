@@ -29,6 +29,7 @@ import com.garfiec.librechat.core.network.api.UserApi
 import com.garfiec.librechat.core.network.client.AuthInterceptorPlugin
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.ServerUrlReadyPlugin
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.core.network.sse.SseClient
 import io.ktor.client.HttpClient
@@ -79,6 +80,9 @@ val networkModule = module {
             install(AuthInterceptorPlugin) {
                 this.tokenManager = tokenManager
             }
+            install(ServerUrlReadyPlugin) {
+                this.serverUrlProvider = serverUrlProvider
+            }
             install(HttpTimeout) {
                 connectTimeoutMillis = 10_000
                 requestTimeoutMillis = Long.MAX_VALUE
@@ -100,6 +104,9 @@ val networkModule = module {
         val engineFactory = get<HttpClientEngineFactory<*>>()
         HttpClient(engineFactory) {
             install(ContentNegotiation) { json(json) }
+            install(ServerUrlReadyPlugin) {
+                this.serverUrlProvider = serverUrlProvider
+            }
             install(HttpTimeout) {
                 requestTimeoutMillis = 15_000
                 connectTimeoutMillis = 10_000

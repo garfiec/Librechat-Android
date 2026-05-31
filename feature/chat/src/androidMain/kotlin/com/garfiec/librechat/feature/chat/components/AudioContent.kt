@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +24,8 @@ import androidx.media3.datasource.ByteArrayDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -42,15 +46,22 @@ actual fun AudioContent(
         else -> "audio/wav"
     }
 
-    val exoPlayer = remember(data) {
-        val audioBytes = try {
-            Base64.decode(data, Base64.DEFAULT)
-        } catch (_: IllegalArgumentException) {
-            return@remember null
+    // Base64 decode is heavy for large clips; do it off the composition thread.
+    val audioBytes by produceState<ByteArray?>(initialValue = null, data) {
+        value = withContext(Dispatchers.Default) {
+            try {
+                Base64.decode(data, Base64.DEFAULT)
+            } catch (_: IllegalArgumentException) {
+                null
+            }
         }
+    }
 
-        val dataSource = ByteArrayDataSource(audioBytes)
-
+    // ExoPlayer must be created/accessed on the thread it will be used (Main); keep it here,
+    // built only once the decoded bytes are available.
+    val exoPlayer = remember(audioBytes) {
+        val bytes = audioBytes ?: return@remember null
+        val dataSource = ByteArrayDataSource(bytes)
         ExoPlayer.Builder(context).build().apply {
             val mediaSource = ProgressiveMediaSource.Factory { dataSource }
                 .createMediaSource(MediaItem.fromUri("data:$mimeType;base64,placeholder"))

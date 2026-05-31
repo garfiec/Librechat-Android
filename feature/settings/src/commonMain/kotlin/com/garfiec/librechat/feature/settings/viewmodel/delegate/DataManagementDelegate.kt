@@ -11,6 +11,7 @@ import com.garfiec.librechat.feature.settings.model.SharedLinkDisplayData
 import com.garfiec.librechat.feature.settings.util.PlatformCacheCleaner
 import com.garfiec.librechat.feature.settings.viewmodel.LogsExportPayload
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsStateHandle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
@@ -217,6 +218,8 @@ class DataManagementDelegate(
             try {
                 cacheCleaner.clearCache()
                 stateHandle.update { copy(isCacheClearing = false) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 stateHandle.update {
                     copy(

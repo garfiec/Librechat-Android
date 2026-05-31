@@ -41,6 +41,8 @@ import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.components.model.buildAgentVersionList
 import com.garfiec.librechat.feature.agents.util.ContentReader
 import com.garfiec.librechat.feature.agents.util.OpenApiSpecParser
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -48,6 +50,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -197,6 +200,7 @@ class AgentEditorViewModel(
     private val agentToolsRepository: AgentToolsRepository,
     private val fileRepository: FileRepository,
     private val contentReader: ContentReader,
+    private val ioDispatcher: CoroutineDispatcher,
     initialAgentId: String? = null,
 ) : ViewModel() {
 
@@ -992,7 +996,10 @@ class AgentEditorViewModel(
         val agentId = _uiState.value.agentId ?: return
         viewModelScope.launch {
             try {
-                val bytes = contentReader.readBytes(uri) ?: return@launch
+                // Reading bytes off the URI is blocking I/O — keep it off the Main
+                // dispatcher (viewModelScope = Main.immediate) to avoid an ANR on
+                // large images. Mirrors the #92 FileAttachmentDelegate fix.
+                val bytes = withContext(ioDispatcher) { contentReader.readBytes(uri) } ?: return@launch
                 if (bytes.size > AVATAR_SIZE_LIMIT_BYTES) {
                     val limitMb = AVATAR_SIZE_LIMIT_BYTES / (1024 * 1024)
                     _uiState.value = _uiState.value.copy(
@@ -1015,6 +1022,9 @@ class AgentEditorViewModel(
                     }
                     is Result.Loading -> { /* no-op */ }
                 }
+            } catch (e: CancellationException) {
+                // Cooperative cancellation must propagate (SKIE/iOS requirement).
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to read image: ${e.message}",

@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.settings.di
 
+import com.garfiec.librechat.core.common.di.KoinQualifiers
 import com.garfiec.librechat.feature.settings.util.AndroidCacheCleaner
 import com.garfiec.librechat.feature.settings.util.AndroidContentReader
 import com.garfiec.librechat.feature.settings.util.ContentReader
@@ -21,6 +22,7 @@ actual val settingsPlatformModule: Module = module {
                 context = androidContext(),
                 speechRepository = get(),
                 settingsDataStore = get(),
+                ioDispatcher = get(KoinQualifiers.IO),
             )
         }
     }

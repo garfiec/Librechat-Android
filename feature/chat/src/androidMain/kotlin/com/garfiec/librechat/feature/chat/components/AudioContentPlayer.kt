@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,7 +37,9 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
 import java.util.Locale
@@ -188,19 +191,23 @@ actual fun AudioContentPlayerFromBytes(
     modifier: Modifier,
 ) {
     val context = LocalContext.current
-    val tempFile = remember(audioBytes) {
-        val audioDir = File(context.cacheDir, "audio").apply { mkdirs() }
-        File.createTempFile("audio_", ".mp3", audioDir).apply {
-            writeBytes(audioBytes)
+    // Writing the temp file is blocking; do it off the composition thread.
+    val tempFile by produceState<File?>(initialValue = null, audioBytes) {
+        value = withContext(Dispatchers.IO) {
+            val audioDir = File(context.cacheDir, "audio").apply { mkdirs() }
+            File.createTempFile("audio_", ".mp3", audioDir).apply {
+                writeBytes(audioBytes)
+            }
         }
     }
-    DisposableEffect(tempFile) {
+    val file = tempFile ?: return
+    DisposableEffect(file) {
         onDispose {
-            tempFile.delete()
+            file.delete()
         }
     }
     AudioContentPlayer(
-        audioUrl = tempFile.absolutePath,
+        audioUrl = file.absolutePath,
         modifier = modifier,
     )
 }

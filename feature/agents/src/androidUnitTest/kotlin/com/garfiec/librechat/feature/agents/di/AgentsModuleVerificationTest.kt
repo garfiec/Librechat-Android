@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.PermissionsRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
+import kotlinx.coroutines.CoroutineDispatcher
 import org.junit.Test
 import org.koin.test.verify.verify
 
@@ -30,6 +31,8 @@ class AgentsModuleVerificationTest {
                 RoleRepository::class,
                 PermissionGate::class,
                 ServerDataStore::class,
+                // Provided by core:common CommonModule via KoinQualifiers.IO.
+                CoroutineDispatcher::class,
             ),
         )
     }
