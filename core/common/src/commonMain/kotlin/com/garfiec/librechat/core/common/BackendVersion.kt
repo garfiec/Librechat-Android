@@ -17,8 +17,12 @@ object BackendVersion {
      * The LibreChat backend version this app was built and tested against.
      * Matches the VERSION constant from the official LibreChat repo's
      * `packages/data-provider/src/config.ts` and `package.json`.
+     *
+     * Single source of truth: `backendTargetVersion` in the root `version.properties`,
+     * code-generated into [BACKEND_TARGET_VERSION] by core/common's `generateBackendVersion`
+     * task. Edit the property — not this literal — so the app and CI release notes stay in sync.
      */
-    const val SUPPORTED_BACKEND_VERSION = "0.8.5"
+    const val SUPPORTED_BACKEND_VERSION = BACKEND_TARGET_VERSION
 
     /**
      * Represents a parsed semantic version (major.minor.patch).

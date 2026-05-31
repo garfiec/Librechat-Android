@@ -7,15 +7,20 @@ How releases are versioned, signed, and published for LibreChat Mobile (Android)
 The app version lives in **one place**: `version.properties` at the repo root.
 
 ```properties
-versionName=0.1.0   # human-facing semver — the only thing you bump
+versionName=0.1.0          # human-facing semver — the only thing you bump
+backendTargetVersion=0.8.5 # LibreChat backend this build targets (best-tested)
 ```
 
 - `AndroidApplicationConventionPlugin` reads `versionName` and **derives** `versionCode` as
   `MAJOR*10000 + MINOR*100 + PATCH` (digits XXYYZZ): `0.1.0` → `100`, `1.2.3` → `10203`.
   Monotonic as long as semver increases; limits are MINOR ≤ 99, PATCH ≤ 99.
 - The About screen reads the *installed* version via `AppInfo` (package metadata), so it can never drift.
-- This is the **app's** version and is intentionally independent of `SUPPORTED_BACKEND_VERSION`
-  (`core/common/BackendVersion.kt`), which tracks the LibreChat backend the app targets.
+- This is the **app's** version and is intentionally independent of `backendTargetVersion`.
+- `backendTargetVersion` is the **single source of truth** for the LibreChat backend the app
+  targets. The app reads it via `BackendVersion.SUPPORTED_BACKEND_VERSION` (code-generated from
+  this property by core/common's `generateBackendVersion` task), and `release.yml` reads the same
+  key to add a **Target backend:** line to each release's notes. Edit the property — never the
+  `SUPPORTED_BACKEND_VERSION` literal in `core/common/BackendVersion.kt` (it no longer exists as a literal).
 
 Both platforms derive from the same `versionName`, so they stay in lockstep:
 

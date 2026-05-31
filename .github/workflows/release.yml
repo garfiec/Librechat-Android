@@ -90,6 +90,14 @@ jobs:
         id: bump
         run: ./scripts/bump-version.sh "${{ inputs.bump }}"
 
+      # Same source of truth the app reads (core/common codegen) — surfaced in the
+      # release notes so users know which LibreChat backend this build targets.
+      - name: Read backend target version
+        id: backend
+        run: |
+          v="$(grep '^backendTargetVersion=' version.properties | cut -d= -f2 | tr -d '[:space:]')"
+          echo "target=$v" >> "$GITHUB_OUTPUT"
+
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
@@ -161,6 +169,8 @@ jobs:
           body: |
 
             ---
+            **Target backend:** LibreChat v${{ steps.backend.outputs.target }}
+
             [Build provenance attestation](${{ steps.attest.outputs.attestation-url }}) · [CI workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           files: |
             ${{ steps.artifacts.outputs.apk }}

@@ -64,7 +64,7 @@ cat UPSTREAM_VERSION
 ```
 If missing, create from current state:
 ```bash
-VERSION=$(grep 'SUPPORTED_BACKEND_VERSION' core/common/src/commonMain/kotlin/com/garfiec/librechat/core/common/BackendVersion.kt | grep -o '"[^"]*"' | tr -d '"')
+VERSION=$(grep '^backendTargetVersion=' version.properties | cut -d= -f2 | tr -d '[:space:]')
 COMMIT=$(cd upstream && git rev-parse HEAD)
 echo "# Upstream LibreChat version this mobile build tracks." > UPSTREAM_VERSION
 echo "# Updated by the sync-upstream skill. Do not edit manually." >> UPSTREAM_VERSION
@@ -84,15 +84,15 @@ If dirty, ask the user to commit or stash before proceeding.
 Check if a prior sync was partially done in another session:
 ```bash
 TRACKED_TAG=$(grep '^tag=' UPSTREAM_VERSION | cut -d= -f2)
-CODE_VERSION=$(grep 'SUPPORTED_BACKEND_VERSION' core/common/src/commonMain/kotlin/com/garfiec/librechat/core/common/BackendVersion.kt | grep -o '"[^"]*"' | tr -d '"')
+CODE_VERSION=$(grep '^backendTargetVersion=' version.properties | cut -d= -f2 | tr -d '[:space:]')
 SUBMODULE_HEAD=$(cd upstream && git rev-parse HEAD)
 TRACKED_COMMIT=$(grep '^commit=' UPSTREAM_VERSION | cut -d= -f2)
 ```
 
 If `TRACKED_TAG` (without `v` prefix) != `CODE_VERSION`, or `SUBMODULE_HEAD` != `TRACKED_COMMIT`:
 > "It looks like a sync may have been partially done. UPSTREAM_VERSION says {TRACKED_TAG}
-> but BackendVersion.kt says {CODE_VERSION}. Should I treat the higher version as the
-> current baseline, or would you like to investigate?"
+> but version.properties (backendTargetVersion) says {CODE_VERSION}. Should I treat the
+> higher version as the current baseline, or would you like to investigate?"
 
 Wait for user response before continuing.
 
@@ -364,7 +364,7 @@ Create a task for the implementer with the approved change list:
 > content blocks (D2)`).
 >
 > **After all code changes:**
-> 1. Update `SUPPORTED_BACKEND_VERSION` in `core/common/src/commonMain/kotlin/com/garfiec/librechat/core/common/BackendVersion.kt` to "{new_version}" (without `v` prefix)
+> 1. Update `backendTargetVersion` in the root `version.properties` to `{new_version}` (without `v` prefix). This is the single source of truth — a Gradle task code-generates `BackendVersion.SUPPORTED_BACKEND_VERSION` from it, and `release.yml` reads the same key. Do **not** edit the `BackendVersion.kt` literal (it no longer exists).
 > 2. Advance submodule: `cd upstream && git checkout {target_tag}`
 > 3. Update `UPSTREAM_VERSION` at repo root:
 >    ```
@@ -409,7 +409,7 @@ After implementer reports done, create a task for the verifier:
 >    - For new endpoints: was `DISCOVERY.md` updated?
 >
 > **Version consistency:**
-> 7. `SUPPORTED_BACKEND_VERSION` in `core/common/src/commonMain/.../BackendVersion.kt` matches target
+> 7. `backendTargetVersion` in the root `version.properties` matches target (this drives the generated `SUPPORTED_BACKEND_VERSION`)
 > 8. `UPSTREAM_VERSION` file has correct tag, commit, date
 > 9. Submodule is at the correct tag: `cd upstream && git describe --tags`
 > 10. `DISCOVERY.md` reflects endpoint additions/removals
@@ -466,7 +466,7 @@ This is a first pass. Device testing comes next.
 3. Connect to a v{target_tag} server + at least one older supported server and walk the test plan.
 
 ### Version Updates (on this branch, not yet shipped)
-- SUPPORTED_BACKEND_VERSION: {old} → {new}
+- backendTargetVersion (version.properties): {old} → {new}
 - UPSTREAM_VERSION tag: {old_tag} → {new_tag}
 - Submodule: pinned to {target_tag}
 - DISCOVERY.md: {brief summary of what was appended}
@@ -503,7 +503,7 @@ Spawn teammates in parallel (single message, multiple Agent calls).
 | Situation | Recovery |
 |-----------|----------|
 | Submodule missing | `git submodule add https://github.com/danny-avila/LibreChat.git upstream` |
-| `UPSTREAM_VERSION` missing | Create from `SUPPORTED_BACKEND_VERSION` + submodule HEAD |
+| `UPSTREAM_VERSION` missing | Create from `version.properties` `backendTargetVersion` + submodule HEAD |
 | No newer tags | Report "up to date" and stop |
 | Dirty working tree | Ask user to commit/stash |
 | Git fetch fails | Show `git remote -v`, check network |
@@ -511,6 +511,6 @@ Spawn teammates in parallel (single message, multiple Agent calls).
 | iOS framework link fails (but Android passes) | Implementer likely forgot iosMain updates — message them to audit iosMain source sets for affected modules |
 | Detekt fails (any source set) | Implementer fixes findings. Do not use `--ignore-failures`. |
 | User cancels at Phase C | Delete or archive the proposal artifact, tear down the team (`TeamDelete`), stop cleanly |
-| Version mismatch (tracked tag ≠ BackendVersion.kt) | Ask user which is the true baseline |
+| Version mismatch (tracked tag ≠ version.properties backendTargetVersion) | Ask user which is the true baseline |
 | Session compacted mid-run | List `.claude/sync-upstream/artifacts/` — newest file indicates phase reached; resume from there |
 | Teammate unresponsive | Check task status, re-send message; sub-agent as last resort |

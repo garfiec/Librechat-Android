@@ -16,6 +16,10 @@ The canonical API for version comparisons lives in
 The detected server version is exposed via `ConfigRepository.detectedBackendVersion`
 (populated once `checkBackendVersion()` runs on app startup / server-switch).
 
+`BackendVersion.SUPPORTED_BACKEND_VERSION` (the backend this build targets) is **generated**
+from `backendTargetVersion` in the root `version.properties` by core/common's
+`generateBackendVersion` Gradle task — bump that property, not the constant.
+
 ## Catalog
 
 | Feature | Gated since | Behavior on older | Behavior on newer | File:line | Safe to remove when min supported server ≥ |
