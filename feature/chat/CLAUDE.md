@@ -77,7 +77,7 @@
 - `MermaidWebContent` renders Mermaid diagrams via CDN mermaid.js with zoom controls and dark theme
 - `MarkdownWebContent` renders Markdown via CDN marked.js + highlight.js with GFM and syntax highlighting
 - HTML/React/SVG templates include Tailwind CDN, theme CSS vars, and error handling
-- React template preprocesses import/export statements for browser-compatible execution
+- React artifacts compile in-browser (Babel) and load as a real ES module; the artifact's `import`/`export` run verbatim against a generated import map that resolves every bare package via an ESM CDN (no source rewriting, no per-library handling)
 - `ArtifactPanel` supports fullscreen Dialog mode, version switching, loading indicator, and WebView error overlay
 - `ArtifactButton` shows type-specific icons and subtitle (e.g. "Mermaid Diagram", "React Component")
 - `ContentPartRenderer` wires `groupArtifactVersions()` to pass version lists to ArtifactButton/ArtifactPanel

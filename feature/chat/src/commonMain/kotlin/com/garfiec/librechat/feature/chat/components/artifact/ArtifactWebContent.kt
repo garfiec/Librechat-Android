@@ -1,6 +1,8 @@
 package com.garfiec.librechat.feature.chat.components.artifact
 
 import com.garfiec.librechat.core.model.TextFormat
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
  * Builds the HTML document for an artifact preview. Used by both the fullscreen
@@ -158,30 +160,75 @@ object ArtifactWebContent {
         """.trimIndent()
     }
 
-    // Security note: React artifacts intentionally render unsanitized content because they
-    // must execute user-provided JSX/JS code. 'unsafe-inline' and 'unsafe-eval' are required
-    // in script-src for Babel transpilation and React rendering.
+    // Security note: React artifacts intentionally render unsanitized, model-generated
+    // JSX/JS. The preview runs in a sandboxed WebView under a CSP that restricts script
+    // and network origins to the ESM CDN + Tailwind. Imports are resolved at runtime via
+    // a generated import map pointing at an ESM CDN, so ANY npm package the model reaches
+    // for resolves without per-library handling — mirroring the web app's Sandpack bundler.
+    private const val ESM_CDN = "https://esm.sh"
+
+    /** React version pinned across the import map so the runner, the artifact
+     *  module, and every externalized library dep resolve to one React instance
+     *  (mismatched copies break hooks with "invalid hook call"). */
+    private const val REACT_PIN = "18.3.1"
+
+    /** Captures the module specifier of every `import … from 'X'` and bare
+     *  side-effect `import 'X'`. */
+    private val MODULE_SPECIFIER = Regex("""(?:from|import)\s*['"]([^'"]+)['"]""")
+
+    /** Always-present entries so React itself resolves to a single pinned copy;
+     *  react-dom and all third-party libs externalize onto these via `?external`. */
+    private val CORE_IMPORTS = linkedMapOf(
+        "react" to "$ESM_CDN/react@$REACT_PIN",
+        "react/jsx-runtime" to "$ESM_CDN/react@$REACT_PIN/jsx-runtime",
+        "react-dom" to "$ESM_CDN/react-dom@$REACT_PIN?external=react",
+        "react-dom/client" to "$ESM_CDN/react-dom@$REACT_PIN/client?external=react",
+    )
+
+    /**
+     * Builds an import map covering every bare module specifier the artifact
+     * imports. Relative (`./`, `/`) and absolute-URL specifiers are left untouched.
+     * Each bare package maps to the ESM CDN with React/ReactDOM externalized so it
+     * shares the single pinned instance. This is the general-purpose mechanism:
+     * the model can import any npm package and it resolves with no special-casing.
+     */
+    private fun buildReactImportMap(content: String): String {
+        val entries = LinkedHashMap(CORE_IMPORTS)
+        MODULE_SPECIFIER.findAll(content)
+            .map { it.groupValues[1] }
+            .filter { spec ->
+                // Bare npm specifiers only: skip relative ('.'/'..'), absolute and
+                // protocol-relative ('/', '//') paths, and any URL scheme ('http:',
+                // 'data:', 'node:', …) — none of which a valid package name contains.
+                spec.isNotBlank() &&
+                    !spec.startsWith(".") &&
+                    !spec.startsWith("/") &&
+                    !spec.contains(":") &&
+                    spec !in CORE_IMPORTS
+            }
+            .forEach { spec -> entries[spec] = "$ESM_CDN/$spec?external=react,react-dom" }
+        val imports = entries.entries.joinToString(",\n      ") { (k, v) -> "\"$k\": \"$v\"" }
+        return "{\n    \"imports\": {\n      $imports\n    }\n  }"
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
     private fun buildReactHtml(content: String, bgColor: String, fgColor: String): String {
-        val processed = content
-            .replace(Regex("""import\s*\{([^}]+)\}\s*from\s*['"]react['"];?""")) {
-                "const {${it.groupValues[1]}} = React;"
-            }
-            .replace(Regex("""import\s*React\s*from\s*['"]react['"];?"""), "")
-            .replace(Regex("""import\s*\{([^}]+)\}\s*from\s*['"]react-dom['"];?""")) {
-                "const {${it.groupValues[1]}} = ReactDOM;"
-            }
-            .replace(Regex("""export\s+default\s+function\s+"""), "function ")
-            .replace(Regex("""export\s+default\s+"""), "const _DefaultExport = ")
+        val importMap = buildReactImportMap(content)
+        // Embed the source as base64 so arbitrary JSX — including `</script>`,
+        // backticks, or `${'$'}{...}` — round-trips with zero HTML/JS escaping
+        // hazards. The runner decodes, compiles JSX, and imports it as a real
+        // ES module so the artifact's own `import`/`export` statements work
+        // verbatim against the import map (no source rewriting).
+        val sourceB64 = Base64.encode(content.encodeToByteArray())
 
         return """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; style-src 'unsafe-inline'; img-src data: blob: https:; connect-src https://cdn.tailwindcss.com;">
-                <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-                <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-                <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' blob: https://esm.sh https://unpkg.com https://cdn.tailwindcss.com; style-src 'unsafe-inline' https:; img-src data: blob: https:; font-src data: https:; connect-src https://esm.sh https://cdn.tailwindcss.com;">
+                <script type="importmap">$importMap</script>
+                <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
                 <script src="https://cdn.tailwindcss.com"></script>
                 <style>
                     :root { --bg: $bgColor; --fg: $fgColor; }
@@ -205,39 +252,40 @@ object ArtifactWebContent {
             <body>
                 <div id="root"></div>
                 <div id="error-display"></div>
-                <script>
-                    window.addEventListener('error', function(e) {
-                        var errDiv = document.getElementById('error-display');
-                        if (errDiv && !document.getElementById('root').hasChildNodes()) {
-                            errDiv.style.display = 'block';
-                            errDiv.textContent = 'Component compilation failed:\n' + (e.message || 'Unknown error');
-                        }
-                    });
-                </script>
-                <script type="text/babel">
-                    try {
-                        const { useState, useEffect, useRef, useMemo, useCallback, useReducer, useContext, createContext } = React;
-
-                        $processed
-
-                        const _root = ReactDOM.createRoot(document.getElementById('root'));
-                        const _Component = typeof _DefaultExport !== 'undefined' ? _DefaultExport
-                            : typeof App !== 'undefined' ? App
-                            : typeof Counter !== 'undefined' ? Counter
-                            : typeof Main !== 'undefined' ? Main
-                            : typeof Component !== 'undefined' ? Component
-                            : null;
-                        if (_Component) {
-                            if (typeof _Component === 'function') {
-                                _root.render(React.createElement(_Component));
-                            } else {
-                                _root.render(_Component);
-                            }
-                        }
-                    } catch (e) {
-                        var errDiv = document.getElementById('error-display');
+                <script type="module">
+                    const root = document.getElementById('root');
+                    const errDiv = document.getElementById('error-display');
+                    function showError(msg) {
+                        if (root.hasChildNodes()) return;
                         errDiv.style.display = 'block';
-                        errDiv.textContent = 'Component compilation failed:\n' + e.message;
+                        errDiv.textContent = 'Component failed to render:\n' + msg;
+                    }
+                    window.addEventListener('error', function(e) { showError(e.message || 'Unknown error'); });
+                    window.addEventListener('unhandledrejection', function(e) {
+                        showError((e.reason && e.reason.message) || String(e.reason));
+                    });
+                    try {
+                        const ReactNS = await import('react');
+                        const React = ReactNS.default || ReactNS;
+                        const { createRoot } = await import('react-dom/client');
+                        const source = new TextDecoder().decode(
+                            Uint8Array.from(atob('$sourceB64'), function(c) { return c.charCodeAt(0); })
+                        );
+                        const compiled = Babel.transform(source, {
+                            presets: [['react', { runtime: 'automatic', development: false }]],
+                            filename: 'artifact.jsx',
+                            sourceType: 'module',
+                        }).code;
+                        const blobUrl = URL.createObjectURL(new Blob([compiled], { type: 'text/javascript' }));
+                        const mod = await import(blobUrl);
+                        const Component = mod.default ||
+                            Object.values(mod).find(function(v) { return typeof v === 'function'; });
+                        if (!Component) {
+                            throw new Error('No React component is exported. Add `export default`.');
+                        }
+                        createRoot(root).render(React.createElement(Component));
+                    } catch (e) {
+                        showError((e && e.message) || String(e));
                     }
                 </script>
             </body>
