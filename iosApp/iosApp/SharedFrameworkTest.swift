@@ -39,7 +39,9 @@ func verifySharedFrameworkImport() {
         contextMeta: nil,
         createdAt: nil,
         updatedAt: nil,
-        title: nil
+        title: nil,
+        manualSkills: nil,
+        alwaysAppliedSkills: nil
     )
     assert(message.messageId == "msg-swift-001")
     assert(message.text == "Hello from Swift!")
@@ -68,7 +70,7 @@ func verifySharedFrameworkImport() {
         assert(d.chunk == "Hello")
     case .error, .final, .toolCallStart, .toolCallComplete,
          .thinkingDelta, .attachmentCreated, .retrying, .sync,
-         .step, .created, .contextSummary:
+         .step, .created, .contextSummary, .subagentUpdate:
         assertionFailure("Wrong case")
     }
 

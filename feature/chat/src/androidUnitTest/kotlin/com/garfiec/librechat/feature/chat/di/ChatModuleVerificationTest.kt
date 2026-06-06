@@ -23,6 +23,7 @@ import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.serialization.json.Json
 import org.junit.Test
 import org.koin.test.verify.verify
 
@@ -56,6 +57,8 @@ class ChatModuleVerificationTest {
                 // Dispatchers are supplied via Koin qualifiers in explicit blocks; verify()
                 // can't see qualifiers, so whitelist the type as externally provided.
                 CoroutineDispatcher::class,
+                // Provided by core:network NetworkModule (SSE/tool-call JSON parsing).
+                Json::class,
             ),
         )
     }

@@ -91,6 +91,7 @@ import org.koin.core.parameter.parametersOf
 actual fun ChatScreen(
     modifier: Modifier,
     conversationId: String?,
+    initialAgentId: String?,
     onConversationStart: ((String) -> Unit)?,
     onNavigateToConversation: ((String) -> Unit)?,
     onOpenDrawer: (() -> Unit)?,
@@ -98,7 +99,7 @@ actual fun ChatScreen(
     onNavigateBack: (() -> Unit)?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
-    val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId) }
+    val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
@@ -114,13 +115,13 @@ actual fun ChatScreen(
         ChatFontSize.LARGE -> 1.2f
     }
 
-    // Resolve agent name for model display
-    val agentName = if (uiState.selectedEndpoint == EndpointConstants.AGENTS && uiState.selectedModel != null) {
-        uiState.agents.find { it.id == uiState.selectedModel }?.name
-    } else {
-        null
-    }
-    val displayModel = agentName ?: uiState.selectedModel
+    // Header/composer model labels (agent name vs model name, with the "never a raw
+    // model string under agents" rule). Shared with Android via rememberChatModelLabel.
+    val (agentName, displayModel) = rememberChatModelLabel(
+        selectedEndpoint = uiState.selectedEndpoint,
+        selectedModel = uiState.selectedModel,
+        agents = uiState.agents,
+    )
 
     // Navigate when a new conversation is created from landing page.
     // Navigate first, then reset — matches Android order so the new
@@ -172,6 +173,7 @@ actual fun ChatScreen(
         inlineArtifactPrefs = prefs.inlineArtifactPrefs,
         mermaidRenderCache = viewModel.mermaidRenderCache,
         parsedMarkdownCache = viewModel.parsedMarkdownCache,
+        subagentProgress = uiState.subagentProgress,
     ) {
     Scaffold(
         modifier = modifier.imePadding(),
@@ -188,8 +190,10 @@ actual fun ChatScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                        } else if (!isLandingPage) {
-                            // Model selector only in active chat (not landing page)
+                        } else {
+                            // Model selector in the header (incl. the landing page) so the
+                            // model/params (thinkingLevel) sheet is reachable without digging
+                            // into the composer "+" menu. Mirrors the Android ChatTopBar.
                             ModelSelectorButton(
                                 modelName = displayModel,
                                 onClick = viewModel::openModelSheet,
@@ -207,8 +211,10 @@ actual fun ChatScreen(
                         }
                     },
                     actions = {
-                        // Temp chat toggle — only on landing page, gated on TEMPORARY_CHAT.USE
-                        if (isLandingPage && uiState.temporaryChatEnabled) {
+                        // Temp chat toggle — interactive on the landing page; stays
+                        // visible (ON) as a persistent indicator once a temporary chat
+                        // is active. Gated on TEMPORARY_CHAT.USE.
+                        if ((isLandingPage || uiState.isTemporaryChat) && uiState.temporaryChatEnabled) {
                             TempChatToggle(
                                 isTemporary = uiState.isTemporaryChat,
                                 onToggle = viewModel::toggleTemporaryChat,
@@ -660,12 +666,14 @@ actual fun ChatScreen(
 actual fun NewChatScreen(
     onConversationStart: (String) -> Unit,
     modifier: Modifier,
+    initialAgentId: String?,
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
     ChatScreen(
         modifier = modifier,
+        initialAgentId = initialAgentId,
         onConversationStart = onConversationStart,
         onOpenDrawer = onOpenDrawer,
         onNavigateToPromptsLibrary = onNavigateToPromptsLibrary,

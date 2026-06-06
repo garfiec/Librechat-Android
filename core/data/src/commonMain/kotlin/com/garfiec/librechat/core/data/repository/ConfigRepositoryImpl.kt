@@ -9,6 +9,7 @@ import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.config.StartupConfig
+import com.garfiec.librechat.core.model.response.Category
 import com.garfiec.librechat.core.network.api.ConfigApi
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -248,6 +249,10 @@ class ConfigRepositoryImpl(
                 )
             }
         }
+    }
+
+    override suspend fun getCategories(): Result<List<Category>> = safeApiCall {
+        configApi.getCategories()
     }
 
     override suspend fun clear() {

@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.data.repository
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.config.StartupConfig
+import com.garfiec.librechat.core.model.response.Category
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -47,6 +48,13 @@ interface ConfigRepository {
      * [VersionCheckResult.isCompatible] = true (fail-open).
      */
     suspend fun checkBackendVersion(): Result<VersionCheckResult>
+
+    /**
+     * Fetches the shared category list (`GET /api/categories`) used by prompts and
+     * the skill builder — `{label, value}` pairs (idea, code, write, …). `label` is
+     * an i18n key; `value` is what's persisted as the skill/prompt category.
+     */
+    suspend fun getCategories(): Result<List<Category>>
 
     /** Clear all cached config state (in-memory + disk). Called on logout. */
     suspend fun clear()

@@ -65,6 +65,7 @@ fun AccountSettingsScreen(
     onNavigateToApiKeys: () -> Unit,
     onNavigateToFavorites: () -> Unit,
     onNavigateToProviderKeys: () -> Unit,
+    onNavigateToRoleSkillsAdmin: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -91,6 +92,7 @@ fun AccountSettingsScreen(
             onNavigateToApiKeys = onNavigateToApiKeys,
             onNavigateToFavorites = onNavigateToFavorites,
             onNavigateToProviderKeys = onNavigateToProviderKeys,
+            onNavigateToRoleSkillsAdmin = onNavigateToRoleSkillsAdmin,
             snackbarHostState = snackbarHostState,
             modifier = Modifier
                 .fillMaxSize()
@@ -109,6 +111,7 @@ fun AccountSettingsContent(
     onNavigateToApiKeys: () -> Unit,
     onNavigateToFavorites: () -> Unit,
     onNavigateToProviderKeys: () -> Unit,
+    onNavigateToRoleSkillsAdmin: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: SettingsViewModel = koinViewModel(),
@@ -200,6 +203,17 @@ fun AccountSettingsContent(
                     subtitle = stringResource(Res.string.favorites_subtitle),
                     onClick = onNavigateToFavorites,
                 )
+            }
+            // Admin-only: role skill access. Fail-CLOSED — shown only for ADMIN.
+            if (uiState.isAdmin) {
+                item(key = "role_skills_admin_row") {
+                    AccountSettingsRow(
+                        icon = Icons.Default.Star,
+                        title = stringResource(Res.string.role_skills_settings_row),
+                        subtitle = stringResource(Res.string.role_skills_description),
+                        onClick = onNavigateToRoleSkillsAdmin,
+                    )
+                }
             }
 
             // Danger zone

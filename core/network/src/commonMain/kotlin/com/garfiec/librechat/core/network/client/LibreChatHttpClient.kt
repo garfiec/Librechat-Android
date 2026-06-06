@@ -64,6 +64,10 @@ object LibreChatHttpClient {
 
         install(AuthInterceptorPlugin) {
             this.tokenManager = tokenManager
+            // Host-scope the bearer token so a presigned absolute-URL fetch to a
+            // third-party CDN (S3/CloudFront file download-url) never leaks the
+            // LibreChat session token to that host.
+            this.serverUrlProvider = serverUrlProvider
         }
 
         // Resolve the server-URL warm-up before defaultRequest reads getBaseUrl(), so a
@@ -98,6 +102,7 @@ object LibreChatHttpClient {
                         statusCode = statusCode,
                         message = errorMessage,
                         isBanned = isBanned,
+                        body = bodyText.ifBlank { null },
                     )
                 }
             }

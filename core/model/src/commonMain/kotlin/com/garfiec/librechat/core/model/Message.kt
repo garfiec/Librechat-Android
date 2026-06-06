@@ -33,4 +33,10 @@ data class Message(
     val createdAt: String? = null,
     val updatedAt: String? = null,
     val title: String? = null,
+    // Skills invoked on this turn (v0.8.6). UI-metadata only — round-tripped so
+    // the selection survives reload; pill rendering ships with the Skills
+    // feature. [manualSkills] = user-invoked via the `$` popover this turn;
+    // [alwaysAppliedSkills] = auto-primed via frontmatter `always-apply`.
+    val manualSkills: List<String>? = null,
+    val alwaysAppliedSkills: List<String>? = null,
 )

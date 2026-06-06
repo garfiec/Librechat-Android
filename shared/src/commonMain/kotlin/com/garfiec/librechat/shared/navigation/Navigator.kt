@@ -50,12 +50,16 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
         backStack.add(ProviderKeys(pendingDialogEndpoint = endpointName))
     }
 
-    /** Navigate to a top-level destination, popping to root first. */
+    /** Navigate to a top-level destination, popping to root first. Dedupes by VALUE
+     *  (not class) so a payload-carrying route replaces a same-class root that differs:
+     *  e.g. NewChat("agent_X") must replace the bare landing NewChat() so the agent id
+     *  actually reaches the chat — a class-only check silently dropped it. Re-selecting
+     *  an identical route (data-object tabs, or NewChat()→NewChat()) still no-ops. */
     fun navigateToTopLevel(route: NavKey) {
         while (backStack.size > 1) {
             backStack.removeLastOrNull()
         }
-        if (backStack.lastOrNull()?.let { it::class } != route::class) {
+        if (backStack.lastOrNull() != route) {
             backStack.removeLastOrNull()
             backStack.add(route)
         }
@@ -70,6 +74,6 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
     /** Clear back stack and navigate to chat (auth complete). */
     fun navigateToChat() {
         backStack.clear()
-        backStack.add(NewChat)
+        backStack.add(NewChat())
     }
 }

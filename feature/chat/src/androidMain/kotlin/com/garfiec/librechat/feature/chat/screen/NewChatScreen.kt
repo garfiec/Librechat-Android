@@ -13,12 +13,14 @@ import androidx.compose.ui.Modifier
 actual fun NewChatScreen(
     onConversationStart: (String) -> Unit,
     modifier: Modifier,
+    initialAgentId: String?,
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
     ChatScreen(
         modifier = modifier,
+        initialAgentId = initialAgentId,
         onConversationStart = onConversationStart,
         onOpenDrawer = onOpenDrawer,
         onNavigateToPromptsLibrary = onNavigateToPromptsLibrary,

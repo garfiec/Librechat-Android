@@ -111,6 +111,9 @@ class NavHostViewModel(
                 DrawerPermissionFlags(
                     agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
                     bookmarksEnabled = role.hasAccessOrPermissive(PermissionType.BOOKMARKS, Permission.USE),
+                    // USE gate is fail-OPEN (read/list visibility); mutation gating
+                    // lives fail-CLOSED inside feature/skills.
+                    skillsEnabled = role.hasAccessOrPermissive(PermissionType.SKILLS, Permission.USE),
                 )
             }
             .stateIn(viewModelScope, SharingStarted.Eagerly, DrawerPermissionFlags())
@@ -148,12 +151,14 @@ class NavHostViewModel(
             hasMore = hasMore,
             agentsEnabled = perms.agentsEnabled,
             bookmarksEnabled = perms.bookmarksEnabled,
+            skillsEnabled = perms.skillsEnabled,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, DrawerUiState())
 
     private data class DrawerPermissionFlags(
         val agentsEnabled: Boolean = true,
         val bookmarksEnabled: Boolean = true,
+        val skillsEnabled: Boolean = true,
     )
 
     init {

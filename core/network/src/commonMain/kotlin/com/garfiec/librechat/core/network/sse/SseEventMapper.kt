@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.SubagentPhase
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -271,6 +272,7 @@ class SseEventMapper(private val json: Json) {
             "on_summarize_start" -> null // Lifecycle only; no useful payload to surface
             "on_summarize_delta" -> null // Partial summary tokens; we only render the final summary
             "on_summarize_complete" -> mapSummarizeComplete(data, agentId, groupId)
+            "on_subagent_update" -> mapSubagentUpdate(data, agentId, groupId)
             "attachment" -> mapAttachment(data)
             else -> null // Forward-compat: unknown agent-library events drop silently.
         }
@@ -302,6 +304,47 @@ class SseEventMapper(private val json: Json) {
             summary = text,
             agentId = agentId ?: data["agentId"]?.jsonPrimitive?.contentOrNull,
             groupId = groupId,
+        )
+    }
+
+    /**
+     * Maps an `on_subagent_update` envelope (v0.8.6 subagents). The outer [data]
+     * is a `SubagentUpdateEvent`; its `phase` selects how the nested `data`
+     * payload is interpreted. That nested payload is structurally identical to
+     * the matching top-level LangGraph event, so we reuse the existing extractors
+     * (e.g. [mapMessageDelta], [mapReasoningDelta], [mapRunStep],
+     * [mapRunStepCompleted]) to pre-map content phases into a flat [StreamEvent].
+     * Lifecycle phases (`start`, `stop`, `error`) carry no inner event and only
+     * advance the trace ticker. We don't propagate the subagent's own
+     * agentId/groupId onto the inner event — the parent tool_call id is the
+     * correlation key for rendering the trace.
+     */
+    private fun mapSubagentUpdate(
+        data: JsonObject,
+        agentId: String?,
+        groupId: Int?,
+    ): StreamEvent? {
+        val phase = data["phase"]?.jsonPrimitive?.contentOrNull ?: return null
+        val payload = data["data"]?.jsonObject
+        val inner: StreamEvent? = if (payload == null) {
+            null
+        } else {
+            when (phase) {
+                SubagentPhase.MESSAGE_DELTA -> mapMessageDelta(payload, agentId, groupId)
+                SubagentPhase.REASONING_DELTA -> mapReasoningDelta(payload, agentId, groupId)
+                SubagentPhase.RUN_STEP -> mapRunStep(payload, agentId, groupId)
+                SubagentPhase.RUN_STEP_COMPLETED -> mapRunStepCompleted(payload, agentId, groupId)
+                else -> null // start / stop / error / run_step_delta carry no foldable content
+            }
+        }
+        return StreamEvent.SubagentUpdate(
+            phase = phase,
+            parentToolCallId = data["parentToolCallId"]?.jsonPrimitive?.contentOrNull,
+            subagentRunId = data["subagentRunId"]?.jsonPrimitive?.contentOrNull,
+            subagentType = data["subagentType"]?.jsonPrimitive?.contentOrNull,
+            subagentAgentId = data["subagentAgentId"]?.jsonPrimitive?.contentOrNull,
+            label = data["label"]?.jsonPrimitive?.contentOrNull,
+            inner = inner,
         )
     }
 
@@ -423,6 +466,12 @@ class SseEventMapper(private val json: Json) {
             toolCallId = data["toolCallId"]?.jsonPrimitive?.contentOrNull,
             width = data["width"]?.jsonPrimitive?.intOrNull,
             height = data["height"]?.jsonPrimitive?.intOrNull,
+            // Deferred office-doc preview lifecycle (v0.8.6). The same attachment is
+            // emitted twice (pending → ready/failed); the chat layer upserts by file_id.
+            status = data["status"]?.jsonPrimitive?.contentOrNull,
+            text = data["text"]?.jsonPrimitive?.contentOrNull,
+            textFormat = data["textFormat"]?.jsonPrimitive?.contentOrNull,
+            previewError = data["previewError"]?.jsonPrimitive?.contentOrNull,
         )
     }
 

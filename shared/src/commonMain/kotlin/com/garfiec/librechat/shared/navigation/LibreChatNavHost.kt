@@ -50,6 +50,8 @@ import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
 import com.garfiec.librechat.feature.settings.navigation.mcpServersEntry
 import com.garfiec.librechat.feature.settings.navigation.memoriesEntry
 import com.garfiec.librechat.feature.settings.navigation.settingsEntries
+import com.garfiec.librechat.feature.skills.navigation.SkillsList
+import com.garfiec.librechat.feature.skills.navigation.skillsEntries
 import com.garfiec.librechat.shared.resources.Res
 import com.garfiec.librechat.shared.resources.dismiss
 import com.garfiec.librechat.shared.resources.dont_warn_again
@@ -76,7 +78,7 @@ fun LibreChatNavHost(
     val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
 
     // Stable start key — auth redirect handled via LaunchedEffect below.
-    val backStack = rememberNavBackStack(navigationSavedStateConfig, NewChat)
+    val backStack = rememberNavBackStack(navigationSavedStateConfig, NewChat())
     val navigator = Navigator(backStack)
 
     // Redirect to auth if not logged in (on first composition only).
@@ -186,7 +188,7 @@ fun PhoneLayout(
                     onNewChat = {
                         scope.launch { drawerState.close() }
                         if (navigator.currentRoute !is NewChat) {
-                            navigator.navigateToTopLevel(NewChat)
+                            navigator.navigateToTopLevel(NewChat())
                         }
                     },
                     onConversationClick = { conversationId ->
@@ -207,6 +209,10 @@ fun PhoneLayout(
                     onFilesClick = {
                         scope.launch { drawerState.close() }
                         navigator.navigate(Files)
+                    },
+                    onSkillsClick = {
+                        scope.launch { drawerState.close() }
+                        navigator.navigate(SkillsList)
                     },
                 )
             }
@@ -298,9 +304,16 @@ fun MainNavDisplay(
             agentsEntries(
                 onNavigate = { navigator.navigate(it) },
                 onBack = { navigator.goBack() },
-                onStartChat = { _ ->
-                    navigator.navigateToTopLevel(NewChat)
+                onStartChat = { agentId ->
+                    // Carry the agent id into the new chat so it opens on that agent
+                    // (Tier-0 override in ModelSelectionDelegate) rather than falling
+                    // back to last-used / first-agent / first-model.
+                    navigator.navigateToTopLevel(NewChat(agentId))
                 },
+            )
+            skillsEntries(
+                onNavigate = { navigator.navigate(it) },
+                onBack = { navigator.goBack() },
             )
             filesEntries(
                 onBack = { navigator.goBack() },

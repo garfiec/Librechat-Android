@@ -48,6 +48,33 @@ class ChatPayloadBuilderTest {
     }
 
     @Test
+    fun temporaryChatFlagOmittedByDefault() {
+        val req = ChatPayloadBuilder.build(
+            text = "hi",
+            conversationId = null,
+            endpoint = "openAI",
+            model = "gpt-4o",
+        )
+        assertNull(req.isTemporary)
+        val encoded = json.encodeToString(ChatRequest.serializer(), req)
+        assertFalse("\"isTemporary\"" in encoded, "isTemporary must be omitted when not temporary")
+    }
+
+    @Test
+    fun temporaryChatFlagSentWhenEnabled() {
+        val req = ChatPayloadBuilder.build(
+            text = "hi",
+            conversationId = null,
+            endpoint = "openAI",
+            model = "gpt-4o",
+            isTemporary = true,
+        )
+        assertEquals(true, req.isTemporary)
+        val encoded = json.encodeToString(ChatRequest.serializer(), req)
+        assertTrue("\"isTemporary\":true" in encoded, "isTemporary must serialize true when set")
+    }
+
+    @Test
     fun builtInEnvKeyEndpointOmitsKey() {
         val req = ChatPayloadBuilder.build(
             text = "hi",

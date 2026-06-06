@@ -97,6 +97,9 @@ internal fun ContentPartDispatcher(
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
     onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
+    // When false, a `subagent` tool_call renders flat instead of as a trace card.
+    // Set false while rendering a subagent's own nested parts (depth-1 guard).
+    allowSubagentCard: Boolean = true,
 ) {
     val mod = modifier.fillMaxWidth()
     when (part.type) {
@@ -129,6 +132,7 @@ internal fun ContentPartDispatcher(
                 baseUrl = baseUrl,
                 attachments = attachments,
                 showImageDescriptions = showImageDescriptions,
+                allowSubagentCard = allowSubagentCard,
             )
         }
         ContentType.IMAGE_FILE -> {
@@ -234,11 +238,30 @@ private fun ToolCallDispatcher(
     attachments: List<Attachment>,
     showImageDescriptions: Boolean,
     modifier: Modifier = Modifier,
+    allowSubagentCard: Boolean = true,
 ) {
     val toolCall = part.toolCall
     val toolName = toolCall?.name ?: toolCall?.function?.name ?: "Tool Call"
     val toolNameLower = toolName.lowercase()
     val output = toolCall?.output ?: toolCall?.function?.output
+
+    // Subagent tool_call → collapsible trace card (v0.8.6). Live progress comes
+    // from LocalSubagentProgress (keyed by the parent tool_call id); persisted
+    // `subagentContent` (reload) takes precedence inside the card. Depth-1:
+    // nested parts pass allowSubagentCard=false so this never recurses.
+    if (allowSubagentCard && toolNameLower == ToolConstants.SUBAGENT) {
+        val toolCallId = toolCall?.id
+        val liveTrace = toolCallId?.let { LocalSubagentProgress.current[it] }
+        SubagentTraceCard(
+            persistedParts = toolCall?.subagentContent,
+            liveTrace = liveTrace,
+            modifier = modifier,
+            baseUrl = baseUrl,
+            attachments = attachments,
+            showImageDescriptions = showImageDescriptions,
+        )
+        return
+    }
 
     when {
         toolNameLower.contains("search") -> {

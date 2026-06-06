@@ -809,7 +809,10 @@ object EndpointParameterRegistry {
             key = "thinkingLevel",
             label = "Thinking Level",
             type = ParameterType.ENUM_SLIDER,
-            options = listOf("", "none", "low", "medium", "high"),
+            // Mirror upstream ThinkingLevel enum (schemas.ts): ['', minimal, low,
+            // medium, high]. "none" is NOT a valid value — the server validates
+            // via z.nativeEnum and drops it; "minimal" is the lowest level.
+            options = listOf("", "minimal", "low", "medium", "high"),
             default = "",
             description = "Controls how much thinking the model performs.",
         ),

@@ -33,6 +33,8 @@
     <string name="preview">Preview</string>
     <string name="select_model">Select model</string>
     <string name="select_a_model">Select a model</string>
+    <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
+    <string name="chat_agent_fallback_label">Agent</string>
     <string name="compare_models">Compare Models</string>
     <string name="how_can_i_help">How can I help you today?</string>
     <string name="recording">Recording\u2026</string>
@@ -114,6 +116,16 @@
     <string name="cd_summary_indicator">Summary indicator</string>
     <string name="cd_collapse_summary">Collapse summary block</string>
     <string name="cd_expand_summary">Expand summary block</string>
+
+    <!-- Content descriptions - Subagent trace (subagents, v0.8.6+) -->
+    <string name="label_subagent">Subagent</string>
+    <string name="cd_collapse_subagent">Collapse subagent %1$s</string>
+    <string name="cd_expand_subagent">Expand subagent %1$s</string>
+
+    <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
+    <string name="office_preview_preparing">Preparing preview of %1$s…</string>
+    <string name="office_preview_failed">Couldn\'t preview %1$s (%2$s)</string>
+    <string name="office_preview_unavailable">%1$s — preview not available</string>
 
     <!-- Content descriptions - Tool calls -->
     <string name="cd_tool_call">Tool call</string>

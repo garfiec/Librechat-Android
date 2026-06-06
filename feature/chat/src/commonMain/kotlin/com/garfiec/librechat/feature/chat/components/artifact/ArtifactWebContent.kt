@@ -1,5 +1,7 @@
 package com.garfiec.librechat.feature.chat.components.artifact
 
+import com.garfiec.librechat.core.model.TextFormat
+
 /**
  * Builds the HTML document for an artifact preview. Used by both the fullscreen
  * [ArtifactPanel] and the [InlineArtifactView]. Set [inline] to true when
@@ -20,6 +22,19 @@ object ArtifactWebContent {
         val bgColor = if (isDarkTheme) "#1C1B1F" else "#FFFBFE"
         val fgColor = if (isDarkTheme) "#E6E1E5" else "#1C1B1F"
 
+        // Office-doc previews must NOT route through the generic HTML path: that
+        // would inject `content` as raw HTML unconditionally, bypassing the
+        // textFormat==html security gate. The office card pre-builds the safe,
+        // complete document via [buildOfficePreviewHtml] (which honors the gate)
+        // and passes it here as `content`; return it unchanged.
+        // SECURITY: office-MIME artifacts are pre-gated by OfficePreviewCard (the only
+        // producer; previews arrive as attachments, not :::artifact directives). Any
+        // future raw-text office-MIME artifact MUST gate via buildOfficePreviewHtml
+        // before reaching here, or it would pass through unescaped.
+        if (ArtifactType.isOfficePreviewMime(type)) {
+            return content
+        }
+
         return when (ArtifactType.from(type)) {
             // htmlLabels = !inline: only the inline cache-harvest path needs htmlLabels
             // disabled so the resulting SVG renders correctly through Coil 3's SvgDecoder
@@ -32,6 +47,31 @@ object ArtifactWebContent {
             ArtifactType.SVG -> buildSvgHtml(content, bgColor, inline)
             ArtifactType.HTML -> buildEnhancedHtml(content, bgColor, fgColor)
             ArtifactType.CODE -> buildPlainHtml(content, bgColor, fgColor, inline)
+        }
+    }
+
+    /**
+     * Builds the document for a deferred office-doc preview (`TFilePreview`).
+     *
+     * SECURITY (load-bearing): the server's `text` is injected as live HTML
+     * ONLY when [textFormat] is exactly `"html"` (the backend produced a
+     * sanitized full-document preview). For `"text"`, null, or any other value
+     * the content is plain text and is rendered through the escaping monospace
+     * path — it is NEVER injected as HTML. Upstream's `TFile.textFormat` doc
+     * explicitly warns against injecting the `text` format as HTML.
+     */
+    fun buildOfficePreviewHtml(
+        text: String,
+        textFormat: String?,
+        isDarkTheme: Boolean,
+        inline: Boolean = false,
+    ): String {
+        val bgColor = if (isDarkTheme) "#1C1B1F" else "#FFFBFE"
+        val fgColor = if (isDarkTheme) "#E6E1E5" else "#1C1B1F"
+        return if (textFormat == TextFormat.HTML) {
+            buildEnhancedHtml(text, bgColor, fgColor)
+        } else {
+            buildPlainHtml(text, bgColor, fgColor, inline)
         }
     }
 

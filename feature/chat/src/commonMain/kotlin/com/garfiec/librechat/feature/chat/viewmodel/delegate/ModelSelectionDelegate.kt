@@ -35,7 +35,18 @@ class ModelSelectionDelegate(
     private val mcpRepository: McpRepository,
     private val settingsDataStore: SettingsDataStore,
     private val permissionGate: PermissionGate,
+    initialAgentId: String? = null,
 ) {
+
+    /**
+     * Tier-0 explicit agent selection passed from the start-chat navigation (e.g.
+     * "Start Chat" on an agent detail/card, or post-create). One-shot: applied on the
+     * first [applySeed] pass and cleared, so it wins over last-used/first-agent/first-
+     * model exactly once and then normal seeding governs. Authoritative — set before
+     * any validation, and seeding only runs on a NEW chat (so the existing-conversation
+     * clobber-guard in [refilterModels] never sees it).
+     */
+    private var pendingAgentOverride: String? = initialAgentId?.takeIf { it.isNotBlank() }
 
     // --- Model Comparison ---
     val primaryComparisonBuffer = StringBuilder()
@@ -77,6 +88,18 @@ class ModelSelectionDelegate(
      * re-applying an unchanged value on every unrelated emission.
      */
     private var lastAppliedLastUsed: Pair<String, String>? = null
+
+    /**
+     * True between a Tier-0 explicit-agent application and the moment the populated
+     * agents list arrives. Distinguishes the explicitly-chosen-agent case — an agent that
+     * must survive the transient `(agentsLoaded=true, agents=[])` window the agents flow
+     * emits before the real list (see [loadAgents]) — from a genuinely zero-agent account
+     * whose stale agents last-used must NOT strand the landing model-less. Only when this
+     * flag is set does an empty-but-loaded agents list HOLD the current selection; otherwise
+     * an empty agents list falls through to a config model. Cleared once the agent is
+     * confirmed present in a non-empty list.
+     */
+    private var holdAgentForPopulate = false
 
     /**
      * Re-filters availableModels into UI state and, for EXISTING conversations,
@@ -231,6 +254,30 @@ class ModelSelectionDelegate(
         } else {
             null
         }
+
+        // Tier 0: an explicit agent passed from the start-chat navigation wins over
+        // everything (last-used / first-agent / first-model). Authoritative + one-shot:
+        // apply the agents endpoint + this agent id directly (the agent was just
+        // selected/created, so trust the id even if the agents list hasn't loaded it
+        // yet — the chat sends the right agent_id and the label resolves once it does).
+        // Cleared after applying so subsequent seeder emissions don't re-pin it.
+        // CRITICAL: also pin [lastAppliedLastUsed] to the CURRENT last-used so the
+        // last-used re-sync below (`lastUsed != lastAppliedLastUsed`) does NOT fire on
+        // the next emission (e.g. when the agents list finishes loading) and clobber
+        // the agent back to a non-agent last-used model. A genuinely NEW last-used
+        // picked later still differs from this pinned value, so the re-sync correctly
+        // follows an explicit later choice.
+        pendingAgentOverride?.let { agentId ->
+            pendingAgentOverride = null
+            lastAppliedLastUsed = lastUsed
+            // Hold this explicit agent across the transient empty-agents window until the
+            // populated list arrives (see [holdAgentForPopulate]); without it the next
+            // (agentsLoaded=true, agents=[]) emission would score the agent INVALID/PENDING
+            // and clobber it to a config model.
+            holdAgentForPopulate = true
+            applySelection(EndpointConstants.AGENTS, agentId)
+            return
+        }
         val lastUsedSelectability = lastUsed?.let {
             selectability(it.first, it.second, filtered, input.endpointConfigs, input.agents, input.agentsLoaded)
         }
@@ -248,6 +295,16 @@ class ModelSelectionDelegate(
         // picked elsewhere. Also covers the very first valid last-used emission.
         if (lastUsed != lastAppliedLastUsed && applyLastUsed()) return
 
+        // Clear the explicit-agent hold once the populated agents list confirms the held agent: the
+        // transient empty-agents window is over and the selection is now genuinely VALID,
+        // so a later last-used change should be free to re-sync normally.
+        if (holdAgentForPopulate &&
+            input.agentsLoaded &&
+            input.agents.any { it.id == state.selectedModel }
+        ) {
+            holdAgentForPopulate = false
+        }
+
         val currentSelectability = selectability(
             state.selectedEndpoint,
             state.selectedModel,
@@ -260,12 +317,27 @@ class ModelSelectionDelegate(
             // Already usable — leave it (the re-sync above handled last-used changes).
             Selectability.VALID -> return
             // The input needed to judge the current selection hasn't arrived yet.
-            // Don't reseed through the lower tiers (that would clobber a legitimately-
-            // loading choice), but DO let a known-good last-used take over rather than
-            // waiting on an input that may never resolve.
             Selectability.PENDING -> {
-                applyLastUsed()
-                return
+                // An explicitly-chosen agent (Tier-0) in the transient empty-agents
+                // window. An empty list can neither confirm nor refute the agent id, so HOLD
+                // it and wait for the populated list (which re-triggers this seeder) instead
+                // of downgrading to last-used / a config model. Gated on [holdAgentForPopulate]
+                // so a genuinely zero-agent account (no explicit agent intent) does NOT hold —
+                // it falls through below to a config model rather than stranding the landing.
+                if (holdAgentForPopulate &&
+                    state.selectedEndpoint == EndpointConstants.AGENTS &&
+                    input.agentsLoaded &&
+                    input.agents.isEmpty()
+                ) {
+                    return
+                }
+                // Otherwise: don't reseed through the lower tiers (that would clobber a
+                // legitimately-loading choice), but DO let a known-good last-used take over
+                // rather than waiting on an input that may never resolve. If last-used can't
+                // apply (also empty/pending), fall through to the tier ladder so the landing
+                // still resolves to a model rather than sitting empty forever.
+                if (applyLastUsed()) return
+                if (state.selectedEndpoint != EndpointConstants.AGENTS) return
             }
             // Definitively unusable — fall through to tier resolution.
             Selectability.INVALID -> {}
@@ -279,8 +351,17 @@ class ModelSelectionDelegate(
                     return
                 }
                 // WAIT: last-used's endpoint/agents not loaded yet — don't fall
-                // through to a lower tier and lose to it.
-                Selectability.PENDING -> return
+                // through to a lower tier and lose to it. EXCEPTION: an agents last-used
+                // whose list is loaded-but-EMPTY is PENDING (the empty-list hold rule), but
+                // here there is no explicit agent to hold (Tier-0 didn't fire / hold cleared),
+                // so it's a genuinely zero-agent account — fall through to Tier-2/3 rather
+                // than waiting forever and stranding the landing model-less.
+                Selectability.PENDING -> {
+                    val agentsLoadedEmpty = lastUsed.first == EndpointConstants.AGENTS &&
+                        input.agentsLoaded &&
+                        input.agents.isEmpty()
+                    if (!agentsLoadedEmpty) return
+                }
                 // Stale (removed server-side) or absent — fall through.
                 Selectability.INVALID, null -> {}
             }
@@ -331,6 +412,12 @@ class ModelSelectionDelegate(
         if (endpoint == EndpointConstants.AGENTS) {
             return when {
                 !agentsLoaded -> Selectability.PENDING
+                // An empty-but-loaded agents list is the transient pre-populate window
+                // (loadAgents flips agentsLoaded=true before publishing the list): it can
+                // neither confirm nor refute a specific agent id, so PENDING (hold), not
+                // INVALID. The caller distinguishes "hold an explicit agent" from "no agents
+                // exist" via holdAgentForPopulate.
+                agents.isEmpty() -> Selectability.PENDING
                 agents.any { it.id == model } -> Selectability.VALID
                 else -> Selectability.INVALID
             }

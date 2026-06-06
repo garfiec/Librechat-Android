@@ -207,6 +207,18 @@ class AgentMarketplaceViewModel(
         }
     }
 
+    /** Reloads on screen resume so a delete (or edit) made on a pushed detail screen
+     *  is reflected when the user returns — the marketplace VM is retained in the back
+     *  stack and otherwise only fetches on init/search/category/pull. Skips while a load
+     *  is already in flight so an ON_RESUME mid-scroll/refresh doesn't stomp it; the
+     *  first resume (empty list) is covered by the init load. Mirrors
+     *  SkillsListViewModel.refreshOnReturn(). */
+    fun refreshOnReturn() {
+        val state = _uiState.value
+        if (state.isLoading || state.isLoadingMore || state.isRefreshing) return
+        if (state.agents.isEmpty()) loadAgents() else refresh()
+    }
+
     fun onSearchQueryChanged(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
         searchJob?.cancel()

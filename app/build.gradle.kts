@@ -40,6 +40,7 @@ dependencies {
     implementation(project(":feature:settings"))
     implementation(project(":feature:agents"))
     implementation(project(":feature:files"))
+    implementation(project(":feature:skills"))
 
     implementation(libs.activity.compose)
     implementation(libs.navigation3.ui.kmp)

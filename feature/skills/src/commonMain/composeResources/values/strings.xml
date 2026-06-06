@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">Skills</string>
+    <string name="skills_back">Back</string>
+    <string name="skills_create">Create skill</string>
+    <string name="skills_import">Import skill</string>
+    <string name="skills_search_hint">Search skills…</string>
+    <string name="skills_empty">No skills yet.</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">Files</string>
+    <string name="skill_files_empty">No files attached.</string>
+    <string name="skill_files_add">Add file</string>
+    <string name="skill_files_remove">Remove %1$s</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">Edit</string>
+    <string name="skill_delete">Delete</string>
+    <string name="skill_show_source">Show source</string>
+    <string name="skill_show_rendered">Show rendered</string>
+    <string name="skill_category_label">Category: %1$s</string>
+    <string name="skill_version_label">Version %1$d</string>
+    <string name="skill_delete_confirm_title">Delete skill?</string>
+    <string name="skill_delete_confirm_message">This permanently deletes \"%1$s\". This cannot be undone.</string>
+    <string name="skill_empty_body">This skill has no content.</string>
+    <string name="skill_active_label">Active</string>
+    <string name="skill_active_description">Make this skill available for use in chats.</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">New skill</string>
+    <string name="skill_editor_edit_title">Edit skill</string>
+    <string name="skill_field_name">Name</string>
+    <string name="skill_field_name_hint">lowercase-kebab-case</string>
+    <string name="skill_field_name_error">Use lowercase letters, digits, and dashes (max 64).</string>
+    <string name="skill_field_display_title">Display title</string>
+    <string name="skill_field_description">Description</string>
+    <string name="skill_field_description_error">Description is required (max 1024 characters).</string>
+    <string name="skill_field_body">Content (markdown)</string>
+    <string name="skill_field_category">Category</string>
+    <string name="skill_category_none">None</string>
+    <string name="skill_field_always_apply">Always apply this skill</string>
+    <string name="skill_save">Save</string>
+    <string name="skill_cancel">Cancel</string>
+    <string name="skill_conflict_dismiss">OK</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">Sharing &amp; permissions</string>
+    <string name="skill_acl_no_grants">Not shared with anyone yet.</string>
+    <string name="skill_acl_add_principal">Add people or groups</string>
+    <string name="skill_acl_grant_dialog_title">Share skill</string>
+    <string name="skill_acl_search_hint">Search users, groups, or roles</string>
+    <string name="skill_acl_search_empty">No matches</string>
+    <string name="skill_acl_role">Role</string>
+    <string name="skill_acl_revoke">Remove access</string>
+    <string name="skill_acl_public_label">Public</string>
+    <string name="skill_acl_public_description">Anyone on this server can use this skill.</string>
+    <string name="skill_acl_principal_user">User</string>
+    <string name="skill_acl_principal_group">Group</string>
+    <string name="skill_acl_principal_role">Role</string>
+    <string name="skill_acl_collapse">Collapse</string>
+    <string name="skill_acl_expand">Expand</string>
+    <string name="skill_acl_close">Close</string>
+</resources>

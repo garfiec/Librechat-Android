@@ -84,6 +84,55 @@ class MessageSerializationTest {
     }
 
     @Test
+    fun messageSkillFieldsRoundTrip() {
+        // v0.8.6 added manualSkills / alwaysAppliedSkills; ensure both survive a round-trip
+        // so the per-turn skill attribution isn't dropped on reload.
+        val original = Message(
+            messageId = "msg-skills",
+            conversationId = "conv-skills",
+            text = "Used some skills.",
+            manualSkills = listOf("skill-a", "skill-b"),
+            alwaysAppliedSkills = listOf("skill-c"),
+        )
+        val encoded = json.encodeToString(Message.serializer(), original)
+        val decoded = json.decodeFromString(Message.serializer(), encoded)
+        assertEquals(listOf("skill-a", "skill-b"), decoded.manualSkills)
+        assertEquals(listOf("skill-c"), decoded.alwaysAppliedSkills)
+        assertEquals(original, decoded)
+    }
+
+    @Test
+    fun messageSkillFieldsDeserializeFromServerJson() {
+        val serverJson = """
+            {
+                "messageId": "msg-srv-skills",
+                "conversationId": "conv-srv-skills",
+                "text": "Server response with skills",
+                "manualSkills": ["s1", "s2"],
+                "alwaysAppliedSkills": ["s3"]
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString(Message.serializer(), serverJson)
+        assertEquals(listOf("s1", "s2"), decoded.manualSkills)
+        assertEquals(listOf("s3"), decoded.alwaysAppliedSkills)
+    }
+
+    @Test
+    fun messageSkillFieldsDefaultNullWhenAbsent() {
+        // Servers older than v0.8.6 omit the fields entirely — must decode to null, not throw.
+        val serverJson = """
+            {
+                "messageId": "msg-no-skills",
+                "conversationId": "conv-no-skills",
+                "text": "No skills key present"
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString(Message.serializer(), serverJson)
+        assertEquals(null, decoded.manualSkills)
+        assertEquals(null, decoded.alwaysAppliedSkills)
+    }
+
+    @Test
     fun messageDeserializesFromServerJson() {
         val serverJson = """
             {

@@ -3,6 +3,8 @@ package com.garfiec.librechat.core.network.api
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFilesRequest
+import com.garfiec.librechat.core.model.response.FileDownloadURLResponse
+import com.garfiec.librechat.core.model.response.FilePreviewResponse
 import com.garfiec.librechat.core.model.response.FileUploadConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -113,6 +115,33 @@ class FilesApi constructor(
     suspend fun downloadFile(userId: String, fileId: String): ByteArray =
         client.get {
             url { path("api/files/download/$userId/$fileId") }
+        }.body()
+
+    /**
+     * Requests a direct/presigned download URL (S3/CloudFront) for [fileId].
+     * Throws on 501 (source has no direct-URL strategy, e.g. local storage) and
+     * 400 (OpenAI-storage file missing a model) — the repository catches those
+     * and falls back to the [downloadFile] proxy.
+     */
+    suspend fun getDownloadUrl(userId: String, fileId: String): FileDownloadURLResponse =
+        client.get {
+            url { path("api/files/download-url/$userId/$fileId") }
+        }.body()
+
+    /**
+     * Fetches raw bytes from an absolute CDN [url] returned by [getDownloadUrl],
+     * bypassing the LibreChat proxy. The URL is presigned, so no auth is needed.
+     */
+    suspend fun downloadFromUrl(url: String): ByteArray =
+        client.get(url).body()
+
+    /**
+     * Fetches the deferred office-doc preview lifecycle for [fileId]. Poll while
+     * `status == "pending"`; `ready`/`failed` are terminal.
+     */
+    suspend fun getFilePreview(fileId: String): FilePreviewResponse =
+        client.get {
+            url { path("api/files/$fileId/preview") }
         }.body()
 
     companion object {

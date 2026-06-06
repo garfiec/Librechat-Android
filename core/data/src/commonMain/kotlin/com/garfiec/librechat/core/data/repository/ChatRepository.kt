@@ -28,6 +28,7 @@ interface ChatRepository {
         files: List<FileReference>? = null,
         addedConvo: AddedConversation? = null,
         ephemeralAgent: EphemeralAgent? = null,
+        isTemporary: Boolean = false,
     ): Flow<StreamEvent>
     suspend fun abortChat(streamId: String): Result<Unit>
     suspend fun checkStreamStatus(conversationId: String): ChatStatusResponse

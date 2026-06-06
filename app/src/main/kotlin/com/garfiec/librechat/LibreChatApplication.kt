@@ -27,6 +27,7 @@ import com.garfiec.librechat.feature.chat.di.chatModule
 import com.garfiec.librechat.feature.conversations.di.conversationsModule
 import com.garfiec.librechat.feature.files.di.filesModule
 import com.garfiec.librechat.feature.settings.di.settingsModule
+import com.garfiec.librechat.feature.skills.di.skillsFeatureModule
 import com.garfiec.librechat.shared.navigation.sharedAppModule
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -62,6 +63,7 @@ class LibreChatApplication : Application(), SingletonImageLoader.Factory {
                     settingsModule,
                     agentsModule,
                     filesModule,
+                    skillsFeatureModule,
                 )
             }
         } catch (e: Exception) {

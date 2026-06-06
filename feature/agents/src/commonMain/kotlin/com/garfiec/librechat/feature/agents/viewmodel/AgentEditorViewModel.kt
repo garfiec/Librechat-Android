@@ -11,17 +11,24 @@ import com.garfiec.librechat.core.data.repository.AgentToolsRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
+import com.garfiec.librechat.core.data.repository.RoleRepository
+import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.model.ActionMetadata
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentAction
 import com.garfiec.librechat.core.model.AgentCategory
 import com.garfiec.librechat.core.model.AgentFile
+import com.garfiec.librechat.core.model.AgentSubagentsConfig
 import com.garfiec.librechat.core.model.AgentTool
 import com.garfiec.librechat.core.model.ArtifactsMode
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.HandoffEdge
+import com.garfiec.librechat.core.model.SkillSummary
 import com.garfiec.librechat.core.model.SupportContact
 import com.garfiec.librechat.core.model.mcp.McpTool
+import com.garfiec.librechat.core.model.permissions.Permission
+import com.garfiec.librechat.core.model.permissions.PermissionType
+import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
@@ -49,6 +56,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -124,6 +132,37 @@ data class AgentEditorUiState(
     val isHandoffsAvailable: Boolean = false,
     /** Whether the granular ACL sharing API is supported (v0.8.5+). */
     val isAclAvailable: Boolean = false,
+    // Skills (v0.8.6) — agent-editor skills selector.
+    /** Whether the agent `skills_enabled` master toggle is on. */
+    val skillsEnabled: Boolean = false,
+    /** Skill `_id`s on this agent. Empty + enabled = "full catalog" (allowlist
+     *  off), not "no skills" — do NOT auto-clear [skillsEnabled] when empty. */
+    val selectedSkillIds: List<String> = emptyList(),
+    /** Skill catalog from `GET /api/skills`, used to resolve `_id → name` for
+     *  chips and to populate the picker. May be empty if the list is denied
+     *  (no SKILLS access) — saved ids then render as raw id chips. */
+    val availableSkills: List<SkillSummary> = emptyList(),
+    /**
+     * Whether the Skills section is shown. Gated on the agents endpoint
+     * `capabilities` containing "skills" AND the SKILLS permission, both
+     * fail-open to match the sibling capability gates (empty caps / unknown
+     * role ⇒ shown).
+     */
+    val isSkillsAvailable: Boolean = false,
+    // Subagents config (v0.8.6) — agent-editor subagent section.
+    /**
+     * Whether the Subagents section is shown. Gated on the agents endpoint
+     * `capabilities` containing "subagents" (capability only — no permission
+     * type, unlike skills), fail-open like the sibling capability gates.
+     */
+    val isSubagentsAvailable: Boolean = false,
+    /** Master `subagents.enabled` toggle. */
+    val subagentsEnabled: Boolean = false,
+    /** `subagents.allowSelf` — agent may spawn itself in an isolated context.
+     *  Defaults true (upstream `allowSelf !== false`). */
+    val subagentAllowSelf: Boolean = true,
+    /** `subagents.agent_ids` — other agents that may be spawned (cap 10, self excluded). */
+    val selectedSubagentIds: List<String> = emptyList(),
     // Sharing
     val sharingState: AgentSharingState = AgentSharingState(),
     /**
@@ -199,6 +238,8 @@ class AgentEditorViewModel(
     private val mcpRepository: McpRepository,
     private val agentToolsRepository: AgentToolsRepository,
     private val fileRepository: FileRepository,
+    private val skillsRepository: SkillsRepository,
+    private val roleRepository: RoleRepository,
     private val contentReader: ContentReader,
     private val ioDispatcher: CoroutineDispatcher,
     initialAgentId: String? = null,
@@ -232,6 +273,8 @@ class AgentEditorViewModel(
         loadAllAgents()
         loadCodeInterpreterAvailability()
         observeWebSearchAvailability()
+        observeSkillsAvailability()
+        observeSubagentsAvailability()
         observeServerVersion()
         verifyCodeToolAuth()
         if (editAgentId != null) {
@@ -362,6 +405,118 @@ class AgentEditorViewModel(
                 // save time in [buildToolsList].
             }
         }
+    }
+
+    /**
+     * Observes the agents endpoint `capabilities` array and the user's SKILLS
+     * permission to gate the Skills section (upstream `showSkills =
+     * hasSkillsAccess && skillsEnabled`, where `skillsEnabled =
+     * capabilities.includes('skills')`). Both checks are FAIL-OPEN to match
+     * the sibling capability gates ([observeWebSearchAvailability]): an empty
+     * capabilities list or an unknown role (timeout / not yet loaded) treats
+     * the feature as available. When the section first becomes visible we
+     * fetch the skill catalog (for `_id → name` resolution and the picker).
+     */
+    private fun observeSkillsAvailability() {
+        viewModelScope.launch {
+            combine(
+                configRepository.endpointConfigs,
+                roleRepository.userPermissions,
+            ) { configs, role ->
+                val agentsCapabilities = configs["agents"]?.capabilities ?: emptyList()
+                val capabilityAvailable = agentsCapabilities.isEmpty() ||
+                    "skills" in agentsCapabilities
+                val permissionAvailable =
+                    role.hasAccessOrPermissive(PermissionType.SKILLS, Permission.USE)
+                capabilityAvailable && permissionAvailable
+            }.collect { available ->
+                val wasAvailable = _uiState.value.isSkillsAvailable
+                _uiState.value = _uiState.value.copy(isSkillsAvailable = available)
+                // Lazily load the catalog the first time the section is shown.
+                if (available && !wasAvailable && _uiState.value.availableSkills.isEmpty()) {
+                    loadSkills()
+                }
+            }
+        }
+    }
+
+    /** Fetches the skill catalog for the picker + chip-name resolution. Best
+     *  effort — a denied/empty list leaves saved ids rendering as raw chips. */
+    private fun loadSkills() {
+        viewModelScope.launch {
+            when (val result = skillsRepository.listSkills()) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(availableSkills = result.data.skills)
+                }
+                is Result.Error -> {
+                    Logger.d { "AgentEditor: skills list failed: ${result.message}" }
+                }
+                is Result.Loading -> { /* no-op */ }
+            }
+        }
+    }
+
+    /** Master `skills_enabled` toggle. Turning off keeps [selectedSkillIds] so
+     *  re-enabling restores the prior allowlist; the save path drops the
+     *  allowlist from the payload when disabled. */
+    fun onSkillsToggled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(skillsEnabled = enabled)
+    }
+
+    fun onSkillSelectionToggled(skillId: String) {
+        val current = _uiState.value.selectedSkillIds
+        val next = if (skillId in current) current - skillId else current + skillId
+        _uiState.value = _uiState.value.copy(selectedSkillIds = next)
+    }
+
+    fun onSkillRemoved(skillId: String) {
+        _uiState.value = _uiState.value.copy(
+            selectedSkillIds = _uiState.value.selectedSkillIds - skillId,
+        )
+    }
+
+    /**
+     * Gates the Subagents section on the agents endpoint `capabilities`
+     * containing "subagents" (upstream `AgentCapabilities.subagents`, same
+     * source the skills/web-search gates read). Capability-only — subagents has
+     * no PermissionType. Fail-open like the sibling gates (empty caps ⇒ shown).
+     */
+    private fun observeSubagentsAvailability() {
+        viewModelScope.launch {
+            configRepository.endpointConfigs.collect { configs ->
+                val agentsCapabilities = configs["agents"]?.capabilities ?: emptyList()
+                val available = agentsCapabilities.isEmpty() || "subagents" in agentsCapabilities
+                _uiState.value = _uiState.value.copy(isSubagentsAvailable = available)
+            }
+        }
+    }
+
+    /** Master `subagents.enabled` toggle. Keeps [selectedSubagentIds] /
+     *  [subagentAllowSelf] so re-enabling restores them; the save path sends an
+     *  explicit `enabled:false` config when off. */
+    fun onSubagentsToggled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(subagentsEnabled = enabled)
+    }
+
+    fun onSubagentAllowSelfToggled(allow: Boolean) {
+        _uiState.value = _uiState.value.copy(subagentAllowSelf = allow)
+    }
+
+    fun addSubagent(agentId: String) {
+        val current = _uiState.value.selectedSubagentIds
+        // Upstream caps subagents at MAX_SUBAGENTS; never list the agent itself.
+        if (agentId != _uiState.value.agentId &&
+            agentId !in current &&
+            current.size < MAX_SUBAGENTS
+        ) {
+            _uiState.value = _uiState.value.copy(selectedSubagentIds = current + agentId)
+        }
+    }
+
+    fun removeSubagent(agentId: String) {
+        _uiState.value = _uiState.value.copy(
+            selectedSubagentIds = _uiState.value.selectedSubagentIds - agentId,
+        )
     }
 
     private fun loadAgent(agentId: String) {
@@ -998,7 +1153,7 @@ class AgentEditorViewModel(
             try {
                 // Reading bytes off the URI is blocking I/O — keep it off the Main
                 // dispatcher (viewModelScope = Main.immediate) to avoid an ANR on
-                // large images. Mirrors the #92 FileAttachmentDelegate fix.
+                // large images. Mirrors the FileAttachmentDelegate fix.
                 val bytes = withContext(ioDispatcher) { contentReader.readBytes(uri) } ?: return@launch
                 if (bytes.size > AVATAR_SIZE_LIMIT_BYTES) {
                     val limitMb = AVATAR_SIZE_LIMIT_BYTES / (1024 * 1024)
@@ -1236,6 +1391,53 @@ class AgentEditorViewModel(
                 encoded.ifEmpty { null }
             }
 
+            // Skills (v0.8.6). Write shape per the zod agentBaseSchema
+            // (skills/skills_enabled both optional) + the server's $set merge:
+            // when the toggle is off, send skills_enabled=false and drop the
+            // allowlist. When on, send the toggle plus the current allowlist
+            // (empty = "full catalog"; the server stores skills_enabled=true
+            // and omits the allowlist). On UPDATE always send both fields so
+            // turning skills off, or clearing the allowlist, is honored via the
+            // $set merge; on CREATE omit when off (nothing to clear). On read
+            // the server scrubs the allowlist to ids the caller can access, so
+            // [applyAgentData] re-hydrates from the saved agent rather than
+            // trusting this list.
+            val skillsEnabled: Boolean?
+            val skills: List<String>?
+            when {
+                !state.skillsEnabled -> {
+                    skillsEnabled = if (isUpdate) false else null
+                    skills = if (isUpdate) emptyList() else null
+                }
+                else -> {
+                    skillsEnabled = true
+                    skills = state.selectedSkillIds
+                }
+            }
+
+            // Subagents config (v0.8.6). Same persist semantics as skills: when
+            // off, send an explicit `{ enabled: false, ... }` on UPDATE (not
+            // null) so the server's removeNullishValues doesn't strip it and the
+            // $set merge actually clears it; omit on CREATE. When on, send
+            // enabled + allowSelf + the agent_ids allowlist (self never included).
+            val subagents: AgentSubagentsConfig? = when {
+                !state.subagentsEnabled ->
+                    if (isUpdate) {
+                        AgentSubagentsConfig(
+                            enabled = false,
+                            allowSelf = state.subagentAllowSelf,
+                            agentIds = state.selectedSubagentIds,
+                        )
+                    } else {
+                        null
+                    }
+                else -> AgentSubagentsConfig(
+                    enabled = true,
+                    allowSelf = state.subagentAllowSelf,
+                    agentIds = state.selectedSubagentIds,
+                )
+            }
+
             val result = if (state.isEditMode && state.agentId != null) {
                 agentRepository.updateAgent(
                     id = state.agentId,
@@ -1261,6 +1463,9 @@ class AgentEditorViewModel(
                         toolOptions = prunedToolOptions,
                         additionalInstructions = state.additionalInstructions,
                         toolKwargs = state.toolKwargs,
+                        skills = skills,
+                        skillsEnabled = skillsEnabled,
+                        subagents = subagents,
                     ),
                 )
             } else {
@@ -1287,6 +1492,9 @@ class AgentEditorViewModel(
                         toolOptions = prunedToolOptions,
                         additionalInstructions = state.additionalInstructions,
                         toolKwargs = state.toolKwargs,
+                        skills = skills,
+                        skillsEnabled = skillsEnabled,
+                        subagents = subagents,
                     ),
                 )
             }
@@ -1311,6 +1519,9 @@ class AgentEditorViewModel(
 
         /** Upstream caps chain (sequential multi-agent) at 10 entries. */
         const val CHAIN_MAX = 10
+
+        /** Upstream `MAX_SUBAGENTS` (config.ts) — subagent agent_ids cap. */
+        const val MAX_SUBAGENTS = 10
 
         /** Tool ids used with `GET /agents/tools/:id/auth`. */
         private const val TOOL_EXECUTE_CODE = "execute_code"
@@ -1452,6 +1663,19 @@ class AgentEditorViewModel(
                 ),
                 supportContact = agent.parseSupportContact(),
                 chainAgentIds = agent.agentIds ?: emptyList(),
+                // Re-hydrate from the saved agent (server silently drops
+                // inaccessible skill ids in sanitizeViewerSkillScope), so the
+                // chips reflect what was actually persisted, not stale local
+                // state. Empty + enabled stays "full catalog".
+                skillsEnabled = agent.skillsEnabled ?: false,
+                selectedSkillIds = agent.skills ?: emptyList(),
+                // Subagents config (v0.8.6). allowSelf defaults true (upstream
+                // `allowSelf !== false`); self never appears in agent_ids.
+                subagentsEnabled = agent.subagents?.enabled ?: false,
+                subagentAllowSelf = agent.subagents?.allowSelf != false,
+                selectedSubagentIds = agent.subagents?.agentIds
+                    ?.filter { it != agent.id }
+                    ?: emptyList(),
                 handoffEdges = parsedEdges.typed,
                 unparsedHandoffEdges = parsedEdges.unparsed,
                 toolOptions = agent.toolOptions,

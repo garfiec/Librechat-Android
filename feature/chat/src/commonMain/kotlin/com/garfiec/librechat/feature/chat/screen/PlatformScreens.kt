@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 expect fun ChatScreen(
     modifier: Modifier = Modifier,
     conversationId: String? = null,
+    initialAgentId: String? = null,
     onConversationStart: ((String) -> Unit)? = null,
     onNavigateToConversation: ((String) -> Unit)? = null,
     onOpenDrawer: (() -> Unit)? = null,
@@ -22,11 +23,13 @@ expect fun ChatScreen(
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 )
 
-/** Platform-specific new chat screen. */
+/** Platform-specific new chat screen. [initialAgentId], when non-null, pre-selects
+ *  that agent for the new chat (set when starting from an agent detail/card). */
 @Composable
 expect fun NewChatScreen(
     onConversationStart: (String) -> Unit,
     modifier: Modifier = Modifier,
+    initialAgentId: String? = null,
     onOpenDrawer: (() -> Unit)? = null,
     onNavigateToPromptsLibrary: (() -> Unit)? = null,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,

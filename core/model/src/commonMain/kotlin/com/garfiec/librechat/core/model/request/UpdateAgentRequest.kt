@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.model.request
 
+import com.garfiec.librechat.core.model.AgentSubagentsConfig
 import com.garfiec.librechat.core.model.SupportContact
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -33,4 +34,14 @@ data class UpdateAgentRequest(
     @SerialName("code_files") val codeFiles: List<String>? = null,
     @SerialName("knowledge_files") val knowledgeFiles: List<String>? = null,
     @SerialName("context_files") val contextFiles: List<String>? = null,
+    // Skills/Subagents (v0.8.6). Nullable so explicitNulls=false omits the field when a caller
+    // leaves it unset, and the server's findOneAndUpdate $set merge then preserves the stored
+    // value. NOTE: the agent editor does NOT rely on that omission for skills — it always sends
+    // a non-null skills/skills_enabled on update. Its non-wipe guarantee instead comes from
+    // re-hydration: AgentEditorViewModel.applyAgentData loads the server-pruned saved agent and
+    // re-sends that pruned set, so a future maintainer must NOT "simplify" the always-send-on-
+    // update logic on the assumption that null-omission still protects server-set skills.
+    val skills: List<String>? = null,
+    @SerialName("skills_enabled") val skillsEnabled: Boolean? = null,
+    val subagents: AgentSubagentsConfig? = null,
 )

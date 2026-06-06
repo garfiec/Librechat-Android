@@ -107,6 +107,7 @@ import org.koin.core.parameter.parametersOf
 actual fun ChatScreen(
     modifier: Modifier,
     conversationId: String?,
+    initialAgentId: String?,
     onConversationStart: ((String) -> Unit)?,
     onNavigateToConversation: ((String) -> Unit)?,
     onOpenDrawer: (() -> Unit)?,
@@ -114,7 +115,7 @@ actual fun ChatScreen(
     onNavigateBack: (() -> Unit)?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
-    val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId) }
+    val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val shareLinkUrl by viewModel.shareLinkUrl.collectAsStateWithLifecycle()
@@ -142,13 +143,13 @@ actual fun ChatScreen(
     var showSecondaryModelSheet by remember { mutableStateOf(false) }
     var activeComparisonTab by remember { mutableStateOf(0) }
 
-    // Resolve agent name for model display
-    val agentName = if (uiState.selectedEndpoint == EndpointConstants.AGENTS && uiState.selectedModel != null) {
-        uiState.agents.find { it.id == uiState.selectedModel }?.name
-    } else {
-        null
-    }
-    val displayModel = agentName ?: uiState.selectedModel
+    // Header/composer model labels (agent name vs model name, with the "never a raw
+    // model string under agents" rule). Shared with iOS via rememberChatModelLabel.
+    val (agentName, displayModel) = rememberChatModelLabel(
+        selectedEndpoint = uiState.selectedEndpoint,
+        selectedModel = uiState.selectedModel,
+        agents = uiState.agents,
+    )
 
     // Device speech recognizer launcher (used when server STT is not available)
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
@@ -322,6 +323,7 @@ actual fun ChatScreen(
         inlineArtifactPrefs = prefs.inlineArtifactPrefs,
         mermaidRenderCache = viewModel.mermaidRenderCache,
         parsedMarkdownCache = viewModel.parsedMarkdownCache,
+        subagentProgress = uiState.subagentProgress,
     ) {
     Scaffold(
         modifier = modifier
@@ -339,11 +341,16 @@ actual fun ChatScreen(
                     multiConvoEnabled = uiState.multiConvoEnabled,
                     isTemporaryChat = uiState.isTemporaryChat,
                     onToggleTemporaryChat = viewModel::toggleTemporaryChat,
-                    showTempChatToggle = uiState.conversationId == null && uiState.temporaryChatEnabled,
+                    // Interactive on the new-chat landing; once a temporary chat is
+                    // active it stays visible (ON) as a persistent indicator.
+                    showTempChatToggle = (uiState.conversationId == null || uiState.isTemporaryChat) &&
+                        uiState.temporaryChatEnabled,
                     isComparisonEnabled = uiState.comparisonState.isEnabled,
                     onToggleComparison = viewModel::toggleComparison,
                     conversationId = uiState.conversationId,
                     conversationTitle = uiState.conversationTitle,
+                    displayModel = displayModel,
+                    onOpenModelSelector = viewModel::openModelSheet,
                     sharedLinksEnabled = uiState.sharedLinksEnabled,
                     onShare = viewModel::shareConversation,
                     onRename = viewModel::showRenameDialog,
@@ -847,6 +854,8 @@ private fun ChatTopBar(
     onToggleComparison: () -> Unit = {},
     conversationId: String? = null,
     conversationTitle: String? = null,
+    displayModel: String? = null,
+    onOpenModelSelector: () -> Unit = {},
     sharedLinksEnabled: Boolean = false,
     onShare: () -> Unit = {},
     onRename: () -> Unit = {},
@@ -874,7 +883,9 @@ private fun ChatTopBar(
             }
         }
 
-        // Show conversation title when viewing an existing conversation
+        // Show conversation title when viewing an existing conversation, otherwise a
+        // tappable model selector so the model/params (thinkingLevel) sheet is reachable
+        // from the header — not only two taps deep in the composer "+" menu.
         if (conversationId != null && !conversationTitle.isNullOrBlank()) {
             Text(
                 text = conversationTitle,
@@ -886,7 +897,11 @@ private fun ChatTopBar(
             )
             Spacer(modifier = Modifier.width(4.dp))
         } else {
-            Spacer(modifier = Modifier.weight(1f))
+            ModelSelectorButton(
+                modelName = displayModel,
+                onClick = onOpenModelSelector,
+                modifier = Modifier.weight(1f),
+            )
         }
 
         if (showTempChatToggle) {

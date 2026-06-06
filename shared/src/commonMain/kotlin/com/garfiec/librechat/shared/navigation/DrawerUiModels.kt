@@ -33,4 +33,5 @@ data class DrawerUiState(
     // Role-permission gates — default permissive.
     val agentsEnabled: Boolean = true,
     val bookmarksEnabled: Boolean = true,
+    val skillsEnabled: Boolean = true,
 )

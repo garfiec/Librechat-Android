@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.util
 
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.model.permissions.UserRolePermissions
+import com.garfiec.librechat.core.model.request.UpdateRoleSkillsRequest
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -19,6 +20,9 @@ class PermissionGateTest {
             override val userPermissions: StateFlow<UserRolePermissions?> = flow
             override suspend fun fetchUserRole() = error("not needed in gate tests")
             override suspend fun clear() { /* no-op */ }
+            override suspend fun getRole(roleName: String) = error("not needed in gate tests")
+            override suspend fun updateRoleSkills(roleName: String, request: UpdateRoleSkillsRequest) =
+                error("not needed in gate tests")
         }
 
     private val adminRole = UserRolePermissions(

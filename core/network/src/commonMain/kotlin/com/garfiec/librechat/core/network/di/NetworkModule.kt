@@ -23,6 +23,7 @@ import com.garfiec.librechat.core.network.api.PromptsApi
 import com.garfiec.librechat.core.network.api.RolesApi
 import com.garfiec.librechat.core.network.api.SearchApi
 import com.garfiec.librechat.core.network.api.ShareApi
+import com.garfiec.librechat.core.network.api.SkillsApi
 import com.garfiec.librechat.core.network.api.SpeechApi
 import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
@@ -79,6 +80,7 @@ val networkModule = module {
         HttpClient(engineFactory) {
             install(AuthInterceptorPlugin) {
                 this.tokenManager = tokenManager
+                this.serverUrlProvider = serverUrlProvider
             }
             install(ServerUrlReadyPlugin) {
                 this.serverUrlProvider = serverUrlProvider
@@ -149,6 +151,7 @@ val networkModule = module {
     singleOf(::RolesApi)
     singleOf(::SearchApi)
     singleOf(::ShareApi)
+    singleOf(::SkillsApi)
     singleOf(::SpeechApi)
     singleOf(::TagsApi)
     singleOf(::UserApi)

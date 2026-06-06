@@ -38,10 +38,17 @@ object BackendVersion {
     /**
      * Parses a version string like "0.8.2", "v0.8.2", "0.8", or "v0.8" into a [SemanticVersion].
      * Returns null if the string cannot be parsed.
+     *
+     * Semver prerelease and build-metadata suffixes are stripped before parsing: per the
+     * spec they begin at the first `-` (prerelease) or `+` (build) following the numeric
+     * core, so "0.8.6-rc1" and "0.8.6+build.5" both parse as 0.8.6. Without this, the
+     * patch token "6-rc1" failed `toIntOrNull` and silently fell back to 0, downgrading
+     * "0.8.6-rc1" to 0.8.0 and defeating every `isCompatibleOrNewer` gate against a
+     * prerelease server footer.
      */
     fun parse(version: String): SemanticVersion? {
-        val cleaned = version.trimStart('v', 'V').trim()
-        val parts = cleaned.split('.')
+        val core = version.trim().trimStart('v', 'V').substringBefore('-').substringBefore('+')
+        val parts = core.split('.')
         if (parts.size < 2) return null
         val major = parts[0].toIntOrNull() ?: return null
         val minor = parts[1].toIntOrNull() ?: return null

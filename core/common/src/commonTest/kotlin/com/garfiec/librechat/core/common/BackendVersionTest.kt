@@ -28,6 +28,26 @@ class BackendVersionTest {
     }
 
     @Test
+    fun parseStripsPrereleaseSuffix() {
+        // Pre-fix bug: patch token "6-rc1" failed toIntOrNull and fell back to 0,
+        // parsing "0.8.6-rc1" as 0.8.0 and silently downgrading every version gate.
+        assertEquals(BackendVersion.SemanticVersion(0, 8, 6), BackendVersion.parse("0.8.6-rc1"))
+        assertEquals(BackendVersion.SemanticVersion(0, 8, 6), BackendVersion.parse("v0.8.6-rc.1"))
+        assertEquals(BackendVersion.SemanticVersion(0, 8, 6), BackendVersion.parse("0.8.6"))
+    }
+
+    @Test
+    fun parseStripsBuildMetadataSuffix() {
+        assertEquals(BackendVersion.SemanticVersion(0, 8, 6), BackendVersion.parse("0.8.6+build.5"))
+    }
+
+    @Test
+    fun parsePrereleaseDoesNotDowngradeGate() {
+        // The motivating end-to-end case: a prerelease server footer must not defeat the gate.
+        assertTrue(BackendVersion.isCompatibleOrNewer("0.8.6-rc1", "0.8.6"))
+    }
+
+    @Test
     fun parseRejectsGarbage() {
         assertNull(BackendVersion.parse("garbage"))
         assertNull(BackendVersion.parse("1"))

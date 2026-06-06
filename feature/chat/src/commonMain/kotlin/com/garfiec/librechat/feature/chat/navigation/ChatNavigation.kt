@@ -13,7 +13,10 @@ import kotlinx.serialization.modules.subclass
 
 @Serializable sealed interface ChatRoute : NavKey
 
-@Serializable data object NewChat : ChatRoute
+/** [agentId] (when non-null) is the agent to pre-select for the new chat — set when
+ *  starting a chat from an agent's detail/marketplace card so the new chat opens on
+ *  that agent rather than falling back to last-used/first-agent/first-model. */
+@Serializable data class NewChat(val agentId: String? = null) : ChatRoute
 
 @Serializable data class Chat(val conversationId: String? = null) : ChatRoute
 
@@ -34,8 +37,9 @@ fun EntryProviderScope<NavKey>.chatEntries(
      */
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
-    entry<NewChat> {
+    entry<NewChat> { key ->
         NewChatScreen(
+            initialAgentId = key.agentId,
             onConversationStart = { conversationId ->
                 onNavigateToChat(conversationId)
             },

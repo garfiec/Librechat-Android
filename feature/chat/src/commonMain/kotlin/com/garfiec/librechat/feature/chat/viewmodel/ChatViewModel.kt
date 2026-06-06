@@ -19,6 +19,7 @@ import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.DraftRepository
 import com.garfiec.librechat.core.data.repository.FavoritesRepository
+import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
@@ -41,17 +42,21 @@ import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
+import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
+import com.garfiec.librechat.feature.chat.util.mergeFinalMessagesInMemory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.EndpointKeyStatusDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.FavoritesDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.InConversationSearchDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.OfficePreviewDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.SubagentTraceDelegate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -72,6 +77,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -79,9 +85,11 @@ import kotlin.uuid.Uuid
 @Suppress("TooManyFunctions", "LongParameterList")
 class ChatViewModel(
     initialConversationId: String? = null,
+    initialAgentId: String? = null,
     private val agentRepository: AgentRepository,
     private val chatRepository: ChatRepository,
     private val messageRepository: MessageRepository,
+    private val fileRepository: FileRepository,
     private val configRepository: ConfigRepository,
     private val conversationRepository: ConversationRepository,
     private val draftRepository: DraftRepository,
@@ -98,6 +106,7 @@ class ChatViewModel(
     serverDataStore: ServerDataStore,
     private val settingsDataStore: SettingsDataStore,
     platformDelegateFactory: PlatformDelegateFactory,
+    private val json: Json,
     private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -137,11 +146,14 @@ class ChatViewModel(
         mcpRepository = mcpRepository,
         settingsDataStore = settingsDataStore,
         permissionGate = permissionGate,
+        initialAgentId = initialAgentId,
     )
     private val keyStatusDelegate = EndpointKeyStatusDelegate(
         stateHandle = stateHandle,
         keyRepository = keyRepository,
     )
+    private val subagentTraceDelegate = SubagentTraceDelegate(stateHandle, json)
+    private val officePreviewDelegate = OfficePreviewDelegate(stateHandle, fileRepository)
 
     // --- Delegate-owned flows exposed to the UI ---
     val attachedFiles: StateFlow<List<AttachedFile>> get() = fileDelegate.attachedFiles
@@ -391,6 +403,13 @@ class ChatViewModel(
     // ── Core chat flow ──────────────────────────────────────────────
 
     private fun loadConversation(conversationId: String) {
+        // SECURITY: do not remove — temp-chat data-at-rest guard.
+        // Defense-in-depth for temporary chats (v0.8.6): never route a temp conversation
+        // through the Room read-through, which would upsert its message rows to disk (the
+        // convo is hidden from history but the text would persist). The temp chat's
+        // display is finalized in memory by finalizeTemporaryChatDisplay; any stray
+        // loadConversation call (safety-net, error/abort paths) must not touch the DB.
+        if (_uiState.value.isTemporaryChat) return
         // Cancel any previous Room observer to avoid duplicate collectors
         roomObserverJob?.cancel()
         roomObserverJob = viewModelScope.launch {
@@ -638,6 +657,8 @@ class ChatViewModel(
         fileDelegate.clearAttachedFiles()
         streamingBuffer.clear()
         streamingBufferDirty = false
+        subagentTraceDelegate.reset()
+        officePreviewDelegate.reset()
         startStreamingUpdater()
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
@@ -701,6 +722,7 @@ class ChatViewModel(
                     files = fileRefs.takeIf { it.isNotEmpty() },
                     addedConvo = effectiveAddedConvo,
                     ephemeralAgent = ephemeralAgent,
+                    isTemporary = _uiState.value.isTemporaryChat,
                 ),
             )
             // Safety net: if the flow ends without Final or Error, clear streaming
@@ -731,6 +753,8 @@ class ChatViewModel(
         }
         streamingBuffer.clear()
         streamingBufferDirty = false
+        subagentTraceDelegate.reset()
+        officePreviewDelegate.reset()
         startStreamingUpdater()
     }
 
@@ -810,6 +834,7 @@ class ChatViewModel(
                     isEdited = true,
                     webSearch = webSearchEnabled,
                     ephemeralAgent = ephemeralAgent,
+                    isTemporary = _uiState.value.isTemporaryChat,
                 ),
             )
         }
@@ -849,6 +874,7 @@ class ChatViewModel(
                     isRegenerate = true,
                     webSearch = webSearchEnabled,
                     ephemeralAgent = ephemeralAgent,
+                    isTemporary = _uiState.value.isTemporaryChat,
                 ),
             )
         }
@@ -893,6 +919,7 @@ class ChatViewModel(
                     isRegenerate = true,
                     webSearch = webSearchEnabled,
                     ephemeralAgent = ephemeralAgent,
+                    isTemporary = _uiState.value.isTemporaryChat,
                 ),
             )
         }
@@ -1103,6 +1130,9 @@ class ChatViewModel(
                         }
                         state.copy(activeToolCalls = updated)
                     }
+                    // If this was a `subagent` tool_call, freeze its live trace —
+                    // the child run is done; stop accumulating for that key.
+                    subagentTraceDelegate.onParentToolCallResolved(event.toolCallId)
                 }
             }
             is StreamEvent.AttachmentCreated -> {
@@ -1114,9 +1144,20 @@ class ChatViewModel(
                     toolCallId = event.toolCallId,
                     width = event.width,
                     height = event.height,
+                    status = event.status,
+                    text = event.text,
+                    textFormat = event.textFormat,
+                    previewError = event.previewError,
                 )
-                _uiState.update {
-                    it.copy(streamingAttachments = it.streamingAttachments + attachment)
+                // Office-doc previews (v0.8.6) arrive twice per file_id (pending →
+                // ready/failed) — route through the delegate for upsert-by-file_id +
+                // poll-while-pending. Ordinary attachments keep the simple append path.
+                if (ArtifactType.isOfficePreviewMime(event.type)) {
+                    officePreviewDelegate.onAttachment(attachment)
+                } else {
+                    _uiState.update {
+                        it.copy(streamingAttachments = it.streamingAttachments + attachment)
+                    }
                 }
             }
             is StreamEvent.Sync -> {
@@ -1142,6 +1183,7 @@ class ChatViewModel(
                 // persisted to the final message as a SUMMARY content part and rendered
                 // there; nothing extra to do during streaming.
             }
+            is StreamEvent.SubagentUpdate -> subagentTraceDelegate.onUpdate(event)
         }
     }
 
@@ -1184,6 +1226,10 @@ class ChatViewModel(
 
     private fun handleFinal(event: StreamEvent.Final) {
         stopStreamingUpdater()
+        // The stream has ended: any office-doc attachment still `pending` (its
+        // `ready` SSE update may never arrive once the run closes) now falls back
+        // to polling GET /api/files/:id/preview. De-duped + bounded in the delegate.
+        officePreviewDelegate.onStreamEnded()
         val isComparison = _uiState.value.comparisonState.isEnabled
         val conversationId = _uiState.value.conversationId
             ?: event.conversation?.conversationId
@@ -1229,24 +1275,61 @@ class ChatViewModel(
             }
         }
         val finalConversation = event.conversation
-        if (finalConversation?.conversationId != null) {
+        // SECURITY: do not remove — temp-chat data-at-rest guard.
+        // Temporary chats (v0.8.6) are kept out of normal history — the server excludes
+        // them from the conversation list, so don't cache them to Room either (it would
+        // leak a temp chat into the local list the server hides).
+        val isTemporary = _uiState.value.isTemporaryChat || finalConversation?.isTemporary == true
+        if (finalConversation?.conversationId != null && !isTemporary) {
             viewModelScope.launch {
                 conversationRepository.saveConversation(finalConversation)
             }
         }
         if (conversationId != null) {
-            loadConversation(conversationId)
-            val currentTitle = _uiState.value.conversationTitle
-            val needsTitle = currentTitle.isNullOrBlank() || currentTitle == "New Chat"
-            if (isNewConversation && needsTitle && !titleGenerationRequested) {
-                titleGenerationRequested = true
-                generateAndSetTitle(conversationId)
+            if (isTemporary) {
+                // SECURITY: do not remove — temp-chat data-at-rest guard.
+                // Temp chats are never persisted: don't round-trip through the Room
+                // read-through (which would upsert the message rows to disk). Drive the
+                // display from the final event in memory instead. Title generation is
+                // also skipped server-side for temp chats, so there's nothing to refresh.
+                finalizeTemporaryChatDisplay(event)
             } else {
-                refreshConversationTitle(conversationId)
+                loadConversation(conversationId)
+                val currentTitle = _uiState.value.conversationTitle
+                val needsTitle = currentTitle.isNullOrBlank() || currentTitle == "New Chat"
+                if (isNewConversation && needsTitle && !titleGenerationRequested) {
+                    titleGenerationRequested = true
+                    generateAndSetTitle(conversationId)
+                } else {
+                    refreshConversationTitle(conversationId)
+                }
             }
         }
         if (shouldAutoRead && completedResponseText.isNotBlank()) {
             ttsDelegate.maybeAutoReadResponse(completedResponseText)
+        }
+    }
+
+    /**
+     * Finalizes a temporary chat's display purely in memory, WITHOUT persisting to
+     * Room. For a normal chat, [handleFinal] calls [loadConversation], which routes
+     * through [MessageRepository.getMessages]'s read-through cache and upserts the
+     * message rows to disk — for a temp chat that would leave the message content on
+     * disk forever even though the conversation never appears in history. Instead we
+     * merge the final request/response messages from the SSE event into the existing
+     * in-memory list (replacing the optimistic user message by id) and recompute the
+     * display path. Nothing touches the DB.
+     */
+    private fun finalizeTemporaryChatDisplay(event: StreamEvent.Final) {
+        val finalMessages = listOfNotNull(event.requestMessage, event.responseMessage ?: event.message)
+        if (finalMessages.isEmpty()) return
+        _uiState.update { state ->
+            val mergedMessages = mergeFinalMessagesInMemory(state.messages, finalMessages)
+            state.copy(
+                messages = mergedMessages,
+                displayMessages = buildActiveMessagePath(mergedMessages, state.activeBranches),
+                screenState = ChatScreenState.ACTIVE,
+            )
         }
     }
 
@@ -1330,6 +1413,7 @@ class ChatViewModel(
                     isContinued = true,
                     webSearch = webSearchEnabled,
                     ephemeralAgent = ephemeralAgent,
+                    isTemporary = _uiState.value.isTemporaryChat,
                 ),
             )
         }
@@ -1541,11 +1625,20 @@ class ChatViewModel(
     }
 
     fun toggleTemporaryChat() {
+        // Only togglable before the conversation exists. Once a temporary chat is
+        // active the toggle is a read-only indicator — the server already created
+        // it temporary, so flipping it off here would be misleading.
+        if (_uiState.value.conversationId != null) return
         _uiState.update { it.copy(isTemporaryChat = !it.isTemporaryChat) }
     }
 
     fun refreshMessages() {
         val conversationId = _uiState.value.conversationId ?: return
+        // SECURITY: do not remove — temp-chat data-at-rest guard.
+        // Temp chats aren't persisted server- or client-side; a pull-to-refresh would
+        // call refreshMessages → replaceAllForConversation, writing the temp message rows
+        // to Room. Skip — there's nothing to refresh for a temporary chat.
+        if (_uiState.value.isTemporaryChat) return
         if (_uiState.value.isRefreshingMessages) return
         _uiState.update { it.copy(isRefreshingMessages = true) }
         viewModelScope.launch {
@@ -1716,6 +1809,7 @@ class ChatViewModel(
         super.onCleared()
         voiceDelegate.release()
         ttsDelegate.release()
+        officePreviewDelegate.cancelPolls()
     }
 
     // ── Delegated public API ────────────────────────────────────────

@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -64,6 +65,7 @@ import com.garfiec.librechat.shared.resources.no_conversations_found
 import com.garfiec.librechat.shared.resources.remove_bookmark
 import com.garfiec.librechat.shared.resources.search_conversations_placeholder
 import com.garfiec.librechat.shared.resources.settings
+import com.garfiec.librechat.shared.resources.skills
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -81,6 +83,7 @@ fun DrawerContent(
     onSettingsClick: () -> Unit,
     onAgentsClick: () -> Unit,
     onFilesClick: () -> Unit,
+    onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: NavHostViewModel = koinViewModel(),
 ) {
@@ -93,6 +96,7 @@ fun DrawerContent(
         onSettingsClick = onSettingsClick,
         onAgentsClick = onAgentsClick,
         onFilesClick = onFilesClick,
+        onSkillsClick = onSkillsClick,
         onToggleFavorite = { data -> viewModel.toggleFavorite(data.conversationId, data.tags) },
         onRefresh = viewModel::refreshConversations,
         onLoadMore = viewModel::loadMoreConversations,
@@ -110,6 +114,7 @@ fun DrawerContent(
     onSettingsClick: () -> Unit,
     onAgentsClick: () -> Unit,
     onFilesClick: () -> Unit,
+    onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
     onToggleFavorite: (DrawerConversationDisplayData) -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -338,6 +343,13 @@ fun DrawerContent(
                 icon = Icons.Default.SmartToy,
                 label = stringResource(Res.string.agents),
                 onClick = onAgentsClick,
+            )
+        }
+        if (uiState.skillsEnabled) {
+            DrawerFooterItem(
+                icon = Icons.Default.Extension,
+                label = stringResource(Res.string.skills),
+                onClick = onSkillsClick,
             )
         }
         DrawerFooterItem(

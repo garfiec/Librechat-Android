@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.FeedbackRating
+import com.garfiec.librechat.core.ui.theme.isSurfaceDark
+import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.MessageNode
@@ -446,6 +448,21 @@ fun MessageList(
                             baseUrl = baseUrl,
                             streamingAttachments = streamingAttachments,
                             showImageDescriptions = showImageDescriptions,
+                        )
+                    }
+                }
+
+                // Live deferred office-doc previews (v0.8.6): pending→Preparing,
+                // ready→artifact, failed→chip. Folded by file_id in the VM delegate.
+                val officeAttachments = streamingAttachments.filter {
+                    ArtifactType.isOfficePreviewMime(it.type)
+                }
+                if (officeAttachments.isNotEmpty()) {
+                    item(key = "streaming_office_previews") {
+                        OfficePreviewAttachments(
+                            attachments = officeAttachments,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            isDarkTheme = isSurfaceDark(),
                         )
                     }
                 }

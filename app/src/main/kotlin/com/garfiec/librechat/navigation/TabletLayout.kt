@@ -34,6 +34,7 @@ import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.files.navigation.Files
 import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
+import com.garfiec.librechat.feature.skills.navigation.SkillsList
 import com.garfiec.librechat.shared.navigation.MainNavDisplay
 import com.garfiec.librechat.shared.navigation.NavHostViewModel
 import com.garfiec.librechat.shared.navigation.Navigator
@@ -161,7 +162,7 @@ fun TabletLayout(
                     SidebarScaffold(
                         onNewChat = {
                             if (navigator.currentRoute !is NewChat) {
-                                navigator.navigateToTopLevel(NewChat)
+                                navigator.navigateToTopLevel(NewChat())
                             }
                         },
                         onConversationClick = { conversationId ->
@@ -178,6 +179,9 @@ fun TabletLayout(
                         },
                         onFilesClick = {
                             navigator.navigate(Files)
+                        },
+                        onSkillsClick = {
+                            navigator.navigate(SkillsList)
                         },
                         modifier = Modifier
                             .width(SidebarWidth)

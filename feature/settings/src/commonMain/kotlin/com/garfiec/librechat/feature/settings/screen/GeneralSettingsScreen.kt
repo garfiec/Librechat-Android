@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.model.config.BuildInfo
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsViewModel
@@ -155,6 +156,7 @@ fun GeneralSettingsContent(
                     serverUrl = uiState.serverUrl,
                     appVersion = uiState.appVersion,
                     gitSha = uiState.gitSha,
+                    buildInfo = uiState.buildInfo,
                 )
             }
 
@@ -282,7 +284,12 @@ private fun TabletSidebarGestureToggle(
 }
 
 @Composable
-private fun AboutInfo(serverUrl: String, appVersion: String, gitSha: String) {
+private fun AboutInfo(
+    serverUrl: String,
+    appVersion: String,
+    gitSha: String,
+    buildInfo: BuildInfo?,
+) {
     Column {
         Column(
             modifier = Modifier
@@ -338,8 +345,43 @@ private fun AboutInfo(serverUrl: String, appVersion: String, gitSha: String) {
                     modifier = Modifier.weight(1f, fill = false),
                 )
             }
+            // Server build metadata (v0.8.6) — only when the server reports it.
+            val commit = buildInfo?.commitShort ?: buildInfo?.commit
+            if (!commit.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                AboutRow(stringResource(Res.string.server_build_commit_label), commit)
+            }
+            buildInfo?.branch?.takeIf { it.isNotBlank() }?.let { branch ->
+                Spacer(modifier = Modifier.height(8.dp))
+                AboutRow(stringResource(Res.string.server_build_branch_label), branch)
+            }
+            buildInfo?.buildDate?.takeIf { it.isNotBlank() }?.let { buildDate ->
+                Spacer(modifier = Modifier.height(8.dp))
+                AboutRow(stringResource(Res.string.server_build_date_label), buildDate)
+            }
         }
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+private fun AboutRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
     }
 }
 

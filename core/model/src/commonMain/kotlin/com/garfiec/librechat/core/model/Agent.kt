@@ -80,6 +80,19 @@ data class Agent(
      * mobile parses `file_ids` to surface per-capability chips in the agent editor.
      */
     @SerialName("tool_resources") val toolResources: JsonObject? = null,
+    /**
+     * Optional allowlist of skill ObjectIds. Only applies when [skillsEnabled] is true.
+     * Forward-compat (v0.8.6): mobile has no Skills editor yet, so this is round-tripped
+     * untouched. Kept nullable so `explicitNulls=false` omits it when the editor didn't set it.
+     */
+    val skills: List<String>? = null,
+    /**
+     * Master toggle for skill use on this agent. `true` = active (full catalog unless
+     * [skills] narrows it); `false`/null = inactive. Forward-compat (v0.8.6).
+     */
+    @SerialName("skills_enabled") val skillsEnabled: Boolean? = null,
+    /** Subagent spawning configuration — isolated-context child agents. Forward-compat (v0.8.6). */
+    val subagents: AgentSubagentsConfig? = null,
 ) {
     val avatarUrl: String?
         get() = try {

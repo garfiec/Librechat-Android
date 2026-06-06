@@ -69,6 +69,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             onNavigateToApiKeys = { onNavigate(ApiKeys) },
             onNavigateToFavorites = { onNavigate(Favorites) },
             onNavigateToProviderKeys = navigateToProviderKeys,
+            onNavigateToRoleSkillsAdmin = { onNavigate(RoleSkillsAdmin) },
         )
     }
     entry<SettingsGeneral> {
@@ -89,6 +90,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             onNavigateToApiKeys = { onNavigate(ApiKeys) },
             onNavigateToFavorites = { onNavigate(Favorites) },
             onNavigateToProviderKeys = navigateToProviderKeys,
+            onNavigateToRoleSkillsAdmin = { onNavigate(RoleSkillsAdmin) },
         )
     }
     entry<SettingsData> {
@@ -134,6 +136,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
         )
     }
     favoritesEntry(onBack = onBack)
+    roleSkillsAdminEntry(onBack = onBack)
 }
 
 val settingsSerializersModule = SerializersModule {
@@ -150,5 +153,6 @@ val settingsSerializersModule = SerializersModule {
         subclass(Memories::class, Memories.serializer())
         subclass(McpServers::class, McpServers.serializer())
         subclass(Favorites::class, Favorites.serializer())
+        subclass(RoleSkillsAdmin::class, RoleSkillsAdmin.serializer())
     }
 }

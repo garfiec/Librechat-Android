@@ -13,4 +13,5 @@ enum class PermissionType(val serverKey: String) {
     MULTI_CONVO("MULTI_CONVO"),
     MARKETPLACE("MARKETPLACE"),
     REMOTE_AGENTS("REMOTE_AGENTS"),
+    SKILLS("SKILLS"),
 }

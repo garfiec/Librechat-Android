@@ -43,6 +43,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.model.EModelEndpoint
 import com.garfiec.librechat.core.ui.components.AvatarImage
@@ -69,6 +71,13 @@ fun AgentMarketplaceScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
+
+    // Reload on return so a delete (or edit) made on the pushed detail screen is
+    // reflected — without this the marketplace keeps a stale card that 404s on tap.
+    // Mirrors SkillsListScreen's ON_RESUME refresh.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshOnReturn()
+    }
 
     val shouldLoadMore by remember {
         derivedStateOf {

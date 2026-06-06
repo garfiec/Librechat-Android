@@ -209,6 +209,41 @@ POST   /api/files/speech/stt   → speech-to-text
 POST   /api/files/speech/tts   → text-to-speech
 ```
 
+### v0.8.6 endpoint surface (confirmed during sync; mobile status noted)
+```
+# Skills family (DEFERRED — no mobile counterpart; skill tool *invocations* already
+# render via the generic tool-call path, so chatting with a skill-enabled agent works today)
+GET    /api/skills                       → list
+POST   /api/skills                       → create (perm: skills.create)
+GET    /api/skills/:id                   → detail
+PATCH  /api/skills/:id                   → update
+DELETE /api/skills/:id                   → delete
+GET    /api/skills/:id/files             → skill file tree
+POST   /api/skills/:id/files             → add file
+GET    /api/skills/:id/files/:relPath    → read file
+DELETE /api/skills/:id/files/:relPath    → delete file
+POST   /api/skills/import                → import skill
+GET    /api/user/settings/skills/active  → per-user active-skill states (DEFERRED)
+POST   /api/user/settings/skills/active  → set active-skill states (DEFERRED)
+PUT    /api/roles/:roleName/skills       → admin skill-permission grant (DEFERRED; admin)
+
+# Deferred-preview poll for inline office-doc rendering (DEFERRED — pairs with TFile.status/text)
+GET    /api/files/:file_id/preview       → { file_id, status: pending|ready|failed,
+                                            text?, textFormat?: html|text, previewError? }
+                                            (status defaults to 'ready' for legacy/non-office files)
+
+# CloudFront signed-URL download (DEFERRED — only when server is CloudFront-configured;
+# the existing /api/files/download/:userId/:file_id bytes path still works on v0.8.6)
+GET    /api/files/download-url/:userId/:file_id → { url, filename, type, metadata }
+```
+
+### /api/config v0.8.6 behavior (verified non-breaking)
+- Pre-auth (no `req.user`) response is now sanitized to a minimal pre-login payload; `?context=share`
+  merges a public-share payload. Mobile onboarding (`ConfigRepositoryImpl.validateServerUrl`) only
+  checks `serverDomain.isNotBlank()` (not stripped) and re-fetches the full config post-auth, so this
+  is safe. New top-level keys: `rum`, `cloudFront`, `buildInfo`; new `interface` keys: `skills`,
+  `buildInfo`, `autoSubmitFromUrl`, `retentionMode`. Mobile now PARSES these (C1) but gates no UI yet.
+
 ### Other
 ```
 GET/POST/DELETE /api/presets
@@ -297,6 +332,13 @@ added in v0.8.5 — `on_summarize_start`, `on_summarize_delta`, `on_summarize_co
 ```
 Mobile only renders the compacted summary once it is persisted to the final message as
 a SUMMARY content part; the delta/lifecycle events are surfaced as status only.
+
+v0.8.6 adds `on_subagent_update` (envelope `{ event, data:{ phase, parentToolCallId, data } }`)
+for the web subagent live-trace dialog. Mobile drops it via `SseEventMapper`'s forward-compat
+`else -> null` branch with no crash; the subagent's actual reasoning/tool-calls/text still
+arrive folded into the parent run's normal `on_run_step`/`on_message_delta` events, so
+subagent activity renders today as ordinary parent-agent tool calls. A dedicated trace UI is
+deferred.
 
 ### SSE Event Format
 ```

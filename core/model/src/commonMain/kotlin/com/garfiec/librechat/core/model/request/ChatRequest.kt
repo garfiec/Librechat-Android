@@ -48,4 +48,8 @@ data class ChatRequest(
     val files: List<FileReference>? = null,
     val addedConvo: AddedConversation? = null,
     val ephemeralAgent: EphemeralAgent? = null,
+    /** When true, the server marks this conversation temporary (v0.8.6): skips
+     *  title generation, keeps it out of normal history, and sets an `expiredAt`
+     *  from the interface `temporaryChatRetention`. Sent on the chat request. */
+    val isTemporary: Boolean? = null,
 )

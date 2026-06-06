@@ -50,7 +50,7 @@ fun LibreChatNavHost(
             if (shareNavigationTrigger > 0) {
                 val currentRoute = navigator.currentRoute
                 if (currentRoute !is Chat && currentRoute !is NewChat) {
-                    navigator.navigateToTopLevel(NewChat)
+                    navigator.navigateToTopLevel(NewChat())
                 }
             }
         }

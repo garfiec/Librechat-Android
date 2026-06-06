@@ -24,10 +24,14 @@ Material 3 theme and shared Compose components used across all feature modules. 
 - `PullToRefresh` - Pull-to-refresh wrapper.
 - `BannerDisplay` - Dismissible server banner cards (info/warning/error types).
 
-### Markdown (`markdown/`)
-- `MarkdownRenderer` - Compose-native markdown rendering (commonmark).
-- `CodeBlock` - Syntax-highlighted code blocks (Compose-native, NOT WebView per block).
-- `LatexRenderer` - Math rendering via WebView or compose-math.
+### Markdown
+- core/ui does NOT provide a shared markdown renderer. Features render markdown
+  directly with the `com.mikepenz` multiplatform-markdown-renderer
+  (`libs.markdown.renderer.m3`) — see `feature/chat` (CachedMarkdown, streaming-
+  tuned) and `feature/skills` (plain static `Markdown(...)`). `feature/chat`
+  also has its own WebView-based artifact/LaTeX rendering. If a genuinely shared
+  renderer is ever needed, lift it here; until then there is nothing in core/ui
+  to depend on.
 
 ### Message Components (`message/`)
 - `MessageBubble` - Shared message rendering used by `:feature:chat`.

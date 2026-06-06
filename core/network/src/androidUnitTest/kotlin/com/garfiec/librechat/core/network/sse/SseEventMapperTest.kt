@@ -333,4 +333,113 @@ class SseEventMapperTest {
         )
         assertThat(mapper.map(event)).isNull()
     }
+
+    // --- Subagent update (v0.8.6) ---
+
+    @Test
+    fun `maps on_subagent_update message_delta to SubagentUpdate with inner ContentDelta`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_subagent_update","data":{"runId":"r1","subagentRunId":"sr1","parentToolCallId":"call_42","subagentType":"researcher","subagentAgentId":"agent_x","phase":"message_delta","label":"Researching","data":{"id":"step_1","delta":{"content":[{"type":"text","text":"Found it"}]}}}}""",
+        )
+        val result = mapper.map(event)
+        assertThat(result).isInstanceOf(StreamEvent.SubagentUpdate::class.java)
+        val update = result as StreamEvent.SubagentUpdate
+        assertThat(update.phase).isEqualTo("message_delta")
+        assertThat(update.parentToolCallId).isEqualTo("call_42")
+        assertThat(update.subagentRunId).isEqualTo("sr1")
+        assertThat(update.subagentType).isEqualTo("researcher")
+        assertThat(update.subagentAgentId).isEqualTo("agent_x")
+        assertThat(update.label).isEqualTo("Researching")
+        assertThat(update.inner).isInstanceOf(StreamEvent.ContentDelta::class.java)
+        assertThat((update.inner as StreamEvent.ContentDelta).chunk).isEqualTo("Found it")
+    }
+
+    @Test
+    fun `maps on_subagent_update reasoning_delta to inner ThinkingDelta`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_subagent_update","data":{"subagentRunId":"sr1","parentToolCallId":"call_1","phase":"reasoning_delta","data":{"id":"s","delta":{"content":[{"type":"think","think":"Hmm"}]}}}}""",
+        )
+        val update = mapper.map(event) as StreamEvent.SubagentUpdate
+        assertThat(update.phase).isEqualTo("reasoning_delta")
+        assertThat(update.inner).isInstanceOf(StreamEvent.ThinkingDelta::class.java)
+        assertThat((update.inner as StreamEvent.ThinkingDelta).chunk).isEqualTo("Hmm")
+    }
+
+    @Test
+    fun `maps on_subagent_update run_step to inner ToolCallStart`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_subagent_update","data":{"subagentRunId":"sr1","parentToolCallId":"call_1","phase":"run_step","data":{"id":"s","stepDetails":{"type":"tool_calls","tool_calls":[{"id":"c9","name":"search","args":""}]}}}}""",
+        )
+        val update = mapper.map(event) as StreamEvent.SubagentUpdate
+        assertThat(update.inner).isInstanceOf(StreamEvent.ToolCallStart::class.java)
+        assertThat((update.inner as StreamEvent.ToolCallStart).toolName).isEqualTo("search")
+    }
+
+    @Test
+    fun `maps on_subagent_update lifecycle phase to SubagentUpdate with null inner`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_subagent_update","data":{"subagentRunId":"sr1","parentToolCallId":"call_1","subagentType":"writer","phase":"start","label":"Starting"}}""",
+        )
+        val update = mapper.map(event) as StreamEvent.SubagentUpdate
+        assertThat(update.phase).isEqualTo("start")
+        assertThat(update.label).isEqualTo("Starting")
+        assertThat(update.inner).isNull()
+    }
+
+    @Test
+    fun `subagent_content round-trips on a persisted subagent tool_call`() {
+        // Reload path: the child trace is harvested onto the parent tool_call.
+        val toolCallJson = """{"type":"tool_call","name":"subagent","id":"call_1","subagent_content":[{"type":"text","text":"child output"}]}"""
+        val parsed = json.decodeFromString(
+            com.garfiec.librechat.core.model.content.AgentToolCall.serializer(),
+            toolCallJson,
+        )
+        assertThat(parsed.name).isEqualTo("subagent")
+        assertThat(parsed.subagentContent).hasSize(1)
+        assertThat(parsed.subagentContent!![0].text).isEqualTo("child output")
+    }
+
+    // --- Office-doc attachment preview lifecycle (v0.8.6) ---
+
+    @Test
+    fun `maps pending office-doc attachment carrying status`() {
+        val event = SseEvent(
+            event = "attachment",
+            data = """{"file_id":"f1","filename":"report.docx","type":"application/vnd.librechat.docx-preview","status":"pending"}""",
+        )
+        val result = mapper.map(event)
+        assertThat(result).isInstanceOf(StreamEvent.AttachmentCreated::class.java)
+        val att = result as StreamEvent.AttachmentCreated
+        assertThat(att.fileId).isEqualTo("f1")
+        assertThat(att.type).isEqualTo("application/vnd.librechat.docx-preview")
+        assertThat(att.status).isEqualTo("pending")
+        assertThat(att.text).isNull()
+    }
+
+    @Test
+    fun `maps ready office-doc attachment carrying text and textFormat`() {
+        val event = SseEvent(
+            event = "attachment",
+            data = """{"file_id":"f1","filename":"report.docx","type":"application/vnd.librechat.docx-preview","status":"ready","text":"<html><body>hi</body></html>","textFormat":"html"}""",
+        )
+        val att = mapper.map(event) as StreamEvent.AttachmentCreated
+        assertThat(att.status).isEqualTo("ready")
+        assertThat(att.textFormat).isEqualTo("html")
+        assertThat(att.text).isEqualTo("<html><body>hi</body></html>")
+    }
+
+    @Test
+    fun `maps failed office-doc attachment carrying previewError`() {
+        val event = SseEvent(
+            event = "attachment",
+            data = """{"file_id":"f1","filename":"report.docx","type":"application/vnd.librechat.docx-preview","status":"failed","previewError":"timeout"}""",
+        )
+        val att = mapper.map(event) as StreamEvent.AttachmentCreated
+        assertThat(att.status).isEqualTo("failed")
+        assertThat(att.previewError).isEqualTo("timeout")
+    }
 }

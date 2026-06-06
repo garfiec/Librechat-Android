@@ -2,8 +2,10 @@ package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.model.permissions.UserRolePermissions
+import com.garfiec.librechat.core.model.request.UpdateRoleSkillsRequest
 import com.garfiec.librechat.core.network.api.RolesApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,4 +60,13 @@ class RoleRepositoryImpl(
         _userPermissions.value = null
         cacheDataStore.clear()
     }
+
+    override suspend fun getRole(roleName: String): Result<UserRolePermissions> =
+        safeApiCall { rolesApi.getRole(roleName) }
+
+    override suspend fun updateRoleSkills(
+        roleName: String,
+        request: UpdateRoleSkillsRequest,
+    ): Result<UserRolePermissions> =
+        safeApiCall { rolesApi.updateRoleSkills(roleName, request) }
 }

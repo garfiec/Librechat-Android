@@ -32,6 +32,7 @@ import com.garfiec.librechat.core.data.repository.PromptRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SearchRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
+import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
@@ -61,6 +62,7 @@ import com.garfiec.librechat.core.network.api.PresetsApi
 import com.garfiec.librechat.core.network.api.PromptsApi
 import com.garfiec.librechat.core.network.api.SearchApi
 import com.garfiec.librechat.core.network.api.ShareApi
+import com.garfiec.librechat.core.network.api.SkillsApi
 import com.garfiec.librechat.core.network.api.SpeechApi
 import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
@@ -77,6 +79,7 @@ import com.garfiec.librechat.feature.conversations.di.conversationsModule
 import com.garfiec.librechat.feature.files.di.filesModule
 import com.garfiec.librechat.feature.files.platform.FileReader
 import com.garfiec.librechat.feature.settings.di.settingsModule
+import com.garfiec.librechat.feature.skills.di.skillsFeatureModule
 import com.garfiec.librechat.shared.navigation.sharedAppModule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -100,6 +103,7 @@ class KoinGraphVerificationTest {
         settingsModule,
         agentsModule,
         filesModule,
+        skillsFeatureModule,
         loggingModule,
     )
 
@@ -151,6 +155,7 @@ class KoinGraphVerificationTest {
             PromptsApi::class,
             SearchApi::class,
             ShareApi::class,
+            SkillsApi::class,
             SpeechApi::class,
             TagsApi::class,
             UserApi::class,
@@ -181,6 +186,7 @@ class KoinGraphVerificationTest {
             RoleRepository::class,
             SearchRepository::class,
             ShareRepository::class,
+            SkillsRepository::class,
             SpeechRepository::class,
             TagRepository::class,
             UserRepository::class,

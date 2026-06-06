@@ -26,6 +26,7 @@ import com.garfiec.librechat.core.network.api.PromptsApi
 import com.garfiec.librechat.core.network.api.RolesApi
 import com.garfiec.librechat.core.network.api.SearchApi
 import com.garfiec.librechat.core.network.api.ShareApi
+import com.garfiec.librechat.core.network.api.SkillsApi
 import com.garfiec.librechat.core.network.api.SpeechApi
 import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
@@ -70,6 +71,7 @@ class DataModuleVerificationTest {
                 ConfigApi::class,
                 BalanceApi::class,
                 SearchApi::class,
+                SkillsApi::class,
                 KeysApi::class,
                 ApiKeysApi::class,
                 McpApi::class,

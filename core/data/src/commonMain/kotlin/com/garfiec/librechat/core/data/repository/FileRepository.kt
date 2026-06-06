@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.data.repository
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
+import com.garfiec.librechat.core.model.response.FilePreviewResponse
 
 interface FileRepository {
     suspend fun getFiles(): Result<List<FileObject>>
@@ -34,4 +35,11 @@ interface FileRepository {
     suspend fun downloadFile(userId: String, fileId: String): Result<ByteArray>
     suspend fun getAgentFiles(agentId: String): Result<List<FileObject>>
     suspend fun downloadCode(sessionId: String, fileId: String): Result<ByteArray>
+
+    /**
+     * Polls `GET /api/files/:fileId/preview` until the status is terminal
+     * (`ready`/`failed`) or the attempt budget is exhausted, then returns the
+     * last [FilePreviewResponse]. Used by the deferred office-doc preview flow.
+     */
+    suspend fun pollFilePreview(fileId: String): Result<FilePreviewResponse>
 }

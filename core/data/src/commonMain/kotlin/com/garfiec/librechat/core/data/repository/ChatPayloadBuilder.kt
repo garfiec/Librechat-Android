@@ -27,6 +27,7 @@ object ChatPayloadBuilder {
         files: List<FileReference>? = null,
         addedConvo: AddedConversation? = null,
         ephemeralAgent: EphemeralAgent? = null,
+        isTemporary: Boolean = false,
     ): ChatRequest {
         val resolvedParentMessageId = parentMessageId ?: NO_PARENT
 
@@ -49,6 +50,7 @@ object ChatPayloadBuilder {
             files = files?.takeIf { it.isNotEmpty() },
             addedConvo = addedConvo,
             ephemeralAgent = ephemeralAgent,
+            isTemporary = if (isTemporary) true else null,
         )
     }
 }

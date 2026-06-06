@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.model.request
 
+import com.garfiec.librechat.core.model.AgentSubagentsConfig
 import com.garfiec.librechat.core.model.SupportContact
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -33,4 +34,9 @@ data class CreateAgentRequest(
     @SerialName("code_files") val codeFiles: List<String>? = null,
     @SerialName("knowledge_files") val knowledgeFiles: List<String>? = null,
     @SerialName("context_files") val contextFiles: List<String>? = null,
+    // Forward-compat (v0.8.6) Skills/Subagents. Nullable so explicitNulls=false omits them
+    // when the editor doesn't set them, leaving any server-side values untouched.
+    val skills: List<String>? = null,
+    @SerialName("skills_enabled") val skillsEnabled: Boolean? = null,
+    val subagents: AgentSubagentsConfig? = null,
 )

@@ -28,6 +28,7 @@ import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.DiagnosticLogRepository
 import com.garfiec.librechat.core.model.Memory
 import com.garfiec.librechat.core.model.User
+import com.garfiec.librechat.core.model.config.BuildInfo
 import com.garfiec.librechat.core.model.mcp.McpApiKeyConfig
 import com.garfiec.librechat.core.model.mcp.McpOAuthConfig
 import com.garfiec.librechat.core.model.mcp.McpServer
@@ -114,6 +115,15 @@ data class SettingsUiState(
      * avoid a guaranteed 403 on submission.
      */
     val allowAccountDeletion: Boolean = true,
+    /**
+     * Server build metadata (commit/branch/buildDate) from `/api/config`
+     * (`StartupConfig.buildInfo`, gated by `interface.buildInfo`). null when the
+     * server doesn't report it; the About section omits the rows in that case.
+     */
+    val buildInfo: BuildInfo? = null,
+    /** True only when the authenticated user's system role is ADMIN. Gates the
+     *  admin role-skills row fail-CLOSED (defaults false until the profile loads). */
+    val isAdmin: Boolean = false,
     // Chat preferences
     val chatFontSize: ChatFontSize = ChatFontSize.MEDIUM,
     val autoScrollEnabled: Boolean = true,
@@ -514,7 +524,12 @@ class SettingsViewModel(
     private fun observeAccountDeletionPolicy() {
         viewModelScope.launch {
             configRepository.startupConfig.collect { config ->
-                _uiState.update { it.copy(allowAccountDeletion = config?.allowAccountDeletion ?: true) }
+                _uiState.update {
+                    it.copy(
+                        allowAccountDeletion = config?.allowAccountDeletion ?: true,
+                        buildInfo = config?.buildInfo,
+                    )
+                }
             }
         }
     }
@@ -532,6 +547,10 @@ class SettingsViewModel(
                             user = result.data.toDisplayData(),
                             profileLoadError = null,
                             isTwoFactorEnabled = result.data.twoFactorEnabled,
+                            // Fail-CLOSED admin gate: the role-skills admin row shows
+                            // only for the ADMIN system role (mirrors the server's
+                            // manageRoles middleware). Server also 403s non-admins.
+                            isAdmin = result.data.role == ADMIN_ROLE,
                         )
                     }
                 }
@@ -562,7 +581,7 @@ class SettingsViewModel(
             _uiState.update { it.copy(isAvatarUploading = true) }
             // Reading bytes off the URI is blocking I/O — keep it off the Main
             // dispatcher (viewModelScope = Main.immediate) to avoid an ANR on
-            // large images. Mirrors the #92 FileAttachmentDelegate fix.
+            // large images. Mirrors the FileAttachmentDelegate fix.
             val bytes = try {
                 withContext(ioDispatcher) { contentReader.readBytes(uri) }
             } catch (e: CancellationException) {
@@ -886,5 +905,10 @@ class SettingsViewModel(
     override fun onCleared() {
         super.onCleared()
         speechDelegate.release()
+    }
+
+    private companion object {
+        /** Upstream SystemRoles.ADMIN — the role name manageRoles checks. */
+        const val ADMIN_ROLE = "ADMIN"
     }
 }

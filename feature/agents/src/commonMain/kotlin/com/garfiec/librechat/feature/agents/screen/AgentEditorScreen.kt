@@ -70,6 +70,8 @@ import com.garfiec.librechat.feature.agents.components.AgentHandoffsSection
 import com.garfiec.librechat.feature.agents.components.AgentMcpToolsSelector
 import com.garfiec.librechat.feature.agents.components.AgentModelPicker
 import com.garfiec.librechat.feature.agents.components.AgentSharingSection
+import com.garfiec.librechat.feature.agents.components.AgentSkillsSection
+import com.garfiec.librechat.feature.agents.components.AgentSubagentsSection
 import com.garfiec.librechat.feature.agents.components.AgentSupportContactSection
 import com.garfiec.librechat.feature.agents.components.AgentVersionHistory
 import com.garfiec.librechat.feature.agents.components.AgentWebSearchSection
@@ -468,6 +470,38 @@ fun AgentEditorScreen(
                         AgentWebSearchSection(
                             enabled = uiState.webSearchEnabled,
                             onToggle = viewModel::onWebSearchToggled,
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Skills selector (gated on agents `skills` capability + SKILLS permission)
+                    if (uiState.isSkillsAvailable) {
+                        AgentSkillsSection(
+                            enabled = uiState.skillsEnabled,
+                            selectedSkillIds = uiState.selectedSkillIds,
+                            availableSkills = uiState.availableSkills,
+                            onToggle = viewModel::onSkillsToggled,
+                            onSkillToggle = viewModel::onSkillSelectionToggled,
+                            onSkillRemove = viewModel::onSkillRemoved,
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Subagents config (gated on agents `subagents` capability)
+                    if (uiState.isSubagentsAvailable) {
+                        AgentSubagentsSection(
+                            enabled = uiState.subagentsEnabled,
+                            allowSelf = uiState.subagentAllowSelf,
+                            selectedSubagentIds = uiState.selectedSubagentIds,
+                            // Self can't be a listed subagent — it spawns itself via allowSelf.
+                            availableAgents = uiState.allAgents.filter { it.id != uiState.agentId },
+                            maxSubagents = AgentEditorViewModel.MAX_SUBAGENTS,
+                            onToggle = viewModel::onSubagentsToggled,
+                            onAllowSelfToggle = viewModel::onSubagentAllowSelfToggled,
+                            onAddSubagent = viewModel::addSubagent,
+                            onRemoveSubagent = viewModel::removeSubagent,
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))

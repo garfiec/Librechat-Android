@@ -26,6 +26,20 @@ data class UserRolePermissions(
         val value = perms[permission.serverKey] ?: return true
         return value
     }
+
+    /**
+     * Fail-CLOSED variant: returns true ONLY when the permission is explicitly
+     * granted. Unknown type/permission (or no permissions map) ⇒ false.
+     *
+     * Use this for MUTATION affordances (create/edit/delete/share) where showing
+     * a button the server will 403 is worse UX than hiding it — the opposite of
+     * [hasAccess]'s permissive default, which suits read/USE visibility. Skills
+     * create/edit/delete gate on this (see scope-skills-builder.md §E gotcha 2).
+     */
+    fun hasAccessStrict(type: PermissionType, permission: Permission): Boolean {
+        val perms = permissions[type.serverKey] ?: return false
+        return perms[permission.serverKey] ?: false
+    }
 }
 
 /**
@@ -36,3 +50,11 @@ data class UserRolePermissions(
  */
 fun UserRolePermissions?.hasAccessOrPermissive(type: PermissionType, permission: Permission): Boolean =
     this?.hasAccess(type, permission) ?: true
+
+/**
+ * Fail-CLOSED variant for a nullable role: a null role (still loading / fetch
+ * failed / timed out) is treated as DENIED. Pairs with
+ * [UserRolePermissions.hasAccessStrict] for gating mutation affordances.
+ */
+fun UserRolePermissions?.hasAccessStrictOrDenied(type: PermissionType, permission: Permission): Boolean =
+    this?.hasAccessStrict(type, permission) ?: false

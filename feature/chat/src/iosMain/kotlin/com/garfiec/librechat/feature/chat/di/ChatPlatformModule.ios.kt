@@ -20,10 +20,14 @@ actual val chatPlatformModule: Module = module {
 
     viewModel { params ->
         ChatViewModel(
-            initialConversationId = params.getOrNull(),
+            // Positional: [0] conversationId, [1] initialAgentId — both String?, so
+            // type-based getOrNull() is ambiguous; read by index from values.
+            initialConversationId = params.values.getOrNull(0) as String?,
+            initialAgentId = params.values.getOrNull(1) as String?,
             agentRepository = get(),
             chatRepository = get(),
             messageRepository = get(),
+            fileRepository = get(),
             configRepository = get(),
             conversationRepository = get(),
             draftRepository = get(),
@@ -40,6 +44,7 @@ actual val chatPlatformModule: Module = module {
             serverDataStore = get(),
             settingsDataStore = get(),
             platformDelegateFactory = get(),
+            json = get(),
             defaultDispatcher = get(KoinQualifiers.Default),
         )
     }

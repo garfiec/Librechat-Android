@@ -39,6 +39,7 @@ import com.garfiec.librechat.feature.chat.di.chatModule
 import com.garfiec.librechat.feature.conversations.di.conversationsModule
 import com.garfiec.librechat.feature.files.di.filesModule
 import com.garfiec.librechat.feature.settings.di.settingsModule
+import com.garfiec.librechat.feature.skills.di.skillsFeatureModule
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
@@ -67,6 +68,7 @@ val iosSharedModule = module {
     includes(settingsModule)
     includes(agentsModule)
     includes(filesModule)
+    includes(skillsFeatureModule)
 
     single {
         Json {

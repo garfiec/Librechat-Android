@@ -70,13 +70,14 @@ class ModelSelectionDelegateTest {
     private fun newHandle(scope: CoroutineScope, state: ChatUiState = ChatUiState()) =
         ChatStateHandle(stateFlow = MutableStateFlow(state), scope = scope)
 
-    private fun newDelegate(handle: ChatStateHandle) = ModelSelectionDelegate(
+    private fun newDelegate(handle: ChatStateHandle, initialAgentId: String? = null) = ModelSelectionDelegate(
         stateHandle = handle,
         configRepository = configRepository,
         agentRepository = agentRepository,
         mcpRepository = mcpRepository,
         settingsDataStore = settingsDataStore,
         permissionGate = permissionGate,
+        initialAgentId = initialAgentId,
     )
 
     private fun allowAgents() {
@@ -628,5 +629,137 @@ class ModelSelectionDelegateTest {
         assertThat(delegate.cachedLastUsedEndpoint).isEqualTo("anthropic")
         assertThat(delegate.cachedLastUsedModel).isEqualTo("claude-3")
         coVerify(exactly = 1) { settingsDataStore.setLastUsedModel("anthropic", "claude-3") }
+    }
+
+    // ── Group D: Tier-0 explicit agent override (start chat from an agent) ──
+
+    @Test
+    fun seedTier0AgentOverrideBeatsLastUsed() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle, initialAgentId = "agent_X")
+        // A NON-agents last-used (the precondition that caused the original clobber bug).
+        lastUsedEndpoint.value = "openAI"
+        lastUsedModel.value = "gpt-4o"
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o"), EndpointConstants.AGENTS to listOf("agent_X"))
+
+        delegate.seedInitialSelection(isNewConversation = true)
+        advanceUntilIdle()
+
+        // First emission: the explicit agent override wins over the valid last-used.
+        assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
+        assertThat(handle.state.selectedModel).isEqualTo("agent_X")
+    }
+
+    @Test
+    fun seedTier0AgentOverrideNotClobberedWhenAgentsListLoadsLater() = runTest {
+        // Regression for the override-clobber defect: after the override applies the
+        // agent, the agents list finishing loading re-emits the seeder; the last-used
+        // re-sync must NOT swap the agent back to the (non-agent) last-used model.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle, initialAgentId = "agent_X")
+        lastUsedEndpoint.value = "openAI"
+        lastUsedModel.value = "gpt-4o"
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o"), EndpointConstants.AGENTS to listOf("agent_X"))
+
+        delegate.seedInitialSelection(isNewConversation = true)
+        advanceUntilIdle()
+
+        // SECOND emission: agents list loads (post-create refetch surfaces the agent).
+        delegate.agentsLoaded.value = true
+        handle.update { copy(agents = listOf(Agent(id = "agent_X"))) }
+        advanceUntilIdle()
+
+        // The override must STILL hold — not clobbered back to last-used gpt-4o.
+        assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
+        assertThat(handle.state.selectedModel).isEqualTo("agent_X")
+    }
+
+    @Test
+    fun seedTier0OverrideIsOneShotThenFollowsNewLastUsed() = runTest {
+        // The override pins the CURRENT last-used so the re-sync no-ops; but a genuinely
+        // NEW last-used picked later (different value) must still re-sync (retained-landing).
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle, initialAgentId = "agent_X")
+        lastUsedEndpoint.value = "openAI"
+        lastUsedModel.value = "gpt-4o"
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o", "gpt-4.1"), EndpointConstants.AGENTS to listOf("agent_X"))
+
+        delegate.seedInitialSelection(isNewConversation = true)
+        advanceUntilIdle()
+        assertThat(handle.state.selectedModel).isEqualTo("agent_X")
+
+        // User picks a DIFFERENT model elsewhere → last-used changes → re-sync follows it.
+        lastUsedModel.value = "gpt-4.1"
+        advanceUntilIdle()
+        assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
+        assertThat(handle.state.selectedModel).isEqualTo("gpt-4.1")
+    }
+
+    @Test
+    fun seedTier0AgentSurvivesTransientEmptyAgentsListEmission() = runTest {
+        // The transient-empty-list bug: Tier-0 applies the agent, the one-shot override
+        // clears, then the agents flow emits (agentsLoaded=true, count=0) BEFORE the
+        // real list. A loaded-but-empty list must NOT be treated as "agent deleted" and
+        // clobber the selection down to a default model — it's "not ready" (PENDING).
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle, initialAgentId = "agent_X")
+        lastUsedEndpoint.value = "openAI"
+        lastUsedModel.value = "gpt-4o"
+        // Config models present; agents endpoint key present but NOT yet populated in state.
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o"), EndpointConstants.AGENTS to listOf("agent_X"))
+
+        delegate.seedInitialSelection(isNewConversation = true)
+        advanceUntilIdle()
+        // Tier-0 applied the agent.
+        assertThat(handle.state.selectedModel).isEqualTo("agent_X")
+
+        // TRANSIENT empty-list emission: agentsLoaded flips true with an EMPTY agents list.
+        delegate.agentsLoaded.value = true
+        handle.update { copy(agents = emptyList()) }
+        advanceUntilIdle()
+        // Must STILL be the agent (today's bug flipped it to openAI/gpt-4o via Tier-3/last-used).
+        assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
+        assertThat(handle.state.selectedModel).isEqualTo("agent_X")
+
+        // Real list arrives (contains the agent) → selection holds.
+        handle.update { copy(agents = listOf(Agent(id = "agent_X"), Agent(id = "agent_Y"))) }
+        advanceUntilIdle()
+        assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
+        assertThat(handle.state.selectedModel).isEqualTo("agent_X")
+    }
+
+    @Test
+    fun seedZeroAgentLandingResolvesToConfigModelNotModelLess() = runTest {
+        // Regression guard: the empty-but-loaded agents list is now PENDING (hold),
+        // but a GENUINELY zero-agent account (NO Tier-0 override, stale last-used pointed
+        // at AGENTS) must NOT hold forever and sit model-less — it must fall through to a
+        // config model. Distinguished from the hold case by holdAgentForPopulate being false.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        // Start already on the agents endpoint with a stale agent id (as a retained landing
+        // whose last-used resolved to agents before the account's agents were all removed).
+        val handle = newHandle(
+            scope,
+            ChatUiState(selectedEndpoint = EndpointConstants.AGENTS, selectedModel = "agent_stale"),
+        )
+        val delegate = newDelegate(handle) // NO initialAgentId → no hold
+        lastUsedEndpoint.value = EndpointConstants.AGENTS
+        lastUsedModel.value = "agent_stale"
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o"))
+
+        delegate.seedInitialSelection(isNewConversation = true)
+        advanceUntilIdle()
+
+        // Agents finish loading and the list is genuinely empty.
+        delegate.agentsLoaded.value = true
+        handle.update { copy(agents = emptyList()) }
+        advanceUntilIdle()
+
+        // Must NOT be stranded on the (nonexistent) agent — resolve to a config model.
+        assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
+        assertThat(handle.state.selectedModel).isEqualTo("gpt-4o")
     }
 }

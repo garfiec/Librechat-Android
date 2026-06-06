@@ -34,6 +34,12 @@ data class Conversation(
     val spec: String? = null,
     val tools: List<String>? = null,
     @SerialName("web_search") val webSearch: Boolean? = null,
+    /** True for a temporary chat (v0.8.6): not persisted to normal history and
+     *  expired/cleaned up server-side after [expiredAt]. Server-derived. */
+    val isTemporary: Boolean? = null,
+    /** ISO-8601 expiry for a temporary chat, computed server-side from the
+     *  interface `temporaryChatRetention` setting. Null for permanent chats. */
+    val expiredAt: String? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null,
 )

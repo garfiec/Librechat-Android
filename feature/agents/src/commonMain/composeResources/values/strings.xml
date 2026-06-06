@@ -283,4 +283,23 @@
     <string name="agent_file_upload_failed">Failed to upload file</string>
     <string name="agent_file_remove_failed">Failed to remove file</string>
     <string name="cd_remove_file">Remove %1$s</string>
+
+    <!-- Skills selector (v0.8.6) -->
+    <string name="label_skills">Skills</string>
+    <string name="skills_disabled_hint">Skills are off for this agent.</string>
+    <string name="skills_enabled_all_hint">All skills you can access are available to this agent.</string>
+    <string name="skills_enabled_allowlist_hint">Only the selected skills are available to this agent.</string>
+    <string name="add_skills">Add skills</string>
+    <string name="select_skills">Select Skills</string>
+    <string name="search_skills_hint">Search skills…</string>
+    <string name="no_skills_matching">No skills matching \"%1$s\"</string>
+    <string name="no_skills_available">No skills available</string>
+    <string name="skills_done">Done</string>
+
+    <!-- Subagents config (v0.8.6) -->
+    <string name="label_subagents">Subagents</string>
+    <string name="subagents_description">Let this agent delegate work to other agents in isolated contexts.</string>
+    <string name="subagents_allow_self">Allow spawning itself</string>
+    <string name="add_subagent">Add subagent</string>
+    <string name="subagents_full">Maximum number of subagents reached.</string>
 </resources>

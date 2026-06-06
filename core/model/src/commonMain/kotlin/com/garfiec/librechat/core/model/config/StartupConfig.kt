@@ -50,4 +50,11 @@ data class StartupConfig(
     val customFooter: String? = null,
     /** Backend version, if the server includes it in the config response (not yet standard). */
     val version: String? = null,
+    // --- v0.8.6 detection (parse-surface only) ---
+    /** Real-user-monitoring config (server-side telemetry). Opaque to mobile; kept for parse coverage. */
+    val rum: JsonObject? = null,
+    /** CloudFront signed-cookie refresh config. Mobile downloads directly, so opaque/unused. */
+    val cloudFront: JsonObject? = null,
+    /** Server build metadata (commit/branch/buildDate), gated by `interface.buildInfo`. */
+    val buildInfo: BuildInfo? = null,
 )

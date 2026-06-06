@@ -45,8 +45,7 @@ spawn new sub-agents (sub-agents lose context). Sub-agents are a last resort fal
 
 Run these checks yourself (lightweight, no codebase reading). The working directory is already
 the mobile repo root — do **not** `cd` into a different directory. The local checkout directory
-name can vary (historical: `LibreChat-Android`; current upstream: `Librechat-Mobile`), so rely
-on relative paths from CWD rather than any hardcoded repo-dir name.
+name can vary, so rely on relative paths from CWD rather than any hardcoded repo-dir name.
 
 ### 1. Submodule check
 ```bash
@@ -192,6 +191,12 @@ Once investigator reports back:
 >    - `api-mapping.md` — official routes to mobile `*Api.kt` files
 >    - `model-mapping.md` — official TS types to Kotlin data classes
 >    - `ui-mapping.md` — web components to mobile feature modules
+>    - `upstream-backend-gaps.md` — features that exist in the upstream **client** but
+>      have **no real backend** (client-only stubs / unmounted routes). For any gap that
+>      matches an entry, mark it **backend-blocked — do not build** (don't re-investigate
+>      from scratch). RE-CHECK each open entry: has the backend route shipped since the
+>      recorded version? If yes, remove the entry and scope the mobile feature normally.
+>      If you discover a NEW vapor feature this sync, ADD it to that file with evidence.
 > 2. Read `DISCOVERY.md` at the repo root — it catalogs already-discovered backend
 >    endpoints and their quirks. Any new endpoints must be appended there by the
 >    implementer in Phase D.
@@ -273,6 +278,12 @@ For each: what the web app does (file reference), why it doesn't translate direc
 
 ### Deferred Items ({count}) — can wait for a future sync
 Items that are low priority or require significant new infrastructure.
+
+### Upstream-Incomplete (backend not shipped) — NOT built, by design
+Features whose upstream backend is missing (client-only stubs / unmounted routes), per
+`${CLAUDE_SKILL_DIR}/reference/upstream-backend-gaps.md`. List the still-open entries so
+the user sees they're knowingly skipped, not missed. Building these would wire mobile UI
+to a nonexistent endpoint.
 ```
 
 ### Consult experts on non-trivial items

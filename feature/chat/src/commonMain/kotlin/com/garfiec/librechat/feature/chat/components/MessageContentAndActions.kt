@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -239,6 +240,13 @@ internal fun MessageContentAndActions(
                 onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
             )
         }
+
+        // Deferred office-doc preview attachments (v0.8.6) on a persisted message
+        // render as their own artifact card. Non-office attachments are unaffected.
+        OfficePreviewAttachments(
+            attachments = message.attachments.orEmpty(),
+            isDarkTheme = isSurfaceDark(),
+        )
     }
 
     // Action row: sibling nav + message actions (tap-to-reveal)

@@ -50,6 +50,7 @@ object ResourceType {
     const val PROMPT_GROUP = "promptGroup"
     const val MCP_SERVER = "mcpServer"
     const val REMOTE_AGENT = "remoteAgent"
+    const val SKILL = "skill"
 }
 
 /**
@@ -70,4 +71,7 @@ object AccessRoleIds {
     const val REMOTE_AGENT_VIEWER = "remoteAgent_viewer"
     const val REMOTE_AGENT_EDITOR = "remoteAgent_editor"
     const val REMOTE_AGENT_OWNER = "remoteAgent_owner"
+    const val SKILL_VIEWER = "skill_viewer"
+    const val SKILL_EDITOR = "skill_editor"
+    const val SKILL_OWNER = "skill_owner"
 }

@@ -129,6 +129,9 @@
     <string name="app_build_label">Build</string>
     <string name="server_label">Server</string>
     <string name="server_not_configured">Not configured</string>
+    <string name="server_build_commit_label">Server commit</string>
+    <string name="server_build_branch_label">Server branch</string>
+    <string name="server_build_date_label">Server build date</string>
 
     <!-- Tablet settings -->
     <string name="sidebar_swipe_gesture">Sidebar swipe gesture</string>
@@ -457,4 +460,16 @@
     <string name="provider_keys_empty_title">No endpoints require user-provided keys</string>
     <string name="provider_keys_empty_desc">Endpoints that need your own API key will appear here.</string>
     <string name="provider_keys_revoke_all_action">Revoke All</string>
+
+    <!-- Admin: role skill access -->
+    <string name="role_skills_settings_row">Skill access (admin)</string>
+    <string name="role_skills_title">Skill access</string>
+    <string name="role_skills_back">Back</string>
+    <string name="role_skills_description">Control which skill capabilities each role has. Changes apply to all users with the selected role.</string>
+    <string name="role_skills_role_label">Role</string>
+    <string name="role_skills_use">Use skills</string>
+    <string name="role_skills_create">Create &amp; edit skills</string>
+    <string name="role_skills_share">Share skills</string>
+    <string name="role_skills_share_public">Share skills publicly</string>
+    <string name="role_skills_save">Save</string>
 </resources>

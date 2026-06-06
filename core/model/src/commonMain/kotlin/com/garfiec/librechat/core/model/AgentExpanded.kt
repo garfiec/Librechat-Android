@@ -29,6 +29,12 @@ data class AgentExpanded(
     @SerialName("projectIds") val projectIds: List<String> = emptyList(),
     val updatedAt: String? = null,
     val createdAt: String? = null,
+    /** Optional allowlist of skill ObjectIds; applies only when [skillsEnabled]. Forward-compat (v0.8.6). */
+    val skills: List<String>? = null,
+    /** Master toggle for skill use on this agent. Forward-compat (v0.8.6). */
+    @SerialName("skills_enabled") val skillsEnabled: Boolean? = null,
+    /** Subagent spawning configuration. Forward-compat (v0.8.6). */
+    val subagents: AgentSubagentsConfig? = null,
 ) {
     val avatarUrl: String?
         get() = try {

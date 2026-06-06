@@ -1,5 +1,5 @@
 # Upstream LibreChat version this mobile build tracks.
-# Updated by the sync-upstream skill. Do not edit manually.
-tag=v0.8.5
-commit=9ccc8d9bef407f9a769f07a3756ec4b95ac13f80
-date=2026-04-23
+# Updated by the upstream sync process. Do not edit manually.
+tag=v0.8.6
+commit=566e20b613389600a7975fd8f7c1bffbe54f06c8
+date=2026-06-01
