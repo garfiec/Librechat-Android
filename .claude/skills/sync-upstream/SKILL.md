@@ -383,12 +383,17 @@ Create a task for the implementer with the approved change list:
 >    commit={full SHA of target_tag}
 >    date={today's date YYYY-MM-DD}
 >    ```
-> 4. Update `DISCOVERY.md` at the repo root: append newly-discovered endpoints, removed
+> 4. Update `README.md` at repo root: bump the compatibility badge and the
+>    "Backend compatibility" note's upper bound to the new `{target_tag}` (badge
+>    link target too). Leave the lower bound unless the floor was deliberately
+>    raised. Easy to forget — it's the only user-facing version surface not
+>    driven by `version.properties`. (Missed in the v0.8.6 sync; fixed in PR #125.)
+> 5. Update `DISCOVERY.md` at the repo root: append newly-discovered endpoints, removed
 >    endpoints, and revised response shapes. Keep it accurate — future syncs depend on it.
-> 5. Create/update `VERSION_GATES.md` at repo root: add a row for any code path
+> 6. Create/update `VERSION_GATES.md` at repo root: add a row for any code path
 >    that branches on `BackendVersion.isCompatible()` / `isCompatibleOrNewer()`.
 >    Keep backward-compat gates auditable so future floor-raises are mechanical.
-> 6. Report back the full list of files created or modified, grouped by module.
+> 7. Report back the full list of files created or modified, grouped by module.
 >
 > **DO NOT** run `git push`, `git push -u origin ...`, or `gh pr create`.
 > The branch stays local-only until the user device-tests and explicitly
@@ -422,8 +427,9 @@ After implementer reports done, create a task for the verifier:
 > **Version consistency:**
 > 7. `backendTargetVersion` in the root `version.properties` matches target (this drives the generated `SUPPORTED_BACKEND_VERSION`)
 > 8. `UPSTREAM_VERSION` file has correct tag, commit, date
-> 9. Submodule is at the correct tag: `cd upstream && git describe --tags`
-> 10. `DISCOVERY.md` reflects endpoint additions/removals
+> 9. `README.md` compatibility badge + note upper bound matches the new target tag
+> 10. Submodule is at the correct tag: `cd upstream && git describe --tags`
+> 11. `DISCOVERY.md` reflects endpoint additions/removals
 >
 > **If you find issues**, message the **implementer** directly to fix them.
 > The implementer retains context of what it changed.
