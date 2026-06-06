@@ -17,7 +17,7 @@ koin = "4.2.1"
 
 # Network
 ktor = "3.4.3"
-kotlinx-serialization = "1.10.0"
+kotlinx-serialization = "1.11.0"
 kotlinx-datetime = "0.8.0"
 
 # Local Data
