@@ -28,7 +28,7 @@ security-crypto = "1.1.0"
 
 # Async
 coroutines = "1.10.2"
-atomicfu = "0.28.0"
+atomicfu = "0.33.0"
 
 # Paging
 paging = "3.5.0"
