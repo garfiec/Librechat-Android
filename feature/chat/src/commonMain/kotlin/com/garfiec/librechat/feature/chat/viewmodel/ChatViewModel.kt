@@ -221,10 +221,12 @@ class ChatViewModel(
         _uiState,
         serverDataStore.currentUrlFlow,
         settingsDataStore.chatFontSize,
-    ) { state, url, fontSize ->
+        settingsDataStore.starredModelsDisplay,
+    ) { state, url, fontSize, starredDisplay ->
         state.copy(
             serverUrl = url,
             chatFontSize = fontSize,
+            starredModelsDisplay = starredDisplay,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatUiState())
 

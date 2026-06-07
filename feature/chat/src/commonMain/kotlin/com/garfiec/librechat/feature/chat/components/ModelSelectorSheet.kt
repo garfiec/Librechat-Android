@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,10 +45,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.endpoint.KeyState
@@ -56,11 +59,15 @@ import com.garfiec.librechat.core.ui.components.ErrorBanner
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.FuzzyMatch
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.FavoritesDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.filterModelsByEndpoint
 import org.jetbrains.compose.resources.stringResource
 
 private val IconSize = 20.dp
 private const val FUZZY_MATCH_THRESHOLD = 55
+
+/** Sentinel group key for the optional "Starred" section's expand/collapse state. */
+private const val STARRED_GROUP_KEY = "__starred__"
 
 private fun fuzzyMatches(candidate: String, query: String): Boolean {
     // Short queries (1-2 chars) use substring matching for better UX
@@ -98,6 +105,12 @@ fun ModelSelectorSheet(
     onToggleAgentFavorite: ((agentId: String) -> Unit)? = null,
     onToggleModelFavorite: ((endpoint: String, model: String) -> Unit)? = null,
     /**
+     * Mobile-only preference controlling whether pinned items also appear in a
+     * dedicated section at the top of the sheet. [StarredModelsDisplay.OFF] keeps the
+     * historical behavior (favorites float to the top within their own group).
+     */
+    starredDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
+    /**
      * Per-endpoint user-provided-key state. Endpoints whose key is [KeyState.Unset]
      * or [KeyState.Expired] render a greyed group with a "Set API Key" CTA. Absent
      * keys (built-in endpoints) and [KeyState.Loading] / [KeyState.Set] all
@@ -116,6 +129,8 @@ fun ModelSelectorSheet(
         mutableStateMapOf<String, Boolean>().apply {
             availableModels.keys.forEach { put(it, false) }
             if (agents.isNotEmpty()) put(EndpointConstants.AGENTS, false)
+            // Starred group starts collapsed too, matching the provider groups.
+            put(STARRED_GROUP_KEY, false)
         }
     }
     val isSearching = searchQuery.isNotBlank()
@@ -150,6 +165,29 @@ fun ModelSelectorSheet(
             base.sortedByDescending { it.id in favoriteAgentIds }
         }
     }
+
+    // Optional dedicated "Starred" section (mobile-only). Shown only when not searching
+    // (search already reorders by relevance) and the preference is not OFF. Starred items
+    // are also still rendered within their own groups below — nothing is removed.
+    val showStarred = !isSearching && starredDisplay != StarredModelsDisplay.OFF
+    // favoriteAgentIds / favoriteModelKeys are LinkedHashSets from FavoritesDelegate.publish,
+    // so iterating them preserves the server-side pin order.
+    val agentsById = remember(agents) { agents.associateBy { it.id } }
+    val starredAgents = remember(agentsById, favoriteAgentIds, showStarred) {
+        if (!showStarred) emptyList() else favoriteAgentIds.mapNotNull { agentsById[it] }
+    }
+    val starredModels = remember(filteredByEndpoint, favoriteModelKeys, showStarred) {
+        if (!showStarred) {
+            emptyList()
+        } else {
+            favoriteModelKeys.mapNotNull { key ->
+                val (endpoint, model) = FavoritesDelegate.parseFavoriteModelKey(key) ?: return@mapNotNull null
+                // Only surface favorites whose endpoint+model are actually available.
+                if (filteredByEndpoint[endpoint]?.contains(model) == true) endpoint to model else null
+            }
+        }
+    }
+    val hasStarred = starredAgents.isNotEmpty() || starredModels.isNotEmpty()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -201,6 +239,62 @@ fun ModelSelectorSheet(
                     .weight(1f)
                     .padding(horizontal = 16.dp),
             ) {
+                // Optional "Starred" section at the very top (mobile-only). Starred items
+                // are duplicated here — they still render in their own groups below.
+                if (showStarred && hasStarred) {
+                    // GROUPED renders a collapsible header and respects its toggle; TOP is a
+                    // flat, always-shown list closed off with a divider. OFF never reaches here.
+                    val starredItemsVisible = when (starredDisplay) {
+                        StarredModelsDisplay.GROUPED -> {
+                            val expanded = expandedGroups[STARRED_GROUP_KEY] != false
+                            item(key = "header_starred") {
+                                EndpointGroupHeader(
+                                    endpointName = STARRED_GROUP_KEY,
+                                    displayLabel = stringResource(Res.string.starred_group),
+                                    modelCount = starredAgents.size + starredModels.size,
+                                    isExpanded = expanded,
+                                    iconUrl = null,
+                                    leadingIcon = Icons.Default.Star,
+                                    onToggle = { expandedGroups[STARRED_GROUP_KEY] = !expanded },
+                                )
+                            }
+                            expanded
+                        }
+                        StarredModelsDisplay.TOP -> true
+                        StarredModelsDisplay.OFF -> false
+                    }
+                    if (starredItemsVisible) {
+                        items(starredAgents, key = { "starred_agent_${it.id}" }, contentType = { "agent" }) { agent ->
+                            AgentListItem(
+                                agent = agent,
+                                isSelected = selectedEndpoint == EndpointConstants.AGENTS && agent.id == selectedModel,
+                                serverUrl = serverUrl,
+                                onClick = { onModelSelect(EndpointConstants.AGENTS, agent.id) },
+                                isFavorite = true,
+                                onToggleFavorite = onToggleAgentFavorite?.let { toggle -> { toggle(agent.id) } },
+                            )
+                        }
+                        items(
+                            starredModels,
+                            key = { (endpoint, model) -> "starred_model_$endpoint::$model" },
+                            contentType = { "model" },
+                        ) { (endpoint, model) ->
+                            ModelListItem(
+                                model = model,
+                                isSelected = endpoint == selectedEndpoint && model == selectedModel,
+                                isFavorite = true,
+                                onClick = { onModelSelect(endpoint, model) },
+                                onToggleFavorite = onToggleModelFavorite?.let { toggle -> { toggle(endpoint, model) } },
+                            )
+                        }
+                    }
+                    if (starredDisplay == StarredModelsDisplay.TOP) {
+                        item(key = "starred_divider") {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                    }
+                }
+
                 // "My Agents" group (shown first, like the web frontend)
                 if (filteredAgents.isNotEmpty()) {
                     val agentsExpanded = expandedGroups[EndpointConstants.AGENTS] != false
@@ -270,37 +364,13 @@ fun ModelSelectorSheet(
                         }
                         if (effectiveExpanded) {
                             items(filteredModels, key = { "${endpointName}_$it" }, contentType = { "model" }) { model ->
-                                val isSelected = endpointName == selectedEndpoint && model == selectedModel
-                                val isFavorite = "$endpointName::$model" in favoriteModelKeys
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onModelSelect(endpointName, model) }
-                                        .padding(vertical = 12.dp, horizontal = 8.dp)
-                                        .animateItem(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = model,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    if (isSelected) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Icon(
-                                            Icons.Default.Check,
-                                            contentDescription = stringResource(Res.string.cd_selected),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                        )
-                                    }
-                                    if (onToggleModelFavorite != null) {
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        FavoriteStarButton(
-                                            isFavorite = isFavorite,
-                                            onToggle = { onToggleModelFavorite(endpointName, model) },
-                                        )
-                                    }
-                                }
+                                ModelListItem(
+                                    model = model,
+                                    isSelected = endpointName == selectedEndpoint && model == selectedModel,
+                                    isFavorite = "$endpointName::$model" in favoriteModelKeys,
+                                    onClick = { onModelSelect(endpointName, model) },
+                                    onToggleFavorite = onToggleModelFavorite?.let { toggle -> { toggle(endpointName, model) } },
+                                )
                             }
                         }
                     }
@@ -320,6 +390,8 @@ private fun EndpointGroupHeader(
     onToggle: () -> Unit,
     needsKey: Boolean = false,
     onSetApiKey: () -> Unit = {},
+    /** When set, renders this vector instead of an [EndpointIcon] (used by the Starred group). */
+    leadingIcon: ImageVector? = null,
 ) {
     Row(
         modifier = Modifier
@@ -335,14 +407,25 @@ private fun EndpointGroupHeader(
         // Disabled icon + label use Material's standard 0.38 disabled alpha. The
         // CTA chip below stays full-opacity so the action remains discoverable.
         val labelAlpha = if (needsKey) 0.38f else 1f
-        EndpointIcon(
-            endpointName = endpointName,
-            iconUrl = iconUrl,
-            size = IconSize,
-            contentDescription = "$endpointName icon",
-            glyphTint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.alpha(labelAlpha),
-        )
+        if (leadingIcon != null) {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .size(IconSize)
+                    .alpha(labelAlpha),
+            )
+        } else {
+            EndpointIcon(
+                endpointName = endpointName,
+                iconUrl = iconUrl,
+                size = IconSize,
+                contentDescription = "$endpointName icon",
+                glyphTint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.alpha(labelAlpha),
+            )
+        }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "$displayLabel ($modelCount)",
@@ -394,6 +477,45 @@ private fun SetApiKeyChip(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
         )
+    }
+}
+
+@Composable
+private fun LazyItemScope.ModelListItem(
+    model: String,
+    isSelected: Boolean,
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    onToggleFavorite: (() -> Unit)?,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 8.dp)
+            .animateItem(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = model,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        if (isSelected) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                Icons.Default.Check,
+                contentDescription = stringResource(Res.string.cd_selected),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+        if (onToggleFavorite != null) {
+            Spacer(modifier = Modifier.width(4.dp))
+            FavoriteStarButton(
+                isFavorite = isFavorite,
+                onToggle = onToggleFavorite,
+            )
+        }
     }
 }
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
+import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -38,6 +39,7 @@ internal fun ChatSettingsSection(
     showAvatars: Boolean,
     showBubbles: Boolean,
     latexRenderer: LatexRenderer,
+    starredModelsDisplay: StarredModelsDisplay,
     onFontSizeChange: (ChatFontSize) -> Unit,
     onAutoScrollChange: (Boolean) -> Unit,
     onShowThinkingChange: (Boolean) -> Unit,
@@ -47,6 +49,7 @@ internal fun ChatSettingsSection(
     onShowAvatarsChange: (Boolean) -> Unit,
     onShowBubblesChange: (Boolean) -> Unit,
     onLatexRendererChange: (LatexRenderer) -> Unit,
+    onStarredModelsDisplayChange: (StarredModelsDisplay) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -329,6 +332,48 @@ internal fun ChatSettingsSection(
                     checked = dismissKeyboardOnSend,
                     onCheckedChange = onDismissKeyboardOnSendChange,
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Starred models display selector (mobile-only model-picker behavior)
+            Text(
+                text = stringResource(Res.string.starred_models_title),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = stringResource(Res.string.starred_models_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            StarredModelsDisplay.entries.forEach { option ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .selectable(
+                            selected = starredModelsDisplay == option,
+                            onClick = { onStarredModelsDisplayChange(option) },
+                            role = Role.RadioButton,
+                        )
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = starredModelsDisplay == option,
+                        onClick = null,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = when (option) {
+                            StarredModelsDisplay.OFF -> stringResource(Res.string.starred_models_off)
+                            StarredModelsDisplay.GROUPED -> stringResource(Res.string.starred_models_grouped)
+                            StarredModelsDisplay.TOP -> stringResource(Res.string.starred_models_top)
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
             }
         }
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))

@@ -12,6 +12,7 @@ import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.data.repository.AuthRepository
@@ -225,6 +226,8 @@ data class SettingsUiState(
     val showAvatars: Boolean = true,
     val showBubbles: Boolean = false,
     val latexRenderer: LatexRenderer = LatexRenderer.KATEX,
+    // Mobile-only: how pinned models/agents surface in the model-selection sheet
+    val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
     // Inline artifact rendering (per-type toggles)
     val inlineArtifactPrefs: InlineArtifactPrefs = InlineArtifactPrefs(),
     // Role-permission gates. `serverMemoriesEnabled` is the SERVER-level MEMORIES.USE
@@ -394,6 +397,9 @@ class SettingsViewModel(
     private val inlineArtifactPrefsFlow: StateFlow<InlineArtifactPrefs> = settingsDataStore.inlineArtifactPrefs
         .stateIn(viewModelScope, SharingStarted.Eagerly, InlineArtifactPrefs())
 
+    private val starredModelsDisplayPref: StateFlow<StarredModelsDisplay> = settingsDataStore.starredModelsDisplay
+        .stateIn(viewModelScope, SharingStarted.Eagerly, StarredModelsDisplay.OFF)
+
     /** Additional preferences combined separately to stay within the 5-arg combine limit. */
     private data class AdditionalPreferences(
         val tabletSidebarGestureEnabled: Boolean,
@@ -406,6 +412,7 @@ class SettingsViewModel(
         val showBubbles: Boolean = false,
         val latexRenderer: LatexRenderer = LatexRenderer.KATEX,
         val inlineArtifactPrefs: InlineArtifactPrefs = InlineArtifactPrefs(),
+        val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
     )
 
     private val baseAdditionalPreferences = combine(
@@ -428,6 +435,8 @@ class SettingsViewModel(
         base.copy(chatLayoutStyle = layoutStyle, showAvatars = showAvatars, showBubbles = showBubbles, latexRenderer = latexRenderer)
     }.combine(inlineArtifactPrefsFlow) { additional, inlineArtifact ->
         additional.copy(inlineArtifactPrefs = inlineArtifact)
+    }.combine(starredModelsDisplayPref) { additional, starredDisplay ->
+        additional.copy(starredModelsDisplay = starredDisplay)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AdditionalPreferences(true, false, "", "", true))
 
     /** The single public UI state that merges DataStore preferences with imperative state. */
@@ -465,6 +474,7 @@ class SettingsViewModel(
             showBubbles = additional.showBubbles,
             latexRenderer = additional.latexRenderer,
             inlineArtifactPrefs = additional.inlineArtifactPrefs,
+            starredModelsDisplay = additional.starredModelsDisplay,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -632,6 +642,10 @@ class SettingsViewModel(
 
     fun setChatFontSize(size: ChatFontSize) {
         viewModelScope.launch { settingsDataStore.setChatFontSize(size) }
+    }
+
+    fun setStarredModelsDisplay(display: StarredModelsDisplay) {
+        viewModelScope.launch { settingsDataStore.setStarredModelsDisplay(display) }
     }
 
     fun setAutoScrollEnabled(enabled: Boolean) {

@@ -585,6 +585,7 @@ actual fun ChatScreen(
             favoriteModelKeys = uiState.favoriteModelKeys,
             onToggleAgentFavorite = viewModel::toggleAgentFavorite,
             onToggleModelFavorite = viewModel::toggleModelFavorite,
+            starredDisplay = uiState.starredModelsDisplay,
             endpointKeyStates = uiState.endpointKeyStates,
             onSetApiKey = { name -> onNavigateToProviderKeys(name) },
         )

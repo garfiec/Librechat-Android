@@ -33,6 +33,7 @@
     <string name="preview">Preview</string>
     <string name="select_model">Select model</string>
     <string name="select_a_model">Select a model</string>
+    <string name="starred_group">Starred</string>
     <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
     <string name="chat_agent_fallback_label">Agent</string>
     <string name="compare_models">Compare Models</string>

@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
+import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.EndpointConfig
@@ -194,6 +195,12 @@ data class ChatUiState(
     // Merged from separate StateFlows
     val serverUrl: String = "",
     val chatFontSize: ChatFontSize = ChatFontSize.MEDIUM,
+    /**
+     * Mobile-only preference for how pinned models/agents are surfaced in
+     * [ModelSelectorSheet]: off (float within group), grouped (collapsible top
+     * section), or top (flat top list). Read from [SettingsDataStore].
+     */
+    val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
     val forkedConversationId: String? = null,
     val showForkOptionsForMessageId: String? = null,
     val isForkInProgress: Boolean = false,

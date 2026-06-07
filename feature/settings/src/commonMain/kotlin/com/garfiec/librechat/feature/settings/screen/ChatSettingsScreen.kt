@@ -106,6 +106,7 @@ fun ChatSettingsContent(
                     showAvatars = uiState.showAvatars,
                     showBubbles = uiState.showBubbles,
                     latexRenderer = uiState.latexRenderer,
+                    starredModelsDisplay = uiState.starredModelsDisplay,
                     onFontSizeChange = viewModel::setChatFontSize,
                     onAutoScrollChange = viewModel::setAutoScrollEnabled,
                     onShowThinkingChange = viewModel::setShowThinkingBlocks,
@@ -115,6 +116,7 @@ fun ChatSettingsContent(
                     onShowAvatarsChange = viewModel::setShowAvatars,
                     onShowBubblesChange = viewModel::setShowBubbles,
                     onLatexRendererChange = viewModel::setLatexRenderer,
+                    onStarredModelsDisplayChange = viewModel::setStarredModelsDisplay,
                 )
             }
 
