@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.memory.MemoryCache
@@ -54,6 +55,8 @@ fun LibreChatApp() {
     // user on a light-system device never sees a one-frame flash of the wrong theme.
     val themeReady by themeDataStore.isReady.collectAsState()
     val themeMode by themeDataStore.themeMode.collectAsState(initial = themeDataStore.initialThemeMode)
+    val accentColorArgb by themeDataStore.accentColor.collectAsState(initial = themeDataStore.initialAccentColor)
+    val useDynamicColor by themeDataStore.useDynamicColor.collectAsState(initial = themeDataStore.initialUseDynamicColor)
     val systemDark = isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
         ThemeMode.LIGHT -> false
@@ -61,7 +64,11 @@ fun LibreChatApp() {
         ThemeMode.SYSTEM -> systemDark
     }
     if (themeReady) {
-        LibreChatTheme(darkTheme = darkTheme) {
+        LibreChatTheme(
+            darkTheme = darkTheme,
+            accentColor = Color(accentColorArgb),
+            useDynamicColor = useDynamicColor,
+        ) {
             LibreChatNavHost()
         }
     }

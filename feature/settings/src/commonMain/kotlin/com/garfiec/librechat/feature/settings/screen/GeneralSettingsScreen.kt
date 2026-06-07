@@ -1,6 +1,9 @@
 package com.garfiec.librechat.feature.settings.screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,13 +15,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tablet
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,7 +40,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -44,11 +52,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.model.config.BuildInfo
+import com.garfiec.librechat.core.ui.components.toHexString
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+
+/** Dim factor applied to the accent row when wallpaper colors override the custom seed. */
+private const val DISABLED_ALPHA = 0.4f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +116,21 @@ fun GeneralSettingsContent(
                     selected = uiState.themeMode,
                     onSelect = viewModel::setThemeMode,
                 )
+            }
+            item(key = "accent_color_row") {
+                AccentColorRow(
+                    color = uiState.accentColor,
+                    enabled = !uiState.useDynamicColor,
+                    onClick = viewModel::showAccentColorDialog,
+                )
+            }
+            if (uiState.dynamicColorSupported) {
+                item(key = "dynamic_color_toggle") {
+                    DynamicColorToggle(
+                        enabled = uiState.useDynamicColor,
+                        onEnabledChange = viewModel::setUseDynamicColor,
+                    )
+                }
             }
 
             // Language
@@ -181,6 +208,17 @@ fun GeneralSettingsContent(
                 enabled = uiState.personalizationEnabled,
                 onSave = viewModel::savePersonalization,
                 onDismiss = viewModel::dismissPersonalizationDialog,
+            )
+        }
+
+        if (uiState.showAccentColorDialog) {
+            AccentColorDialog(
+                currentColor = uiState.accentColor,
+                onColorSelect = {
+                    viewModel.setAccentColor(it)
+                    viewModel.dismissAccentColorDialog()
+                },
+                onDismiss = viewModel::dismissAccentColorDialog,
             )
         }
     } // Column
@@ -278,6 +316,98 @@ private fun TabletSidebarGestureToggle(
                     onCheckedChange = onGestureEnabledChange,
                 )
             }
+        }
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+private fun AccentColorRow(
+    color: Int,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onClick,
+            enabled = enabled,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(if (enabled) 1f else DISABLED_ALPHA)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Palette,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.accent_color),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = Color(color).toHexString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color(color))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                )
+            }
+        }
+        HorizontalDivider()
+    }
+}
+
+@Composable
+private fun DynamicColorToggle(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Wallpaper,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.use_wallpaper_colors),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = stringResource(Res.string.use_wallpaper_colors_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange,
+            )
         }
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
     }

@@ -3,69 +3,47 @@ package com.garfiec.librechat.core.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-
-private val libreChatLightColorScheme = lightColorScheme(
-    primary = LightPrimary,
-    onPrimary = LightOnPrimary,
-    primaryContainer = LightPrimaryContainer,
-    onPrimaryContainer = LightOnPrimaryContainer,
-    background = LightBackground,
-    onBackground = LightOnBackground,
-    surface = LightSurface,
-    surfaceContainer = LightSurfaceContainer,
-    surfaceContainerLowest = LightSurfaceContainerLowest,
-    surfaceContainerLow = LightSurfaceContainerLow,
-    surfaceContainerHigh = LightSurfaceContainerHigh,
-    surfaceContainerHighest = LightSurfaceContainerHighest,
-    secondaryContainer = LightSecondaryContainer,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightOnSurfaceVariant,
-    outline = LightOutline,
-    outlineVariant = LightOutlineVariant,
-    error = LightError,
-    onError = LightOnError,
-)
-
-private val libreChatDarkColorScheme = darkColorScheme(
-    primary = DarkPrimary,
-    onPrimary = DarkOnPrimary,
-    primaryContainer = DarkPrimaryContainer,
-    onPrimaryContainer = DarkOnPrimaryContainer,
-    background = DarkBackground,
-    onBackground = DarkOnBackground,
-    surface = DarkSurface,
-    surfaceContainer = DarkSurfaceContainer,
-    surfaceContainerLowest = DarkSurfaceContainerLowest,
-    surfaceContainerLow = DarkSurfaceContainerLow,
-    surfaceContainerHigh = DarkSurfaceContainerHigh,
-    surfaceContainerHighest = DarkSurfaceContainerHighest,
-    secondaryContainer = DarkSecondaryContainer,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = DarkOnSurfaceVariant,
-    outline = DarkOutline,
-    outlineVariant = DarkOutlineVariant,
-    error = DarkError,
-    onError = DarkOnError,
-)
+import androidx.compose.ui.graphics.Color
+import com.materialkolor.PaletteStyle
+import com.materialkolor.rememberDynamicColorScheme
 
 /**
  * Returns a platform-specific dynamic color scheme if available, or null to fall back
- * to the static LibreChat color scheme. On Android 12+, returns Material You colors.
+ * to the LibreChat color scheme. On Android 12+, returns wallpaper-based Material You colors.
  */
 @Composable
 expect fun platformColorScheme(darkTheme: Boolean, dynamicColor: Boolean): ColorScheme?
 
+/**
+ * Whether the platform supports wallpaper-based Material You dynamic color.
+ * Android 12+ returns true; iOS returns false. Used to gate the "use wallpaper
+ * colors" setting and the [LibreChatTheme] precedence branch.
+ */
+expect fun supportsDynamicColor(): Boolean
+
+/**
+ * Applies the LibreChat Material 3 theme.
+ *
+ * Color resolution precedence:
+ * 1. [useDynamicColor] on **and** the platform supports it -> wallpaper-based scheme.
+ * 2. Otherwise the full scheme is generated from [accentColor] via MaterialKolor
+ *    ([rememberDynamicColorScheme], remembered/keyed on its inputs). The default
+ *    [accentColor] reproduces the app's original lavender brand hue.
+ */
 @Composable
 fun LibreChatTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
+    accentColor: Color = DefaultAccentSeed,
+    useDynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = platformColorScheme(darkTheme, dynamicColor)
-        ?: if (darkTheme) libreChatDarkColorScheme else libreChatLightColorScheme
+    val seedScheme = rememberDynamicColorScheme(accentColor, darkTheme, style = PaletteStyle.TonalSpot)
+    val colorScheme = if (useDynamicColor && supportsDynamicColor()) {
+        platformColorScheme(darkTheme, dynamicColor = true) ?: seedScheme
+    } else {
+        seedScheme
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,

@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -76,6 +77,12 @@ class MainActivity : ComponentActivity() {
             // theme. The system window background covers the sub-frame gap.
             val themeReady by themeDataStore.isReady.collectAsStateWithLifecycle()
             val themeMode by themeDataStore.themeMode.collectAsStateWithLifecycle(initialValue = themeDataStore.initialThemeMode)
+            val accentColorArgb by themeDataStore.accentColor.collectAsStateWithLifecycle(
+                initialValue = themeDataStore.initialAccentColor,
+            )
+            val useDynamicColor by themeDataStore.useDynamicColor.collectAsStateWithLifecycle(
+                initialValue = themeDataStore.initialUseDynamicColor,
+            )
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
@@ -93,7 +100,11 @@ class MainActivity : ComponentActivity() {
             }
 
             if (themeReady) {
-                LibreChatTheme(darkTheme = darkTheme) {
+                LibreChatTheme(
+                    darkTheme = darkTheme,
+                    accentColor = Color(accentColorArgb),
+                    useDynamicColor = useDynamicColor,
+                ) {
                     Surface(modifier = Modifier.fillMaxSize()) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             AnimatedVisibility(

@@ -104,6 +104,13 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
 
+    <!-- Accent color -->
+    <string name="accent_color">Accent color</string>
+    <string name="accent_color_custom">Custom</string>
+    <string name="accent_color_hex">Hex</string>
+    <string name="use_wallpaper_colors">Use wallpaper colors</string>
+    <string name="use_wallpaper_colors_desc">Match the app accent to your system wallpaper (Material You)</string>
+
     <!-- Settings rows -->
     <string name="language">Language</string>
     <string name="personalization">Personalization</string>

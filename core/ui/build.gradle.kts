@@ -14,6 +14,7 @@ kotlin {
             implementation(project(":core:common"))
             implementation(libs.coil3.compose)
             implementation(libs.coil3.network.ktor)
+            implementation(libs.material.kolor)
         }
     }
 }

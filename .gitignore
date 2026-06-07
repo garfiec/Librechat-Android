@@ -34,3 +34,6 @@ Thumbs.db
 .claude/inline-artifacts/
 .claude/worktrees/
 .claude/sync-upstream/
+# Ephemeral runtime state from Claude Code's scheduler (per-session lock)
+.claude/scheduled_tasks.lock
+.claude/*.lock

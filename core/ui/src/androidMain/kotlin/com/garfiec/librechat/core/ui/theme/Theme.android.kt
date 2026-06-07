@@ -15,3 +15,5 @@ actual fun platformColorScheme(darkTheme: Boolean, dynamicColor: Boolean): Color
     }
     return null
 }
+
+actual fun supportsDynamicColor(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S

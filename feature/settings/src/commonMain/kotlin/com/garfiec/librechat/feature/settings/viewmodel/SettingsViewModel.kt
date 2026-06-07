@@ -39,6 +39,7 @@ import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.model.speech.TtsVoice
+import com.garfiec.librechat.core.ui.theme.supportsDynamicColor
 import com.garfiec.librechat.feature.settings.model.SharedLinkDisplayData
 import com.garfiec.librechat.feature.settings.model.UserDisplayData
 import com.garfiec.librechat.feature.settings.screen.DeviceVoiceInfo
@@ -87,6 +88,10 @@ val DEFAULT_COMMANDS = listOf(
 data class SettingsUiState(
     val user: UserDisplayData? = null,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val accentColor: Int = ThemeDataStore.DEFAULT_ACCENT_COLOR,
+    val useDynamicColor: Boolean = false,
+    val dynamicColorSupported: Boolean = false,
+    val showAccentColorDialog: Boolean = false,
     val serverUrl: String = "",
     /** Human-facing app version (e.g. `0.1.0`), sourced from the installed package. */
     val appVersion: String = "",
@@ -256,6 +261,8 @@ private data class DataStorePreferences(
     val showThinkingBlocks: Boolean,
     val autoReadEnabled: Boolean,
     val selectedVoiceId: String,
+    val accentColor: Int = ThemeDataStore.DEFAULT_ACCENT_COLOR,
+    val useDynamicColor: Boolean = false,
 )
 
 @Suppress("LongParameterList")
@@ -325,6 +332,10 @@ class SettingsViewModel(
             autoReadEnabled = false,
             selectedVoiceId = "",
         )
+    }.combine(themeDataStore.accentColor) { prefs, accent ->
+        prefs.copy(accentColor = accent)
+    }.combine(themeDataStore.useDynamicColor) { prefs, dynamic ->
+        prefs.copy(useDynamicColor = dynamic)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, DataStorePreferences(
         themeMode = ThemeMode.SYSTEM,
         serverUrl = "",
@@ -450,6 +461,9 @@ class SettingsViewModel(
         val selectedVoice = extra.selectedVoiceId?.let { id -> state.availableVoices.find { it.id == id } }
         state.copy(
             themeMode = prefs.themeMode,
+            accentColor = prefs.accentColor,
+            useDynamicColor = prefs.useDynamicColor,
+            dynamicColorSupported = supportsDynamicColor(),
             serverUrl = prefs.serverUrl,
             chatFontSize = prefs.chatFontSize,
             autoScrollEnabled = prefs.autoScrollEnabled,
@@ -636,6 +650,22 @@ class SettingsViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { themeDataStore.setThemeMode(mode) }
+    }
+
+    fun setAccentColor(argb: Int) {
+        viewModelScope.launch { themeDataStore.setAccentColor(argb) }
+    }
+
+    fun setUseDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { themeDataStore.setUseDynamicColor(enabled) }
+    }
+
+    fun showAccentColorDialog() {
+        _uiState.update { it.copy(showAccentColorDialog = true) }
+    }
+
+    fun dismissAccentColorDialog() {
+        _uiState.update { it.copy(showAccentColorDialog = false) }
     }
 
     // ── Chat preferences ───────────────────────────────────────────
