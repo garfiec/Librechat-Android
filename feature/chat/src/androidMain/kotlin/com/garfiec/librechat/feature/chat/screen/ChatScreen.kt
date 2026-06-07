@@ -349,8 +349,6 @@ actual fun ChatScreen(
                     onToggleComparison = viewModel::toggleComparison,
                     conversationId = uiState.conversationId,
                     conversationTitle = uiState.conversationTitle,
-                    displayModel = displayModel,
-                    onOpenModelSelector = viewModel::openModelSheet,
                     sharedLinksEnabled = uiState.sharedLinksEnabled,
                     onShare = viewModel::shareConversation,
                     onRename = viewModel::showRenameDialog,
@@ -854,8 +852,6 @@ private fun ChatTopBar(
     onToggleComparison: () -> Unit = {},
     conversationId: String? = null,
     conversationTitle: String? = null,
-    displayModel: String? = null,
-    onOpenModelSelector: () -> Unit = {},
     sharedLinksEnabled: Boolean = false,
     onShare: () -> Unit = {},
     onRename: () -> Unit = {},
@@ -883,9 +879,10 @@ private fun ChatTopBar(
             }
         }
 
-        // Show conversation title when viewing an existing conversation, otherwise a
-        // tappable model selector so the model/params (thinkingLevel) sheet is reachable
-        // from the header — not only two taps deep in the composer "+" menu.
+        // Show the conversation title when viewing an existing conversation. The header
+        // intentionally has no model selector — model/params stay reachable from the
+        // composer "+" menu (tools sheet), a deliberate mobile decluttering choice that
+        // diverges from web's header model selector.
         if (conversationId != null && !conversationTitle.isNullOrBlank()) {
             Text(
                 text = conversationTitle,
@@ -897,11 +894,7 @@ private fun ChatTopBar(
             )
             Spacer(modifier = Modifier.width(4.dp))
         } else {
-            ModelSelectorButton(
-                modelName = displayModel,
-                onClick = onOpenModelSelector,
-                modifier = Modifier.weight(1f),
-            )
+            Spacer(modifier = Modifier.weight(1f))
         }
 
         if (showTempChatToggle) {

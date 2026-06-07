@@ -66,7 +66,6 @@ import com.garfiec.librechat.feature.chat.components.IosChatInput
 import com.garfiec.librechat.feature.chat.components.LandingContent
 import com.garfiec.librechat.feature.chat.components.ChatRoot
 import com.garfiec.librechat.feature.chat.components.MessageList
-import com.garfiec.librechat.feature.chat.components.ModelSelectorButton
 import com.garfiec.librechat.feature.chat.components.ModelSelectorSheet
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
@@ -182,6 +181,10 @@ actual fun ChatScreen(
             Column {
                 TopAppBar(
                     title = {
+                        // Show the conversation title only. The header intentionally has no
+                        // model selector — model/params stay reachable from the composer "+"
+                        // menu (tools sheet), a deliberate mobile decluttering choice that
+                        // diverges from web's header model selector. Mirrors Android ChatTopBar.
                         val title = uiState.conversationTitle
                         if (!isLandingPage && title != null) {
                             Text(
@@ -189,14 +192,6 @@ actual fun ChatScreen(
                                 style = MaterialTheme.typography.titleSmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                            )
-                        } else {
-                            // Model selector in the header (incl. the landing page) so the
-                            // model/params (thinkingLevel) sheet is reachable without digging
-                            // into the composer "+" menu. Mirrors the Android ChatTopBar.
-                            ModelSelectorButton(
-                                modelName = displayModel,
-                                onClick = viewModel::openModelSheet,
                             )
                         }
                     },
