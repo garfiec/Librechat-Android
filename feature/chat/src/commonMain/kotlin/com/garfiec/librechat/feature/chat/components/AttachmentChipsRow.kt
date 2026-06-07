@@ -73,12 +73,33 @@ fun AttachmentChipsRow(
     modifier: Modifier = Modifier,
     mcpServers: List<McpServerDisplayData> = emptyList(),
     selectedMcpServerNames: Set<String> = emptySet(),
+    /**
+     * Whether ephemeral tool selections (web search / code / file search / MCP) should be
+     * shown as chips. False for the agents endpoint, where the underlying selections are
+     * retained but not sent (see [ChatUiState.showEphemeralTools]); only the display is
+     * suppressed so switching back to a concrete model restores the chips. File chips are
+     * unaffected — files aren't ephemeral tools.
+     */
+    showEphemeralTools: Boolean = true,
 ) {
     val hasFiles = attachedFiles.isNotEmpty()
-    val hasWebSearch = ToolConstants.WEB_SEARCH in enabledTools
-    val hasCode = ToolConstants.CODE_INTERPRETER in enabledTools
-    val hasFileSearch = ToolConstants.FILE_SEARCH in enabledTools
-    val selectedMcpServers = mcpServers.filter { it.name in selectedMcpServerNames }
+    // Memoize ephemeral state once to avoid repeated guards and per-recomposition MCP filtering when tools are hidden.
+    val ephemeral = remember(showEphemeralTools, enabledTools, mcpServers, selectedMcpServerNames) {
+        if (!showEphemeralTools) {
+            EphemeralChips()
+        } else {
+            EphemeralChips(
+                hasWebSearch = ToolConstants.WEB_SEARCH in enabledTools,
+                hasCode = ToolConstants.CODE_INTERPRETER in enabledTools,
+                hasFileSearch = ToolConstants.FILE_SEARCH in enabledTools,
+                selectedMcpServers = mcpServers.filter { it.name in selectedMcpServerNames },
+            )
+        }
+    }
+    val hasWebSearch = ephemeral.hasWebSearch
+    val hasCode = ephemeral.hasCode
+    val hasFileSearch = ephemeral.hasFileSearch
+    val selectedMcpServers = ephemeral.selectedMcpServers
     val hasMcp = selectedMcpServers.isNotEmpty()
     val hasAnyChip = hasFiles || hasWebSearch || hasCode || hasFileSearch || hasMcp
 
@@ -386,3 +407,10 @@ private fun FilePreviewItem(
         }
     }
 }
+
+private data class EphemeralChips(
+    val hasWebSearch: Boolean = false,
+    val hasCode: Boolean = false,
+    val hasFileSearch: Boolean = false,
+    val selectedMcpServers: List<McpServerDisplayData> = emptyList(),
+)

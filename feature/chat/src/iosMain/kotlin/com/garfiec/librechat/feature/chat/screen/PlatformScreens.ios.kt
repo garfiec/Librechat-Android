@@ -241,27 +241,30 @@ actual fun ChatScreen(
                                         },
                                     )
                                 }
-                                // Presets
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.load_preset)) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showPresetPicker = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Outlined.FileOpen, contentDescription = null)
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(Res.string.save_as_preset)) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showSavePresetDialog = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Outlined.SaveAs, contentDescription = null)
-                                    },
-                                )
+                                // Presets — hidden when the server disables `interface.presets`
+                                // (or `interface.modelSelect`), matching web's Header.tsx.
+                                if (uiState.presetsEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(Res.string.load_preset)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showPresetPicker = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.FileOpen, contentDescription = null)
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(Res.string.save_as_preset)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showSavePresetDialog = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.SaveAs, contentDescription = null)
+                                        },
+                                    )
+                                }
                                 // Prompts Library — gated on PROMPTS.USE
                                 if (onNavigateToPromptsLibrary != null && uiState.promptsEnabled) {
                                     DropdownMenuItem(
@@ -542,6 +545,7 @@ actual fun ChatScreen(
                 runCodeEnabled = uiState.runCodeEnabled,
                 fileSearchEnabled = uiState.fileSearchEnabled,
                 mcpServersEnabled = uiState.mcpServersEnabled,
+                gates = uiState.chatInputGates,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }

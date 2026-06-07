@@ -56,6 +56,7 @@ import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +80,12 @@ fun ChatToolsBottomSheet(
     runCodeEnabled: Boolean = true,
     fileSearchEnabled: Boolean = true,
     mcpServersEnabled: Boolean = true,
+    /**
+     * Server/endpoint feature gates for the sheet: model-select row, parameters row,
+     * ephemeral tool controls (web search / code / file search / MCP), and the
+     * Camera / Photos / Files attach controls. See [ChatInputGates].
+     */
+    gates: ChatInputGates = ChatInputGates(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showMcpServers by remember { mutableStateOf(false) }
@@ -95,120 +102,128 @@ fun ChatToolsBottomSheet(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp),
         ) {
-            // Top section: Camera, Photos, Files cards
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                AttachmentOptionCard(
-                    icon = Icons.Default.PhotoCamera,
-                    label = stringResource(Res.string.tool_camera),
-                    onClick = {
-                        onTakePhoto()
-                        onDismiss()
-                    },
-                )
-                AttachmentOptionCard(
-                    icon = Icons.Default.PhotoLibrary,
-                    label = stringResource(Res.string.tool_photos),
-                    onClick = {
-                        onPickPhotos()
-                        onDismiss()
-                    },
-                )
-                AttachmentOptionCard(
-                    icon = Icons.Default.AttachFile,
-                    label = stringResource(Res.string.tool_files),
-                    onClick = {
-                        onAttachFiles()
-                        onDismiss()
-                    },
-                )
+            // Top section: Camera, Photos, Files cards — hidden when the selected
+            // endpoint can't accept uploads (mirrors web's AttachFileChat gate).
+            if (gates.fileUploadEnabled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    AttachmentOptionCard(
+                        icon = Icons.Default.PhotoCamera,
+                        label = stringResource(Res.string.tool_camera),
+                        onClick = {
+                            onTakePhoto()
+                            onDismiss()
+                        },
+                    )
+                    AttachmentOptionCard(
+                        icon = Icons.Default.PhotoLibrary,
+                        label = stringResource(Res.string.tool_photos),
+                        onClick = {
+                            onPickPhotos()
+                            onDismiss()
+                        },
+                    )
+                    AttachmentOptionCard(
+                        icon = Icons.Default.AttachFile,
+                        label = stringResource(Res.string.tool_files),
+                        onClick = {
+                            onAttachFiles()
+                            onDismiss()
+                        },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // Model selector row — hidden when the server disables `interface.modelSelect`.
+            if (gates.modelSelectEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onOpenModelSelector()
+                            onDismiss()
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SmartToy,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.tool_model),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = selectedModelDisplay ?: stringResource(Res.string.select_model),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Model Parameters — hidden when the server disables `interface.parameters`.
+            if (gates.parametersEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onOpenModelParameters()
+                            onDismiss()
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.tool_model_parameters),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = stringResource(Res.string.tool_model_parameters_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             HorizontalDivider()
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Model selector row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onOpenModelSelector()
-                        onDismiss()
-                    }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SmartToy,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.tool_model),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = selectedModelDisplay ?: stringResource(Res.string.select_model),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            // Model Parameters
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onOpenModelParameters()
-                        onDismiss()
-                    }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Tune,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.tool_model_parameters),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = stringResource(Res.string.tool_model_parameters_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Tool toggle items
-            if (webSearchEnabled) {
+            // Tool toggle items — ephemeral tools are hidden for the agents endpoint
+            // (the agent uses its own configured tools), mirroring web's showEphemeralBadges.
+            if (gates.showEphemeralTools && webSearchEnabled) {
                 ToolToggleRow(
                     icon = Icons.Default.Search,
                     title = stringResource(Res.string.tool_web_search),
@@ -218,7 +233,7 @@ fun ChatToolsBottomSheet(
                 )
             }
 
-            if (isCodeInterpreterAvailable && runCodeEnabled) {
+            if (gates.showEphemeralTools && isCodeInterpreterAvailable && runCodeEnabled) {
                 ToolToggleRow(
                     icon = Icons.Default.Code,
                     title = stringResource(Res.string.tool_code),
@@ -228,7 +243,7 @@ fun ChatToolsBottomSheet(
                 )
             }
 
-            if (fileSearchEnabled) {
+            if (gates.showEphemeralTools && fileSearchEnabled) {
                 ToolToggleRow(
                     icon = Icons.Default.FindInPage,
                     title = stringResource(Res.string.tool_file_search),
@@ -238,8 +253,9 @@ fun ChatToolsBottomSheet(
                 )
             }
 
-            // MCP section — hidden entirely when role denies MCP_SERVERS.USE.
-            if (mcpServersEnabled && mcpServers.isNotEmpty()) {
+            // MCP section — hidden when role denies MCP_SERVERS.USE, and for the agents
+            // endpoint where dynamic MCP selections are silently ignored by the backend.
+            if (gates.showEphemeralTools && mcpServersEnabled && mcpServers.isNotEmpty()) {
                 val anyMcpSelected = selectedMcpServerNames.isNotEmpty()
                 Row(
                     modifier = Modifier

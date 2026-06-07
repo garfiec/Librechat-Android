@@ -52,6 +52,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
+import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -89,6 +90,7 @@ fun ChatInput(
     runCodeEnabled: Boolean = true,
     fileSearchEnabled: Boolean = true,
     mcpServersEnabled: Boolean = true,
+    gates: ChatInputGates = ChatInputGates(),
 ) {
     val cdOpenToolsMenu = stringResource(Res.string.cd_open_tools_menu)
     val cdPasteImage = stringResource(Res.string.cd_paste_image)
@@ -181,9 +183,10 @@ fun ChatInput(
         textFieldValue = TextFieldValue(inputText, selection = TextRange(inputText.length))
     }
 
-    val hasActiveTools by remember(enabledTools, selectedMcpServerNames) {
+    // Badge suppressed on agents endpoint (retained state restores on concrete models).
+    val hasActiveTools by remember(enabledTools, selectedMcpServerNames, gates.showEphemeralTools) {
         derivedStateOf {
-            enabledTools.isNotEmpty() || selectedMcpServerNames.isNotEmpty()
+            gates.showEphemeralTools && (enabledTools.isNotEmpty() || selectedMcpServerNames.isNotEmpty())
         }
     }
 
@@ -222,6 +225,7 @@ fun ChatInput(
         selectedModelDisplay = selectedModelDisplay,
         isCodeInterpreterAvailable = isCodeInterpreterAvailable,
         attachedFiles = attachedFiles,
+        gates = gates,
     )
 
     CommonChatInputCore(
@@ -404,6 +408,7 @@ fun ChatInput(
             runCodeEnabled = runCodeEnabled,
             fileSearchEnabled = fileSearchEnabled,
             mcpServersEnabled = mcpServersEnabled,
+            gates = gates,
         )
     }
 }

@@ -50,6 +50,7 @@ import com.garfiec.librechat.feature.chat.resources.cd_stop_generation
 import com.garfiec.librechat.feature.chat.resources.hint_message
 import com.garfiec.librechat.feature.chat.resources.hint_message_model
 import com.garfiec.librechat.feature.chat.resources.recording
+import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
 import org.jetbrains.compose.resources.stringResource
 
 @Immutable
@@ -64,6 +65,8 @@ data class ChatInputState(
     val selectedModelDisplay: String?,
     val isCodeInterpreterAvailable: Boolean,
     val attachedFiles: List<AttachedFile>,
+    /** Ephemeral-tools gate drives local chip display; remaining gates are threaded to the sheet. */
+    val gates: ChatInputGates = ChatInputGates(),
 )
 
 /**
@@ -111,6 +114,7 @@ fun CommonChatInputCore(
                 onRemoveFile = onRemoveFile,
                 mcpServers = state.mcpServers,
                 selectedMcpServerNames = state.selectedMcpServerNames,
+                showEphemeralTools = state.gates.showEphemeralTools,
             )
 
             Row(

@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.SubagentPhase
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.core.model.endpoint.KeyState
+import com.garfiec.librechat.core.model.response.FileUploadConfig
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
@@ -105,6 +106,22 @@ data class SubagentTrace(
     val parts: List<MessageContentPart> = emptyList(),
     /** True once the server reports a terminal phase (`stop`/`error`). */
     val isComplete: Boolean = false,
+)
+
+/**
+ * Feature gates that flow into the composer ([ChatInput] → [ChatToolsBottomSheet]),
+ * bundled so they thread as one value across Android and iOS. Each defaults to true
+ * (shown) so a default-constructed bundle is fully permissive. Built by
+ * [ChatUiState.chatInputGates]; see [ChatUiState.modelSelectEnabled] /
+ * [ChatUiState.parametersEnabled] / [ChatUiState.showEphemeralTools] /
+ * [ChatUiState.fileUploadEnabled] for the individual gating rules.
+ */
+@Immutable
+data class ChatInputGates(
+    val modelSelectEnabled: Boolean = true,
+    val parametersEnabled: Boolean = true,
+    val showEphemeralTools: Boolean = true,
+    val fileUploadEnabled: Boolean = true,
 )
 
 @Immutable
@@ -200,7 +217,10 @@ data class ChatUiState(
     val showModelSheet: Boolean = false,
     // Model comparison state
     val comparisonState: ComparisonState = ComparisonState(),
-    // Role-permission gates — default permissive; narrowed once RoleRepository emits.
+    // Feature gates — effective value is `interface.* flag AND role permission`,
+    // matching the web client. Default permissive (true); narrowed once both the
+    // RoleRepository and the server's interface config emit. Fails open when an
+    // interface flag is absent (older backends that don't send it).
     val promptsEnabled: Boolean = true,
     val promptsCreateEnabled: Boolean = true,
     val agentsEnabled: Boolean = true,
@@ -212,6 +232,15 @@ data class ChatUiState(
     val runCodeEnabled: Boolean = true,
     val fileSearchEnabled: Boolean = true,
     val bookmarksEnabled: Boolean = true,
+    /**
+     * Interface-only gates (no corresponding role permission on web). Driven solely by
+     * the server's `interface.*` config: presets on `interface.presets && interface.modelSelect`,
+     * model select on `interface.modelSelect`, parameters on `interface.parameters`.
+     * See web `Chat/Header.tsx` and `Chat/Input/HeaderOptions.tsx`.
+     */
+    val presetsEnabled: Boolean = true,
+    val modelSelectEnabled: Boolean = true,
+    val parametersEnabled: Boolean = true,
     /**
      * User-pinned agent IDs (v0.8.5 favorites). Pinned agents sort to the top
      * of the "My Agents" group in [ModelSelectorSheet] and get a filled star.
@@ -228,7 +257,35 @@ data class ChatUiState(
      * older or unknown servers (per VERSION_GATES.md guideline #2). See VERSION_GATES.md.
      */
     val extendedEffortSupported: Boolean = false,
+    /**
+     * Server upload config (`GET /api/files/config`).
+     * Null before fetch or on fetch failure; treated as no constraint (controls fail open).
+     */
+    val fileUploadConfig: FileUploadConfig? = null,
 ) {
+    /**
+     * Whether the chat attach controls (Camera / Photos / Files) should be offered for
+     * the current endpoint. Mirrors web's AttachFileChat gate:
+     *  - The agents endpoint always allows attaching (file tools are gated per-agent
+     *    inside the menu on web; mobile keeps the controls visible).
+     *  - Other endpoints allow it unless the server marks the endpoint's file config
+     *    `disabled` (or the global default disabled).
+     *
+     * Fails OPEN: a null/absent config (older backend, fetch not landed, or fetch failed)
+     * leaves attaching enabled to preserve current behavior.
+     */
+    val fileUploadEnabled: Boolean
+        get() {
+            if (selectedEndpoint == EndpointConstants.AGENTS) return true
+            val config = fileUploadConfig ?: return true
+            // Per-endpoint override wins; fall back to the global default `disabled`.
+            val endpointDisabled = config.endpoints[selectedEndpoint]?.disabled
+            return when {
+                endpointDisabled != null -> !endpointDisabled
+                else -> !config.disabled
+            }
+        }
+
     /**
      * Effective tool set that merges [enabledTools] with the web search state from
      * [modelParameters]. This ensures the toolbar, bottom sheet, and dropdown all
@@ -240,6 +297,31 @@ data class ChatUiState(
         } else {
             enabledTools - ToolConstants.WEB_SEARCH
         }
+
+    /**
+     * Whether the per-request ephemeral tool controls (dynamic MCP servers, web search,
+     * code interpreter, file search) should be offered. Mirrors web's `showEphemeralBadges`
+     * (ChatForm.tsx): a saved agent uses its own configured tools, so the backend ignores
+     * client-supplied ephemeral tools on agent runs. Mobile's only agent-type endpoint is
+     * [EndpointConstants.AGENTS], so the gate is simply "not the agents endpoint".
+     */
+    val showEphemeralTools: Boolean
+        get() = selectedEndpoint != EndpointConstants.AGENTS
+
+    /**
+     * Bundle of the feature gates that flow into the composer ([ChatInput] →
+     * [ChatToolsBottomSheet]), so the four are threaded as one value across both
+     * platforms instead of four parallel params. Built from the existing fields;
+     * see each property for its gating rule. (`presetsEnabled` is not included —
+     * it flows to the top bar, a different path.)
+     */
+    val chatInputGates: ChatInputGates
+        get() = ChatInputGates(
+            modelSelectEnabled = modelSelectEnabled,
+            parametersEnabled = parametersEnabled,
+            showEphemeralTools = showEphemeralTools,
+            fileUploadEnabled = fileUploadEnabled,
+        )
 
     /**
      * Whether code interpreter (execute_code) is available on this server.

@@ -338,6 +338,7 @@ actual fun ChatScreen(
                     onOpenSearch = viewModel::openSearch,
                     onOpenPromptsLibrary = onNavigateToPromptsLibrary,
                     promptsEnabled = uiState.promptsEnabled,
+                    presetsEnabled = uiState.presetsEnabled,
                     multiConvoEnabled = uiState.multiConvoEnabled,
                     isTemporaryChat = uiState.isTemporaryChat,
                     onToggleTemporaryChat = viewModel::toggleTemporaryChat,
@@ -684,6 +685,7 @@ actual fun ChatScreen(
                 runCodeEnabled = uiState.runCodeEnabled,
                 fileSearchEnabled = uiState.fileSearchEnabled,
                 mcpServersEnabled = uiState.mcpServersEnabled,
+                gates = uiState.chatInputGates,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -844,6 +846,7 @@ private fun ChatTopBar(
     onOpenSearch: () -> Unit = {},
     onOpenPromptsLibrary: (() -> Unit)? = null,
     promptsEnabled: Boolean = true,
+    presetsEnabled: Boolean = true,
     multiConvoEnabled: Boolean = true,
     isTemporaryChat: Boolean = false,
     onToggleTemporaryChat: () -> Unit = {},
@@ -927,26 +930,30 @@ private fun ChatTopBar(
                         },
                     )
                 }
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.load_preset)) },
-                    onClick = {
-                        showOverflowMenu = false
-                        onLoadPreset()
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Outlined.FileOpen, contentDescription = null)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.save_as_preset)) },
-                    onClick = {
-                        showOverflowMenu = false
-                        onSavePreset()
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Outlined.SaveAs, contentDescription = null)
-                    },
-                )
+                // Preset load/save — hidden when the server disables `interface.presets`
+                // (or `interface.modelSelect`), matching web's Header.tsx presets menu.
+                if (presetsEnabled) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.load_preset)) },
+                        onClick = {
+                            showOverflowMenu = false
+                            onLoadPreset()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.FileOpen, contentDescription = null)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.save_as_preset)) },
+                        onClick = {
+                            showOverflowMenu = false
+                            onSavePreset()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.SaveAs, contentDescription = null)
+                        },
+                    )
+                }
                 if (onOpenPromptsLibrary != null && promptsEnabled) {
                     DropdownMenuItem(
                         text = { Text(stringResource(Res.string.prompts_library)) },

@@ -4,9 +4,14 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
 import com.garfiec.librechat.core.model.response.FilePreviewResponse
+import com.garfiec.librechat.core.model.response.FileUploadConfig
 
 interface FileRepository {
     suspend fun getFiles(): Result<List<FileObject>>
+
+    /** Fetches the server's upload config (`GET /api/files/config`), including the
+     *  per-endpoint `endpoints` map. Used to gate the chat attach controls. */
+    suspend fun getFileConfig(): Result<FileUploadConfig>
     suspend fun uploadFile(
         bytes: ByteArray,
         filename: String,

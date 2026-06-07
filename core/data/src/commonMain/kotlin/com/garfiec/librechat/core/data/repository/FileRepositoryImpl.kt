@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
 import com.garfiec.librechat.core.model.request.DeleteFilesRequest
 import com.garfiec.librechat.core.model.response.FilePreviewResponse
+import com.garfiec.librechat.core.model.response.FileUploadConfig
 import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
 import kotlinx.coroutines.CancellationException
@@ -21,6 +22,9 @@ class FileRepositoryImpl(
 
     override suspend fun getFiles(): Result<List<FileObject>> =
         safeApiCall { filesApi.getFiles() }
+
+    override suspend fun getFileConfig(): Result<FileUploadConfig> =
+        safeApiCall { filesApi.getFileConfig() }
 
     override suspend fun uploadFile(
         bytes: ByteArray,

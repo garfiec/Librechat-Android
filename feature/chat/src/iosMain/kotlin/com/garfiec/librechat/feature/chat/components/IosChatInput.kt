@@ -30,6 +30,7 @@ import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_attach_file
 import com.garfiec.librechat.feature.chat.resources.cd_paste_image
+import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -64,6 +65,7 @@ fun IosChatInput(
     runCodeEnabled: Boolean = true,
     fileSearchEnabled: Boolean = true,
     mcpServersEnabled: Boolean = true,
+    gates: ChatInputGates = ChatInputGates(),
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showToolsSheet by remember { mutableStateOf(false) }
@@ -79,6 +81,7 @@ fun IosChatInput(
         selectedModelDisplay = selectedModelDisplay,
         isCodeInterpreterAvailable = isCodeInterpreterAvailable,
         attachedFiles = attachedFiles,
+        gates = gates,
     )
 
     CommonChatInputCore(
@@ -216,6 +219,7 @@ fun IosChatInput(
             runCodeEnabled = runCodeEnabled,
             fileSearchEnabled = fileSearchEnabled,
             mcpServersEnabled = mcpServersEnabled,
+            gates = gates,
         )
     }
 }

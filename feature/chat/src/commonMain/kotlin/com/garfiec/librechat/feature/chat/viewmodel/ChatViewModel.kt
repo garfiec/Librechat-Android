@@ -33,6 +33,7 @@ import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.config.InterfaceConfig
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.error.parseUserKeyError
 import com.garfiec.librechat.core.model.permissions.Permission
@@ -378,6 +379,7 @@ class ChatViewModel(
         favoritesDelegate.load()
         loadUserProfile()
         loadFlags()
+        loadFileConfig()
         voiceDelegate.loadSpeechConfig()
 
         // Gated loads share a single 5-second role-await budget so offline/timeout
@@ -579,6 +581,10 @@ class ChatViewModel(
      */
     private fun buildEphemeralAgent(): EphemeralAgent? {
         val state = _uiState.value
+        // A saved agent uses its own configured tools; the backend ignores client-supplied
+        // ephemeral tools for agent runs. Mirror web's `showEphemeralBadges` (ChatForm.tsx)
+        // and never serialize leftover UI selections on the agents endpoint.
+        if (!state.showEphemeralTools) return null
         val mcpServers = state.selectedMcpServerNames.toList().ifEmpty { null }
         val enabledTools = state.enabledTools
         val webSearchEnabled = state.modelParameters.webSearch
@@ -1657,10 +1663,26 @@ class ChatViewModel(
                 }
             }
         }
-        // Role-permission-driven flags. Permissive default: null role (not loaded) → true;
-        // missing type/action in the map → true (see UserRolePermissions.hasAccess).
+        // Feature gates. The effective rule mirrors web: `interface.* flag AND role permission`.
+        // Combining the two flows lets us AND them in one place. Both inputs fail open:
+        //  - Role permissions: null role (not loaded) → true; missing type/action → true
+        //    (see UserRolePermissions.hasAccess).
+        //  - Interface flags: an absent `interface` block (older backend) → null → treated
+        //    as enabled, so we never hide a control just because config is missing.
+        // The `interface.*` booleans (modelSelect/parameters/presets/multiConvo/temporaryChat/
+        // runCode/webSearch/fileSearch/bookmarks) default to true in InterfaceConfig, so an
+        // omitted individual flag is also fail-open.
         viewModelScope.launch {
-            roleRepository.userPermissions.collect { role ->
+            combine(
+                roleRepository.userPermissions,
+                configRepository.startupConfig,
+            ) { role, config ->
+                role to config?.interfaceConfig
+            }.distinctUntilChanged().collect { (role, iface) ->
+                // Effective gate = role permission AND interface flag, both fail-open
+                // (null role → permissive; absent/omitted flag → enabled).
+                fun gate(type: PermissionType, action: Permission, flag: (InterfaceConfig) -> Boolean?) =
+                    role.hasAccessOrPermissive(type, action) && (iface?.let(flag) ?: true)
                 _uiState.update {
                     it.copy(
                         promptsEnabled = role.hasAccessOrPermissive(PermissionType.PROMPTS, Permission.USE),
@@ -1668,14 +1690,32 @@ class ChatViewModel(
                         agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
                         agentsCreateEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.CREATE),
                         mcpServersEnabled = role.hasAccessOrPermissive(PermissionType.MCP_SERVERS, Permission.USE),
-                        multiConvoEnabled = role.hasAccessOrPermissive(PermissionType.MULTI_CONVO, Permission.USE),
-                        temporaryChatEnabled = role.hasAccessOrPermissive(PermissionType.TEMPORARY_CHAT, Permission.USE),
-                        webSearchEnabled = role.hasAccessOrPermissive(PermissionType.WEB_SEARCH, Permission.USE),
-                        runCodeEnabled = role.hasAccessOrPermissive(PermissionType.RUN_CODE, Permission.USE),
-                        fileSearchEnabled = role.hasAccessOrPermissive(PermissionType.FILE_SEARCH, Permission.USE),
-                        bookmarksEnabled = role.hasAccessOrPermissive(PermissionType.BOOKMARKS, Permission.USE),
+                        multiConvoEnabled = gate(PermissionType.MULTI_CONVO, Permission.USE) { it.multiConvo },
+                        temporaryChatEnabled = gate(PermissionType.TEMPORARY_CHAT, Permission.USE) { it.temporaryChat },
+                        webSearchEnabled = gate(PermissionType.WEB_SEARCH, Permission.USE) { it.webSearch },
+                        runCodeEnabled = gate(PermissionType.RUN_CODE, Permission.USE) { it.runCode },
+                        fileSearchEnabled = gate(PermissionType.FILE_SEARCH, Permission.USE) { it.fileSearch },
+                        bookmarksEnabled = gate(PermissionType.BOOKMARKS, Permission.USE) { it.bookmarks },
+                        // Interface-only gates (no role permission counterpart on web).
+                        modelSelectEnabled = iface?.modelSelect ?: true,
+                        parametersEnabled = iface?.parameters ?: true,
+                        // Web gates the presets menu on `presets && modelSelect` (Header.tsx).
+                        presetsEnabled = (iface?.presets ?: true) && (iface?.modelSelect ?: true),
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Fetches the server's upload config once so the attach controls can be gated per
+     * endpoint (see [ChatUiState.fileUploadEnabled]). Fails open: on error the config
+     * stays null and attaching remains enabled.
+     */
+    private fun loadFileConfig() {
+        viewModelScope.launch {
+            fileRepository.getFileConfig().getOrNull()?.let { config ->
+                _uiState.update { it.copy(fileUploadConfig = config) }
             }
         }
     }
