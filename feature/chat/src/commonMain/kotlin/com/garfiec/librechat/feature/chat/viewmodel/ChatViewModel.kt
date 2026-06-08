@@ -1169,7 +1169,11 @@ class ChatViewModel(
                 }
             }
             is StreamEvent.Sync -> {
-                // State-snapshot protocol: replace streaming buffer with synced content
+                // Resume snapshot: `aggregatedContent` is the authoritative state of
+                // the response so far, so we REPLACE (not append) the streaming
+                // pipeline's fields from it — both the text buffer and the tool-call
+                // list. Any pendingEvents in the same frame arrive as their own
+                // StreamEvents after this and fold on top via the normal handlers.
                 if (lastErrorWasNetwork) {
                     lastErrorWasNetwork = false
                     cancelConnectivityObserver()
@@ -1183,6 +1187,24 @@ class ChatViewModel(
                 streamingBuffer.clear()
                 streamingBuffer.append(textContent)
                 streamingBufferDirty = true
+
+                // Rebuild active tool calls from the snapshot's tool_call parts so an
+                // in-progress image gen (or any tool call) started before we resumed
+                // still renders its live card. The same ActiveToolCall the live path
+                // produces, so the existing StreamingToolCallCard / ImageGenCard render
+                // it identically. A part with a non-blank output is already complete.
+                val syncedToolCalls = event.aggregatedContent
+                    .mapNotNull { part -> part.toolCall?.takeIf { !it.id.isNullOrBlank() } }
+                    .map { tc ->
+                        ActiveToolCall(
+                            id = tc.id.orEmpty(),
+                            name = tc.name.orEmpty(),
+                            input = tc.args?.toString(),
+                            isComplete = !tc.output.isNullOrBlank(),
+                            output = tc.output,
+                        )
+                    }
+                _uiState.update { it.copy(activeToolCalls = syncedToolCalls) }
                 flushStreamingBuffer()
             }
             is StreamEvent.Step -> { /* no-op */ }

@@ -68,8 +68,29 @@ class SseEventMapper(private val json: Json) {
         else -> toString()
     }
 
-    fun map(event: SseEvent): StreamEvent? {
-        if (event.data.isBlank() || event.data == "[DONE]") return null
+    /**
+     * Maps a single SSE frame to at-most-one [StreamEvent]. Retained for callers
+     * (and tests) that only ever produce one event per frame. The streaming
+     * pipeline uses [mapFrame] instead, because the resume `sync` frame expands
+     * into several events; this delegate keeps only the first and would drop a
+     * sync frame's buffered events — never route the live stream through it.
+     */
+    fun map(event: SseEvent): StreamEvent? = mapFrame(event).firstOrNull()
+
+    /**
+     * Maps a single SSE frame to the (possibly multiple) [StreamEvent]s it carries.
+     *
+     * Almost every frame yields one event. The exception is the resume `sync`
+     * frame, which is a composite: a state snapshot ([StreamEvent.Sync] built from
+     * `resumeState.aggregatedContent`) followed by `pendingEvents` — raw LangGraph
+     * events that occurred after the snapshot and are delivered here exactly once
+     * (the live continuation does not replay them). The pending events are mapped
+     * through the same [mapJsonObject] the live stream uses, so downstream they are
+     * indistinguishable from live events. List order is significant: the snapshot
+     * must be applied before the buffered deltas that build on it.
+     */
+    fun mapFrame(event: SseEvent): List<StreamEvent> {
+        if (event.data.isBlank() || event.data == "[DONE]") return emptyList()
 
         return try {
             val root = json.parseToJsonElement(event.data).jsonObject
@@ -77,9 +98,18 @@ class SseEventMapper(private val json: Json) {
             // `event: attachment\ndata: {...}` (the data object won't have
             // an "event" key — it's the raw attachment metadata).
             if (event.event == "attachment" || event.event == "librechat:attachment") {
-                return mapAttachment(root)
+                return listOfNotNull(mapAttachment(root))
             }
-            mapJsonObject(root)
+            // Resume sync frame: snapshot + buffered events. `pendingEvents` lives
+            // at the frame top level (alongside `sync`/`resumeState`), not inside it.
+            if (root["sync"]?.jsonPrimitive?.booleanOrNull == true) {
+                val sync = mapSyncEvent(root)
+                val pending = root["pendingEvents"]?.jsonArray.orEmpty()
+                    .filterIsInstance<JsonObject>()
+                    .mapNotNull(::mapJsonObject)
+                return listOfNotNull(sync) + pending
+            }
+            listOfNotNull(mapJsonObject(root))
         } catch (e: Exception) {
             Diag.w(
                 "SSE",
@@ -87,7 +117,7 @@ class SseEventMapper(private val json: Json) {
                 throwable = e,
                 attrs = mapOf("event" to event.event),
             ) { "SSE parse error" }
-            StreamEvent.Error(message = "Parse error: ${e.message}")
+            listOf(StreamEvent.Error(message = "Parse error: ${e.message}"))
         }
     }
 
@@ -102,24 +132,23 @@ class SseEventMapper(private val json: Json) {
             return mapCreatedEvent(root)
         }
 
-        // 3. Check for "sync" control event
-        if (root["sync"]?.jsonPrimitive?.booleanOrNull == true) {
-            return mapSyncEvent(root)
-        }
+        // The "sync" control event is handled in mapFrame (it expands to a snapshot
+        // plus its buffered pendingEvents) before any frame reaches here, so there is
+        // deliberately no sync branch in this per-event dispatcher.
 
-        // 4. Check for "error" field (may be a string or an object)
+        // 3. Check for "error" field (may be a string or an object)
         val errorText = root["error"]?.toStringValue()
         if (errorText != null) {
             return StreamEvent.Error(message = errorText)
         }
 
-        // 5. Check for LangGraph nested event (has "event" key)
+        // 4. Check for LangGraph nested event (has "event" key)
         val eventType = root["event"]?.jsonPrimitive?.contentOrNull
         if (eventType != null) {
             return mapLangGraphEvent(eventType, root)
         }
 
-        // 6. Legacy flat format fallback
+        // 5. Legacy flat format fallback
         return mapLegacyEvent(root)
     }
 
@@ -209,30 +238,24 @@ class SseEventMapper(private val json: Json) {
     private fun mapSyncEvent(root: JsonObject): StreamEvent? {
         val resumeState = root["resumeState"]?.jsonObject ?: return null
 
-        // Replay run steps as individual events first — the caller will handle them
-        // The web client replays these as on_run_step events; for our mapper we
-        // focus on the aggregatedContent snapshot that replaces current message state.
-        val runSteps = resumeState["runSteps"]?.jsonArray
+        // We intentionally do NOT replay `resumeState.runSteps`. The web client
+        // replays them as on_run_step events to seed its event-sourced step-index
+        // map; our client renders tool calls from a flat list keyed by id, and
+        // `aggregatedContent` already carries every tool_call part (in-progress
+        // with a null output, completed with its output merged in) in order — so
+        // it is the authoritative snapshot. runSteps would only duplicate it.
+        val aggregatedContent = resumeState["aggregatedContent"]?.jsonArray ?: return null
 
-        // Parse aggregatedContent — this is the full content array that replaces
-        // whatever the client currently has for this response message.
-        val aggregatedContent = resumeState["aggregatedContent"]?.jsonArray
-        if (aggregatedContent == null && runSteps == null) return null
-
-        val contentParts = if (aggregatedContent != null) {
-            aggregatedContent.mapNotNull { element ->
-                try {
-                    json.decodeFromJsonElement(
-                        MessageContentPart.serializer(),
-                        element,
-                    )
-                } catch (e: Exception) {
-                    Logger.w("SSE", e) { "Failed to parse sync aggregatedContent part" }
-                    null
-                }
+        val contentParts = aggregatedContent.mapNotNull { element ->
+            try {
+                json.decodeFromJsonElement(
+                    MessageContentPart.serializer(),
+                    element,
+                )
+            } catch (e: Exception) {
+                Logger.w("SSE", e) { "Failed to parse sync aggregatedContent part" }
+                null
             }
-        } else {
-            emptyList()
         }
 
         return StreamEvent.Sync(aggregatedContent = contentParts)

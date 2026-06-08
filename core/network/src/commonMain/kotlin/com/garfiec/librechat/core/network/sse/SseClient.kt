@@ -67,8 +67,10 @@ class SseClient(
                     }
                     try {
                         lineParser.parse(byteChannel).collect { sseEvent ->
-                            val streamEvent = mapper.map(sseEvent)
-                            if (streamEvent != null) {
+                            // One frame can carry multiple events (the resume `sync`
+                            // frame expands to a snapshot + its buffered pendingEvents),
+                            // so map to a list and emit each in order.
+                            mapper.mapFrame(sseEvent).forEach { streamEvent ->
                                 emit(streamEvent)
                                 if (streamEvent is StreamEvent.Final) {
                                     done = true

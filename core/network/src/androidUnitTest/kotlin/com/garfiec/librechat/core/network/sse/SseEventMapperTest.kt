@@ -225,6 +225,52 @@ class SseEventMapperTest {
         assertThat(result.aggregatedContent[0].text).isEqualTo("Previously streamed text")
     }
 
+    @Test
+    fun `sync aggregatedContent carries in-progress and completed tool_call parts`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"aggregatedContent":[
+                {"type":"text","text":"Let me generate that now"},
+                {"type":"tool_call","tool_call":{"type":"tool_call","id":"call_done","name":"web_search","args":"{}","output":"results"}},
+                {"type":"tool_call","tool_call":{"type":"tool_call","id":"call_pending","name":"image_gen_oai","args":"{\"prompt\":\"a cat\"}"}}
+            ]}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.Sync
+        val toolCalls = result.aggregatedContent.mapNotNull { it.toolCall }
+        assertThat(toolCalls).hasSize(2)
+        assertThat(toolCalls[0].id).isEqualTo("call_done")
+        assertThat(toolCalls[0].output).isEqualTo("results")
+        assertThat(toolCalls[1].id).isEqualTo("call_pending")
+        assertThat(toolCalls[1].output).isNull() // in-progress: drives the live card
+    }
+
+    @Test
+    fun `mapFrame expands sync frame into snapshot then buffered pendingEvents in order`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"aggregatedContent":[{"type":"text","text":"hi"}]},"pendingEvents":[
+                {"event":"on_message_delta","data":{"id":"s","delta":{"content":[{"type":"text","text":" there"}]}}},
+                {"event":"on_run_step_completed","data":{"result":{"id":"s","tool_call":{"id":"call_pending","output":"http://img/x.png"}}}}
+            ]}""",
+        )
+        val events = mapper.mapFrame(event)
+        assertThat(events).hasSize(3)
+        assertThat(events[0]).isInstanceOf(StreamEvent.Sync::class.java)
+        assertThat(events[1]).isInstanceOf(StreamEvent.ContentDelta::class.java)
+        assertThat((events[1] as StreamEvent.ContentDelta).chunk).isEqualTo(" there")
+        assertThat(events[2]).isInstanceOf(StreamEvent.ToolCallComplete::class.java)
+        assertThat((events[2] as StreamEvent.ToolCallComplete).toolCallId).isEqualTo("call_pending")
+    }
+
+    @Test
+    fun `mapFrame returns single-element list for an ordinary frame`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_message_delta","data":{"id":"s","delta":{"content":[{"type":"text","text":"x"}]}}}""",
+        )
+        assertThat(mapper.mapFrame(event)).hasSize(1)
+    }
+
     // --- Attachment Events ---
 
     @Test
