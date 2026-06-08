@@ -2,6 +2,7 @@ package com.garfiec.librechat.shared.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +47,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
@@ -121,6 +124,15 @@ fun DrawerContent(
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
 ) {
+    // Invisible anchor that claims initial focus so the search field below
+    // doesn't auto-focus and pop the keyboard when the drawer opens. Tapping
+    // the search field still focuses it normally. See Android focus docs
+    // ("Change focus behavior"): redirect initial focus to a non-input element.
+    val focusAnchor = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        runCatching { focusAnchor.requestFocus() }
+    }
+
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -128,6 +140,13 @@ fun DrawerContent(
             .statusBarsPadding()
             .padding(top = 16.dp),
     ) {
+        Spacer(
+            modifier = Modifier
+                .size(1.dp)
+                .focusRequester(focusAnchor)
+                .focusable(),
+        )
+
         // "New Chat" button at top
         Surface(
             onClick = onNewChat,
