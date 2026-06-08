@@ -113,4 +113,60 @@ class MessageTreeTest {
             .containsExactly("root1", "child1-of-root1", "grandchild")
             .inOrder()
     }
+
+    // ── streamingLeafId (in-place streaming anchor) ──────────────────────
+
+    @Test
+    fun `streamingLeafId truncates path at the anchor, hiding the stale branch`() {
+        // user -> oldAi (the stale response being regenerated). Anchoring at `user`
+        // drops oldAi from the path so the streaming bubble renders in its place.
+        val messages = listOf(
+            message("user", isUser = true),
+            message("oldAi", parentId = "user"),
+        )
+        val result = buildActiveMessagePath(messages, streamingLeafId = "user")
+        assertThat(result.map { it.message.messageId }).containsExactly("user").inOrder()
+    }
+
+    @Test
+    fun `streamingLeafId selects the anchor's branch over a stale last-child default`() {
+        // parent -> b1 (old user edit, with an AI child), parent -> b2 (new edited
+        // user message). Anchoring at b2 forces it as the visible branch and keeps
+        // b1's stale AI child hidden.
+        val messages = listOf(
+            message("parent", isUser = true),
+            message("b1", parentId = "parent", isUser = true),
+            message("b1-ai", parentId = "b1"),
+            message("b2", parentId = "parent", isUser = true),
+        )
+        val result = buildActiveMessagePath(messages, streamingLeafId = "b2")
+        assertThat(result.map { it.message.messageId }).containsExactly("parent", "b2").inOrder()
+    }
+
+    @Test
+    fun `streamingLeafId overrides a conflicting activeBranches selection along the chain`() {
+        // An activeBranches override pins the old sibling, but the streaming anchor
+        // must win so the freshly edited branch shows during the stream.
+        val messages = listOf(
+            message("parent", isUser = true),
+            message("b1", parentId = "parent", isUser = true),
+            message("b2", parentId = "parent", isUser = true),
+        )
+        val result = buildActiveMessagePath(
+            messages,
+            activeBranches = mapOf("parent" to 0), // pins b1
+            streamingLeafId = "b2",
+        )
+        assertThat(result.map { it.message.messageId }).containsExactly("parent", "b2").inOrder()
+    }
+
+    @Test
+    fun `unknown streamingLeafId falls back to the normal activeBranches path`() {
+        val messages = listOf(
+            message("a", isUser = true),
+            message("b", parentId = "a"),
+        )
+        val result = buildActiveMessagePath(messages, streamingLeafId = "does-not-exist")
+        assertThat(result.map { it.message.messageId }).containsExactly("a", "b").inOrder()
+    }
 }

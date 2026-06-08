@@ -26,10 +26,20 @@ data class MessageNode(
  * @param messages flat list of messages from the API
  * @param activeBranches map of parentMessageId -> selected child index;
  *        when absent, the last child (most recent) is shown
+ * @param streamingLeafId when a response is streaming into a known message, the
+ *        path is forced onto that message's ancestor chain and truncated there.
+ *        The in-flight reply attaches as its (not-yet-persisted) child, which the
+ *        UI renders below the path as the streaming bubble — the mobile analog of
+ *        the web client's empty `initialResponse` placeholder node. This overrides
+ *        [activeBranches] along the chain so a freshly edited/regenerated branch is
+ *        shown immediately instead of the stale one. Ignored if the id isn't present
+ *        (e.g. an optimistic message not yet inserted), in which case the normal
+ *        activeBranches walk applies.
  */
 fun buildActiveMessagePath(
     messages: List<Message>,
     activeBranches: Map<String, Int> = emptyMap(),
+    streamingLeafId: String? = null,
 ): List<MessageNode> {
     if (messages.isEmpty()) return emptyList()
 
@@ -55,6 +65,21 @@ fun buildActiveMessagePath(
         }
     }
 
+    // Ancestor chain of the streaming leaf (inclusive), so the walk can follow it
+    // and stop there regardless of activeBranches. Each level on the way to the leaf
+    // has exactly one sibling in this set.
+    val leafChain: Set<String> = if (streamingLeafId != null && streamingLeafId in messageIds) {
+        val byId = messages.associateBy { it.messageId }
+        buildSet {
+            var id: String? = streamingLeafId
+            while (id != null && id != NO_PARENT && id.isNotBlank() && add(id)) {
+                id = byId[id]?.parentMessageId
+            }
+        }
+    } else {
+        emptySet()
+    }
+
     // Walk the tree from roots, building the flat active path
     val result = mutableListOf<MessageNode>()
     var currentParentId = NO_PARENT
@@ -64,10 +89,13 @@ fun buildActiveMessagePath(
         if (siblings.isEmpty()) break
 
         val siblingCount = siblings.size
-        // Default to last child (most recent), but allow override via activeBranches
-        val selectedIndex = activeBranches[currentParentId]
-            ?.coerceIn(0, siblingCount - 1)
-            ?: (siblingCount - 1)
+        // The streaming chain wins, then an explicit activeBranches override, then
+        // the last child (most recent).
+        val chainIndex = if (leafChain.isEmpty()) -1 else siblings.indexOfFirst { it.messageId in leafChain }
+        val selectedIndex = when {
+            chainIndex >= 0 -> chainIndex
+            else -> activeBranches[currentParentId]?.coerceIn(0, siblingCount - 1) ?: (siblingCount - 1)
+        }
 
         val selectedMessage = siblings[selectedIndex]
 
@@ -91,6 +119,10 @@ fun buildActiveMessagePath(
                 treeParentKey = currentParentId,
             )
         )
+
+        // Stop at the streaming leaf: its children (if any) are the stale branch
+        // being replaced; the in-flight reply renders as its pending child instead.
+        if (selectedMessage.messageId == streamingLeafId) break
 
         // Follow the selected child's subtree
         currentParentId = selectedMessage.messageId

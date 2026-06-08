@@ -15,10 +15,19 @@
 
 ## Message Tree
 - Messages stored flat, linked by `parentMessageId` (root = `NO_PARENT` UUID)
-- `MessageTree.kt` builds tree via `buildActiveMessagePath(messages, activeBranches)`
+- `MessageNode.kt` builds the tree via `buildActiveMessagePath(messages, activeBranches, streamingLeafId)`
 - `activeBranches: Map<String, Int>` tracks which sibling is displayed per parent
 - `switchBranch(parentMessageId, siblingIndex)` updates branch selection and rebuilds display list
 - Editing a user message creates a new sibling (new branch); regenerating an AI message also creates a sibling
+
+### Streaming anchor (in-place edit/regenerate)
+- The streamed reply is rendered by `MessageList` as a trailing `StreamingMessageBubble` *outside* the tree — the mobile divergence from web, which streams into an in-tree `initialResponse` placeholder node.
+- So during edit/regenerate the bubble must land where the new branch belongs, not after the stale one. At stream start each send path rebuilds `displayMessages` via `buildActiveMessagePath(messages, activeBranches, streamingLeafId)`, where `streamingLeafId` is the message the in-flight reply attaches to: the path is truncated there (and that branch is forced over any `activeBranches` override), so the trailing bubble renders as its pending child.
+- The leaf is the optimistic user message for `doSendMessage` / `editUserMessage` (passed inline alongside the message insert), and the existing parent user message for `regenerateMessageNow` / `editAiMessage` (via `anchorStreamTo`).
+- This is a one-shot rebuild — there is no stored anchor field. The truncated `displayMessages` just persists in state for the stream's duration, and `loadConversation` rebuilds the real (untruncated) path on Final. The full tree stays in `messages`/DB, so the old branch remains reachable via sibling navigation.
+- **Invariant (load-bearing):** while streaming, nothing may write to Room or mutate `activeBranches` — otherwise the `loadConversation` observer re-emits and rebuilds `displayMessages` with no `streamingLeafId`, un-truncating the path and clobbering the in-place view. The send paths uphold this (no mid-stream Room write); `switchBranch`, `editMessage`, and `regenerateMessage` are all gated on `!isStreaming` so user taps can't break it either.
+- **Optimistic id reconciliation:** `doSendMessage` / `editUserMessage` mint the optimistic user message's id and send it as `ChatRequest.messageId` (the `userMessageId` arg on `startChat`), so the server adopts it and echoes it in the Final `requestMessage`. This is what lets the optimistic message reconcile by id — for normal chats on the Room reload, and for temp chats via `mergeFinalMessagesInMemory` (in-memory, never touches Room). Mirrors the web client's top-level `messageId`; without it the optimistic message would linger as a phantom sibling in temp chats. Regenerate/continue/edit-AI send no `messageId` (they create no new user message).
+- `editAiMessage` resubmits the parent user turn (regenerate + `isEdited`); it does **not** persist the typed assistant edit (that's `saveEditOnly` → `updateMessageText`, the web `updateMessage` analog). Web additionally seeds the placeholder with the edited content for a transient preview — not ported.
 
 ## Content Rendering
 - `ContentPartRenderer` dispatches by `ContentPart.type`:

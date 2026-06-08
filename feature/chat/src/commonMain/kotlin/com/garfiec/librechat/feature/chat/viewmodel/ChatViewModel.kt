@@ -525,6 +525,13 @@ class ChatViewModel(
     }
 
     fun switchBranch(parentMessageId: String, siblingIndex: Int) {
+        // Ignore branch switches mid-stream: the in-flight reply's path is truncated at
+        // its parent (see anchorStreamTo / buildActiveMessagePath's streamingLeafId), and
+        // mutating activeBranches re-triggers loadConversation's combine, which rebuilds
+        // displayMessages WITHOUT the leaf — un-truncating the path and dropping the
+        // streaming reply back to the end. editMessage/regenerateMessage are likewise
+        // gated on isStreaming; this closes the same gap for sibling navigation.
+        if (_uiState.value.isStreaming) return
         // Only mutate the branch selection; the observeMessages/activeBranches combine in
         // loadConversation recomputes displayMessages off the Main thread in response, so the
         // tree walk no longer runs synchronously on this UI click path.
@@ -645,7 +652,7 @@ class ChatViewModel(
         val isNewChat = conversationId == null
         _uiState.update {
             val updatedMessages = it.messages + optimisticMessage
-            val updatedDisplay = buildActiveMessagePath(updatedMessages, it.activeBranches)
+            val updatedDisplay = buildActiveMessagePath(updatedMessages, it.activeBranches, optimisticMessage.messageId)
             it.copy(
                 inputText = "",
                 isStreaming = true,
@@ -724,6 +731,7 @@ class ChatViewModel(
                     key = dispatch.key,
                     modelDisplayLabel = dispatch.modelDisplayLabel,
                     model = _uiState.value.selectedModel,
+                    userMessageId = optimisticMessage.messageId,
                     parentMessageId = lastMessageId,
                     agentId = effectiveAgentId,
                     webSearch = webSearchEnabled,
@@ -764,6 +772,29 @@ class ChatViewModel(
         subagentTraceDelegate.reset()
         officePreviewDelegate.reset()
         startStreamingUpdater()
+    }
+
+    /**
+     * Rebuilds the active path truncated at [parentMessageId] — the message the
+     * in-flight reply attaches to — so the streaming bubble renders in place
+     * (replacing the stale branch for edit/regenerate) rather than being appended
+     * after it. Used by the paths that reuse an existing message as the parent
+     * (regenerate, edit-AI); the optimistic-message paths (send, edit-user) pass the
+     * same leaf to [buildActiveMessagePath] inline alongside their message insert.
+     *
+     * The full tree stays in `messages` and the DB, so the old branch remains
+     * reachable via sibling navigation, and loadConversation() rebuilds the real
+     * path on Final. This truncated displayMessages then simply persists in state
+     * for the duration of the stream: safe because no streaming entry point writes
+     * to Room mid-stream and none mutate activeBranches, so the Room observer never
+     * re-emits to rebuild (and un-truncate) the path before the stream completes.
+     */
+    private fun anchorStreamTo(parentMessageId: String) {
+        _uiState.update {
+            it.copy(
+                displayMessages = buildActiveMessagePath(it.messages, it.activeBranches, parentMessageId),
+            )
+        }
     }
 
     /**
@@ -810,15 +841,43 @@ class ChatViewModel(
             if (originalMessage.isCreatedByUser) {
                 editUserMessage(originalMessage, newText)
             } else {
-                editAiMessage(originalMessage, newText)
+                editAiMessage(originalMessage)
             }
         }
     }
 
+    @OptIn(ExperimentalUuidApi::class)
     private fun editUserMessage(originalMessage: Message, newText: String) {
         val parentMessageId = originalMessage.parentMessageId
 
         isEditOrRegenerate = true
+
+        // Optimistically insert the edited text as a new sibling of the original user
+        // message and anchor the stream to it, so the new message — with the response
+        // streaming below it — replaces the old branch in place. The anchor truncates
+        // the active path here (see buildActiveMessagePath), mirroring the web client's
+        // `currentMsg + initialResponse` placeholder insert. The optimistic id is sent
+        // as `userMessageId` so the server adopts it; that lets the message reconcile by
+        // id on Final — via loadConversation() for normal chats, or in-memory via
+        // mergeFinalMessagesInMemory for temp chats (which never touch Room).
+        val optimisticMessage = Message(
+            messageId = Uuid.random().toString(),
+            conversationId = _uiState.value.conversationId ?: "",
+            parentMessageId = parentMessageId,
+            text = newText,
+            isCreatedByUser = true,
+            sender = "User",
+            createdAt = Clock.System.now().toString(),
+            files = originalMessage.files,
+        )
+        _uiState.update {
+            val updatedMessages = it.messages + optimisticMessage
+            it.copy(
+                messages = updatedMessages,
+                displayMessages = buildActiveMessagePath(updatedMessages, it.activeBranches, optimisticMessage.messageId),
+            )
+        }
+
         prepareForStreaming()
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
@@ -837,6 +896,7 @@ class ChatViewModel(
                     key = dispatch.key,
                     modelDisplayLabel = dispatch.modelDisplayLabel,
                     model = _uiState.value.selectedModel,
+                    userMessageId = optimisticMessage.messageId,
                     parentMessageId = parentMessageId,
                     agentId = if (isAgent) _uiState.value.selectedModel else null,
                     isEdited = true,
@@ -848,7 +908,7 @@ class ChatViewModel(
         }
     }
 
-    private fun editAiMessage(aiMessage: Message, newText: String) {
+    private fun editAiMessage(aiMessage: Message) {
         val parentUserMessage = _uiState.value.messages.find {
             it.messageId == aiMessage.parentMessageId
         } ?: return
@@ -856,6 +916,13 @@ class ChatViewModel(
         val conversationId = _uiState.value.conversationId ?: return
 
         isEditOrRegenerate = true
+        // Editing an assistant message resubmits its parent user turn (isEdited +
+        // isRegenerate) — the same shape as regenerate, so anchor the stream to the
+        // parent user message and let the new response stream in below it, replacing
+        // the old one. The web client seeds the placeholder with the edited content
+        // for a transient preview; we don't (the regenerated server response is
+        // authoritative on Final either way).
+        anchorStreamTo(parentUserMessage.messageId)
         prepareForStreaming()
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
@@ -865,7 +932,6 @@ class ChatViewModel(
         streamJob?.cancel()
         streamJob = viewModelScope.launch {
             val dispatch = currentDispatch()
-            messageRepository.updateMessageText(conversationId, aiMessage.messageId, newText)
             collectStreamSafely(
                 chatRepository.startChat(
                     text = parentUserMessage.text,
@@ -903,6 +969,7 @@ class ChatViewModel(
 
     private fun regenerateMessageNow(parentUserMessage: Message) {
         isEditOrRegenerate = true
+        anchorStreamTo(parentUserMessage.messageId)
         prepareForStreaming()
 
         val isAgentRegen = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS

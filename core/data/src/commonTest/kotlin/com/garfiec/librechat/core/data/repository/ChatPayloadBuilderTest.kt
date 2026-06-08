@@ -90,4 +90,31 @@ class ChatPayloadBuilderTest {
         val encoded = json.encodeToString(ChatRequest.serializer(), req)
         assertFalse("\"key\"" in encoded, "key must be omitted (not encoded as null) when null")
     }
+
+    @Test
+    fun userMessageIdSerializedAsTopLevelMessageId() {
+        val req = ChatPayloadBuilder.build(
+            text = "hi",
+            conversationId = null,
+            endpoint = "openAI",
+            model = "gpt-4o",
+            userMessageId = "client-minted-123",
+        )
+        assertEquals("client-minted-123", req.messageId)
+        val encoded = json.encodeToString(ChatRequest.serializer(), req)
+        assertTrue("\"messageId\":\"client-minted-123\"" in encoded, "messageId must serialize when set")
+    }
+
+    @Test
+    fun messageIdOmittedWhenNotProvided() {
+        val req = ChatPayloadBuilder.build(
+            text = "hi",
+            conversationId = null,
+            endpoint = "openAI",
+            model = "gpt-4o",
+        )
+        assertNull(req.messageId)
+        val encoded = json.encodeToString(ChatRequest.serializer(), req)
+        assertFalse("\"messageId\"" in encoded, "messageId must be omitted when not provided (regenerate/continue)")
+    }
 }

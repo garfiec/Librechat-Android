@@ -16,6 +16,7 @@ object ChatPayloadBuilder {
         key: String? = null,
         modelDisplayLabel: String? = null,
         model: String?,
+        userMessageId: String? = null,
         parentMessageId: String? = null,
         agentId: String? = null,
         overrideParentMessageId: String? = null,
@@ -34,6 +35,7 @@ object ChatPayloadBuilder {
         return ChatRequest(
             text = text,
             conversationId = conversationId,
+            messageId = userMessageId,
             parentMessageId = resolvedParentMessageId,
             endpoint = endpoint,
             endpointType = endpointType,

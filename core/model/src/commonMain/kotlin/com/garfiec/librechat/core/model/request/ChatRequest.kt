@@ -12,6 +12,12 @@ const val NO_PARENT = "00000000-0000-0000-0000-000000000000"
 data class ChatRequest(
     val text: String,
     val conversationId: String? = null,
+    /** Client-minted id for the user message being sent. The server adopts it as the
+     *  request message's id and echoes it back in the Final event, so the optimistic
+     *  message reconciles by id (matters for temp chats, which merge in-memory and
+     *  never round-trip through Room). Mirrors the web client's top-level `messageId`.
+     *  Omitted on paths that don't create a new user message (regenerate/continue). */
+    val messageId: String? = null,
     val parentMessageId: String,
     val endpoint: String,
     val endpointType: String? = null,
