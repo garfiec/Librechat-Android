@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">المهارات</string>
+    <string name="skills_back">رجوع</string>
+    <string name="skills_create">إنشاء مهارة</string>
+    <string name="skills_import">استيراد مهارة</string>
+    <string name="skills_search_hint">البحث في المهارات…</string>
+    <string name="skills_empty">لا توجد مهارات بعد.</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">الملفات</string>
+    <string name="skill_files_empty">لا توجد ملفات مرفقة.</string>
+    <string name="skill_files_add">إضافة ملف</string>
+    <string name="skill_files_remove">إزالة %1$s</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">تعديل</string>
+    <string name="skill_delete">حذف</string>
+    <string name="skill_show_source">إظهار المصدر</string>
+    <string name="skill_show_rendered">إظهار المعروض</string>
+    <string name="skill_category_label">الفئة: %1$s</string>
+    <string name="skill_version_label">الإصدار %1$d</string>
+    <string name="skill_delete_confirm_title">حذف المهارة؟</string>
+    <string name="skill_delete_confirm_message">سيؤدي هذا إلى حذف \"%1$s\" نهائيًا. لا يمكن التراجع عن ذلك.</string>
+    <string name="skill_empty_body">لا تحتوي هذه المهارة على محتوى.</string>
+    <string name="skill_active_label">نشط</string>
+    <string name="skill_active_description">اجعل هذه المهارة متاحة للاستخدام في المحادثات.</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">مهارة جديدة</string>
+    <string name="skill_editor_edit_title">تعديل المهارة</string>
+    <string name="skill_field_name">الاسم</string>
+    <string name="skill_field_name_hint">lowercase-kebab-case</string>
+    <string name="skill_field_name_error">استخدم أحرفًا صغيرة وأرقامًا وشرطات (بحد أقصى 64).</string>
+    <string name="skill_field_display_title">عنوان العرض</string>
+    <string name="skill_field_description">الوصف</string>
+    <string name="skill_field_description_error">الوصف مطلوب (بحد أقصى 1024 حرفًا).</string>
+    <string name="skill_field_body">المحتوى (markdown)</string>
+    <string name="skill_field_category">الفئة</string>
+    <string name="skill_category_none">بدون</string>
+    <string name="skill_field_always_apply">تطبيق هذه المهارة دائمًا</string>
+    <string name="skill_save">حفظ</string>
+    <string name="skill_cancel">إلغاء</string>
+    <string name="skill_conflict_dismiss">حسنًا</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">المشاركة والأذونات</string>
+    <string name="skill_acl_no_grants">غير مشتركة مع أحد بعد.</string>
+    <string name="skill_acl_add_principal">إضافة أشخاص أو مجموعات</string>
+    <string name="skill_acl_grant_dialog_title">مشاركة المهارة</string>
+    <string name="skill_acl_search_hint">البحث عن المستخدمين أو المجموعات أو الأدوار</string>
+    <string name="skill_acl_search_empty">لا توجد تطابقات</string>
+    <string name="skill_acl_role">الدور</string>
+    <string name="skill_acl_revoke">إزالة الوصول</string>
+    <string name="skill_acl_public_label">عام</string>
+    <string name="skill_acl_public_description">يمكن لأي شخص على هذا الخادم استخدام هذه المهارة.</string>
+    <string name="skill_acl_principal_user">مستخدم</string>
+    <string name="skill_acl_principal_group">مجموعة</string>
+    <string name="skill_acl_principal_role">دور</string>
+    <string name="skill_acl_collapse">طي</string>
+    <string name="skill_acl_expand">توسيع</string>
+    <string name="skill_acl_close">إغلاق</string>
+</resources>

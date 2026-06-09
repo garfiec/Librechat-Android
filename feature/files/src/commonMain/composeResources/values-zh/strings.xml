@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="files">文件</string>
+    <string name="upload">上传</string>
+    <string name="delete">删除</string>
+    <string name="cancel">取消</string>
+    <string name="done">完成</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_exit_edit_mode">退出编辑模式</string>
+    <string name="cd_select_all">全选</string>
+    <string name="cd_delete_selected">删除所选项</string>
+    <string name="cd_edit_files">编辑文件</string>
+    <string name="cd_switch_to_grid">切换到网格视图</string>
+    <string name="cd_switch_to_list">切换到列表视图</string>
+    <string name="cd_sort_files">排序文件</string>
+    <string name="cd_upload_file">上传文件</string>
+    <string name="cd_delete_file">删除 %1$s</string>
+    <string name="cd_thumbnail">%1$s 的缩略图</string>
+    <string name="cd_close_preview">关闭预览</string>
+    <string name="cd_cancel_upload">取消上传</string>
+    <string name="cd_ascending">升序</string>
+    <string name="cd_descending">降序</string>
+
+    <!-- Selection mode -->
+    <string name="select_files">选择文件</string>
+    <string name="selected_count">已选 %1$d 项</string>
+
+    <!-- Empty states -->
+    <string name="no_files">没有文件</string>
+    <string name="upload_to_get_started">上传文件以开始</string>
+    <string name="no_filter_files">没有%1$s</string>
+    <string name="no_filter_files_found">未找到%1$s文件</string>
+    <string name="could_not_load_files">无法加载文件</string>
+
+    <!-- Delete dialogs -->
+    <string name="delete_count_files">删除 %1$d 个文件%2$s？</string>
+    <string name="action_cannot_be_undone">此操作无法撤销。</string>
+    <string name="delete_file_question">删除文件？</string>
+    <string name="delete_file_message">删除 "%1$s"？此操作无法撤销。</string>
+    <string name="this_file">此文件</string>
+
+    <!-- File preview -->
+    <string name="image_preview_unavailable">图片预览不可用</string>
+    <string name="preview_of">%1$s 的预览</string>
+    <string name="loading_pdf">正在加载 PDF…</string>
+    <string name="page_of">第 %1$d 页，共 %2$d 页</string>
+    <string name="page_cd">第 %1$d 页，共 %2$s 页</string>
+    <string name="could_not_render_pdf">无法渲染 PDF 预览</string>
+    <string name="failed_to_download_pdf">PDF 下载失败</string>
+    <string name="failed_to_render_pdf">PDF 渲染失败</string>
+    <string name="loading_file_content">正在加载文件内容…</string>
+    <string name="could_not_load_file_content">无法加载文件内容</string>
+    <string name="failed_to_download_file">文件下载失败</string>
+    <string name="failed_to_load_content">文件内容加载失败</string>
+    <string name="content_truncated">\n\n--- 内容已截断（文件过大）---</string>
+
+    <!-- Info row labels -->
+    <string name="info_type">类型</string>
+    <string name="info_size">大小</string>
+    <string name="info_created">创建时间</string>
+    <string name="info_source">来源</string>
+
+    <!-- Upload progress -->
+    <string name="uploading">上传中…</string>
+</resources>

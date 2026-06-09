@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Server URL -->
+    <string name="server_url_label">サーバーURL</string>
+    <string name="server_url_placeholder">https://your-server.com</string>
+    <string name="server_url_connect">接続</string>
+    <string name="connect_to_librechat">LibreChatに接続</string>
+    <string name="enter_server_url_hint">開始するにはサーバーURLを入力してください</string>
+    <string name="insecure_connection_title">安全でない接続</string>
+    <string name="insecure_connection_message">HTTPで接続しようとしています。ログイン情報やメッセージは暗号化されずに送信され、ネットワーク上の他者に傍受される可能性があります。\n\nHTTPはローカル開発サーバーにのみ使用してください。</string>
+    <string name="connect_anyway">それでも接続</string>
+    <string name="cancel">キャンセル</string>
+
+    <!-- Login -->
+    <string name="login_title">サインイン</string>
+    <string name="email_label">メールアドレス</string>
+    <string name="password_label">パスワード</string>
+    <string name="continue_button">続行</string>
+    <string name="forgot_password">パスワードをお忘れですか？</string>
+    <string name="no_account_sign_up">アカウントをお持ちでないですか？サインアップ</string>
+    <string name="or_continue_with">または次で続行</string>
+
+    <!-- OAuth provider labels -->
+    <string name="oauth_google">Googleで続行</string>
+    <string name="oauth_github">GitHubで続行</string>
+    <string name="oauth_discord">Discordで続行</string>
+    <string name="oauth_facebook">Facebookで続行</string>
+    <string name="oauth_apple">Appleで続行</string>
+    <string name="oauth_openid">OpenIDで続行</string>
+    <string name="oauth_generic">%1$s で続行</string>
+
+    <!-- Register -->
+    <string name="register_title">アカウントを作成</string>
+    <string name="full_name_label">氏名</string>
+    <string name="username_label">ユーザー名</string>
+    <string name="confirm_password_label">パスワードの確認</string>
+    <string name="sign_up">サインアップ</string>
+    <string name="have_account_sign_in">すでにアカウントをお持ちですか？サインイン</string>
+
+    <!-- Forgot Password -->
+    <string name="reset_password_title">パスワードをリセット</string>
+    <string name="forgot_your_password">パスワードをお忘れですか？</string>
+    <string name="enter_email_for_reset">リセットリンクを受け取るにはメールアドレスを入力してください</string>
+    <string name="send_reset_link">リセットリンクを送信</string>
+    <string name="check_your_email">メールをご確認ください</string>
+    <string name="reset_link_sent">%1$s にパスワードリセットリンクを送信しました</string>
+    <string name="back_to_sign_in">サインインに戻る</string>
+
+    <!-- Reset Password -->
+    <string name="reset_password_screen_title">パスワードをリセット</string>
+    <string name="password_reset_successful">パスワードのリセットに成功しました</string>
+    <string name="password_reset_message">パスワードが更新されました。新しいパスワードでサインインできます。</string>
+    <string name="set_new_password">新しいパスワードを設定</string>
+    <string name="enter_new_password_hint">新しいパスワードを下に入力してください</string>
+    <string name="new_password_label">新しいパスワード</string>
+    <string name="confirm_new_password_label">新しいパスワードの確認</string>
+    <string name="reset_password_button">パスワードをリセット</string>
+
+    <!-- Two-Factor -->
+    <string name="two_factor_title">二要素認証</string>
+    <string name="enter_verification_code">確認コードを入力</string>
+    <string name="enter_backup_code">バックアップコードを入力</string>
+    <string name="authenticator_prompt">認証アプリの6桁のコードを入力してください</string>
+    <string name="backup_code_prompt">バックアップコードのいずれかを入力してください</string>
+    <string name="verify">確認</string>
+    <string name="use_authenticator_code">認証アプリのコードを使用</string>
+    <string name="use_backup_code">バックアップコードを使用</string>
+    <string name="backup_code_label">バックアップコード</string>
+
+    <!-- Verify Email -->
+    <string name="verify_email_title">メールアドレスを確認</string>
+    <string name="verification_link_sent">次のアドレスに確認リンクを送信しました</string>
+    <string name="click_link_to_verify">メール内のリンクをクリックしてアカウントを確認してください。</string>
+    <string name="verification_email_sent">確認メールを送信しました！</string>
+    <string name="resend_verification_email">確認メールを再送信</string>
+    <string name="resend_in_seconds">%1$d 秒後に再送信</string>
+
+    <!-- Terms -->
+    <string name="terms_title">利用規約</string>
+    <string name="i_accept">同意します</string>
+    <string name="retry">再試行</string>
+
+    <!-- Common -->
+    <string name="back">戻る</string>
+</resources>

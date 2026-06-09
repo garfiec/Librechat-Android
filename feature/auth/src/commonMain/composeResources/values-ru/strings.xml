@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Server URL -->
+    <string name="server_url_label">URL сервера</string>
+    <string name="server_url_placeholder">https://your-server.com</string>
+    <string name="server_url_connect">Подключиться</string>
+    <string name="connect_to_librechat">Подключиться к LibreChat</string>
+    <string name="enter_server_url_hint">Введите URL вашего сервера, чтобы начать</string>
+    <string name="insecure_connection_title">Незащищённое соединение</string>
+    <string name="insecure_connection_message">Вы подключаетесь по HTTP. Ваши учётные данные и сообщения будут отправлены в незашифрованном виде и могут быть перехвачены другими в сети.\n\nИспользуйте HTTP только для локальных серверов разработки.</string>
+    <string name="connect_anyway">Всё равно подключиться</string>
+    <string name="cancel">Отмена</string>
+
+    <!-- Login -->
+    <string name="login_title">Вход</string>
+    <string name="email_label">Эл. почта</string>
+    <string name="password_label">Пароль</string>
+    <string name="continue_button">Продолжить</string>
+    <string name="forgot_password">Забыли пароль?</string>
+    <string name="no_account_sign_up">Нет аккаунта? Зарегистрироваться</string>
+    <string name="or_continue_with">Или продолжить через</string>
+
+    <!-- OAuth provider labels -->
+    <string name="oauth_google">Продолжить через Google</string>
+    <string name="oauth_github">Продолжить через GitHub</string>
+    <string name="oauth_discord">Продолжить через Discord</string>
+    <string name="oauth_facebook">Продолжить через Facebook</string>
+    <string name="oauth_apple">Продолжить через Apple</string>
+    <string name="oauth_openid">Продолжить через OpenID</string>
+    <string name="oauth_generic">Продолжить через %1$s</string>
+
+    <!-- Register -->
+    <string name="register_title">Создать аккаунт</string>
+    <string name="full_name_label">Полное имя</string>
+    <string name="username_label">Имя пользователя</string>
+    <string name="confirm_password_label">Подтвердите пароль</string>
+    <string name="sign_up">Зарегистрироваться</string>
+    <string name="have_account_sign_in">Уже есть аккаунт? Войти</string>
+
+    <!-- Forgot Password -->
+    <string name="reset_password_title">Сброс пароля</string>
+    <string name="forgot_your_password">Забыли пароль?</string>
+    <string name="enter_email_for_reset">Введите эл. почту, чтобы получить ссылку для сброса</string>
+    <string name="send_reset_link">Отправить ссылку для сброса</string>
+    <string name="check_your_email">Проверьте почту</string>
+    <string name="reset_link_sent">Мы отправили ссылку для сброса пароля на %1$s</string>
+    <string name="back_to_sign_in">Назад к входу</string>
+
+    <!-- Reset Password -->
+    <string name="reset_password_screen_title">Сброс пароля</string>
+    <string name="password_reset_successful">Пароль успешно сброшен</string>
+    <string name="password_reset_message">Ваш пароль обновлён. Теперь вы можете войти с новым паролем.</string>
+    <string name="set_new_password">Задать новый пароль</string>
+    <string name="enter_new_password_hint">Введите новый пароль ниже</string>
+    <string name="new_password_label">Новый пароль</string>
+    <string name="confirm_new_password_label">Подтвердите новый пароль</string>
+    <string name="reset_password_button">Сбросить пароль</string>
+
+    <!-- Two-Factor -->
+    <string name="two_factor_title">Двухфакторная аутентификация</string>
+    <string name="enter_verification_code">Введите код подтверждения</string>
+    <string name="enter_backup_code">Введите резервный код</string>
+    <string name="authenticator_prompt">Введите 6-значный код из приложения-аутентификатора</string>
+    <string name="backup_code_prompt">Введите один из ваших резервных кодов</string>
+    <string name="verify">Проверить</string>
+    <string name="use_authenticator_code">Использовать код аутентификатора</string>
+    <string name="use_backup_code">Использовать резервный код</string>
+    <string name="backup_code_label">Резервный код</string>
+
+    <!-- Verify Email -->
+    <string name="verify_email_title">Подтверждение почты</string>
+    <string name="verification_link_sent">Мы отправили ссылку для подтверждения на</string>
+    <string name="click_link_to_verify">Нажмите ссылку в письме, чтобы подтвердить аккаунт.</string>
+    <string name="verification_email_sent">Письмо с подтверждением отправлено!</string>
+    <string name="resend_verification_email">Отправить письмо повторно</string>
+    <string name="resend_in_seconds">Повтор через %1$d с</string>
+
+    <!-- Terms -->
+    <string name="terms_title">Условия использования</string>
+    <string name="i_accept">Я принимаю</string>
+    <string name="retry">Повторить</string>
+
+    <!-- Common -->
+    <string name="back">Назад</string>
+</resources>

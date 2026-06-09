@@ -35,48 +35,36 @@ data class LanguageOption(
     val displayName: String,
 )
 
+/**
+ * The languages the app actually ships translations for. Shown as endonyms (native names), which
+ * by convention are not themselves translated. The "System default" sentinel ([SYSTEM_LANGUAGE])
+ * is prepended at render time since its label is localized.
+ */
 private val SUPPORTED_LANGUAGES = listOf(
     LanguageOption("en", "English"),
-    LanguageOption("es", "Spanish"),
-    LanguageOption("fr", "French"),
-    LanguageOption("de", "German"),
-    LanguageOption("it", "Italian"),
-    LanguageOption("pt", "Portuguese"),
-    LanguageOption("ru", "Russian"),
-    LanguageOption("zh", "Chinese (Simplified)"),
-    LanguageOption("ja", "Japanese"),
-    LanguageOption("ko", "Korean"),
-    LanguageOption("ar", "Arabic"),
-    LanguageOption("hi", "Hindi"),
-    LanguageOption("tr", "Turkish"),
-    LanguageOption("pl", "Polish"),
-    LanguageOption("nl", "Dutch"),
-    LanguageOption("sv", "Swedish"),
-    LanguageOption("da", "Danish"),
-    LanguageOption("fi", "Finnish"),
-    LanguageOption("no", "Norwegian"),
-    LanguageOption("uk", "Ukrainian"),
-    LanguageOption("th", "Thai"),
-    LanguageOption("vi", "Vietnamese"),
-    LanguageOption("id", "Indonesian"),
-    LanguageOption("ms", "Malay"),
-    LanguageOption("cs", "Czech"),
-    LanguageOption("ro", "Romanian"),
-    LanguageOption("hu", "Hungarian"),
-    LanguageOption("el", "Greek"),
-    LanguageOption("he", "Hebrew"),
-    LanguageOption("bg", "Bulgarian"),
-    LanguageOption("ca", "Catalan"),
-    LanguageOption("hr", "Croatian"),
-    LanguageOption("sk", "Slovak"),
-    LanguageOption("sl", "Slovenian"),
-    LanguageOption("sr", "Serbian"),
-    LanguageOption("lt", "Lithuanian"),
-    LanguageOption("lv", "Latvian"),
-    LanguageOption("et", "Estonian"),
+    LanguageOption("es", "Español"),
+    LanguageOption("fr", "Français"),
+    LanguageOption("de", "Deutsch"),
+    LanguageOption("pt", "Português"),
+    LanguageOption("ru", "Русский"),
+    LanguageOption("zh", "中文（简体）"),
+    LanguageOption("ja", "日本語"),
+    LanguageOption("ko", "한국어"),
+    LanguageOption("ar", "العربية"),
 )
 
-/** Searchable single-select language picker with 37+ locales. */
+/** Sentinel code meaning "follow the device locale"; mirrors SettingsDataStore.DEFAULT_LANGUAGE. */
+private const val SYSTEM_LANGUAGE = "system"
+
+/** Display name (endonym) for a stored language [code], or [systemLabel] for the system sentinel. */
+internal fun languageDisplayName(code: String, systemLabel: String): String =
+    if (code == SYSTEM_LANGUAGE) {
+        systemLabel
+    } else {
+        SUPPORTED_LANGUAGES.firstOrNull { it.code == code }?.displayName ?: code
+    }
+
+/** Searchable single-select language picker over the shipped locales. */
 @Composable
 internal fun LanguageSelectorDialog(
     selectedLanguage: String,
@@ -86,11 +74,14 @@ internal fun LanguageSelectorDialog(
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
-    val filtered = remember(searchQuery) {
+    val systemOption = LanguageOption(SYSTEM_LANGUAGE, stringResource(Res.string.language_system_default))
+    val languages = remember(systemOption) { listOf(systemOption) + SUPPORTED_LANGUAGES }
+
+    val filtered = remember(searchQuery, languages) {
         if (searchQuery.isBlank()) {
-            SUPPORTED_LANGUAGES
+            languages
         } else {
-            SUPPORTED_LANGUAGES.filter {
+            languages.filter {
                 it.displayName.contains(searchQuery, ignoreCase = true) ||
                     it.code.contains(searchQuery, ignoreCase = true)
             }

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="files">Archivos</string>
+    <string name="upload">Subir</string>
+    <string name="delete">Eliminar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="done">Hecho</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_exit_edit_mode">Salir del modo de edición</string>
+    <string name="cd_select_all">Seleccionar todo</string>
+    <string name="cd_delete_selected">Eliminar seleccionados</string>
+    <string name="cd_edit_files">Editar archivos</string>
+    <string name="cd_switch_to_grid">Cambiar a vista de cuadrícula</string>
+    <string name="cd_switch_to_list">Cambiar a vista de lista</string>
+    <string name="cd_sort_files">Ordenar archivos</string>
+    <string name="cd_upload_file">Subir archivo</string>
+    <string name="cd_delete_file">Eliminar %1$s</string>
+    <string name="cd_thumbnail">Miniatura de %1$s</string>
+    <string name="cd_close_preview">Cerrar vista previa</string>
+    <string name="cd_cancel_upload">Cancelar subida</string>
+    <string name="cd_ascending">Ascendente</string>
+    <string name="cd_descending">Descendente</string>
+
+    <!-- Selection mode -->
+    <string name="select_files">Seleccionar archivos</string>
+    <string name="selected_count">%1$d seleccionados</string>
+
+    <!-- Empty states -->
+    <string name="no_files">No hay archivos</string>
+    <string name="upload_to_get_started">Sube archivos para empezar</string>
+    <string name="no_filter_files">Sin %1$s</string>
+    <string name="no_filter_files_found">No se encontraron archivos de %1$s</string>
+    <string name="could_not_load_files">No se pudieron cargar los archivos</string>
+
+    <!-- Delete dialogs -->
+    <string name="delete_count_files">¿Eliminar %1$d archivo%2$s?</string>
+    <string name="action_cannot_be_undone">Esta acción no se puede deshacer.</string>
+    <string name="delete_file_question">¿Eliminar archivo?</string>
+    <string name="delete_file_message">¿Eliminar \"%1$s\"? Esta acción no se puede deshacer.</string>
+    <string name="this_file">este archivo</string>
+
+    <!-- File preview -->
+    <string name="image_preview_unavailable">Vista previa de imagen no disponible</string>
+    <string name="preview_of">Vista previa de %1$s</string>
+    <string name="loading_pdf">Cargando PDF…</string>
+    <string name="page_of">Página %1$d de %2$d</string>
+    <string name="page_cd">Página %1$d de %2$s</string>
+    <string name="could_not_render_pdf">No se pudo mostrar la vista previa del PDF</string>
+    <string name="failed_to_download_pdf">Error al descargar el PDF</string>
+    <string name="failed_to_render_pdf">Error al mostrar el PDF</string>
+    <string name="loading_file_content">Cargando contenido del archivo…</string>
+    <string name="could_not_load_file_content">No se pudo cargar el contenido del archivo</string>
+    <string name="failed_to_download_file">Error al descargar el archivo</string>
+    <string name="failed_to_load_content">Error al cargar el contenido del archivo</string>
+    <string name="content_truncated">\n\n--- Contenido truncado (archivo demasiado grande) ---</string>
+
+    <!-- Info row labels -->
+    <string name="info_type">Tipo</string>
+    <string name="info_size">Tamaño</string>
+    <string name="info_created">Creado</string>
+    <string name="info_source">Origen</string>
+
+    <!-- Upload progress -->
+    <string name="uploading">Subiendo…</string>
+</resources>

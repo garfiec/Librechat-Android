@@ -141,7 +141,10 @@ fun GeneralSettingsContent(
                 GeneralSettingsRow(
                     icon = Icons.Default.Language,
                     title = stringResource(Res.string.language),
-                    subtitle = uiState.selectedLanguage.uppercase(),
+                    subtitle = languageDisplayName(
+                        uiState.selectedLanguage,
+                        stringResource(Res.string.language_system_default),
+                    ),
                     onClick = viewModel::showLanguageDialog,
                 )
             }

@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="agents">Агенты</string>
+    <string name="marketplace">Маркетплейс</string>
+    <string name="search_agents">Поиск агентов…</string>
+    <string name="start_chat">Начать чат</string>
+    <string name="edit">Изменить</string>
+    <string name="delete">Удалить</string>
+    <string name="cancel">Отмена</string>
+    <string name="duplicate">Дублировать</string>
+    <string name="save">Сохранить</string>
+    <string name="create">Создать</string>
+    <string name="apply">Применить</string>
+    <string name="add">Добавить</string>
+    <string name="remove">Удалить</string>
+    <string name="revert">Откатить</string>
+    <string name="close">Закрыть</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_create_agent">Создать агента</string>
+    <string name="cd_search">Поиск</string>
+    <string name="cd_back">Назад</string>
+    <string name="cd_more_actions">Ещё действия</string>
+    <string name="cd_more_options">Дополнительно</string>
+    <string name="cd_collapse">Свернуть</string>
+    <string name="cd_expand">Развернуть</string>
+    <string name="cd_remove_item">Удалить %1$s</string>
+    <string name="cd_edit_action">Изменить действие</string>
+    <string name="cd_delete_action">Удалить действие</string>
+    <string name="cd_add_starter">Добавить начальную фразу</string>
+    <string name="cd_agent_avatar_tap">Аватар агента. Нажмите, чтобы изменить.</string>
+    <string name="cd_agent_avatar_name">Аватар %1$s</string>
+    <string name="cd_tool_icon">Значок %1$s</string>
+
+    <!-- Marketplace screen -->
+    <string name="search_agents_hint">Поиск агентов…</string>
+    <string name="no_agents_found">Агенты не найдены</string>
+    <string name="no_agents_available">Нет доступных агентов</string>
+    <string name="agents_not_available_title">Агенты недоступны</string>
+    <string name="agents_not_available_description">Администратор вашего сервера отключил агентов для вашего аккаунта.</string>
+    <string name="try_different_search">Попробуйте другой поисковый запрос</string>
+    <string name="check_back_later">Загляните позже за новыми агентами</string>
+    <string name="error_unknown">Произошла неизвестная ошибка</string>
+    <string name="unknown_author">Неизвестно</string>
+
+    <!-- Detail screen -->
+    <string name="agent_title">Агент</string>
+    <string name="delete_agent">Удалить агента</string>
+    <string name="delete_agent_confirm">Вы уверены, что хотите удалить \"%1$s\"? Это нельзя отменить.</string>
+    <string name="delete_this_agent">этого агента</string>
+    <string name="by_author">автор: %1$s</string>
+    <string name="label_description">Описание</string>
+    <string name="no_description">Без описания</string>
+    <string name="label_category">Категория</string>
+    <string name="label_model">Модель</string>
+    <string name="default_value">По умолчанию</string>
+    <string name="label_tools">Инструменты</string>
+    <string name="label_conversation_starters">Начальные фразы</string>
+
+    <!-- Editor screen -->
+    <string name="edit_agent">Изменить агента</string>
+    <string name="create_agent">Создать агента</string>
+    <string name="duplicate_agent">Дублировать агента</string>
+    <string name="delete_agent_editor_confirm">Вы уверены, что хотите удалить этого агента? Это действие нельзя отменить.</string>
+    <string name="duplicate_agent_confirm">Создать копию этого агента?</string>
+    <string name="version_history">История версий</string>
+    <string name="tap_to_change_avatar">Нажмите, чтобы изменить аватар</string>
+    <string name="remove_avatar">Удалить аватар</string>
+    <string name="agent_name_label">Имя *</string>
+    <string name="agent_name_placeholder">Необязательно: имя агента</string>
+    <string name="agent_description_label">Описание</string>
+    <string name="agent_description_placeholder">Необязательно: опишите вашего агента здесь</string>
+    <string name="agent_instructions_label">Инструкции</string>
+    <string name="agent_instructions_placeholder">Системные инструкции, которые использует агент</string>
+    <string name="insert_variable">Вставить переменную</string>
+    <string name="cd_insert_variable">Вставить переменную</string>
+    <string name="special_var_current_date">Текущая дата</string>
+    <string name="special_var_current_user">Текущий пользователь</string>
+    <string name="special_var_iso_datetime">Дата и время ISO</string>
+    <string name="special_var_current_datetime">Текущие дата и время</string>
+    <string name="label_capabilities">Возможности</string>
+    <string name="label_tools_and_actions">Инструменты и действия</string>
+    <string name="add_tools">Добавить инструменты</string>
+    <string name="add_starter_hint">Добавить начальную фразу…</string>
+    <string name="save_changes">Сохранить изменения</string>
+
+    <!-- Actions panel -->
+    <string name="openapi_actions_count">Действия OpenAPI (%1$d)</string>
+    <string name="no_actions_configured">Действия не настроены. Добавьте действие OpenAPI для подключения внешних API.</string>
+    <string name="add_action">Добавить действие</string>
+    <string name="edit_action">Изменить действие</string>
+    <string name="auth_api_key">API-ключ</string>
+    <string name="auth_oauth">OAuth</string>
+    <string name="auth_none">Нет</string>
+    <string name="action_auth_info">Аутентификация: %1$s | %2$d функц.</string>
+    <string name="label_action">Действие</string>
+
+    <!-- Action editor dialog -->
+    <string name="label_authentication">Аутентификация</string>
+    <string name="auth_api_key_full">Аутентификация по API-ключу</string>
+    <string name="auth_oauth_full">Аутентификация OAuth</string>
+    <string name="auth_no_auth">Без аутентификации</string>
+    <string name="label_openapi_schema">Схема OpenAPI</string>
+    <string name="openapi_schema_hint">Вставьте вашу спецификацию OpenAPI в формате JSON или YAML.</string>
+    <string name="label_openapi_spec">Спецификация OpenAPI (JSON или YAML)</string>
+    <string name="validating">Проверка…</string>
+    <string name="domain_prefix">Домен: %1$s</string>
+    <string name="available_actions_count">Доступные действия (%1$d)</string>
+    <string name="label_privacy_policy_url">URL политики конфиденциальности</string>
+    <string name="label_save_or_create">%1$s</string>
+
+    <!-- Auth config dialog -->
+    <string name="label_authentication_type">Тип аутентификации</string>
+    <string name="label_api_key_settings">Настройки API-ключа</string>
+    <string name="label_api_key">API-ключ</string>
+    <string name="label_authorization_type">Тип авторизации</string>
+    <string name="auth_basic">Basic</string>
+    <string name="auth_bearer">Bearer</string>
+    <string name="auth_custom">Свой</string>
+    <string name="label_custom_auth_header">Свой заголовок авторизации</string>
+    <string name="label_oauth_settings">Настройки OAuth</string>
+    <string name="label_client_id">Client ID</string>
+    <string name="label_client_secret">Client Secret</string>
+    <string name="label_authorization_url">URL авторизации</string>
+    <string name="label_token_url">URL токена</string>
+    <string name="label_scope">Область</string>
+    <string name="label_token_exchange_method">Способ обмена токенами</string>
+    <string name="token_default_post">По умолчанию (POST)</string>
+    <string name="token_basic_auth_header">Заголовок Basic Auth</string>
+
+    <!-- Function table -->
+    <string name="table_name">Имя</string>
+    <string name="table_method">Метод</string>
+    <string name="table_path">Путь</string>
+
+    <!-- Advanced panel -->
+    <string name="advanced_settings">Настройки модели</string>
+    <string name="label_temperature">Температура</string>
+    <string name="temperature_description">Управляет случайностью. Ниже = более сфокусированно.</string>
+    <string name="label_top_p">Top P</string>
+    <string name="top_p_description">Порог сэмплирования по ядру.</string>
+    <string name="label_max_tokens">Макс. токенов</string>
+    <string name="max_tokens_description">Максимальное число токенов в ответе. Оставьте пустым для значения по умолчанию.</string>
+
+    <!-- Avatar picker -->
+    <!-- (content descriptions above) -->
+
+    <!-- Capabilities section -->
+    <string name="label_artifacts">Артефакты</string>
+    <string name="artifacts_description">Включить генерацию артефактов</string>
+    <string name="artifacts_mode_off">Выключено</string>
+    <string name="artifacts_mode_default">По умолчанию</string>
+    <string name="artifacts_mode_shadcnui">shadcn/ui</string>
+    <string name="artifacts_mode_custom">Свой</string>
+    <string name="label_end_after_tools">Завершать после инструментов</string>
+    <string name="end_after_tools_description">Останавливаться после завершения выполнения инструментов</string>
+    <string name="label_hide_sequential_outputs">Скрывать промежуточные результаты</string>
+    <string name="hide_sequential_description">Скрывать промежуточные результаты инструментов</string>
+    <string name="label_recursion_limit">Лимит рекурсии</string>
+    <string name="recursion_limit_description">Максимальное число рекурсивных вызовов инструментов</string>
+
+    <!-- Category selector -->
+    <string name="general">Общие</string>
+
+    <!-- Code Interpreter section -->
+    <string name="label_code_interpreter">Интерпретатор кода</string>
+    <string name="code_interpreter_description">Разрешить агенту писать и выполнять код для решения задач</string>
+
+    <!-- Web Search section -->
+    <string name="label_web_search">Веб-поиск</string>
+    <string name="web_search_description">Разрешить агенту искать в интернете актуальную информацию</string>
+
+    <!-- Tool auth dialog -->
+    <string name="tool_auth_revoke">Отозвать</string>
+    <string name="tool_auth_code_title">API-ключ интерпретатора кода</string>
+    <string name="tool_auth_code_description">Введите API-ключ, который сервер должен использовать для выполнения кода от вашего имени. Хранится в вашем аккаунте, а не в агенте.</string>
+    <string name="tool_auth_code_field">API-ключ LibreChat Code</string>
+    <string name="tool_auth_required">Для включения этого инструмента требуется аутентификация</string>
+
+    <!-- File Context section -->
+    <string name="label_file_context">Файловый контекст</string>
+    <string name="file_context_description">Прикрепите файлы, которые всегда включаются как контекст беседы</string>
+
+    <!-- File Search section -->
+    <string name="label_file_search">Поиск по файлам</string>
+    <string name="file_search_description">Разрешить агенту искать по загруженным файлам и документам</string>
+
+    <!-- Handoff config -->
+    <!-- Chain (sequential multi-agent) -->
+    <string name="chain_agents_count">Агенты в цепочке (%1$d)</string>
+    <string name="chain_description">Агенты, выполняющиеся последовательно после этого. Предел — %1$d.</string>
+    <string name="no_chain_agents">Агенты в цепочке не настроены.</string>
+    <string name="add_chain_agent">Добавить агента в цепочку</string>
+    <string name="chain_full">Достигнуто максимальное число агентов в цепочке.</string>
+    <!-- Handoffs (graph edges) -->
+    <string name="handoff_edges_count">Рёбра передачи (%1$d)</string>
+    <string name="handoff_edges_description">Рёбра маршрутизации графа для динамической передачи между агентами.</string>
+    <string name="no_handoff_edges">Рёбра передачи не настроены.</string>
+    <string name="add_handoff_edge">Добавить ребро передачи</string>
+    <string name="handoff_edge_from">От</string>
+    <string name="handoff_edge_to">К</string>
+    <string name="handoff_edge_description">Описание (необязательно)</string>
+    <string name="handoff_edge_prompt">Промпт передачи (необязательно)</string>
+    <string name="handoff_edge_prompt_key">Имя параметра промпта (необязательно)</string>
+    <string name="handoff_edge_exclude_results">Исключить предыдущие сообщения</string>
+    <string name="handoff_edge_arrow">%1$s → %2$s</string>
+    <string name="handoff_edge_multi">%1$d агентов → %2$d агентов</string>
+    <string name="no_more_agents">Больше нет агентов для добавления.</string>
+    <string name="select_agent">Выбрать агента</string>
+
+    <!-- MCP Tools selector -->
+    <string name="mcp_tools_count">Инструменты MCP (выбрано: %1$d)</string>
+    <string name="no_mcp_tools">Нет доступных инструментов MCP. Настройте серверы MCP в настройках.</string>
+    <string name="unknown_server">Неизвестный сервер</string>
+
+    <!-- Model picker -->
+    <string name="model_required_label">Модель *</string>
+    <string name="select_model_hint">Выберите модель…</string>
+    <string name="no_models_found">Модели не найдены</string>
+
+    <!-- Sharing section -->
+    <string name="sharing_and_permissions">Доступ и разрешения</string>
+    <string name="label_visibility">Видимость</string>
+    <string name="label_collaborative">Совместный</string>
+    <string name="collaborative_description">Разрешить другим пользователям изменять этого агента</string>
+    <string name="collaborative_managed_server_side">В этой версии разрешения доступа управляются на стороне сервера.</string>
+
+    <!-- Visibility labels -->
+    <string name="visibility_private">Приватный</string>
+    <string name="visibility_team">Команда</string>
+    <string name="visibility_public">Публичный</string>
+
+    <!-- Support contact section -->
+    <string name="label_support_contact">Контакт поддержки</string>
+    <string name="label_name">Имя</string>
+    <string name="support_contact_placeholder">Имя контакта поддержки</string>
+    <string name="label_email">Эл. почта</string>
+
+    <!-- Version history -->
+    <string name="no_version_history">История версий недоступна</string>
+    <string name="version_number">Версия %1$d</string>
+    <string name="version_current">Активная</string>
+    <string name="version_no_date">Дата недоступна</string>
+    <string name="version_unknown_date">Неизвестная дата</string>
+    <string name="version_snapshot_name">Имя</string>
+    <string name="version_snapshot_description">Описание</string>
+    <string name="version_snapshot_instructions">Инструкции</string>
+    <string name="version_snapshot_artifacts">Артефакты</string>
+    <string name="version_snapshot_capabilities">Возможности</string>
+    <string name="version_snapshot_tools">Инструменты</string>
+    <string name="version_snapshot_empty">—</string>
+    <string name="version_restore_confirm">Откатить этого агента к выбранной версии? Текущие несохранённые изменения будут потеряны.</string>
+
+    <!-- ACL sharing (v0.8.5+) -->
+    <string name="acl_sharing_title">Доступ и совместное использование</string>
+    <string name="acl_add_principal">Добавить пользователя или группу</string>
+    <string name="acl_no_grants">Доступ пока никому не предоставлен.</string>
+    <string name="acl_public_label">Публичный</string>
+    <string name="acl_public_description">Разрешить всем, у кого есть доступ к серверу</string>
+    <string name="acl_role">Роль</string>
+    <string name="acl_revoke">Отозвать</string>
+    <string name="acl_search_hint">Поиск пользователей или групп…</string>
+    <string name="acl_search_empty">Совпадений нет</string>
+    <string name="acl_grant_button">Предоставить</string>
+    <string name="acl_grant_dialog_title">Добавить пользователя или группу</string>
+    <string name="acl_principal_user">Пользователь</string>
+    <string name="acl_principal_group">Группа</string>
+    <string name="acl_principal_role">Роль</string>
+    <string name="acl_create_mode_notice">Управление доступом и совместным использованием доступно после сохранения агента.</string>
+
+    <!-- Tool select dialog -->
+    <string name="agent_tools_title">Инструменты агента</string>
+    <string name="select_tools_description">Выберите инструменты, которые сможет использовать ваш агент</string>
+    <string name="search_tools_hint">Поиск инструментов…</string>
+    <string name="no_tools_matching">Нет инструментов, соответствующих \"%1$s\"</string>
+    <string name="no_tools_available">Нет доступных инструментов</string>
+
+    <!-- Per-capability file attachments -->
+    <string name="add_file">Добавить файл</string>
+    <string name="agent_files_save_first">Сохраните агента перед прикреплением файлов</string>
+    <string name="agent_file_too_large">Файл должен быть не больше %1$d МБ</string>
+    <string name="agent_file_upload_failed">Не удалось загрузить файл</string>
+    <string name="agent_file_remove_failed">Не удалось удалить файл</string>
+    <string name="cd_remove_file">Удалить %1$s</string>
+
+    <!-- Skills selector (v0.8.6) -->
+    <string name="label_skills">Навыки</string>
+    <string name="skills_disabled_hint">Навыки отключены для этого агента.</string>
+    <string name="skills_enabled_all_hint">Все доступные вам навыки доступны этому агенту.</string>
+    <string name="skills_enabled_allowlist_hint">Этому агенту доступны только выбранные навыки.</string>
+    <string name="add_skills">Добавить навыки</string>
+    <string name="select_skills">Выбрать навыки</string>
+    <string name="search_skills_hint">Поиск навыков…</string>
+    <string name="no_skills_matching">Нет навыков, соответствующих \"%1$s\"</string>
+    <string name="no_skills_available">Нет доступных навыков</string>
+    <string name="skills_done">Готово</string>
+
+    <!-- Subagents config (v0.8.6) -->
+    <string name="label_subagents">Субагенты</string>
+    <string name="subagents_description">Позвольте этому агенту делегировать работу другим агентам в изолированных контекстах.</string>
+    <string name="subagents_allow_self">Разрешить порождать самого себя</string>
+    <string name="add_subagent">Добавить субагента</string>
+    <string name="subagents_full">Достигнуто максимальное число субагентов.</string>
+</resources>

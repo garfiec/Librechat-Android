@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">技能</string>
+    <string name="skills_back">返回</string>
+    <string name="skills_create">创建技能</string>
+    <string name="skills_import">导入技能</string>
+    <string name="skills_search_hint">搜索技能…</string>
+    <string name="skills_empty">暂无技能。</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">文件</string>
+    <string name="skill_files_empty">未附加文件。</string>
+    <string name="skill_files_add">添加文件</string>
+    <string name="skill_files_remove">移除 %1$s</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">编辑</string>
+    <string name="skill_delete">删除</string>
+    <string name="skill_show_source">显示源码</string>
+    <string name="skill_show_rendered">显示渲染结果</string>
+    <string name="skill_category_label">类别：%1$s</string>
+    <string name="skill_version_label">版本 %1$d</string>
+    <string name="skill_delete_confirm_title">删除技能？</string>
+    <string name="skill_delete_confirm_message">这将永久删除 \"%1$s\"。此操作无法撤销。</string>
+    <string name="skill_empty_body">此技能没有内容。</string>
+    <string name="skill_active_label">已启用</string>
+    <string name="skill_active_description">让此技能可在聊天中使用。</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">新建技能</string>
+    <string name="skill_editor_edit_title">编辑技能</string>
+    <string name="skill_field_name">名称</string>
+    <string name="skill_field_name_hint">lowercase-kebab-case</string>
+    <string name="skill_field_name_error">请使用小写字母、数字和连字符（最多 64 个字符）。</string>
+    <string name="skill_field_display_title">显示标题</string>
+    <string name="skill_field_description">描述</string>
+    <string name="skill_field_description_error">描述为必填项（最多 1024 个字符）。</string>
+    <string name="skill_field_body">内容（markdown）</string>
+    <string name="skill_field_category">类别</string>
+    <string name="skill_category_none">无</string>
+    <string name="skill_field_always_apply">始终应用此技能</string>
+    <string name="skill_save">保存</string>
+    <string name="skill_cancel">取消</string>
+    <string name="skill_conflict_dismiss">确定</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">分享与权限</string>
+    <string name="skill_acl_no_grants">尚未与任何人分享。</string>
+    <string name="skill_acl_add_principal">添加用户或群组</string>
+    <string name="skill_acl_grant_dialog_title">分享技能</string>
+    <string name="skill_acl_search_hint">搜索用户、群组或角色</string>
+    <string name="skill_acl_search_empty">无匹配项</string>
+    <string name="skill_acl_role">角色</string>
+    <string name="skill_acl_revoke">移除访问权限</string>
+    <string name="skill_acl_public_label">公开</string>
+    <string name="skill_acl_public_description">此服务器上的任何人都可以使用此技能。</string>
+    <string name="skill_acl_principal_user">用户</string>
+    <string name="skill_acl_principal_group">群组</string>
+    <string name="skill_acl_principal_role">角色</string>
+    <string name="skill_acl_collapse">收起</string>
+    <string name="skill_acl_expand">展开</string>
+    <string name="skill_acl_close">关闭</string>
+</resources>

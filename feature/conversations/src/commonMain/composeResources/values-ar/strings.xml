@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="rename">إعادة تسمية</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="archive">أرشفة</string>
+    <string name="unarchive">إلغاء الأرشفة</string>
+    <string name="export">تصدير</string>
+    <string name="share">مشاركة</string>
+    <string name="duplicate">تكرار</string>
+    <string name="clear">مسح</string>
+    <string name="back">رجوع</string>
+    <string name="new_chat">محادثة جديدة</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_new_chat">محادثة جديدة</string>
+    <string name="cd_archived_conversations">المحادثات المؤرشفة</string>
+    <string name="cd_search">بحث</string>
+    <string name="cd_clear_search">مسح البحث</string>
+    <string name="cd_bookmarked">مُعلّم بإشارة مرجعية</string>
+    <string name="cd_conversation_actions">إجراءات المحادثة</string>
+    <string name="cd_add_tag">إضافة وسم</string>
+    <string name="cd_hide_tags">إخفاء الوسوم</string>
+    <string name="cd_show_tags">إظهار الوسوم</string>
+    <string name="cd_clear_filter">مسح التصفية</string>
+    <string name="cd_unarchive">إلغاء الأرشفة</string>
+    <string name="cd_delete">حذف</string>
+
+    <!-- Conversation list screen -->
+    <string name="conversations">المحادثات</string>
+    <string name="search_conversations">البحث في المحادثات…</string>
+    <string name="could_not_load_conversations">تعذّر تحميل المحادثات</string>
+    <string name="no_results_found">لم يتم العثور على نتائج</string>
+    <string name="no_conversations_yet">لا توجد محادثات بعد</string>
+    <string name="try_different_search">جرّب مصطلح بحث مختلفًا</string>
+    <string name="start_new_chat">ابدأ محادثة جديدة للبدء</string>
+    <string name="unknown_error">حدث خطأ غير معروف</string>
+    <string name="conversation_exported">تم تصدير المحادثة</string>
+    <string name="export_failed">فشل التصدير: %1$s</string>
+    <string name="import_failed">فشل الاستيراد: %1$s</string>
+    <string name="link_copied">تم نسخ الرابط!</string>
+    <string name="imported_title">تم الاستيراد: %1$s</string>
+    <string name="copy_of">نسخة من %1$s</string>
+
+    <!-- Conversation actions -->
+    <string name="remove_bookmark">إزالة الإشارة المرجعية</string>
+    <string name="bookmark">إشارة مرجعية</string>
+    <string name="tags">الوسوم</string>
+    <string name="rename_conversation">إعادة تسمية المحادثة</string>
+    <string name="rename_dialog_message">أدخل عنوانًا جديدًا لهذه المحادثة.</string>
+    <string name="title_label">العنوان</string>
+    <string name="delete_conversation">حذف المحادثة</string>
+    <string name="delete_confirmation_message">هل أنت متأكد أنك تريد حذف \"%1$s\"؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="this_conversation">هذه المحادثة</string>
+
+    <!-- Tag picker -->
+    <string name="no_tags_yet">لا توجد وسوم بعد. أضف وسمًا أدناه.</string>
+    <string name="add_new_tag">إضافة وسم جديد</string>
+
+    <!-- Tag filter bar -->
+    <string name="tags_active_count">%1$d وسم%2$s نشط</string>
+
+    <!-- Export format picker -->
+    <string name="export_format">صيغة التصدير</string>
+    <string name="format_json">JSON</string>
+    <string name="format_json_description">تصدير كامل للبيانات، يمكن استيراده مرة أخرى</string>
+    <string name="format_markdown">Markdown</string>
+    <string name="format_markdown_description">صيغة نصية قابلة للقراءة</string>
+
+    <!-- Archived conversations screen -->
+    <string name="archived_conversations">المحادثات المؤرشفة</string>
+    <string name="could_not_load_archived">تعذّر تحميل المحادثات المؤرشفة</string>
+    <string name="no_archived_conversations">لا توجد محادثات مؤرشفة</string>
+    <string name="archived_will_appear_here">ستظهر المحادثات المؤرشفة هنا</string>
+
+    <!-- Conversation item fallback -->
+    <string name="chat">محادثة</string>
+</resources>

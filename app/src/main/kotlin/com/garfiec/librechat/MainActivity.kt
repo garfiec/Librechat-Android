@@ -40,6 +40,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.ui.theme.LibreChatTheme
@@ -52,6 +53,7 @@ class MainActivity : ComponentActivity() {
 
     private val connectivityObserver: ConnectivityObserver by inject()
     private val themeDataStore: ThemeDataStore by inject()
+    private val settingsDataStore: SettingsDataStore by inject()
 
     private var deepLinkUri by mutableStateOf<Uri?>(null)
 
@@ -83,6 +85,14 @@ class MainActivity : ComponentActivity() {
             val useDynamicColor by themeDataStore.useDynamicColor.collectAsStateWithLifecycle(
                 initialValue = themeDataStore.initialUseDynamicColor,
             )
+            // Gate on the language warm-up too so a persisted non-system language is applied
+            // before the first frame (no flash of the system locale before switching).
+            val localeReady by settingsDataStore.isReady.collectAsStateWithLifecycle()
+            val selectedLanguage by settingsDataStore.selectedLanguage.collectAsStateWithLifecycle(
+                initialValue = settingsDataStore.initialSelectedLanguage,
+            )
+            // The DEFAULT_LANGUAGE sentinel ("system") maps to no override → keep the device locale.
+            val appLocale = selectedLanguage.takeIf { it != SettingsDataStore.DEFAULT_LANGUAGE }
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
@@ -99,7 +109,7 @@ class MainActivity : ComponentActivity() {
                 insetsController.isAppearanceLightNavigationBars = !darkTheme
             }
 
-            if (themeReady) {
+            if (themeReady && localeReady) {
                 LibreChatTheme(
                     darkTheme = darkTheme,
                     accentColor = Color(accentColorArgb),
@@ -132,6 +142,7 @@ class MainActivity : ComponentActivity() {
                                 deepLinkUri = deepLinkUri,
                                 onDeepLinkConsume = { deepLinkUri = null },
                                 shareNavigationTrigger = shareNavigationTrigger,
+                                appLocaleTag = appLocale,
                                 modifier = Modifier
                                     .weight(1f)
                                     .then(

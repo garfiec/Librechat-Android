@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="rename">Renomear</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Excluir</string>
+    <string name="archive">Arquivar</string>
+    <string name="unarchive">Desarquivar</string>
+    <string name="export">Exportar</string>
+    <string name="share">Compartilhar</string>
+    <string name="duplicate">Duplicar</string>
+    <string name="clear">Limpar</string>
+    <string name="back">Voltar</string>
+    <string name="new_chat">Nova conversa</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_new_chat">Nova conversa</string>
+    <string name="cd_archived_conversations">Conversas arquivadas</string>
+    <string name="cd_search">Buscar</string>
+    <string name="cd_clear_search">Limpar busca</string>
+    <string name="cd_bookmarked">Marcada</string>
+    <string name="cd_conversation_actions">Ações da conversa</string>
+    <string name="cd_add_tag">Adicionar etiqueta</string>
+    <string name="cd_hide_tags">Ocultar etiquetas</string>
+    <string name="cd_show_tags">Mostrar etiquetas</string>
+    <string name="cd_clear_filter">Limpar filtro</string>
+    <string name="cd_unarchive">Desarquivar</string>
+    <string name="cd_delete">Excluir</string>
+
+    <!-- Conversation list screen -->
+    <string name="conversations">Conversas</string>
+    <string name="search_conversations">Buscar conversas…</string>
+    <string name="could_not_load_conversations">Não foi possível carregar as conversas</string>
+    <string name="no_results_found">Nenhum resultado encontrado</string>
+    <string name="no_conversations_yet">Nenhuma conversa ainda</string>
+    <string name="try_different_search">Tente um termo de busca diferente</string>
+    <string name="start_new_chat">Inicie uma nova conversa para começar</string>
+    <string name="unknown_error">Ocorreu um erro desconhecido</string>
+    <string name="conversation_exported">Conversa exportada</string>
+    <string name="export_failed">Falha na exportação: %1$s</string>
+    <string name="import_failed">Falha na importação: %1$s</string>
+    <string name="link_copied">Link copiado!</string>
+    <string name="imported_title">Importada: %1$s</string>
+    <string name="copy_of">Cópia de %1$s</string>
+
+    <!-- Conversation actions -->
+    <string name="remove_bookmark">Remover marcador</string>
+    <string name="bookmark">Marcar</string>
+    <string name="tags">Etiquetas</string>
+    <string name="rename_conversation">Renomear conversa</string>
+    <string name="rename_dialog_message">Digite um novo título para esta conversa.</string>
+    <string name="title_label">Título</string>
+    <string name="delete_conversation">Excluir conversa</string>
+    <string name="delete_confirmation_message">Tem certeza de que deseja excluir \"%1$s\"? Esta ação não pode ser desfeita.</string>
+    <string name="this_conversation">esta conversa</string>
+
+    <!-- Tag picker -->
+    <string name="no_tags_yet">Nenhuma etiqueta ainda. Adicione uma abaixo.</string>
+    <string name="add_new_tag">Adicionar nova etiqueta</string>
+
+    <!-- Tag filter bar -->
+    <string name="tags_active_count">%1$d etiqueta%2$s ativa(s)</string>
+
+    <!-- Export format picker -->
+    <string name="export_format">Formato de exportação</string>
+    <string name="format_json">JSON</string>
+    <string name="format_json_description">Exportação completa dos dados, pode ser importada novamente</string>
+    <string name="format_markdown">Markdown</string>
+    <string name="format_markdown_description">Formato de texto legível</string>
+
+    <!-- Archived conversations screen -->
+    <string name="archived_conversations">Conversas arquivadas</string>
+    <string name="could_not_load_archived">Não foi possível carregar as conversas arquivadas</string>
+    <string name="no_archived_conversations">Nenhuma conversa arquivada</string>
+    <string name="archived_will_appear_here">As conversas arquivadas aparecerão aqui</string>
+
+    <!-- Conversation item fallback -->
+    <string name="chat">Conversa</string>
+</resources>

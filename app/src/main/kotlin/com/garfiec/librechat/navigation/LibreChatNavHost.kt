@@ -26,8 +26,9 @@ fun LibreChatNavHost(
     deepLinkUri: Uri? = null,
     onDeepLinkConsume: () -> Unit = {},
     shareNavigationTrigger: Int = 0,
+    appLocaleTag: String? = null,
 ) {
-    SharedLibreChatNavHost(modifier = modifier) { navigator, navHostViewModel, mod ->
+    SharedLibreChatNavHost(modifier = modifier, appLocaleTag = appLocaleTag) { navigator, navHostViewModel, mod ->
         // Handle deep links
         val currentOnDeepLinkConsume by rememberUpdatedState(onDeepLinkConsume)
         LaunchedEffect(deepLinkUri) {

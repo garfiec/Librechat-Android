@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="action_add">إضافة</string>
+    <string name="action_cancel">إلغاء</string>
+    <string name="action_clear">مسح</string>
+    <string name="action_confirm">تأكيد</string>
+    <string name="action_creating">جارٍ الإنشاء…</string>
+    <string name="action_create">إنشاء</string>
+    <string name="action_delete">حذف</string>
+    <string name="action_done">تم</string>
+    <string name="action_retry">إعادة المحاولة</string>
+    <string name="action_revoke_all">إبطال الكل</string>
+    <string name="action_save">حفظ</string>
+    <string name="action_sign_out">تسجيل الخروج</string>
+    <string name="action_upload">رفع</string>
+    <string name="action_uploading">جارٍ الرفع…</string>
+    <string name="action_verify">تحقّق</string>
+    <string name="action_verifying">جارٍ التحقّق…</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_add_memory">إضافة ذاكرة</string>
+    <string name="cd_add_server">إضافة خادم</string>
+    <string name="cd_back">رجوع</string>
+    <string name="cd_change_avatar">تغيير الصورة الرمزية</string>
+    <string name="cd_choose_image">اختيار صورة</string>
+    <string name="cd_collapse_tools">طي الأدوات</string>
+    <string name="cd_copy_api_key">نسخ مفتاح API</string>
+    <string name="cd_copy_link">نسخ الرابط</string>
+    <string name="cd_create_api_key">إنشاء مفتاح API</string>
+    <string name="cd_current_avatar">الصورة الرمزية الحالية</string>
+    <string name="cd_delete">حذف</string>
+    <string name="cd_delete_api_key">حذف مفتاح API</string>
+    <string name="cd_delete_memory">حذف الذاكرة</string>
+    <string name="cd_delete_preset">حذف الإعداد المسبق</string>
+    <string name="cd_delete_server">حذف الخادم</string>
+    <string name="cd_delete_shared_link">حذف الرابط المشترك</string>
+    <string name="cd_edit">تعديل</string>
+    <string name="cd_edit_memory">تعديل الذاكرة</string>
+    <string name="cd_edit_server">تعديل الخادم</string>
+    <string name="cd_expand_tools">توسيع الأدوات</string>
+    <string name="cd_loading_profile">جارٍ تحميل الملف الشخصي</string>
+    <string name="cd_make_private">جعله خاصًا</string>
+    <string name="cd_make_public">جعله عامًا</string>
+    <string name="cd_preview_voice">معاينة الصوت</string>
+    <string name="cd_qr_code">رمز QR لتطبيق المصادقة</string>
+    <string name="cd_reinitialize">إعادة التهيئة</string>
+    <string name="cd_avatar_preview">معاينة الصورة الرمزية</string>
+    <string name="cd_selected">محدد</string>
+    <string name="cd_selected_avatar">الصورة الرمزية المحددة</string>
+    <string name="cd_stop_voice_preview">إيقاف معاينة الصوت</string>
+    <string name="cd_test_tts_voice">اختبار صوت تحويل النص إلى كلام المحدد</string>
+    <string name="cd_toggle_auto_read">تبديل القراءة التلقائية للردود</string>
+    <string name="cd_toggle_auto_send_stt">تبديل الإرسال التلقائي بعد الكلام</string>
+    <string name="cd_toggle_memories">تبديل الذكريات</string>
+    <string name="cd_tts_voice_selector">اختيار صوت تحويل النص إلى كلام. الحالي %1$s</string>
+    <string name="cd_user_avatar">الصورة الرمزية للمستخدم</string>
+    <string name="cd_view_all_tools">عرض جميع الأدوات</string>
+    <string name="cd_view_tools">عرض الأدوات</string>
+
+    <!-- Section headers -->
+    <string name="section_about">حول</string>
+    <string name="section_account">الحساب</string>
+    <string name="section_advanced">متقدم</string>
+    <string name="section_appearance">المظهر</string>
+    <string name="section_balance">الرصيد</string>
+    <string name="section_chat_preferences">تفضيلات المحادثة</string>
+    <string name="section_conversations">المحادثات</string>
+    <string name="section_danger_zone">منطقة الخطر</string>
+    <string name="section_data_management">إدارة البيانات</string>
+    <string name="section_general">عام</string>
+    <string name="section_language">اللغة</string>
+    <string name="section_layout">التخطيط</string>
+    <string name="section_mcp_servers">خوادم MCP</string>
+    <string name="section_memories">الذكريات</string>
+    <string name="section_personalization">التخصيص</string>
+    <string name="section_presets">الإعدادات المسبقة</string>
+    <string name="section_profile">الملف الشخصي</string>
+    <string name="section_security">الأمان</string>
+    <string name="section_speech">الكلام</string>
+    <string name="section_tablet">الجهاز اللوحي</string>
+
+    <!-- Screen titles -->
+    <string name="title_account">الحساب</string>
+    <string name="title_api_keys">مفاتيح API</string>
+    <string name="title_chat">المحادثة</string>
+    <string name="title_commands">الأوامر</string>
+    <string name="title_data">البيانات</string>
+    <string name="title_general">عام</string>
+    <string name="title_memories">الذكريات</string>
+    <string name="title_mcp_servers">خوادم MCP</string>
+    <string name="title_presets">الإعدادات المسبقة</string>
+    <string name="title_settings">الإعدادات</string>
+    <string name="title_shared_links">الروابط المشتركة</string>
+
+    <!-- Tabbed settings tabs -->
+    <string name="tab_general">عام</string>
+    <string name="tab_chat">المحادثة</string>
+    <string name="tab_account">الحساب</string>
+    <string name="tab_data">البيانات</string>
+
+    <!-- Theme -->
+    <string name="theme_system">افتراضي النظام</string>
+    <string name="theme_light">فاتح</string>
+    <string name="theme_dark">داكن</string>
+
+    <!-- Accent color -->
+    <string name="accent_color">اللون المميز</string>
+    <string name="accent_color_custom">مخصص</string>
+    <string name="accent_color_hex">سداسي عشري</string>
+    <string name="use_wallpaper_colors">استخدام ألوان الخلفية</string>
+    <string name="use_wallpaper_colors_desc">مطابقة لون التطبيق المميز مع خلفية نظامك (Material You)</string>
+
+    <!-- Settings rows -->
+    <string name="language">اللغة</string>
+    <string name="language_system_default">افتراضي النظام</string>
+    <string name="personalization">التخصيص</string>
+    <string name="status_enabled">مُفعّل</string>
+    <string name="status_disabled">مُعطّل</string>
+    <string name="fork_behavior">سلوك التفريع</string>
+    <string name="commands">الأوامر</string>
+    <string name="commands_enabled_count">%1$d مُفعّل</string>
+    <string name="api_keys">مفاتيح API</string>
+    <string name="api_keys_subtitle">إدارة مفاتيح API للوصول البرمجي</string>
+    <string name="presets">الإعدادات المسبقة</string>
+    <string name="presets_subtitle">إدارة الإعدادات المسبقة للمحادثات</string>
+    <string name="favorites">المفضلة</string>
+    <string name="favorites_subtitle">إدارة الوكلاء والنماذج المثبتة</string>
+    <string name="favorites_title">المفضلة</string>
+    <string name="favorites_empty_title">لا توجد مفضلة بعد</string>
+    <string name="favorites_empty_message">ثبّت الوكلاء أو النماذج من محدد النموذج لرؤيتها هنا.</string>
+    <string name="favorites_count_of">%1$d من %2$d</string>
+    <string name="favorites_unpin_cd">إلغاء تثبيت المفضلة</string>
+
+    <!-- About info -->
+    <string name="app_version_label">إصدار التطبيق</string>
+    <string name="app_build_label">الإصدار البنائي</string>
+    <string name="server_label">الخادم</string>
+    <string name="server_not_configured">غير مُهيأ</string>
+    <string name="server_build_commit_label">إصدار الخادم (Commit)</string>
+    <string name="server_build_branch_label">فرع الخادم</string>
+    <string name="server_build_date_label">تاريخ بناء الخادم</string>
+
+    <!-- Tablet settings -->
+    <string name="sidebar_swipe_gesture">إيماءة السحب للشريط الجانبي</string>
+    <string name="sidebar_swipe_gesture_desc">اسحب من الحافة اليسرى لفتح الشريط الجانبي في تخطيطات الأجهزة اللوحية</string>
+
+    <!-- Balance -->
+    <string name="token_credits">أرصدة الرموز</string>
+    <string name="available_balance">الرصيد المتاح</string>
+    <string name="cd_token_balance">رصيد الرموز: %1$s رصيد</string>
+
+    <!-- Chat settings -->
+    <string name="chat_layout">تخطيط المحادثة</string>
+    <string name="chat_layout_thread">سلسلة</string>
+    <string name="chat_layout_two_sided">محادثة ثنائية الجانب</string>
+    <string name="chat_layout_thread_desc">جميع الرسائل محاذاة لليسار مع الصورة الرمزية والاسم</string>
+    <string name="chat_layout_two_sided_desc">رسائل المستخدم على اليمين والوكيل على اليسار</string>
+    <string name="show_bubbles">إظهار الفقاعات</string>
+    <string name="show_bubbles_desc">إضافة خلفيات فقاعية دائرية للرسائل</string>
+    <string name="show_avatars">إظهار الصور الرمزية</string>
+    <string name="show_avatars_desc">عرض الصور الرمزية للمستخدم والوكيل بجوار الرسائل</string>
+    <string name="starred_models_title">النماذج المميزة بنجمة</string>
+    <string name="starred_models_desc">إظهار نماذجك ووكلائك المثبتين في أعلى محدد النموذج</string>
+    <string name="starred_models_off">إيقاف</string>
+    <string name="starred_models_grouped">مجموعة قابلة للطي في الأعلى</string>
+    <string name="starred_models_top">في الأعلى بدون تجميع</string>
+    <string name="font_size">حجم الخط</string>
+    <string name="font_size_small">صغير</string>
+    <string name="font_size_medium">متوسط</string>
+    <string name="font_size_large">كبير</string>
+    <string name="latex_renderer">عارض LaTeX</string>
+    <string name="latex_katex">KaTeX (معروض)</string>
+    <string name="latex_katex_desc">عرض LaTeX كامل عبر WebView</string>
+    <string name="latex_native">نص عادي (سريع)</string>
+    <string name="latex_native_desc">يعرض مصدر LaTeX الخام لأداء تمرير أفضل</string>
+    <string name="auto_scroll">التمرير التلقائي أثناء البث</string>
+    <string name="auto_scroll_desc">التمرير تلقائيًا إلى المحتوى الجديد أثناء إنشاء الرد</string>
+    <string name="show_thinking_blocks">إظهار كتل التفكير</string>
+    <string name="show_thinking_blocks_desc">عرض خطوات استدلال النموذج عند توفّرها</string>
+    <string name="show_image_descriptions">إظهار أوصاف الصور</string>
+    <string name="show_image_descriptions_desc">عرض مطالبات الصور المُنشأة بالذكاء الاصطناعي أسفل الصور</string>
+    <string name="dismiss_keyboard_on_send">إخفاء لوحة المفاتيح بعد الإرسال</string>
+    <string name="dismiss_keyboard_on_send_desc">إخفاء لوحة المفاتيح تلقائيًا بعد إرسال رسالة</string>
+
+    <!-- Artifacts -->
+    <string name="section_artifacts">العناصر التفاعلية</string>
+    <string name="artifacts_section_desc">عرض العناصر التفاعلية مباشرة في المحادثة بدلًا من خلف بطاقة تُفتح بالنقر. انقر على عنصر تفاعلي مضمّن لفتح العرض بملء الشاشة.</string>
+    <string name="inline_artifact_mermaid">مخططات Mermaid</string>
+    <string name="inline_artifact_mermaid_desc">عرض مخططات ومنظومات Mermaid الانسيابية بشكل مضمّن</string>
+    <string name="inline_artifact_svg">صور SVG</string>
+    <string name="inline_artifact_svg_desc">عرض رسومات SVG المتجهة بشكل مضمّن</string>
+    <string name="inline_artifact_html">HTML</string>
+    <string name="inline_artifact_html_desc">عرض صفحات HTML بشكل مضمّن (يحمّل Tailwind من CDN)</string>
+    <string name="inline_artifact_react">مكوّنات React</string>
+    <string name="inline_artifact_react_desc">عرض مكوّنات React بشكل مضمّن (يحمّل React + Babel من CDN)</string>
+    <string name="inline_artifact_markdown">مستندات Markdown</string>
+    <string name="inline_artifact_markdown_desc">عرض عناصر Markdown التفاعلية بشكل مضمّن مع كتل أكواد مميزة بالتلوين النحوي</string>
+
+    <!-- Security -->
+    <string name="two_factor_auth">المصادقة الثنائية</string>
+    <string name="enable_two_factor">تفعيل المصادقة الثنائية</string>
+    <string name="disable_two_factor">تعطيل المصادقة الثنائية</string>
+    <string name="view_backup_codes">عرض رموز النسخ الاحتياطي</string>
+
+    <!-- 2FA setup dialog -->
+    <string name="dialog_title_enable_2fa">تفعيل المصادقة الثنائية</string>
+    <string name="dialog_title_disable_2fa">تعطيل المصادقة الثنائية</string>
+    <string name="twofa_scan_instructions">انسخ الرابط أدناه والصقه في تطبيق المصادقة الخاص بك (مثل Google Authenticator أو Authy)، ثم أدخل رمز التحقق.</string>
+    <string name="twofa_disable_instructions">أدخل رمز المصادقة لتعطيل المصادقة الثنائية.</string>
+    <string name="hint_verification_code">رمز التحقق</string>
+
+    <!-- OTP verification dialogs -->
+    <string name="otp_title_verify_identity">التحقق من الهوية</string>
+    <string name="otp_desc_delete_account">أدخل رمز المصادقة الثنائية لحذف حسابك.</string>
+    <string name="otp_desc_reenroll_2fa">أدخل رمز المصادقة الثنائية الحالي لإعادة التسجيل.</string>
+    <string name="otp_desc_regenerate_backup_codes">أدخل رمز المصادقة الثنائية لإعادة إنشاء رموز النسخ الاحتياطي.</string>
+    <string name="otp_verify">تحقّق</string>
+    <string name="otp_cancel">إلغاء</string>
+    <string name="otp_backup_code_label">رمز النسخ الاحتياطي</string>
+    <string name="otp_use_backup_code">استخدام رمز نسخ احتياطي بدلًا من ذلك</string>
+    <string name="otp_use_otp_code">استخدام رمز OTP بدلًا من ذلك</string>
+
+    <!-- Backup codes dialog -->
+    <string name="dialog_title_backup_codes">رموز النسخ الاحتياطي</string>
+    <string name="backup_codes_instructions">احفظ رموز النسخ الاحتياطي هذه في مكان آمن. يمكن استخدام كل رمز مرة واحدة فقط.</string>
+
+    <!-- Danger zone -->
+    <string name="delete_account">حذف الحساب</string>
+    <string name="dialog_title_sign_out">تسجيل الخروج</string>
+    <string name="dialog_sign_out_message">هل أنت متأكد أنك تريد تسجيل الخروج؟</string>
+    <string name="dialog_title_delete_account">حذف الحساب</string>
+    <string name="dialog_delete_account_message">لا يمكن التراجع عن هذا الإجراء. سيتم حذف جميع بياناتك نهائيًا.</string>
+
+    <!-- Clear cache dialog -->
+    <string name="dialog_title_clear_cache">مسح ذاكرة التخزين المؤقت</string>
+    <string name="dialog_clear_cache_message">سيؤدي هذا إلى مسح الصور المخزّنة مؤقتًا والبيانات المؤقتة. لن تتأثر بيانات حسابك.</string>
+
+    <!-- Revoke keys dialog -->
+    <string name="dialog_title_revoke_keys">إبطال جميع مفاتيح API</string>
+    <string name="dialog_revoke_keys_message">سيؤدي هذا إلى إبطال جميع مفاتيح API المخزّنة لديك. ستحتاج إلى إعادة إدخالها لمتابعة استخدام الخدمات الخارجية.</string>
+
+    <!-- Data settings -->
+    <string name="clear_all_conversations">مسح جميع المحادثات</string>
+    <string name="clearing">جارٍ المسح…</string>
+    <string name="archived_conversations">المحادثات المؤرشفة</string>
+    <string name="export_all_data">تصدير جميع البيانات</string>
+    <string name="shared_links">الروابط المشتركة</string>
+    <string name="clear_cache">مسح ذاكرة التخزين المؤقت</string>
+    <string name="revoke_all_api_keys">إبطال جميع مفاتيح API</string>
+    <string name="revoking">جارٍ الإبطال…</string>
+    <string name="dialog_title_clear_conversations">مسح جميع المحادثات</string>
+    <string name="dialog_clear_conversations_message">سيؤدي هذا إلى حذف جميع محادثاتك نهائيًا. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="clear_all">مسح الكل</string>
+    <string name="export_coming_soon">التصدير قادم قريبًا</string>
+    <string name="error_could_not_load_settings">تعذّر تحميل الإعدادات</string>
+
+    <!-- Diagnostic logs (issue #96) -->
+    <string name="section_diagnostic_logs">سجلات التشخيص</string>
+    <string name="export_diagnostic_logs">تصدير سجلات التشخيص</string>
+    <string name="export_diagnostic_logs_with_size">تصدير سجلات التشخيص (%1$s)</string>
+    <string name="exporting_logs">جارٍ التصدير…</string>
+    <string name="clear_diagnostic_logs">مسح سجلات التشخيص</string>
+    <string name="clearing_logs">جارٍ المسح…</string>
+    <string name="logs_exported">تم تصدير سجلات التشخيص</string>
+    <string name="dialog_title_clear_logs">مسح سجلات التشخيص</string>
+    <string name="dialog_clear_logs_message">سيؤدي هذا إلى حذف جميع سجلات التشخيص المخزّنة من هذا الجهاز نهائيًا. لا يمكن التراجع عن هذا الإجراء.</string>
+
+    <!-- Speech settings -->
+    <string name="auto_send_after_speech">الإرسال التلقائي بعد الكلام</string>
+    <string name="auto_send_after_speech_desc">إرسال الرسالة تلقائيًا بعد انتهاء تحويل الكلام إلى نص</string>
+    <string name="auto_read_responses">القراءة التلقائية للردود</string>
+    <string name="auto_read_responses_desc">قراءة ردود الذكاء الاصطناعي بصوت عالٍ تلقائيًا باستخدام تحويل النص إلى كلام</string>
+    <string name="tts_voice">صوت تحويل النص إلى كلام</string>
+    <string name="test_voice">اختبار الصوت</string>
+    <string name="no_server_tts_voices">لا تتوفر أصوات تحويل النص إلى كلام في الخادم. قد لا تكون ميزات الكلام مُهيأة على الخادم.</string>
+    <string name="using_device_tts">استخدام محرك تحويل النص إلى كلام في الجهاز. اضبط الصوت والسرعة في إعدادات تحويل النص إلى كلام أدناه.</string>
+    <string name="speech_to_text_settings">إعدادات تحويل الكلام إلى نص</string>
+    <string name="text_to_speech_settings">إعدادات تحويل النص إلى كلام</string>
+
+    <!-- STT detail dialog -->
+    <string name="stt_engine_label">المحرك</string>
+    <string name="stt_language_label">اللغة</string>
+    <string name="stt_on_device">على الجهاز</string>
+    <string name="stt_default">افتراضي</string>
+    <string name="stt_hint_whisper">يستخدم Whisper النسخ على جانب الخادم. يجب أن يكون تحويل الكلام إلى نص مُفعّلًا في خادمك.</string>
+    <string name="stt_hint_device">يستخدم مُتعرّف الكلام المدمج في جهازك. يعمل دون اتصال على الأجهزة المدعومة.</string>
+    <string name="stt_hint_google">يستخدم مُتعرّف الكلام من Google. يتطلب تثبيت تطبيق Google.</string>
+    <string name="stt_hint_default">يستخدم النسخ على الخادم (Whisper) عند توفّره، وإلا يعود إلى التعرّف على الجهاز.</string>
+    <string name="stt_auto_detect">كشف تلقائي</string>
+
+    <!-- TTS detail dialog -->
+    <string name="tts_source_label">المصدر</string>
+    <string name="tts_source_device">الجهاز (مدمج)</string>
+    <string name="tts_source_server">الخادم</string>
+    <string name="tts_voice_label">الصوت</string>
+    <string name="tts_engine_label">المحرك</string>
+    <string name="tts_system_default">افتراضي النظام</string>
+    <string name="tts_speech_rate">سرعة الكلام: %1$.1fx</string>
+    <string name="tts_pitch">طبقة الصوت: %1$.1f</string>
+    <string name="tts_cache_audio">تخزين الصوت مؤقتًا</string>
+    <string name="tts_preview_text">هذه معاينة للصوت المحدد.</string>
+    <string name="tts_stop_preview">إيقاف المعاينة</string>
+    <string name="tts_preview_voice">معاينة الصوت</string>
+
+    <!-- Memories -->
+    <string name="enable_memories">تفعيل الذكريات</string>
+    <string name="enable_memories_desc">السماح للذكاء الاصطناعي بتذكّر المعلومات عبر المحادثات</string>
+    <string name="no_memories_saved">لا توجد ذكريات محفوظة بعد</string>
+    <string name="memories_add_hint">انقر على زر + لإضافة ذاكرة</string>
+    <string name="add_memory">إضافة ذاكرة</string>
+    <string name="edit_memory">تعديل الذاكرة</string>
+    <string name="dialog_title_delete_memory">حذف الذاكرة</string>
+    <string name="dialog_delete_memory_message">هل أنت متأكد أنك تريد حذف الذاكرة \"%1$s\"؟</string>
+    <string name="memory_key_label">المفتاح</string>
+    <string name="memory_value_label">القيمة</string>
+
+    <!-- MCP -->
+    <string name="add_mcp_server">إضافة خادم MCP</string>
+    <string name="edit_mcp_server">تعديل خادم MCP</string>
+    <string name="mcp_not_available">MCP غير متاح على هذا الخادم</string>
+    <string name="no_mcp_servers">لا توجد خوادم MCP مُهيأة</string>
+    <string name="mcp_add_hint">انقر على زر + لإضافة خادم</string>
+    <string name="mcp_name_label">الاسم</string>
+    <string name="mcp_description_label">الوصف</string>
+    <string name="mcp_description_optional">اختياري</string>
+    <string name="mcp_url_label">الرابط</string>
+    <string name="mcp_type_label">النوع</string>
+    <string name="mcp_type_sse">SSE</string>
+    <string name="mcp_type_streamable_http">Streamable HTTP</string>
+    <string name="mcp_auth_label">المصادقة</string>
+    <string name="mcp_auth_none">بدون</string>
+    <string name="mcp_auth_api_key">مفتاح API</string>
+    <string name="mcp_auth_oauth">OAuth</string>
+    <string name="mcp_auth_key_type">نوع المفتاح</string>
+    <string name="mcp_auth_bearer">Bearer</string>
+    <string name="mcp_auth_basic">Basic</string>
+    <string name="mcp_auth_custom">مخصص</string>
+    <string name="mcp_header_name_label">اسم الترويسة</string>
+    <string name="mcp_header_name_placeholder">X-API-Key</string>
+    <string name="mcp_api_key_label">مفتاح API</string>
+    <string name="mcp_oauth_client_id">معرّف العميل</string>
+    <string name="mcp_oauth_client_secret">سر العميل</string>
+    <string name="mcp_oauth_auth_url">رابط التفويض</string>
+    <string name="mcp_oauth_token_url">رابط الرمز المميز</string>
+    <string name="mcp_oauth_scope">النطاق</string>
+    <string name="mcp_oauth_scope_placeholder">read execute</string>
+    <string name="dialog_title_delete_server">حذف الخادم</string>
+    <string name="dialog_delete_server_message">هل أنت متأكد أنك تريد حذف \"%1$s\"؟</string>
+    <string name="error_failed_to_load_servers">فشل تحميل الخوادم</string>
+    <string name="mcp_tools_count">%1$d أداة%2$s</string>
+    <string name="mcp_tools_available">%1$d أداة%2$s متاحة</string>
+    <string name="mcp_all_tools">جميع أدوات MCP</string>
+    <string name="mcp_tools_for_server">الأدوات: %1$s</string>
+    <string name="no_tools_available">لا توجد أدوات متاحة</string>
+    <string name="mcp_tool_server">الخادم: %1$s</string>
+
+    <!-- MCP tools sheet -->
+    <string name="mcp_server_unknown">غير معروف</string>
+
+    <!-- Fork settings -->
+    <string name="fork_mode_direct_path">الرسائل المرئية</string>
+    <string name="fork_mode_direct_path_desc">المسار المباشر للرسائل إلى الرسالة المحددة فقط</string>
+    <string name="fork_mode_include_branches">تضمين الفروع</string>
+    <string name="fork_mode_include_branches_desc">المسار المباشر بالإضافة إلى الرسائل الشقيقة في كل مستوى</string>
+    <string name="fork_mode_target_level">الكل حتى المستوى المستهدف</string>
+    <string name="fork_mode_target_level_desc">جميع الرسائل والفروع حتى مستوى الرسالة المستهدفة (افتراضي)</string>
+
+    <!-- Language selector -->
+    <string name="hint_search_languages">البحث في اللغات</string>
+
+    <!-- Personalization dialog -->
+    <string name="enable_personalization">تفعيل التخصيص</string>
+    <string name="about_you_label">نبذة عنك</string>
+    <string name="about_you_hint">ما الذي ينبغي أن يعرفه الذكاء الاصطناعي عنك للسياق؟</string>
+    <string name="response_style_label">كيف ينبغي أن يرد الذكاء الاصطناعي؟</string>
+    <string name="response_style_hint">النبرة أو التنسيق أو الأسلوب المفضل للردود</string>
+
+    <!-- Commands screen -->
+    <string name="no_commands_available">لا توجد أوامر متاحة</string>
+
+    <!-- Avatar upload dialog -->
+    <string name="dialog_title_update_avatar">تحديث الصورة الرمزية</string>
+    <string name="avatar_choose_hint">انقر على أيقونة الكاميرا لاختيار صورة</string>
+
+    <!-- API Keys screen -->
+    <string name="api_keys_not_available">مفاتيح API غير متاحة</string>
+    <string name="api_keys_not_supported">هذه الميزة غير مدعومة في إصدار خادمك.</string>
+    <string name="no_api_keys">لا توجد مفاتيح API</string>
+    <string name="no_api_keys_desc">أنشئ مفتاح API للوصول إلى API برمجيًا.</string>
+    <string name="dialog_title_delete_api_key">حذف مفتاح API</string>
+    <string name="dialog_delete_api_key_message">هل أنت متأكد أنك تريد حذف مفتاح API \"%1$s\"؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="created_prefix">تم الإنشاء: %1$s</string>
+
+    <!-- API Key create dialog -->
+    <string name="dialog_title_create_api_key">إنشاء مفتاح API</string>
+    <string name="api_key_name_hint">امنح مفتاح API الخاص بك اسمًا وصفيًا للمساعدة في تحديد غرضه.</string>
+    <string name="hint_key_name">اسم المفتاح</string>
+    <string name="hint_key_name_placeholder">مثال: تطبيقي</string>
+    <string name="dialog_title_api_key_created">تم إنشاء مفتاح API</string>
+    <string name="api_key_created_warning">تم إنشاء مفتاح API الخاص بك. انسخه الآن — لن تتمكن من رؤيته مرة أخرى.</string>
+    <string name="copied_to_clipboard">تم النسخ إلى الحافظة</string>
+
+    <!-- Preset manager -->
+    <string name="no_presets">لا توجد إعدادات مسبقة</string>
+    <string name="no_presets_desc">احفظ الإعدادات المسبقة من شاشة المحادثة لإدارتها هنا</string>
+    <string name="dialog_title_delete_preset">حذف الإعداد المسبق</string>
+    <string name="dialog_delete_preset_message">هل أنت متأكد أنك تريد حذف \"%1$s\"؟</string>
+
+    <!-- Shared links -->
+    <string name="no_shared_links">لا توجد روابط مشتركة</string>
+    <string name="no_shared_links_desc">شارك محادثة لرؤيتها هنا</string>
+    <string name="dialog_title_delete_shared_link">حذف الرابط المشترك</string>
+    <string name="dialog_delete_shared_link_message">سيؤدي هذا إلى إزالة الرابط المشترك لـ \"%1$s\". لن يتمكن أي شخص لديه الرابط من الوصول إليه بعد الآن.</string>
+    <string name="visibility_public">عام</string>
+    <string name="visibility_private">خاص</string>
+    <string name="error_failed_to_load_memories">فشل تحميل الذكريات</string>
+
+    <!-- Provider API Keys -->
+    <string name="provider_keys_title">مفاتيح API للمزودين</string>
+    <string name="provider_keys_subtitle">عيّن مفاتيحك الخاصة لنقاط النهاية التي تتطلبها</string>
+    <string name="provider_keys_dialog_title">تعيين مفتاح API لـ %1$s</string>
+    <string name="provider_keys_status_set_expires">ينتهي خلال %1$s</string>
+    <string name="provider_keys_status_set_never">لن ينتهي مفتاحك أبدًا</string>
+    <string name="provider_keys_status_unset">غير مُعيّن</string>
+    <string name="provider_keys_status_expired">منتهي الصلاحية</string>
+    <string name="provider_keys_status_loading">جارٍ التحقق من حالة المفتاح…</string>
+    <string name="provider_keys_field_api_key_label">المفتاح</string>
+    <string name="provider_keys_field_base_url_label">الرابط الأساسي</string>
+    <string name="provider_keys_field_base_url_optional_suffix">(اختياري)</string>
+    <string name="provider_keys_field_api_key_for_endpoint">مفتاح API لـ %1$s</string>
+    <string name="provider_keys_field_api_url_for_endpoint">رابط API لـ %1$s</string>
+
+    <string name="provider_keys_field_azure_api_key">مفتاح Azure OpenAI API</string>
+    <string name="provider_keys_field_azure_instance">اسم مثيل Azure</string>
+    <string name="provider_keys_field_azure_deployment">اسم نشر Azure</string>
+    <string name="provider_keys_field_azure_api_version">إصدار Azure API</string>
+
+    <string name="provider_keys_field_google_api_key">مفتاح Google API</string>
+    <string name="provider_keys_field_google_gemini_api">(Gemini API)</string>
+    <string name="provider_keys_field_google_service_key">مفتاح حساب خدمة Google</string>
+    <string name="provider_keys_field_google_import">استيراد مفتاح حساب الخدمة JSON.</string>
+    <string name="provider_keys_field_google_invalid">مفتاح حساب الخدمة JSON غير صالح، هل استوردت الملف الصحيح؟</string>
+    <string name="provider_keys_field_google_imported">تم استيراد مفتاح حساب الخدمة JSON بنجاح</string>
+    <string name="provider_keys_field_google_paste_label">أو الصق ملف JSON لحساب الخدمة</string>
+    <string name="provider_keys_field_google_paste_only_hint">الصق ملف JSON لحساب الخدمة أدناه.</string>
+    <string name="provider_keys_field_google_service_key_or_gemini">مفتاح خدمة Google أو مفتاح Gemini API</string>
+
+    <string name="provider_keys_field_bedrock_access_key_id">معرّف مفتاح الوصول</string>
+    <string name="provider_keys_field_bedrock_secret_access_key">مفتاح الوصول السري</string>
+    <string name="provider_keys_field_bedrock_session_token">رمز الجلسة المميز</string>
+    <string name="provider_keys_field_bedrock_session_token_optional_suffix">(اختياري)</string>
+
+    <string name="provider_keys_required_fields">الحقول التالية مطلوبة: %1$s</string>
+    <string name="provider_keys_revoke">إبطال</string>
+    <string name="provider_keys_revoke_failed">فشل إبطال مفتاح API. يرجى المحاولة مرة أخرى.</string>
+    <string name="provider_keys_revoke_success">تم إبطال مفتاح API بنجاح</string>
+    <string name="provider_keys_revoke_all">إبطال المفاتيح</string>
+    <string name="provider_keys_revoke_all_confirm">هل أنت متأكد أنك تريد إبطال جميع المفاتيح؟</string>
+    <string name="provider_keys_revoke_all_failed">فشل إبطال جميع المفاتيح</string>
+    <string name="provider_keys_save_failed">فشل حفظ مفتاح API. يرجى المحاولة مرة أخرى.</string>
+    <string name="provider_keys_save_success">تم حفظ مفتاح API بنجاح</string>
+
+    <string name="provider_keys_expiry_label">ينتهي</string>
+    <string name="provider_keys_expiry_30m">خلال 30 دقيقة</string>
+    <string name="provider_keys_expiry_2h">خلال ساعتين</string>
+    <string name="provider_keys_expiry_12h">خلال 12 ساعة</string>
+    <string name="provider_keys_expiry_1d">خلال يوم واحد</string>
+    <string name="provider_keys_expiry_7d">خلال 7 أيام</string>
+    <string name="provider_keys_expiry_30d">خلال 30 يومًا</string>
+    <string name="provider_keys_expiry_never">أبدًا</string>
+
+    <string name="provider_keys_empty_title">لا توجد نقاط نهاية تتطلب مفاتيح يوفرها المستخدم</string>
+    <string name="provider_keys_empty_desc">ستظهر هنا نقاط النهاية التي تحتاج إلى مفتاح API الخاص بك.</string>
+    <string name="provider_keys_revoke_all_action">إبطال الكل</string>
+
+    <!-- Admin: role skill access -->
+    <string name="role_skills_settings_row">الوصول إلى المهارات (المسؤول)</string>
+    <string name="role_skills_title">الوصول إلى المهارات</string>
+    <string name="role_skills_back">رجوع</string>
+    <string name="role_skills_description">تحكّم في إمكانات المهارات التي يملكها كل دور. تُطبّق التغييرات على جميع المستخدمين ذوي الدور المحدد.</string>
+    <string name="role_skills_role_label">الدور</string>
+    <string name="role_skills_use">استخدام المهارات</string>
+    <string name="role_skills_create">إنشاء المهارات وتعديلها</string>
+    <string name="role_skills_share">مشاركة المهارات</string>
+    <string name="role_skills_share_public">مشاركة المهارات علنًا</string>
+    <string name="role_skills_save">حفظ</string>
+</resources>

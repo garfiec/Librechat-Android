@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Server URL -->
+    <string name="server_url_label">서버 URL</string>
+    <string name="server_url_placeholder">https://your-server.com</string>
+    <string name="server_url_connect">연결</string>
+    <string name="connect_to_librechat">LibreChat에 연결</string>
+    <string name="enter_server_url_hint">시작하려면 서버 URL을 입력하세요</string>
+    <string name="insecure_connection_title">안전하지 않은 연결</string>
+    <string name="insecure_connection_message">HTTP로 연결하고 있습니다. 로그인 자격 증명과 메시지가 암호화되지 않은 채 전송되어 네트워크상의 다른 사람에게 가로채일 수 있습니다.\n\nHTTP는 로컬 개발 서버에만 사용하세요.</string>
+    <string name="connect_anyway">계속 연결</string>
+    <string name="cancel">취소</string>
+
+    <!-- Login -->
+    <string name="login_title">로그인</string>
+    <string name="email_label">이메일</string>
+    <string name="password_label">비밀번호</string>
+    <string name="continue_button">계속</string>
+    <string name="forgot_password">비밀번호를 잊으셨나요?</string>
+    <string name="no_account_sign_up">계정이 없으신가요? 회원가입</string>
+    <string name="or_continue_with">또는 다음으로 계속</string>
+
+    <!-- OAuth provider labels -->
+    <string name="oauth_google">Google로 계속</string>
+    <string name="oauth_github">GitHub로 계속</string>
+    <string name="oauth_discord">Discord로 계속</string>
+    <string name="oauth_facebook">Facebook으로 계속</string>
+    <string name="oauth_apple">Apple로 계속</string>
+    <string name="oauth_openid">OpenID로 계속</string>
+    <string name="oauth_generic">%1$s(으)로 계속</string>
+
+    <!-- Register -->
+    <string name="register_title">계정 만들기</string>
+    <string name="full_name_label">이름</string>
+    <string name="username_label">사용자 이름</string>
+    <string name="confirm_password_label">비밀번호 확인</string>
+    <string name="sign_up">회원가입</string>
+    <string name="have_account_sign_in">이미 계정이 있으신가요? 로그인</string>
+
+    <!-- Forgot Password -->
+    <string name="reset_password_title">비밀번호 재설정</string>
+    <string name="forgot_your_password">비밀번호를 잊으셨나요?</string>
+    <string name="enter_email_for_reset">재설정 링크를 받으려면 이메일을 입력하세요</string>
+    <string name="send_reset_link">재설정 링크 보내기</string>
+    <string name="check_your_email">이메일을 확인하세요</string>
+    <string name="reset_link_sent">%1$s(으)로 비밀번호 재설정 링크를 보냈습니다</string>
+    <string name="back_to_sign_in">로그인으로 돌아가기</string>
+
+    <!-- Reset Password -->
+    <string name="reset_password_screen_title">비밀번호 재설정</string>
+    <string name="password_reset_successful">비밀번호 재설정 완료</string>
+    <string name="password_reset_message">비밀번호가 업데이트되었습니다. 이제 새 비밀번호로 로그인할 수 있습니다.</string>
+    <string name="set_new_password">새 비밀번호 설정</string>
+    <string name="enter_new_password_hint">아래에 새 비밀번호를 입력하세요</string>
+    <string name="new_password_label">새 비밀번호</string>
+    <string name="confirm_new_password_label">새 비밀번호 확인</string>
+    <string name="reset_password_button">비밀번호 재설정</string>
+
+    <!-- Two-Factor -->
+    <string name="two_factor_title">2단계 인증</string>
+    <string name="enter_verification_code">인증 코드 입력</string>
+    <string name="enter_backup_code">백업 코드 입력</string>
+    <string name="authenticator_prompt">인증 앱의 6자리 코드를 입력하세요</string>
+    <string name="backup_code_prompt">백업 코드 중 하나를 입력하세요</string>
+    <string name="verify">확인</string>
+    <string name="use_authenticator_code">인증 앱 코드 사용</string>
+    <string name="use_backup_code">백업 코드 사용</string>
+    <string name="backup_code_label">백업 코드</string>
+
+    <!-- Verify Email -->
+    <string name="verify_email_title">이메일 인증</string>
+    <string name="verification_link_sent">인증 링크를 다음 주소로 보냈습니다</string>
+    <string name="click_link_to_verify">계정을 인증하려면 이메일의 링크를 클릭하세요.</string>
+    <string name="verification_email_sent">인증 이메일을 보냈습니다!</string>
+    <string name="resend_verification_email">인증 이메일 다시 보내기</string>
+    <string name="resend_in_seconds">%1$d초 후 다시 보내기</string>
+
+    <!-- Terms -->
+    <string name="terms_title">서비스 약관</string>
+    <string name="i_accept">동의합니다</string>
+    <string name="retry">다시 시도</string>
+
+    <!-- Common -->
+    <string name="back">뒤로</string>
+</resources>

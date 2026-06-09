@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="cancel">Cancelar</string>
+    <string name="save">Salvar</string>
+    <string name="delete">Excluir</string>
+    <string name="copy">Copiar</string>
+    <string name="edit">Editar</string>
+    <string name="regenerate">Regenerar</string>
+    <string name="action_rename">Renomear</string>
+    <string name="action_submit">Enviar</string>
+    <string name="action_insert">Inserir</string>
+    <string name="action_open">Abrir</string>
+    <string name="action_close">Fechar</string>
+    <string name="action_share">Compartilhar</string>
+    <string name="action_search">Buscar</string>
+    <string name="action_archive">Arquivar</string>
+    <string name="action_duplicate">Duplicar</string>
+    <string name="action_copy_link">Copiar link</string>
+
+    <!-- Chat screen -->
+    <string name="new_chat">Nova conversa</string>
+    <string name="send_message">Enviar</string>
+    <string name="stop_generating">Parar</string>
+    <string name="message_hint">Digite uma mensagem…</string>
+    <string name="model_parameters">Parâmetros do modelo</string>
+    <string name="load_preset">Carregar predefinição</string>
+    <string name="save_as_preset">Salvar como predefinição</string>
+    <string name="search_models">Buscar modelos…</string>
+    <string name="save_and_submit">Salvar &amp; enviar</string>
+    <string name="preset_name_label">Nome da predefinição</string>
+    <string name="code">Código</string>
+    <string name="preview">Visualizar</string>
+    <string name="select_model">Selecionar modelo</string>
+    <string name="select_a_model">Selecione um modelo</string>
+    <string name="starred_group">Favoritos</string>
+    <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
+    <string name="chat_agent_fallback_label">Agente</string>
+    <string name="compare_models">Comparar modelos</string>
+    <string name="how_can_i_help">Como posso ajudar você hoje?</string>
+    <string name="recording">Gravando…</string>
+    <string name="hint_message_model">Mensagem para %1$s</string>
+    <string name="hint_message">Mensagem…</string>
+
+    <!-- Content descriptions - Chat -->
+    <string name="cd_open_tools_menu">Abrir menu de ferramentas</string>
+    <string name="cd_paste_image">Colar imagem da área de transferência</string>
+    <string name="cd_message_input">Campo de entrada de mensagem</string>
+    <string name="cd_stop_voice_recording">Parar gravação de voz</string>
+    <string name="cd_start_voice_recording">Iniciar gravação de voz</string>
+    <string name="cd_stop_generation">Parar geração</string>
+    <string name="cd_send_message">Enviar mensagem</string>
+    <string name="cd_open_drawer">Abrir menu de navegação</string>
+    <string name="cd_more_options">Mais opções</string>
+    <string name="cd_more_tools">Mais ferramentas</string>
+    <string name="cd_scroll_to_bottom">Rolar até o final</string>
+    <string name="cd_select_model">Selecionar modelo</string>
+    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_comparison_enabled">Comparação ativada</string>
+
+    <!-- Content descriptions - Messages -->
+    <string name="cd_thumbs_up">Gostei</string>
+    <string name="cd_thumbs_down">Não gostei</string>
+    <string name="cd_copy_message">Copiar mensagem</string>
+    <string name="cd_edit_message">Editar mensagem</string>
+    <string name="cd_regenerate_response">Regenerar resposta</string>
+    <string name="cd_stop_reading">Parar leitura</string>
+    <string name="cd_read_aloud">Ler em voz alta</string>
+    <string name="cd_fork_conversation">Bifurcar conversa a partir daqui</string>
+    <string name="cd_previous_response">Resposta anterior</string>
+    <string name="cd_next_response">Próxima resposta</string>
+    <string name="cd_generating_response">Gerando resposta</string>
+
+    <!-- Content descriptions - Images -->
+    <string name="cd_fullscreen_image">Imagem em tela cheia</string>
+    <string name="cd_close">Fechar</string>
+    <string name="cd_save_to_device">Salvar no dispositivo</string>
+    <string name="cd_share_image">Compartilhar imagem</string>
+    <string name="cd_failed_to_load_image">Falha ao carregar a imagem</string>
+    <string name="cd_failed_to_load_generated_image">Falha ao carregar a imagem gerada</string>
+    <string name="cd_embedded_image">Imagem incorporada na mensagem</string>
+
+    <!-- Content descriptions - Search -->
+    <string name="cd_search_in_conversation">Buscar na conversa</string>
+    <string name="cd_previous_match">Correspondência anterior</string>
+    <string name="cd_next_match">Próxima correspondência</string>
+    <string name="cd_close_search">Fechar busca</string>
+    <string name="cd_clear_search">Limpar busca</string>
+    <string name="hint_find_in_conversation">Localizar na conversa…</string>
+
+    <!-- Content descriptions - Code -->
+    <string name="cd_copy_code">Copiar código</string>
+    <string name="cd_copied">Copiado</string>
+    <string name="action_copy_code">Copiar</string>
+    <string name="action_copied">Copiado!</string>
+    <string name="cd_code_execution_result">Resultado da execução do código</string>
+    <string name="cd_exit_code_success">Código de saída 0 (sucesso)</string>
+    <string name="cd_exit_code_failure">Código de saída %1$d (falha)</string>
+    <string name="exit_code">saída %1$d</string>
+    <string name="label_code">Código</string>
+    <string name="label_output">Saída:</string>
+    <string name="label_error">Erro:</string>
+    <string name="label_input">Entrada:</string>
+    <string name="cd_collapse_code">Recolher código</string>
+    <string name="cd_expand_code">Expandir código</string>
+
+    <!-- Content descriptions - Thinking -->
+    <string name="cd_thinking_indicator">Indicador de raciocínio</string>
+    <string name="label_thinking">Raciocinando</string>
+    <string name="cd_collapse">Recolher</string>
+    <string name="cd_expand">Expandir</string>
+    <string name="cd_collapse_thinking">Recolher bloco de raciocínio</string>
+    <string name="cd_expand_thinking">Expandir bloco de raciocínio</string>
+
+    <!-- Content descriptions - Summary (context compaction, v0.8.5+) -->
+    <string name="label_summary">Mensagens anteriores resumidas</string>
+    <string name="cd_summary_indicator">Indicador de resumo</string>
+    <string name="cd_collapse_summary">Recolher bloco de resumo</string>
+    <string name="cd_expand_summary">Expandir bloco de resumo</string>
+
+    <!-- Content descriptions - Subagent trace (subagents, v0.8.6+) -->
+    <string name="label_subagent">Subagente</string>
+    <string name="cd_collapse_subagent">Recolher subagente %1$s</string>
+    <string name="cd_expand_subagent">Expandir subagente %1$s</string>
+
+    <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
+    <string name="office_preview_preparing">Preparando visualização de %1$s…</string>
+    <string name="office_preview_failed">Não foi possível visualizar %1$s (%2$s)</string>
+    <string name="office_preview_unavailable">%1$s — visualização indisponível</string>
+
+    <!-- Content descriptions - Tool calls -->
+    <string name="cd_tool_call">Chamada de ferramenta</string>
+    <string name="cd_collapse_tool_call">Recolher chamada de ferramenta %1$s</string>
+    <string name="cd_expand_tool_call">Expandir chamada de ferramenta %1$s</string>
+    <string name="cd_tool_complete">Concluída</string>
+    <string name="cd_tool_enabled">Ativada</string>
+    <string name="video_not_supported">Conteúdo de vídeo não suportado</string>
+
+    <!-- Tools bottom sheet -->
+    <string name="tool_camera">Câmera</string>
+    <string name="tool_photos">Fotos</string>
+    <string name="tool_files">Arquivos</string>
+    <string name="tool_model">Modelo</string>
+    <string name="tool_model_parameters">Parâmetros do modelo</string>
+    <string name="tool_model_parameters_desc">Ajuste temperatura, tokens e mais</string>
+    <string name="tool_web_search">Busca na web</string>
+    <string name="tool_web_search_desc">Pesquise informações na web</string>
+    <string name="tool_code">Código</string>
+    <string name="tool_code_desc">Executar e analisar código</string>
+    <string name="tool_file_search">Busca em arquivos</string>
+    <string name="tool_file_search_desc">Pesquise nos arquivos enviados</string>
+    <string name="tool_mcp">MCP</string>
+    <string name="tool_mcp_desc">Servidores Model Context Protocol</string>
+    <string name="cd_web_search_enabled">Busca na web ativada</string>
+    <string name="cd_code_enabled">Interpretador de código ativado</string>
+    <string name="cd_file_search_enabled">Busca em arquivos ativada</string>
+
+    <!-- Attachments -->
+    <string name="cd_attach_file">Anexar arquivo</string>
+    <string name="toast_file_attach_unavailable">Anexos de arquivo ainda não disponíveis no iOS</string>
+    <string name="files_count">Arquivos (%1$d)</string>
+    <string name="cd_attached_file">Arquivo anexado: %1$s</string>
+    <string name="cd_preview_file">Visualização de %1$s</string>
+    <string name="cd_remove_file">Remover %1$s</string>
+
+    <!-- Agent handoff -->
+    <string name="cd_agent_handoff">Transferência de agente de %1$s para %2$s</string>
+    <string name="cd_handed_off_to">transferido para</string>
+    <string name="agent_unknown">desconhecido</string>
+    <string name="agent_previous">Agente anterior</string>
+    <string name="agent_next">Próximo agente</string>
+
+    <!-- Audio/Video -->
+    <string name="cd_pause">Pausar</string>
+    <string name="cd_play">Reproduzir</string>
+    <string name="cd_play_video">Reproduzir vídeo</string>
+    <string name="audio_no_data">Nenhum dado de áudio</string>
+    <string name="audio_decode_failed">Falha ao decodificar o áudio</string>
+
+    <!-- Citation -->
+    <string name="citation_number">Citação %1$d</string>
+    <string name="cd_open_citation_url">Abrir URL da citação</string>
+
+    <!-- Fork options -->
+    <string name="fork_conversation">Bifurcar conversa</string>
+    <string name="fork_visible_messages">Mensagens visíveis</string>
+    <string name="fork_visible_messages_desc">Apenas o caminho direto de mensagens</string>
+    <string name="fork_include_branches">Incluir ramificações</string>
+    <string name="fork_include_branches_desc">Caminho direto mais mensagens irmãs</string>
+    <string name="fork_all_to_target">Tudo até o nível alvo</string>
+    <string name="fork_all_to_target_desc">Todas as mensagens e ramificações até este nível</string>
+    <string name="fork_start_new">Iniciar nova conversa a partir do alvo</string>
+    <string name="fork_start_new_desc">Começar a bifurcação a partir da mensagem selecionada, em vez da raiz</string>
+
+    <!-- Image viewer toasts -->
+    <string name="toast_failed_to_load_image">Falha ao carregar a imagem</string>
+    <string name="toast_failed_to_save_image">Falha ao salvar a imagem</string>
+    <string name="toast_image_saved">Imagem salva na galeria</string>
+    <string name="toast_failed_to_save_with_error">Falha ao salvar a imagem: %1$s</string>
+    <string name="toast_storage_permission_required">É necessária permissão de armazenamento para salvar imagens</string>
+
+    <!-- Image generation -->
+    <string name="generating_image">Gerando imagem…</string>
+    <string name="image_generated">Imagem gerada</string>
+    <string name="cd_generated_image">Imagem gerada</string>
+
+    <!-- Landing page greetings -->
+    <string name="greeting_late_night">Boa madrugada</string>
+    <string name="greeting_weekend_morning">Bom fim de semana de manhã</string>
+    <string name="greeting_weekend_afternoon">Bom fim de semana à tarde</string>
+    <string name="greeting_weekend_evening">Bom fim de semana à noite</string>
+    <string name="greeting_early_morning">Bom amanhecer</string>
+    <string name="greeting_morning">Bom dia</string>
+    <string name="greeting_afternoon">Boa tarde</string>
+    <string name="greeting_evening">Boa noite</string>
+
+    <!-- Log content -->
+    <string name="log_output">Saída do log</string>
+    <string name="cd_collapse_log">Recolher %1$s</string>
+    <string name="cd_expand_log">Expandir %1$s</string>
+
+    <!-- Table dialog -->
+    <string name="cd_expand_table">Expandir tabela</string>
+    <string name="dialog_table">Tabela</string>
+
+    <!-- MCP -->
+    <string name="cd_select_mcp_servers">Selecionar servidores MCP</string>
+    <string name="cd_mcp_resources">Recursos MCP: %1$d itens</string>
+    <string name="cd_mcp_resource">Recurso MCP: %1$s</string>
+
+    <!-- Memory artifact -->
+    <string name="cd_memory_artifact">Artefato de memória: %1$s</string>
+    <string name="memory_artifact_untitled">Sem título</string>
+    <string name="label_memory">Memória</string>
+
+    <!-- Mermaid diagram -->
+    <string name="label_mermaid">mermaid</string>
+    <string name="cd_show_diagram">Mostrar diagrama</string>
+    <string name="cd_view_code">Ver código</string>
+    <string name="label_diagram">Diagrama</string>
+    <string name="cd_fullscreen">Tela cheia</string>
+    <string name="cd_close_fullscreen">Fechar tela cheia</string>
+
+    <!-- Message bubble -->
+    <string name="sender_you">Você</string>
+    <string name="sender_assistant">Assistente</string>
+
+    <!-- Message files -->
+    <string name="file_fallback">Arquivo</string>
+
+    <!-- Model selector sheet -->
+    <string name="cd_selected">Selecionado</string>
+    <string name="cd_public_agent">Agente público</string>
+    <string name="cd_pin_favorite">Fixar como favorito</string>
+    <string name="cd_unpin_favorite">Desafixar favorito</string>
+    <string name="cd_collapse_section">Recolher %1$s</string>
+    <string name="cd_expand_section">Expandir %1$s</string>
+    <string name="set_api_key_action">Definir chave de API</string>
+    <string name="cd_set_api_key">Configurar chave de API para %1$s</string>
+
+    <!-- Preset picker -->
+    <string name="select_preset">Selecionar predefinição</string>
+    <string name="no_presets_saved">Nenhuma predefinição salva ainda</string>
+    <string name="cd_edit_preset">Editar %1$s</string>
+    <string name="cd_delete_preset">Excluir %1$s</string>
+    <string name="preset_endpoint">Endpoint: %1$s</string>
+    <string name="preset_model">Modelo: %1$s</string>
+
+    <!-- Feedback dialog -->
+    <string name="dialog_title_feedback">Enviar feedback</string>
+    <string name="feedback_question">Qual foi o problema com esta resposta?</string>
+    <string name="hint_optional_comment">Comentário opcional…</string>
+
+    <!-- Streaming tool call -->
+    <string name="tool_call_output">Saída:</string>
+
+    <!-- Web search result -->
+    <string name="cd_search_result">Resultado da busca: %1$s</string>
+
+    <!-- Rename dialog -->
+    <string name="dialog_title_rename">Renomear conversa</string>
+    <string name="hint_title">Título</string>
+
+    <!-- Delete dialog -->
+    <string name="dialog_title_delete_conversation">Excluir conversa</string>
+    <string name="dialog_delete_conversation_message">Isso excluirá permanentemente esta conversa. Esta ação não pode ser desfeita.</string>
+
+    <!-- Chat menu options -->
+    <string name="menu_search">Buscar</string>
+    <string name="menu_rename">Renomear</string>
+
+    <!-- Artifacts -->
+    <string name="cd_open_artifact">Abrir artefato</string>
+    <string name="cd_share_artifact">Compartilhar artefato</string>
+    <string name="cd_previous_version">Versão anterior</string>
+    <string name="cd_next_version">Próxima versão</string>
+    <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="label_resource">Recurso</string>
+
+    <!-- Prompts -->
+    <string name="prompts_library">Biblioteca de prompts</string>
+    <string name="use_in_chat">Usar na conversa</string>
+    <string name="set_production">Definir como produção</string>
+    <string name="prompt_name_label">Nome</string>
+    <string name="prompt_description_label">Descrição</string>
+    <string name="prompt_command_label">Comando</string>
+    <string name="prompt_text_label">Texto do prompt</string>
+    <string name="prompt_content">Conteúdo do prompt</string>
+    <string name="cd_share_prompt">Compartilhar prompt</string>
+    <string name="cd_edit_prompt">Editar prompt</string>
+    <string name="cd_delete_prompt">Excluir prompt</string>
+    <string name="cd_back">Voltar</string>
+    <string name="cd_version_history">Histórico de versões</string>
+    <string name="cd_filter_sort">Filtrar e ordenar</string>
+    <string name="cd_create_prompt">Criar prompt</string>
+    <string name="cd_remove_filter">Remover filtro</string>
+    <string name="cd_reset_sort">Redefinir ordenação</string>
+    <string name="cd_share">Compartilhar</string>
+    <string name="prompt_author">por %1$s</string>
+    <string name="prompt_sort_label">Ordenar: %1$s</string>
+
+    <!-- Prompt versions -->
+    <string name="version_history">Histórico de versões</string>
+    <string name="no_versions">Nenhuma versão disponível</string>
+    <string name="label_production">Produção</string>
+    <string name="version_number">v%1$d</string>
+
+    <!-- Prompt variables -->
+    <string name="label_variables">Variáveis</string>
+
+    <!-- Prompt filter sheet -->
+    <string name="label_category">Categoria</string>
+    <string name="label_all">Todas</string>
+    <string name="label_sort_by">Ordenar por</string>
+
+    <!-- Prompt share dialog -->
+    <string name="dialog_title_share_prompt">Compartilhar prompt</string>
+    <string name="label_permission">Permissão</string>
+
+    <!-- Variable input dialog -->
+    <string name="dialog_title_fill_variables">Preencher variáveis</string>
+
+    <!-- Temp chat toggle -->
+    <string name="cd_temp_chat">Conversa temporária</string>
+    <string name="label_temp_chat">Temp</string>
+
+    <!-- Comparison mode -->
+    <string name="continue_with_response">Continuar com esta resposta</string>
+    <string name="waiting_for_response">Aguardando resposta…</string>
+
+    <!-- Slash command menu -->
+    <string name="slash_command_title">/%1$s</string>
+
+    <!-- Provider Keys chat-time errors. -->
+    <string name="provider_keys_chat_error_no_key">Nenhuma chave encontrada. Forneça uma chave e tente novamente.</string>
+    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <string name="provider_keys_chat_error_expired">A chave fornecida para %1$s expirou em %2$s. Forneça uma nova chave e tente novamente.</string>
+    <string name="provider_keys_chat_error_invalid">Chave inválida fornecida. Forneça uma chave válida e tente novamente.</string>
+    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
+    <string name="provider_keys_chat_error_cta">Abrir configurações de chaves</string>
+
+    <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
+    <string name="send_block_select_agent">Selecione um agente antes de enviar sua mensagem.</string>
+    <string name="send_block_select_model">Selecione um modelo antes de enviar sua mensagem.</string>
+    <string name="send_block_agents_unavailable">Os agentes não estão disponíveis neste servidor. Escolha um modelo diferente.</string>
+    <string name="send_block_agent_not_available">O agente selecionado não está disponível neste servidor. Escolha um agente diferente.</string>
+    <string name="send_block_model_not_available">O modelo selecionado não está disponível neste servidor. Escolha um modelo diferente.</string>
+    <string name="send_block_model_load_failed">Ainda não foi possível carregar o modelo selecionado. Tente novamente ou escolha um modelo diferente.</string>
+</resources>

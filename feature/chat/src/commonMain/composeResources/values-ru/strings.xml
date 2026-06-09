@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="cancel">Отмена</string>
+    <string name="save">Сохранить</string>
+    <string name="delete">Удалить</string>
+    <string name="copy">Копировать</string>
+    <string name="edit">Изменить</string>
+    <string name="regenerate">Сгенерировать заново</string>
+    <string name="action_rename">Переименовать</string>
+    <string name="action_submit">Отправить</string>
+    <string name="action_insert">Вставить</string>
+    <string name="action_open">Открыть</string>
+    <string name="action_close">Закрыть</string>
+    <string name="action_share">Поделиться</string>
+    <string name="action_search">Поиск</string>
+    <string name="action_archive">В архив</string>
+    <string name="action_duplicate">Дублировать</string>
+    <string name="action_copy_link">Скопировать ссылку</string>
+
+    <!-- Chat screen -->
+    <string name="new_chat">Новый чат</string>
+    <string name="send_message">Отправить</string>
+    <string name="stop_generating">Стоп</string>
+    <string name="message_hint">Введите сообщение…</string>
+    <string name="model_parameters">Параметры модели</string>
+    <string name="load_preset">Загрузить пресет</string>
+    <string name="save_as_preset">Сохранить как пресет</string>
+    <string name="search_models">Поиск моделей…</string>
+    <string name="save_and_submit">Сохранить и отправить</string>
+    <string name="preset_name_label">Имя пресета</string>
+    <string name="code">Код</string>
+    <string name="preview">Предпросмотр</string>
+    <string name="select_model">Выбрать модель</string>
+    <string name="select_a_model">Выберите модель</string>
+    <string name="starred_group">Избранное</string>
+    <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
+    <string name="chat_agent_fallback_label">Агент</string>
+    <string name="compare_models">Сравнить модели</string>
+    <string name="how_can_i_help">Чем я могу помочь вам сегодня?</string>
+    <string name="recording">Запись…</string>
+    <string name="hint_message_model">Сообщение для %1$s</string>
+    <string name="hint_message">Сообщение…</string>
+
+    <!-- Content descriptions - Chat -->
+    <string name="cd_open_tools_menu">Открыть меню инструментов</string>
+    <string name="cd_paste_image">Вставить изображение из буфера обмена</string>
+    <string name="cd_message_input">Поле ввода сообщения</string>
+    <string name="cd_stop_voice_recording">Остановить запись голоса</string>
+    <string name="cd_start_voice_recording">Начать запись голоса</string>
+    <string name="cd_stop_generation">Остановить генерацию</string>
+    <string name="cd_send_message">Отправить сообщение</string>
+    <string name="cd_open_drawer">Открыть панель навигации</string>
+    <string name="cd_more_options">Дополнительно</string>
+    <string name="cd_more_tools">Ещё инструменты</string>
+    <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
+    <string name="cd_select_model">Выбрать модель</string>
+    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_comparison_enabled">Сравнение включено</string>
+
+    <!-- Content descriptions - Messages -->
+    <string name="cd_thumbs_up">Нравится</string>
+    <string name="cd_thumbs_down">Не нравится</string>
+    <string name="cd_copy_message">Скопировать сообщение</string>
+    <string name="cd_edit_message">Изменить сообщение</string>
+    <string name="cd_regenerate_response">Сгенерировать ответ заново</string>
+    <string name="cd_stop_reading">Остановить озвучивание</string>
+    <string name="cd_read_aloud">Озвучить</string>
+    <string name="cd_fork_conversation">Ответвить беседу отсюда</string>
+    <string name="cd_previous_response">Предыдущий ответ</string>
+    <string name="cd_next_response">Следующий ответ</string>
+    <string name="cd_generating_response">Генерация ответа</string>
+
+    <!-- Content descriptions - Images -->
+    <string name="cd_fullscreen_image">Изображение во весь экран</string>
+    <string name="cd_close">Закрыть</string>
+    <string name="cd_save_to_device">Сохранить на устройство</string>
+    <string name="cd_share_image">Поделиться изображением</string>
+    <string name="cd_failed_to_load_image">Не удалось загрузить изображение</string>
+    <string name="cd_failed_to_load_generated_image">Не удалось загрузить сгенерированное изображение</string>
+    <string name="cd_embedded_image">Встроенное изображение в сообщении</string>
+
+    <!-- Content descriptions - Search -->
+    <string name="cd_search_in_conversation">Поиск в беседе</string>
+    <string name="cd_previous_match">Предыдущее совпадение</string>
+    <string name="cd_next_match">Следующее совпадение</string>
+    <string name="cd_close_search">Закрыть поиск</string>
+    <string name="cd_clear_search">Очистить поиск</string>
+    <string name="hint_find_in_conversation">Найти в беседе…</string>
+
+    <!-- Content descriptions - Code -->
+    <string name="cd_copy_code">Скопировать код</string>
+    <string name="cd_copied">Скопировано</string>
+    <string name="action_copy_code">Копировать</string>
+    <string name="action_copied">Скопировано!</string>
+    <string name="cd_code_execution_result">Результат выполнения кода</string>
+    <string name="cd_exit_code_success">Код выхода 0 (успех)</string>
+    <string name="cd_exit_code_failure">Код выхода %1$d (ошибка)</string>
+    <string name="exit_code">выход %1$d</string>
+    <string name="label_code">Код</string>
+    <string name="label_output">Вывод:</string>
+    <string name="label_error">Ошибка:</string>
+    <string name="label_input">Ввод:</string>
+    <string name="cd_collapse_code">Свернуть код</string>
+    <string name="cd_expand_code">Развернуть код</string>
+
+    <!-- Content descriptions - Thinking -->
+    <string name="cd_thinking_indicator">Индикатор размышления</string>
+    <string name="label_thinking">Размышление</string>
+    <string name="cd_collapse">Свернуть</string>
+    <string name="cd_expand">Развернуть</string>
+    <string name="cd_collapse_thinking">Свернуть блок размышлений</string>
+    <string name="cd_expand_thinking">Развернуть блок размышлений</string>
+
+    <!-- Content descriptions - Summary (context compaction, v0.8.5+) -->
+    <string name="label_summary">Сводка предыдущих сообщений</string>
+    <string name="cd_summary_indicator">Индикатор сводки</string>
+    <string name="cd_collapse_summary">Свернуть блок сводки</string>
+    <string name="cd_expand_summary">Развернуть блок сводки</string>
+
+    <!-- Content descriptions - Subagent trace (subagents, v0.8.6+) -->
+    <string name="label_subagent">Субагент</string>
+    <string name="cd_collapse_subagent">Свернуть субагента %1$s</string>
+    <string name="cd_expand_subagent">Развернуть субагента %1$s</string>
+
+    <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
+    <string name="office_preview_preparing">Подготовка предпросмотра %1$s…</string>
+    <string name="office_preview_failed">Не удалось показать предпросмотр %1$s (%2$s)</string>
+    <string name="office_preview_unavailable">%1$s — предпросмотр недоступен</string>
+
+    <!-- Content descriptions - Tool calls -->
+    <string name="cd_tool_call">Вызов инструмента</string>
+    <string name="cd_collapse_tool_call">Свернуть вызов инструмента %1$s</string>
+    <string name="cd_expand_tool_call">Развернуть вызов инструмента %1$s</string>
+    <string name="cd_tool_complete">Завершено</string>
+    <string name="cd_tool_enabled">Включено</string>
+    <string name="video_not_supported">Видеоконтент не поддерживается</string>
+
+    <!-- Tools bottom sheet -->
+    <string name="tool_camera">Камера</string>
+    <string name="tool_photos">Фото</string>
+    <string name="tool_files">Файлы</string>
+    <string name="tool_model">Модель</string>
+    <string name="tool_model_parameters">Параметры модели</string>
+    <string name="tool_model_parameters_desc">Настройте температуру, токены и другое</string>
+    <string name="tool_web_search">Веб-поиск</string>
+    <string name="tool_web_search_desc">Искать информацию в интернете</string>
+    <string name="tool_code">Код</string>
+    <string name="tool_code_desc">Запуск и анализ кода</string>
+    <string name="tool_file_search">Поиск по файлам</string>
+    <string name="tool_file_search_desc">Поиск по загруженным файлам</string>
+    <string name="tool_mcp">MCP</string>
+    <string name="tool_mcp_desc">Серверы Model Context Protocol</string>
+    <string name="cd_web_search_enabled">Веб-поиск включён</string>
+    <string name="cd_code_enabled">Интерпретатор кода включён</string>
+    <string name="cd_file_search_enabled">Поиск по файлам включён</string>
+
+    <!-- Attachments -->
+    <string name="cd_attach_file">Прикрепить файл</string>
+    <string name="toast_file_attach_unavailable">Вложения файлов пока недоступны на iOS</string>
+    <string name="files_count">Файлы (%1$d)</string>
+    <string name="cd_attached_file">Прикреплённый файл: %1$s</string>
+    <string name="cd_preview_file">Предпросмотр %1$s</string>
+    <string name="cd_remove_file">Удалить %1$s</string>
+
+    <!-- Agent handoff -->
+    <string name="cd_agent_handoff">Передача от агента %1$s к %2$s</string>
+    <string name="cd_handed_off_to">передано</string>
+    <string name="agent_unknown">неизвестно</string>
+    <string name="agent_previous">Предыдущий агент</string>
+    <string name="agent_next">Следующий агент</string>
+
+    <!-- Audio/Video -->
+    <string name="cd_pause">Пауза</string>
+    <string name="cd_play">Воспроизвести</string>
+    <string name="cd_play_video">Воспроизвести видео</string>
+    <string name="audio_no_data">Нет аудиоданных</string>
+    <string name="audio_decode_failed">Не удалось декодировать аудио</string>
+
+    <!-- Citation -->
+    <string name="citation_number">Источник %1$d</string>
+    <string name="cd_open_citation_url">Открыть URL источника</string>
+
+    <!-- Fork options -->
+    <string name="fork_conversation">Ответвить беседу</string>
+    <string name="fork_visible_messages">Видимые сообщения</string>
+    <string name="fork_visible_messages_desc">Только прямой путь сообщений</string>
+    <string name="fork_include_branches">Включить ветви</string>
+    <string name="fork_include_branches_desc">Прямой путь плюс соседние сообщения</string>
+    <string name="fork_all_to_target">Все до уровня цели</string>
+    <string name="fork_all_to_target_desc">Все сообщения и ветви до этого уровня</string>
+    <string name="fork_start_new">Начать новую беседу с цели</string>
+    <string name="fork_start_new_desc">Начать ответвление с выбранного сообщения, а не с корня</string>
+
+    <!-- Image viewer toasts -->
+    <string name="toast_failed_to_load_image">Не удалось загрузить изображение</string>
+    <string name="toast_failed_to_save_image">Не удалось сохранить изображение</string>
+    <string name="toast_image_saved">Изображение сохранено в галерею</string>
+    <string name="toast_failed_to_save_with_error">Не удалось сохранить изображение: %1$s</string>
+    <string name="toast_storage_permission_required">Для сохранения изображений требуется разрешение на доступ к хранилищу</string>
+
+    <!-- Image generation -->
+    <string name="generating_image">Генерация изображения…</string>
+    <string name="image_generated">Изображение сгенерировано</string>
+    <string name="cd_generated_image">Сгенерированное изображение</string>
+
+    <!-- Landing page greetings -->
+    <string name="greeting_late_night">Доброй ночи</string>
+    <string name="greeting_weekend_morning">Приятного утра выходного</string>
+    <string name="greeting_weekend_afternoon">Приятного дня выходного</string>
+    <string name="greeting_weekend_evening">Приятного вечера выходного</string>
+    <string name="greeting_early_morning">Доброго раннего утра</string>
+    <string name="greeting_morning">Доброе утро</string>
+    <string name="greeting_afternoon">Добрый день</string>
+    <string name="greeting_evening">Добрый вечер</string>
+
+    <!-- Log content -->
+    <string name="log_output">Вывод журнала</string>
+    <string name="cd_collapse_log">Свернуть %1$s</string>
+    <string name="cd_expand_log">Развернуть %1$s</string>
+
+    <!-- Table dialog -->
+    <string name="cd_expand_table">Развернуть таблицу</string>
+    <string name="dialog_table">Таблица</string>
+
+    <!-- MCP -->
+    <string name="cd_select_mcp_servers">Выбрать серверы MCP</string>
+    <string name="cd_mcp_resources">Ресурсы MCP: %1$d элементов</string>
+    <string name="cd_mcp_resource">Ресурс MCP: %1$s</string>
+
+    <!-- Memory artifact -->
+    <string name="cd_memory_artifact">Артефакт памяти: %1$s</string>
+    <string name="memory_artifact_untitled">Без названия</string>
+    <string name="label_memory">Память</string>
+
+    <!-- Mermaid diagram -->
+    <string name="label_mermaid">mermaid</string>
+    <string name="cd_show_diagram">Показать диаграмму</string>
+    <string name="cd_view_code">Показать код</string>
+    <string name="label_diagram">Диаграмма</string>
+    <string name="cd_fullscreen">Во весь экран</string>
+    <string name="cd_close_fullscreen">Закрыть полноэкранный режим</string>
+
+    <!-- Message bubble -->
+    <string name="sender_you">Вы</string>
+    <string name="sender_assistant">Ассистент</string>
+
+    <!-- Message files -->
+    <string name="file_fallback">Файл</string>
+
+    <!-- Model selector sheet -->
+    <string name="cd_selected">Выбрано</string>
+    <string name="cd_public_agent">Публичный агент</string>
+    <string name="cd_pin_favorite">Закрепить в избранном</string>
+    <string name="cd_unpin_favorite">Открепить из избранного</string>
+    <string name="cd_collapse_section">Свернуть %1$s</string>
+    <string name="cd_expand_section">Развернуть %1$s</string>
+    <string name="set_api_key_action">Задать API-ключ</string>
+    <string name="cd_set_api_key">Настроить API-ключ для %1$s</string>
+
+    <!-- Preset picker -->
+    <string name="select_preset">Выбрать пресет</string>
+    <string name="no_presets_saved">Пока нет сохранённых пресетов</string>
+    <string name="cd_edit_preset">Изменить %1$s</string>
+    <string name="cd_delete_preset">Удалить %1$s</string>
+    <string name="preset_endpoint">Конечная точка: %1$s</string>
+    <string name="preset_model">Модель: %1$s</string>
+
+    <!-- Feedback dialog -->
+    <string name="dialog_title_feedback">Оставить отзыв</string>
+    <string name="feedback_question">В чём была проблема с этим ответом?</string>
+    <string name="hint_optional_comment">Необязательный комментарий…</string>
+
+    <!-- Streaming tool call -->
+    <string name="tool_call_output">Вывод:</string>
+
+    <!-- Web search result -->
+    <string name="cd_search_result">Результат поиска: %1$s</string>
+
+    <!-- Rename dialog -->
+    <string name="dialog_title_rename">Переименовать беседу</string>
+    <string name="hint_title">Название</string>
+
+    <!-- Delete dialog -->
+    <string name="dialog_title_delete_conversation">Удалить беседу</string>
+    <string name="dialog_delete_conversation_message">Это безвозвратно удалит эту беседу. Это нельзя отменить.</string>
+
+    <!-- Chat menu options -->
+    <string name="menu_search">Поиск</string>
+    <string name="menu_rename">Переименовать</string>
+
+    <!-- Artifacts -->
+    <string name="cd_open_artifact">Открыть артефакт</string>
+    <string name="cd_share_artifact">Поделиться артефактом</string>
+    <string name="cd_previous_version">Предыдущая версия</string>
+    <string name="cd_next_version">Следующая версия</string>
+    <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="label_resource">Ресурс</string>
+
+    <!-- Prompts -->
+    <string name="prompts_library">Библиотека промптов</string>
+    <string name="use_in_chat">Использовать в чате</string>
+    <string name="set_production">Сделать рабочей</string>
+    <string name="prompt_name_label">Имя</string>
+    <string name="prompt_description_label">Описание</string>
+    <string name="prompt_command_label">Команда</string>
+    <string name="prompt_text_label">Текст промпта</string>
+    <string name="prompt_content">Содержимое промпта</string>
+    <string name="cd_share_prompt">Поделиться промптом</string>
+    <string name="cd_edit_prompt">Изменить промпт</string>
+    <string name="cd_delete_prompt">Удалить промпт</string>
+    <string name="cd_back">Назад</string>
+    <string name="cd_version_history">История версий</string>
+    <string name="cd_filter_sort">Фильтр и сортировка</string>
+    <string name="cd_create_prompt">Создать промпт</string>
+    <string name="cd_remove_filter">Убрать фильтр</string>
+    <string name="cd_reset_sort">Сбросить сортировку</string>
+    <string name="cd_share">Поделиться</string>
+    <string name="prompt_author">автор: %1$s</string>
+    <string name="prompt_sort_label">Сортировка: %1$s</string>
+
+    <!-- Prompt versions -->
+    <string name="version_history">История версий</string>
+    <string name="no_versions">Нет доступных версий</string>
+    <string name="label_production">Рабочая</string>
+    <string name="version_number">v%1$d</string>
+
+    <!-- Prompt variables -->
+    <string name="label_variables">Переменные</string>
+
+    <!-- Prompt filter sheet -->
+    <string name="label_category">Категория</string>
+    <string name="label_all">Все</string>
+    <string name="label_sort_by">Сортировать по</string>
+
+    <!-- Prompt share dialog -->
+    <string name="dialog_title_share_prompt">Поделиться промптом</string>
+    <string name="label_permission">Разрешение</string>
+
+    <!-- Variable input dialog -->
+    <string name="dialog_title_fill_variables">Заполнить переменные</string>
+
+    <!-- Temp chat toggle -->
+    <string name="cd_temp_chat">Временный чат</string>
+    <string name="label_temp_chat">Врем.</string>
+
+    <!-- Comparison mode -->
+    <string name="continue_with_response">Продолжить с этим ответом</string>
+    <string name="waiting_for_response">Ожидание ответа…</string>
+
+    <!-- Slash command menu -->
+    <string name="slash_command_title">/%1$s</string>
+
+    <!-- Provider Keys chat-time errors. -->
+    <string name="provider_keys_chat_error_no_key">Ключ не найден. Укажите ключ и попробуйте снова.</string>
+    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <string name="provider_keys_chat_error_expired">Указанный ключ для %1$s истёк %2$s. Укажите новый ключ и попробуйте снова.</string>
+    <string name="provider_keys_chat_error_invalid">Указан недействительный ключ. Укажите действительный ключ и попробуйте снова.</string>
+    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
+    <string name="provider_keys_chat_error_cta">Открыть настройки ключей</string>
+
+    <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
+    <string name="send_block_select_agent">Выберите агента перед отправкой сообщения.</string>
+    <string name="send_block_select_model">Выберите модель перед отправкой сообщения.</string>
+    <string name="send_block_agents_unavailable">Агенты недоступны на этом сервере. Выберите другую модель.</string>
+    <string name="send_block_agent_not_available">Выбранный агент недоступен на этом сервере. Выберите другого агента.</string>
+    <string name="send_block_model_not_available">Выбранная модель недоступна на этом сервере. Выберите другую модель.</string>
+    <string name="send_block_model_load_failed">Пока не удалось загрузить выбранную модель. Попробуйте снова или выберите другую модель.</string>
+</resources>

@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="cancel">取消</string>
+    <string name="save">保存</string>
+    <string name="delete">删除</string>
+    <string name="copy">复制</string>
+    <string name="edit">编辑</string>
+    <string name="regenerate">重新生成</string>
+    <string name="action_rename">重命名</string>
+    <string name="action_submit">提交</string>
+    <string name="action_insert">插入</string>
+    <string name="action_open">打开</string>
+    <string name="action_close">关闭</string>
+    <string name="action_share">分享</string>
+    <string name="action_search">搜索</string>
+    <string name="action_archive">归档</string>
+    <string name="action_duplicate">复制副本</string>
+    <string name="action_copy_link">复制链接</string>
+
+    <!-- Chat screen -->
+    <string name="new_chat">新建聊天</string>
+    <string name="send_message">发送</string>
+    <string name="stop_generating">停止</string>
+    <string name="message_hint">输入消息…</string>
+    <string name="model_parameters">模型参数</string>
+    <string name="load_preset">加载预设</string>
+    <string name="save_as_preset">另存为预设</string>
+    <string name="search_models">搜索模型…</string>
+    <string name="save_and_submit">保存并提交</string>
+    <string name="preset_name_label">预设名称</string>
+    <string name="code">代码</string>
+    <string name="preview">预览</string>
+    <string name="select_model">选择模型</string>
+    <string name="select_a_model">选择一个模型</string>
+    <string name="starred_group">已星标</string>
+    <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
+    <string name="chat_agent_fallback_label">智能体</string>
+    <string name="compare_models">对比模型</string>
+    <string name="how_can_i_help">今天我能帮你做些什么？</string>
+    <string name="recording">录音中…</string>
+    <string name="hint_message_model">向 %1$s 发送消息</string>
+    <string name="hint_message">发送消息…</string>
+
+    <!-- Content descriptions - Chat -->
+    <string name="cd_open_tools_menu">打开工具菜单</string>
+    <string name="cd_paste_image">从剪贴板粘贴图片</string>
+    <string name="cd_message_input">消息输入框</string>
+    <string name="cd_stop_voice_recording">停止录音</string>
+    <string name="cd_start_voice_recording">开始录音</string>
+    <string name="cd_stop_generation">停止生成</string>
+    <string name="cd_send_message">发送消息</string>
+    <string name="cd_open_drawer">打开导航抽屉</string>
+    <string name="cd_more_options">更多选项</string>
+    <string name="cd_more_tools">更多工具</string>
+    <string name="cd_scroll_to_bottom">滚动到底部</string>
+    <string name="cd_select_model">选择模型</string>
+    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_comparison_enabled">已启用对比</string>
+
+    <!-- Content descriptions - Messages -->
+    <string name="cd_thumbs_up">点赞</string>
+    <string name="cd_thumbs_down">点踩</string>
+    <string name="cd_copy_message">复制消息</string>
+    <string name="cd_edit_message">编辑消息</string>
+    <string name="cd_regenerate_response">重新生成回复</string>
+    <string name="cd_stop_reading">停止朗读</string>
+    <string name="cd_read_aloud">朗读</string>
+    <string name="cd_fork_conversation">从此处分叉对话</string>
+    <string name="cd_previous_response">上一条回复</string>
+    <string name="cd_next_response">下一条回复</string>
+    <string name="cd_generating_response">正在生成回复</string>
+
+    <!-- Content descriptions - Images -->
+    <string name="cd_fullscreen_image">全屏图片</string>
+    <string name="cd_close">关闭</string>
+    <string name="cd_save_to_device">保存到设备</string>
+    <string name="cd_share_image">分享图片</string>
+    <string name="cd_failed_to_load_image">图片加载失败</string>
+    <string name="cd_failed_to_load_generated_image">生成的图片加载失败</string>
+    <string name="cd_embedded_image">消息中的内嵌图片</string>
+
+    <!-- Content descriptions - Search -->
+    <string name="cd_search_in_conversation">在对话中搜索</string>
+    <string name="cd_previous_match">上一个匹配项</string>
+    <string name="cd_next_match">下一个匹配项</string>
+    <string name="cd_close_search">关闭搜索</string>
+    <string name="cd_clear_search">清除搜索</string>
+    <string name="hint_find_in_conversation">在对话中查找…</string>
+
+    <!-- Content descriptions - Code -->
+    <string name="cd_copy_code">复制代码</string>
+    <string name="cd_copied">已复制</string>
+    <string name="action_copy_code">复制</string>
+    <string name="action_copied">已复制！</string>
+    <string name="cd_code_execution_result">代码执行结果</string>
+    <string name="cd_exit_code_success">退出码 0（成功）</string>
+    <string name="cd_exit_code_failure">退出码 %1$d（失败）</string>
+    <string name="exit_code">退出码 %1$d</string>
+    <string name="label_code">代码</string>
+    <string name="label_output">输出：</string>
+    <string name="label_error">错误：</string>
+    <string name="label_input">输入：</string>
+    <string name="cd_collapse_code">收起代码</string>
+    <string name="cd_expand_code">展开代码</string>
+
+    <!-- Content descriptions - Thinking -->
+    <string name="cd_thinking_indicator">思考指示器</string>
+    <string name="label_thinking">思考中</string>
+    <string name="cd_collapse">收起</string>
+    <string name="cd_expand">展开</string>
+    <string name="cd_collapse_thinking">收起思考块</string>
+    <string name="cd_expand_thinking">展开思考块</string>
+
+    <!-- Content descriptions - Summary (context compaction, v0.8.5+) -->
+    <string name="label_summary">已总结较早的消息</string>
+    <string name="cd_summary_indicator">摘要指示器</string>
+    <string name="cd_collapse_summary">收起摘要块</string>
+    <string name="cd_expand_summary">展开摘要块</string>
+
+    <!-- Content descriptions - Subagent trace (subagents, v0.8.6+) -->
+    <string name="label_subagent">子智能体</string>
+    <string name="cd_collapse_subagent">收起子智能体 %1$s</string>
+    <string name="cd_expand_subagent">展开子智能体 %1$s</string>
+
+    <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
+    <string name="office_preview_preparing">正在准备 %1$s 的预览…</string>
+    <string name="office_preview_failed">无法预览 %1$s（%2$s）</string>
+    <string name="office_preview_unavailable">%1$s — 预览不可用</string>
+
+    <!-- Content descriptions - Tool calls -->
+    <string name="cd_tool_call">工具调用</string>
+    <string name="cd_collapse_tool_call">收起工具调用 %1$s</string>
+    <string name="cd_expand_tool_call">展开工具调用 %1$s</string>
+    <string name="cd_tool_complete">已完成</string>
+    <string name="cd_tool_enabled">已启用</string>
+    <string name="video_not_supported">不支持视频内容</string>
+
+    <!-- Tools bottom sheet -->
+    <string name="tool_camera">相机</string>
+    <string name="tool_photos">照片</string>
+    <string name="tool_files">文件</string>
+    <string name="tool_model">模型</string>
+    <string name="tool_model_parameters">模型参数</string>
+    <string name="tool_model_parameters_desc">调整温度、token 等参数</string>
+    <string name="tool_web_search">网络搜索</string>
+    <string name="tool_web_search_desc">在网络上搜索信息</string>
+    <string name="tool_code">代码</string>
+    <string name="tool_code_desc">运行和分析代码</string>
+    <string name="tool_file_search">文件搜索</string>
+    <string name="tool_file_search_desc">在已上传的文件中搜索</string>
+    <string name="tool_mcp">MCP</string>
+    <string name="tool_mcp_desc">Model Context Protocol 服务器</string>
+    <string name="cd_web_search_enabled">已启用网络搜索</string>
+    <string name="cd_code_enabled">已启用代码解释器</string>
+    <string name="cd_file_search_enabled">已启用文件搜索</string>
+
+    <!-- Attachments -->
+    <string name="cd_attach_file">附加文件</string>
+    <string name="toast_file_attach_unavailable">iOS 上暂不支持附加文件</string>
+    <string name="files_count">文件（%1$d）</string>
+    <string name="cd_attached_file">已附加文件：%1$s</string>
+    <string name="cd_preview_file">%1$s 的预览</string>
+    <string name="cd_remove_file">移除 %1$s</string>
+
+    <!-- Agent handoff -->
+    <string name="cd_agent_handoff">智能体从 %1$s 交接给 %2$s</string>
+    <string name="cd_handed_off_to">交接给</string>
+    <string name="agent_unknown">未知</string>
+    <string name="agent_previous">上一个智能体</string>
+    <string name="agent_next">下一个智能体</string>
+
+    <!-- Audio/Video -->
+    <string name="cd_pause">暂停</string>
+    <string name="cd_play">播放</string>
+    <string name="cd_play_video">播放视频</string>
+    <string name="audio_no_data">无音频数据</string>
+    <string name="audio_decode_failed">音频解码失败</string>
+
+    <!-- Citation -->
+    <string name="citation_number">引用 %1$d</string>
+    <string name="cd_open_citation_url">打开引用 URL</string>
+
+    <!-- Fork options -->
+    <string name="fork_conversation">分叉对话</string>
+    <string name="fork_visible_messages">可见消息</string>
+    <string name="fork_visible_messages_desc">仅包含直接的消息路径</string>
+    <string name="fork_include_branches">包含分支</string>
+    <string name="fork_include_branches_desc">直接路径以及同级消息</string>
+    <string name="fork_all_to_target">直到目标层级的全部</string>
+    <string name="fork_all_to_target_desc">直到此层级的所有消息和分支</string>
+    <string name="fork_start_new">从目标处开始新对话</string>
+    <string name="fork_start_new_desc">从所选消息而非根消息开始分叉</string>
+
+    <!-- Image viewer toasts -->
+    <string name="toast_failed_to_load_image">图片加载失败</string>
+    <string name="toast_failed_to_save_image">图片保存失败</string>
+    <string name="toast_image_saved">图片已保存到相册</string>
+    <string name="toast_failed_to_save_with_error">图片保存失败：%1$s</string>
+    <string name="toast_storage_permission_required">保存图片需要存储权限</string>
+
+    <!-- Image generation -->
+    <string name="generating_image">正在生成图片…</string>
+    <string name="image_generated">图片已生成</string>
+    <string name="cd_generated_image">生成的图片</string>
+
+    <!-- Landing page greetings -->
+    <string name="greeting_late_night">夜深了</string>
+    <string name="greeting_weekend_morning">周末早上好</string>
+    <string name="greeting_weekend_afternoon">周末下午好</string>
+    <string name="greeting_weekend_evening">周末晚上好</string>
+    <string name="greeting_early_morning">清晨好</string>
+    <string name="greeting_morning">早上好</string>
+    <string name="greeting_afternoon">下午好</string>
+    <string name="greeting_evening">晚上好</string>
+
+    <!-- Log content -->
+    <string name="log_output">日志输出</string>
+    <string name="cd_collapse_log">收起 %1$s</string>
+    <string name="cd_expand_log">展开 %1$s</string>
+
+    <!-- Table dialog -->
+    <string name="cd_expand_table">展开表格</string>
+    <string name="dialog_table">表格</string>
+
+    <!-- MCP -->
+    <string name="cd_select_mcp_servers">选择 MCP 服务器</string>
+    <string name="cd_mcp_resources">MCP 资源：%1$d 项</string>
+    <string name="cd_mcp_resource">MCP 资源：%1$s</string>
+
+    <!-- Memory artifact -->
+    <string name="cd_memory_artifact">记忆 artifact：%1$s</string>
+    <string name="memory_artifact_untitled">无标题</string>
+    <string name="label_memory">记忆</string>
+
+    <!-- Mermaid diagram -->
+    <string name="label_mermaid">mermaid</string>
+    <string name="cd_show_diagram">显示图表</string>
+    <string name="cd_view_code">查看代码</string>
+    <string name="label_diagram">图表</string>
+    <string name="cd_fullscreen">全屏</string>
+    <string name="cd_close_fullscreen">退出全屏</string>
+
+    <!-- Message bubble -->
+    <string name="sender_you">你</string>
+    <string name="sender_assistant">助手</string>
+
+    <!-- Message files -->
+    <string name="file_fallback">文件</string>
+
+    <!-- Model selector sheet -->
+    <string name="cd_selected">已选择</string>
+    <string name="cd_public_agent">公开智能体</string>
+    <string name="cd_pin_favorite">固定为收藏</string>
+    <string name="cd_unpin_favorite">取消固定收藏</string>
+    <string name="cd_collapse_section">收起 %1$s</string>
+    <string name="cd_expand_section">展开 %1$s</string>
+    <string name="set_api_key_action">设置 API 密钥</string>
+    <string name="cd_set_api_key">为 %1$s 配置 API 密钥</string>
+
+    <!-- Preset picker -->
+    <string name="select_preset">选择预设</string>
+    <string name="no_presets_saved">尚未保存任何预设</string>
+    <string name="cd_edit_preset">编辑 %1$s</string>
+    <string name="cd_delete_preset">删除 %1$s</string>
+    <string name="preset_endpoint">端点：%1$s</string>
+    <string name="preset_model">模型：%1$s</string>
+
+    <!-- Feedback dialog -->
+    <string name="dialog_title_feedback">提供反馈</string>
+    <string name="feedback_question">这条回复有什么问题？</string>
+    <string name="hint_optional_comment">可选评论…</string>
+
+    <!-- Streaming tool call -->
+    <string name="tool_call_output">输出：</string>
+
+    <!-- Web search result -->
+    <string name="cd_search_result">搜索结果：%1$s</string>
+
+    <!-- Rename dialog -->
+    <string name="dialog_title_rename">重命名对话</string>
+    <string name="hint_title">标题</string>
+
+    <!-- Delete dialog -->
+    <string name="dialog_title_delete_conversation">删除对话</string>
+    <string name="dialog_delete_conversation_message">这将永久删除此对话。此操作无法撤销。</string>
+
+    <!-- Chat menu options -->
+    <string name="menu_search">搜索</string>
+    <string name="menu_rename">重命名</string>
+
+    <!-- Artifacts -->
+    <string name="cd_open_artifact">打开 artifact</string>
+    <string name="cd_share_artifact">分享 artifact</string>
+    <string name="cd_previous_version">上一个版本</string>
+    <string name="cd_next_version">下一个版本</string>
+    <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="label_resource">资源</string>
+
+    <!-- Prompts -->
+    <string name="prompts_library">提示词库</string>
+    <string name="use_in_chat">在聊天中使用</string>
+    <string name="set_production">设为正式版</string>
+    <string name="prompt_name_label">名称</string>
+    <string name="prompt_description_label">描述</string>
+    <string name="prompt_command_label">命令</string>
+    <string name="prompt_text_label">提示词文本</string>
+    <string name="prompt_content">提示词内容</string>
+    <string name="cd_share_prompt">分享提示词</string>
+    <string name="cd_edit_prompt">编辑提示词</string>
+    <string name="cd_delete_prompt">删除提示词</string>
+    <string name="cd_back">返回</string>
+    <string name="cd_version_history">版本历史</string>
+    <string name="cd_filter_sort">筛选和排序</string>
+    <string name="cd_create_prompt">创建提示词</string>
+    <string name="cd_remove_filter">移除筛选</string>
+    <string name="cd_reset_sort">重置排序</string>
+    <string name="cd_share">分享</string>
+    <string name="prompt_author">作者：%1$s</string>
+    <string name="prompt_sort_label">排序：%1$s</string>
+
+    <!-- Prompt versions -->
+    <string name="version_history">版本历史</string>
+    <string name="no_versions">没有可用的版本</string>
+    <string name="label_production">正式版</string>
+    <string name="version_number">v%1$d</string>
+
+    <!-- Prompt variables -->
+    <string name="label_variables">变量</string>
+
+    <!-- Prompt filter sheet -->
+    <string name="label_category">类别</string>
+    <string name="label_all">全部</string>
+    <string name="label_sort_by">排序方式</string>
+
+    <!-- Prompt share dialog -->
+    <string name="dialog_title_share_prompt">分享提示词</string>
+    <string name="label_permission">权限</string>
+
+    <!-- Variable input dialog -->
+    <string name="dialog_title_fill_variables">填写变量</string>
+
+    <!-- Temp chat toggle -->
+    <string name="cd_temp_chat">临时聊天</string>
+    <string name="label_temp_chat">临时</string>
+
+    <!-- Comparison mode -->
+    <string name="continue_with_response">使用此回复继续</string>
+    <string name="waiting_for_response">等待回复…</string>
+
+    <!-- Slash command menu -->
+    <string name="slash_command_title">/%1$s</string>
+
+    <!-- Provider Keys chat-time errors. -->
+    <string name="provider_keys_chat_error_no_key">未找到密钥。请提供密钥后重试。</string>
+    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <string name="provider_keys_chat_error_expired">为 %1$s 提供的密钥已于 %2$s 过期。请提供新密钥后重试。</string>
+    <string name="provider_keys_chat_error_invalid">提供的密钥无效。请提供有效的密钥后重试。</string>
+    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
+    <string name="provider_keys_chat_error_cta">打开密钥设置</string>
+
+    <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
+    <string name="send_block_select_agent">发送消息前请先选择一个智能体。</string>
+    <string name="send_block_select_model">发送消息前请先选择一个模型。</string>
+    <string name="send_block_agents_unavailable">此服务器不支持智能体。请选择其他模型。</string>
+    <string name="send_block_agent_not_available">所选智能体在此服务器上不可用。请选择其他智能体。</string>
+    <string name="send_block_model_not_available">所选模型在此服务器上不可用。请选择其他模型。</string>
+    <string name="send_block_model_load_failed">尚无法加载所选模型。请重试或选择其他模型。</string>
+</resources>

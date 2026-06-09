@@ -36,6 +36,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.ui.components.BannerDisplay
+import com.garfiec.librechat.core.ui.theme.AppLocale
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.agents.navigation.agentsEntries
 import com.garfiec.librechat.feature.auth.navigation.authEntries
@@ -72,6 +73,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun LibreChatNavHost(
     modifier: Modifier = Modifier,
+    appLocaleTag: String? = null,
     navHostViewModel: NavHostViewModel = koinViewModel(),
     content: (@Composable (Navigator, NavHostViewModel, Modifier) -> Unit)? = null,
 ) {
@@ -105,24 +107,29 @@ fun LibreChatNavHost(
         }
     }
 
-    if (content != null) {
-        content(navigator, navHostViewModel, modifier)
-    } else {
-        PhoneLayout(
-            navigator = navigator,
-            modifier = modifier,
-        )
-    }
+    // The locale wrapper must sit BELOW the back stack: changing language recreates the rendered
+    // UI so every stringResource re-resolves, while the back stack created above survives the swap
+    // and the user stays on their current screen.
+    AppLocale(tag = appLocaleTag) {
+        if (content != null) {
+            content(navigator, navHostViewModel, modifier)
+        } else {
+            PhoneLayout(
+                navigator = navigator,
+                modifier = modifier,
+            )
+        }
 
-    // Version mismatch warning dialog
-    val versionMismatch by navHostViewModel.versionMismatch.collectAsStateWithLifecycle()
-    versionMismatch?.let { mismatch ->
-        VersionMismatchDialog(
-            supportedVersion = mismatch.supportedVersion,
-            backendVersion = mismatch.backendVersion,
-            onDismiss = navHostViewModel::dismissVersionWarning,
-            onDismissPermanently = navHostViewModel::dismissVersionWarningPermanently,
-        )
+        // Version mismatch warning dialog
+        val versionMismatch by navHostViewModel.versionMismatch.collectAsStateWithLifecycle()
+        versionMismatch?.let { mismatch ->
+            VersionMismatchDialog(
+                supportedVersion = mismatch.supportedVersion,
+                backendVersion = mismatch.backendVersion,
+                onDismiss = navHostViewModel::dismissVersionWarning,
+                onDismissPermanently = navHostViewModel::dismissVersionWarningPermanently,
+            )
+        }
     }
 }
 

@@ -108,7 +108,13 @@ val dataModule = module {
     }
     singleOf(::ConfigCacheDataStore)
     singleOf(::RoleCacheDataStore)
-    singleOf(::SettingsDataStore)
+    single {
+        SettingsDataStore(
+            dataStore = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
 
     // --- Repositories (special wiring) ---
 

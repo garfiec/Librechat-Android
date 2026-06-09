@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">스킬</string>
+    <string name="skills_back">뒤로</string>
+    <string name="skills_create">스킬 생성</string>
+    <string name="skills_import">스킬 가져오기</string>
+    <string name="skills_search_hint">스킬 검색…</string>
+    <string name="skills_empty">아직 스킬이 없습니다.</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">파일</string>
+    <string name="skill_files_empty">첨부된 파일이 없습니다.</string>
+    <string name="skill_files_add">파일 추가</string>
+    <string name="skill_files_remove">%1$s 제거</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">편집</string>
+    <string name="skill_delete">삭제</string>
+    <string name="skill_show_source">소스 보기</string>
+    <string name="skill_show_rendered">렌더링 보기</string>
+    <string name="skill_category_label">카테고리: %1$s</string>
+    <string name="skill_version_label">버전 %1$d</string>
+    <string name="skill_delete_confirm_title">스킬을 삭제하시겠습니까?</string>
+    <string name="skill_delete_confirm_message">\"%1$s\"이(가) 영구적으로 삭제됩니다. 되돌릴 수 없습니다.</string>
+    <string name="skill_empty_body">이 스킬에는 내용이 없습니다.</string>
+    <string name="skill_active_label">활성</string>
+    <string name="skill_active_description">이 스킬을 채팅에서 사용할 수 있도록 합니다.</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">새 스킬</string>
+    <string name="skill_editor_edit_title">스킬 편집</string>
+    <string name="skill_field_name">이름</string>
+    <string name="skill_field_name_hint">lowercase-kebab-case</string>
+    <string name="skill_field_name_error">소문자, 숫자, 대시를 사용하세요 (최대 64자).</string>
+    <string name="skill_field_display_title">표시 제목</string>
+    <string name="skill_field_description">설명</string>
+    <string name="skill_field_description_error">설명은 필수입니다 (최대 1024자).</string>
+    <string name="skill_field_body">내용 (markdown)</string>
+    <string name="skill_field_category">카테고리</string>
+    <string name="skill_category_none">없음</string>
+    <string name="skill_field_always_apply">이 스킬을 항상 적용</string>
+    <string name="skill_save">저장</string>
+    <string name="skill_cancel">취소</string>
+    <string name="skill_conflict_dismiss">확인</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">공유 &amp; 권한</string>
+    <string name="skill_acl_no_grants">아직 아무와도 공유되지 않았습니다.</string>
+    <string name="skill_acl_add_principal">사용자 또는 그룹 추가</string>
+    <string name="skill_acl_grant_dialog_title">스킬 공유</string>
+    <string name="skill_acl_search_hint">사용자, 그룹 또는 역할 검색</string>
+    <string name="skill_acl_search_empty">일치하는 항목 없음</string>
+    <string name="skill_acl_role">역할</string>
+    <string name="skill_acl_revoke">접근 제거</string>
+    <string name="skill_acl_public_label">공개</string>
+    <string name="skill_acl_public_description">이 서버의 모든 사람이 이 스킬을 사용할 수 있습니다.</string>
+    <string name="skill_acl_principal_user">사용자</string>
+    <string name="skill_acl_principal_group">그룹</string>
+    <string name="skill_acl_principal_role">역할</string>
+    <string name="skill_acl_collapse">접기</string>
+    <string name="skill_acl_expand">펼치기</string>
+    <string name="skill_acl_close">닫기</string>
+</resources>

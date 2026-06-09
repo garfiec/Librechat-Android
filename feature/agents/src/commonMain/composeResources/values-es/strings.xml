@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="agents">Agentes</string>
+    <string name="marketplace">Mercado</string>
+    <string name="search_agents">Buscar agentes…</string>
+    <string name="start_chat">Iniciar chat</string>
+    <string name="edit">Editar</string>
+    <string name="delete">Eliminar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="duplicate">Duplicar</string>
+    <string name="save">Guardar</string>
+    <string name="create">Crear</string>
+    <string name="apply">Aplicar</string>
+    <string name="add">Añadir</string>
+    <string name="remove">Quitar</string>
+    <string name="revert">Revertir</string>
+    <string name="close">Cerrar</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_create_agent">Crear agente</string>
+    <string name="cd_search">Buscar</string>
+    <string name="cd_back">Atrás</string>
+    <string name="cd_more_actions">Más acciones</string>
+    <string name="cd_more_options">Más opciones</string>
+    <string name="cd_collapse">Contraer</string>
+    <string name="cd_expand">Expandir</string>
+    <string name="cd_remove_item">Quitar %1$s</string>
+    <string name="cd_edit_action">Editar acción</string>
+    <string name="cd_delete_action">Eliminar acción</string>
+    <string name="cd_add_starter">Añadir iniciador</string>
+    <string name="cd_agent_avatar_tap">Avatar del agente. Toca para cambiar.</string>
+    <string name="cd_agent_avatar_name">Avatar de %1$s</string>
+    <string name="cd_tool_icon">Icono de %1$s</string>
+
+    <!-- Marketplace screen -->
+    <string name="search_agents_hint">Buscar agentes…</string>
+    <string name="no_agents_found">No se encontraron agentes</string>
+    <string name="no_agents_available">No hay agentes disponibles</string>
+    <string name="agents_not_available_title">Agentes no disponibles</string>
+    <string name="agents_not_available_description">El administrador de tu servidor ha desactivado los agentes para tu cuenta.</string>
+    <string name="try_different_search">Prueba con otro término de búsqueda</string>
+    <string name="check_back_later">Vuelve más tarde para ver nuevos agentes</string>
+    <string name="error_unknown">Ocurrió un error desconocido</string>
+    <string name="unknown_author">Desconocido</string>
+
+    <!-- Detail screen -->
+    <string name="agent_title">Agente</string>
+    <string name="delete_agent">Eliminar agente</string>
+    <string name="delete_agent_confirm">¿Seguro que quieres eliminar \"%1$s\"? Esta acción no se puede deshacer.</string>
+    <string name="delete_this_agent">este agente</string>
+    <string name="by_author">por %1$s</string>
+    <string name="label_description">Descripción</string>
+    <string name="no_description">Sin descripción</string>
+    <string name="label_category">Categoría</string>
+    <string name="label_model">Modelo</string>
+    <string name="default_value">Predeterminado</string>
+    <string name="label_tools">Herramientas</string>
+    <string name="label_conversation_starters">Iniciadores de conversación</string>
+
+    <!-- Editor screen -->
+    <string name="edit_agent">Editar agente</string>
+    <string name="create_agent">Crear agente</string>
+    <string name="duplicate_agent">Duplicar agente</string>
+    <string name="delete_agent_editor_confirm">¿Seguro que quieres eliminar este agente? Esta acción no se puede deshacer.</string>
+    <string name="duplicate_agent_confirm">¿Crear una copia de este agente?</string>
+    <string name="version_history">Historial de versiones</string>
+    <string name="tap_to_change_avatar">Toca para cambiar el avatar</string>
+    <string name="remove_avatar">Quitar avatar</string>
+    <string name="agent_name_label">Nombre *</string>
+    <string name="agent_name_placeholder">Opcional: el nombre del agente</string>
+    <string name="agent_description_label">Descripción</string>
+    <string name="agent_description_placeholder">Opcional: describe tu agente aquí</string>
+    <string name="agent_instructions_label">Instrucciones</string>
+    <string name="agent_instructions_placeholder">Las instrucciones de sistema que usa el agente</string>
+    <string name="insert_variable">Insertar variable</string>
+    <string name="cd_insert_variable">Insertar variable</string>
+    <string name="special_var_current_date">Fecha actual</string>
+    <string name="special_var_current_user">Usuario actual</string>
+    <string name="special_var_iso_datetime">Fecha y hora ISO</string>
+    <string name="special_var_current_datetime">Fecha y hora actuales</string>
+    <string name="label_capabilities">Capacidades</string>
+    <string name="label_tools_and_actions">Herramientas y acciones</string>
+    <string name="add_tools">Añadir herramientas</string>
+    <string name="add_starter_hint">Añadir iniciador…</string>
+    <string name="save_changes">Guardar cambios</string>
+
+    <!-- Actions panel -->
+    <string name="openapi_actions_count">Acciones de OpenAPI (%1$d)</string>
+    <string name="no_actions_configured">No hay acciones configuradas. Añade una acción de OpenAPI para conectar APIs externas.</string>
+    <string name="add_action">Añadir acción</string>
+    <string name="edit_action">Editar acción</string>
+    <string name="auth_api_key">Clave de API</string>
+    <string name="auth_oauth">OAuth</string>
+    <string name="auth_none">Ninguna</string>
+    <string name="action_auth_info">Autenticación: %1$s | %2$d función(es)</string>
+    <string name="label_action">Acción</string>
+
+    <!-- Action editor dialog -->
+    <string name="label_authentication">Autenticación</string>
+    <string name="auth_api_key_full">Autenticación por clave de API</string>
+    <string name="auth_oauth_full">Autenticación OAuth</string>
+    <string name="auth_no_auth">Sin autenticación</string>
+    <string name="label_openapi_schema">Esquema OpenAPI</string>
+    <string name="openapi_schema_hint">Pega tu especificación OpenAPI en formato JSON o YAML.</string>
+    <string name="label_openapi_spec">Especificación OpenAPI (JSON o YAML)</string>
+    <string name="validating">Validando…</string>
+    <string name="domain_prefix">Dominio: %1$s</string>
+    <string name="available_actions_count">Acciones disponibles (%1$d)</string>
+    <string name="label_privacy_policy_url">URL de la política de privacidad</string>
+    <string name="label_save_or_create">%1$s</string>
+
+    <!-- Auth config dialog -->
+    <string name="label_authentication_type">Tipo de autenticación</string>
+    <string name="label_api_key_settings">Ajustes de la clave de API</string>
+    <string name="label_api_key">Clave de API</string>
+    <string name="label_authorization_type">Tipo de autorización</string>
+    <string name="auth_basic">Básica</string>
+    <string name="auth_bearer">Bearer</string>
+    <string name="auth_custom">Personalizada</string>
+    <string name="label_custom_auth_header">Encabezado de autenticación personalizado</string>
+    <string name="label_oauth_settings">Ajustes de OAuth</string>
+    <string name="label_client_id">ID de cliente</string>
+    <string name="label_client_secret">Secreto de cliente</string>
+    <string name="label_authorization_url">URL de autorización</string>
+    <string name="label_token_url">URL del token</string>
+    <string name="label_scope">Ámbito</string>
+    <string name="label_token_exchange_method">Método de intercambio de tokens</string>
+    <string name="token_default_post">Predeterminado (POST)</string>
+    <string name="token_basic_auth_header">Encabezado de autenticación básica</string>
+
+    <!-- Function table -->
+    <string name="table_name">Nombre</string>
+    <string name="table_method">Método</string>
+    <string name="table_path">Ruta</string>
+
+    <!-- Advanced panel -->
+    <string name="advanced_settings">Ajustes del modelo</string>
+    <string name="label_temperature">Temperatura</string>
+    <string name="temperature_description">Controla la aleatoriedad. Más baja = más enfocada.</string>
+    <string name="label_top_p">Top P</string>
+    <string name="top_p_description">Umbral de muestreo de núcleo.</string>
+    <string name="label_max_tokens">Máx. de tokens</string>
+    <string name="max_tokens_description">Máximo de tokens en la respuesta. Déjalo vacío para usar el valor predeterminado.</string>
+
+    <!-- Avatar picker -->
+    <!-- (content descriptions above) -->
+
+    <!-- Capabilities section -->
+    <string name="label_artifacts">Artefactos</string>
+    <string name="artifacts_description">Activar la generación de artefactos</string>
+    <string name="artifacts_mode_off">Desactivado</string>
+    <string name="artifacts_mode_default">Predeterminado</string>
+    <string name="artifacts_mode_shadcnui">shadcn/ui</string>
+    <string name="artifacts_mode_custom">Personalizado</string>
+    <string name="label_end_after_tools">Finalizar tras las herramientas</string>
+    <string name="end_after_tools_description">Detener cuando termine la ejecución de las herramientas</string>
+    <string name="label_hide_sequential_outputs">Ocultar salidas secuenciales</string>
+    <string name="hide_sequential_description">Ocultar las salidas intermedias de las herramientas</string>
+    <string name="label_recursion_limit">Límite de recursión</string>
+    <string name="recursion_limit_description">Número máximo de llamadas recursivas a herramientas</string>
+
+    <!-- Category selector -->
+    <string name="general">General</string>
+
+    <!-- Code Interpreter section -->
+    <string name="label_code_interpreter">Intérprete de código</string>
+    <string name="code_interpreter_description">Permitir que el agente escriba y ejecute código para resolver problemas</string>
+
+    <!-- Web Search section -->
+    <string name="label_web_search">Búsqueda web</string>
+    <string name="web_search_description">Permitir que el agente busque en la web información actualizada</string>
+
+    <!-- Tool auth dialog -->
+    <string name="tool_auth_revoke">Revocar</string>
+    <string name="tool_auth_code_title">Clave de API del intérprete de código</string>
+    <string name="tool_auth_code_description">Introduce la clave de API que el servidor debe usar para ejecutar código en tu nombre. Se almacena en tu cuenta, no en el agente.</string>
+    <string name="tool_auth_code_field">Clave de la API de Code de LibreChat</string>
+    <string name="tool_auth_required">Se requiere autenticación para activar esta herramienta</string>
+
+    <!-- File Context section -->
+    <string name="label_file_context">Contexto de archivos</string>
+    <string name="file_context_description">Adjunta archivos que se incluyan siempre como contexto de la conversación</string>
+
+    <!-- File Search section -->
+    <string name="label_file_search">Búsqueda en archivos</string>
+    <string name="file_search_description">Permitir que el agente busque en los archivos y documentos subidos</string>
+
+    <!-- Handoff config -->
+    <!-- Chain (sequential multi-agent) -->
+    <string name="chain_agents_count">Agentes en cadena (%1$d)</string>
+    <string name="chain_description">Agentes que se ejecutan en secuencia después de este. El límite es %1$d.</string>
+    <string name="no_chain_agents">No hay agentes en cadena configurados.</string>
+    <string name="add_chain_agent">Añadir agente en cadena</string>
+    <string name="chain_full">Se alcanzó el número máximo de agentes en cadena.</string>
+    <!-- Handoffs (graph edges) -->
+    <string name="handoff_edges_count">Conexiones de transferencia (%1$d)</string>
+    <string name="handoff_edges_description">Conexiones de enrutamiento del grafo para la transferencia dinámica entre varios agentes.</string>
+    <string name="no_handoff_edges">No hay conexiones de transferencia configuradas.</string>
+    <string name="add_handoff_edge">Añadir conexión de transferencia</string>
+    <string name="handoff_edge_from">De</string>
+    <string name="handoff_edge_to">A</string>
+    <string name="handoff_edge_description">Descripción (opcional)</string>
+    <string name="handoff_edge_prompt">Indicación de transferencia (opcional)</string>
+    <string name="handoff_edge_prompt_key">Nombre del parámetro de la indicación (opcional)</string>
+    <string name="handoff_edge_exclude_results">Excluir mensajes anteriores</string>
+    <string name="handoff_edge_arrow">%1$s → %2$s</string>
+    <string name="handoff_edge_multi">%1$d agentes → %2$d agentes</string>
+    <string name="no_more_agents">No hay más agentes disponibles para añadir.</string>
+    <string name="select_agent">Seleccionar agente</string>
+
+    <!-- MCP Tools selector -->
+    <string name="mcp_tools_count">Herramientas MCP (%1$d seleccionadas)</string>
+    <string name="no_mcp_tools">No hay herramientas MCP disponibles. Configura servidores MCP en los ajustes.</string>
+    <string name="unknown_server">Servidor desconocido</string>
+
+    <!-- Model picker -->
+    <string name="model_required_label">Modelo *</string>
+    <string name="select_model_hint">Selecciona un modelo…</string>
+    <string name="no_models_found">No se encontraron modelos</string>
+
+    <!-- Sharing section -->
+    <string name="sharing_and_permissions">Compartir y permisos</string>
+    <string name="label_visibility">Visibilidad</string>
+    <string name="label_collaborative">Colaborativo</string>
+    <string name="collaborative_description">Permitir que otros usuarios modifiquen este agente</string>
+    <string name="collaborative_managed_server_side">Los permisos de acceso se gestionan en el servidor en esta versión.</string>
+
+    <!-- Visibility labels -->
+    <string name="visibility_private">Privado</string>
+    <string name="visibility_team">Equipo</string>
+    <string name="visibility_public">Público</string>
+
+    <!-- Support contact section -->
+    <string name="label_support_contact">Contacto de soporte</string>
+    <string name="label_name">Nombre</string>
+    <string name="support_contact_placeholder">Nombre del contacto de soporte</string>
+    <string name="label_email">Correo electrónico</string>
+
+    <!-- Version history -->
+    <string name="no_version_history">No hay historial de versiones disponible</string>
+    <string name="version_number">Versión %1$d</string>
+    <string name="version_current">Activa</string>
+    <string name="version_no_date">No hay fecha disponible</string>
+    <string name="version_unknown_date">Fecha desconocida</string>
+    <string name="version_snapshot_name">Nombre</string>
+    <string name="version_snapshot_description">Descripción</string>
+    <string name="version_snapshot_instructions">Instrucciones</string>
+    <string name="version_snapshot_artifacts">Artefactos</string>
+    <string name="version_snapshot_capabilities">Capacidades</string>
+    <string name="version_snapshot_tools">Herramientas</string>
+    <string name="version_snapshot_empty">—</string>
+    <string name="version_restore_confirm">¿Revertir este agente a la versión seleccionada? Se perderán los cambios actuales sin guardar.</string>
+
+    <!-- ACL sharing (v0.8.5+) -->
+    <string name="acl_sharing_title">Compartir y acceso</string>
+    <string name="acl_add_principal">Añadir usuario o grupo</string>
+    <string name="acl_no_grants">Aún no se ha concedido acceso a nadie.</string>
+    <string name="acl_public_label">Público</string>
+    <string name="acl_public_description">Permitir a cualquier persona con acceso al servidor</string>
+    <string name="acl_role">Rol</string>
+    <string name="acl_revoke">Revocar</string>
+    <string name="acl_search_hint">Buscar usuarios o grupos…</string>
+    <string name="acl_search_empty">Sin coincidencias</string>
+    <string name="acl_grant_button">Conceder</string>
+    <string name="acl_grant_dialog_title">Añadir usuario o grupo</string>
+    <string name="acl_principal_user">Usuario</string>
+    <string name="acl_principal_group">Grupo</string>
+    <string name="acl_principal_role">Rol</string>
+    <string name="acl_create_mode_notice">Los controles de compartir y acceso están disponibles después de guardar el agente.</string>
+
+    <!-- Tool select dialog -->
+    <string name="agent_tools_title">Herramientas del agente</string>
+    <string name="select_tools_description">Selecciona las herramientas que usará tu agente</string>
+    <string name="search_tools_hint">Buscar herramientas…</string>
+    <string name="no_tools_matching">No hay herramientas que coincidan con \"%1$s\"</string>
+    <string name="no_tools_available">No hay herramientas disponibles</string>
+
+    <!-- Per-capability file attachments -->
+    <string name="add_file">Añadir archivo</string>
+    <string name="agent_files_save_first">Guarda el agente antes de adjuntar archivos</string>
+    <string name="agent_file_too_large">El archivo debe ser de %1$d MB o menos</string>
+    <string name="agent_file_upload_failed">Error al subir el archivo</string>
+    <string name="agent_file_remove_failed">Error al quitar el archivo</string>
+    <string name="cd_remove_file">Quitar %1$s</string>
+
+    <!-- Skills selector (v0.8.6) -->
+    <string name="label_skills">Habilidades</string>
+    <string name="skills_disabled_hint">Las habilidades están desactivadas para este agente.</string>
+    <string name="skills_enabled_all_hint">Todas las habilidades a las que puedes acceder están disponibles para este agente.</string>
+    <string name="skills_enabled_allowlist_hint">Solo las habilidades seleccionadas están disponibles para este agente.</string>
+    <string name="add_skills">Añadir habilidades</string>
+    <string name="select_skills">Seleccionar habilidades</string>
+    <string name="search_skills_hint">Buscar habilidades…</string>
+    <string name="no_skills_matching">No hay habilidades que coincidan con \"%1$s\"</string>
+    <string name="no_skills_available">No hay habilidades disponibles</string>
+    <string name="skills_done">Hecho</string>
+
+    <!-- Subagents config (v0.8.6) -->
+    <string name="label_subagents">Subagentes</string>
+    <string name="subagents_description">Permite que este agente delegue trabajo a otros agentes en contextos aislados.</string>
+    <string name="subagents_allow_self">Permitir que se genere a sí mismo</string>
+    <string name="add_subagent">Añadir subagente</string>
+    <string name="subagents_full">Se alcanzó el número máximo de subagentes.</string>
+</resources>

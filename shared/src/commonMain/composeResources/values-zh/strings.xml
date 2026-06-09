@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Connectivity -->
+    <string name="no_connection">无网络连接</string>
+
+    <!-- Drawer -->
+    <string name="new_chat">新建聊天</string>
+    <string name="favorites">收藏</string>
+    <string name="no_conversations_found">未找到对话</string>
+    <string name="remove_bookmark">取消收藏</string>
+    <string name="bookmark">收藏</string>
+    <string name="agents">智能体</string>
+    <string name="skills">技能</string>
+    <string name="files">文件</string>
+    <string name="settings">设置</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_search">搜索</string>
+    <string name="cd_clear_search">清除搜索</string>
+    <string name="cd_back_to_conversations">返回对话</string>
+
+    <!-- Search -->
+    <string name="search_conversations_placeholder">搜索对话…</string>
+
+    <!-- Version mismatch dialog -->
+    <string name="version_mismatch_title">后端版本不匹配</string>
+    <string name="version_mismatch_message">此应用是为 LibreChat v%1$s 构建的，但你的服务器运行的是 v%2$s。某些功能可能无法正常使用。</string>
+    <string name="dismiss">关闭</string>
+    <string name="dont_warn_again">不再提醒</string>
+</resources>

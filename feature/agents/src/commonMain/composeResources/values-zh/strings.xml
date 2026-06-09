@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="agents">智能体</string>
+    <string name="marketplace">市场</string>
+    <string name="search_agents">搜索智能体…</string>
+    <string name="start_chat">开始聊天</string>
+    <string name="edit">编辑</string>
+    <string name="delete">删除</string>
+    <string name="cancel">取消</string>
+    <string name="duplicate">复制副本</string>
+    <string name="save">保存</string>
+    <string name="create">创建</string>
+    <string name="apply">应用</string>
+    <string name="add">添加</string>
+    <string name="remove">移除</string>
+    <string name="revert">还原</string>
+    <string name="close">关闭</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_create_agent">创建智能体</string>
+    <string name="cd_search">搜索</string>
+    <string name="cd_back">返回</string>
+    <string name="cd_more_actions">更多操作</string>
+    <string name="cd_more_options">更多选项</string>
+    <string name="cd_collapse">收起</string>
+    <string name="cd_expand">展开</string>
+    <string name="cd_remove_item">移除 %1$s</string>
+    <string name="cd_edit_action">编辑操作</string>
+    <string name="cd_delete_action">删除操作</string>
+    <string name="cd_add_starter">添加开场白</string>
+    <string name="cd_agent_avatar_tap">智能体头像。点击更换。</string>
+    <string name="cd_agent_avatar_name">%1$s 头像</string>
+    <string name="cd_tool_icon">%1$s 图标</string>
+
+    <!-- Marketplace screen -->
+    <string name="search_agents_hint">搜索智能体…</string>
+    <string name="no_agents_found">未找到智能体</string>
+    <string name="no_agents_available">没有可用的智能体</string>
+    <string name="agents_not_available_title">智能体不可用</string>
+    <string name="agents_not_available_description">你的服务器管理员已为你的账户禁用智能体。</string>
+    <string name="try_different_search">尝试其他搜索关键词</string>
+    <string name="check_back_later">稍后再来看看新的智能体</string>
+    <string name="error_unknown">发生未知错误</string>
+    <string name="unknown_author">未知</string>
+
+    <!-- Detail screen -->
+    <string name="agent_title">智能体</string>
+    <string name="delete_agent">删除智能体</string>
+    <string name="delete_agent_confirm">确定要删除 \"%1$s\" 吗？此操作无法撤销。</string>
+    <string name="delete_this_agent">此智能体</string>
+    <string name="by_author">作者：%1$s</string>
+    <string name="label_description">描述</string>
+    <string name="no_description">无描述</string>
+    <string name="label_category">类别</string>
+    <string name="label_model">模型</string>
+    <string name="default_value">默认</string>
+    <string name="label_tools">工具</string>
+    <string name="label_conversation_starters">对话开场白</string>
+
+    <!-- Editor screen -->
+    <string name="edit_agent">编辑智能体</string>
+    <string name="create_agent">创建智能体</string>
+    <string name="duplicate_agent">复制智能体</string>
+    <string name="delete_agent_editor_confirm">确定要删除此智能体吗？此操作无法撤销。</string>
+    <string name="duplicate_agent_confirm">创建此智能体的副本？</string>
+    <string name="version_history">版本历史</string>
+    <string name="tap_to_change_avatar">点击更换头像</string>
+    <string name="remove_avatar">移除头像</string>
+    <string name="agent_name_label">名称 *</string>
+    <string name="agent_name_placeholder">可选：智能体的名称</string>
+    <string name="agent_description_label">描述</string>
+    <string name="agent_description_placeholder">可选：在此描述你的智能体</string>
+    <string name="agent_instructions_label">指令</string>
+    <string name="agent_instructions_placeholder">智能体使用的系统指令</string>
+    <string name="insert_variable">插入变量</string>
+    <string name="cd_insert_variable">插入变量</string>
+    <string name="special_var_current_date">当前日期</string>
+    <string name="special_var_current_user">当前用户</string>
+    <string name="special_var_iso_datetime">ISO 日期时间</string>
+    <string name="special_var_current_datetime">当前日期时间</string>
+    <string name="label_capabilities">能力</string>
+    <string name="label_tools_and_actions">工具与操作</string>
+    <string name="add_tools">添加工具</string>
+    <string name="add_starter_hint">添加开场白…</string>
+    <string name="save_changes">保存更改</string>
+
+    <!-- Actions panel -->
+    <string name="openapi_actions_count">OpenAPI 操作（%1$d）</string>
+    <string name="no_actions_configured">未配置操作。添加一个 OpenAPI 操作以连接外部 API。</string>
+    <string name="add_action">添加操作</string>
+    <string name="edit_action">编辑操作</string>
+    <string name="auth_api_key">API 密钥</string>
+    <string name="auth_oauth">OAuth</string>
+    <string name="auth_none">无</string>
+    <string name="action_auth_info">身份验证：%1$s | %2$d 个函数</string>
+    <string name="label_action">操作</string>
+
+    <!-- Action editor dialog -->
+    <string name="label_authentication">身份验证</string>
+    <string name="auth_api_key_full">API 密钥身份验证</string>
+    <string name="auth_oauth_full">OAuth 身份验证</string>
+    <string name="auth_no_auth">无身份验证</string>
+    <string name="label_openapi_schema">OpenAPI Schema</string>
+    <string name="openapi_schema_hint">以 JSON 或 YAML 格式粘贴你的 OpenAPI 规范。</string>
+    <string name="label_openapi_spec">OpenAPI 规范（JSON 或 YAML）</string>
+    <string name="validating">验证中…</string>
+    <string name="domain_prefix">域名：%1$s</string>
+    <string name="available_actions_count">可用操作（%1$d）</string>
+    <string name="label_privacy_policy_url">隐私政策 URL</string>
+    <string name="label_save_or_create">%1$s</string>
+
+    <!-- Auth config dialog -->
+    <string name="label_authentication_type">身份验证类型</string>
+    <string name="label_api_key_settings">API 密钥设置</string>
+    <string name="label_api_key">API 密钥</string>
+    <string name="label_authorization_type">授权类型</string>
+    <string name="auth_basic">Basic</string>
+    <string name="auth_bearer">Bearer</string>
+    <string name="auth_custom">自定义</string>
+    <string name="label_custom_auth_header">自定义认证请求头</string>
+    <string name="label_oauth_settings">OAuth 设置</string>
+    <string name="label_client_id">Client ID</string>
+    <string name="label_client_secret">Client Secret</string>
+    <string name="label_authorization_url">授权 URL</string>
+    <string name="label_token_url">Token URL</string>
+    <string name="label_scope">作用域</string>
+    <string name="label_token_exchange_method">Token 交换方式</string>
+    <string name="token_default_post">默认（POST）</string>
+    <string name="token_basic_auth_header">Basic 认证请求头</string>
+
+    <!-- Function table -->
+    <string name="table_name">名称</string>
+    <string name="table_method">方法</string>
+    <string name="table_path">路径</string>
+
+    <!-- Advanced panel -->
+    <string name="advanced_settings">模型设置</string>
+    <string name="label_temperature">温度</string>
+    <string name="temperature_description">控制随机性。越低越聚焦。</string>
+    <string name="label_top_p">Top P</string>
+    <string name="top_p_description">核采样截断值。</string>
+    <string name="label_max_tokens">最大 Token 数</string>
+    <string name="max_tokens_description">回复中的最大 token 数。留空则使用默认值。</string>
+
+    <!-- Avatar picker -->
+    <!-- (content descriptions above) -->
+
+    <!-- Capabilities section -->
+    <string name="label_artifacts">Artifacts</string>
+    <string name="artifacts_description">启用 artifact 生成</string>
+    <string name="artifacts_mode_off">关闭</string>
+    <string name="artifacts_mode_default">默认</string>
+    <string name="artifacts_mode_shadcnui">shadcn/ui</string>
+    <string name="artifacts_mode_custom">自定义</string>
+    <string name="label_end_after_tools">工具执行后结束</string>
+    <string name="end_after_tools_description">在工具执行完成后停止</string>
+    <string name="label_hide_sequential_outputs">隐藏顺序输出</string>
+    <string name="hide_sequential_description">隐藏中间的工具输出</string>
+    <string name="label_recursion_limit">递归上限</string>
+    <string name="recursion_limit_description">递归工具调用的最大次数</string>
+
+    <!-- Category selector -->
+    <string name="general">通用</string>
+
+    <!-- Code Interpreter section -->
+    <string name="label_code_interpreter">代码解释器</string>
+    <string name="code_interpreter_description">允许智能体编写并执行代码以解决问题</string>
+
+    <!-- Web Search section -->
+    <string name="label_web_search">网络搜索</string>
+    <string name="web_search_description">允许智能体在网络上搜索最新信息</string>
+
+    <!-- Tool auth dialog -->
+    <string name="tool_auth_revoke">吊销</string>
+    <string name="tool_auth_code_title">代码解释器 API 密钥</string>
+    <string name="tool_auth_code_description">输入服务器应使用的 API 密钥，以代你运行代码。该密钥存储在你的账户中，而非智能体中。</string>
+    <string name="tool_auth_code_field">LibreChat Code API 密钥</string>
+    <string name="tool_auth_required">启用此工具需要进行身份验证</string>
+
+    <!-- File Context section -->
+    <string name="label_file_context">文件上下文</string>
+    <string name="file_context_description">附加始终作为对话上下文的文件</string>
+
+    <!-- File Search section -->
+    <string name="label_file_search">文件搜索</string>
+    <string name="file_search_description">让智能体能够在已上传的文件和文档中搜索</string>
+
+    <!-- Handoff config -->
+    <!-- Chain (sequential multi-agent) -->
+    <string name="chain_agents_count">链式智能体（%1$d）</string>
+    <string name="chain_description">在此智能体之后依次运行的智能体。上限为 %1$d。</string>
+    <string name="no_chain_agents">未配置链式智能体。</string>
+    <string name="add_chain_agent">添加链式智能体</string>
+    <string name="chain_full">已达到链式智能体的最大数量。</string>
+    <!-- Handoffs (graph edges) -->
+    <string name="handoff_edges_count">交接边（%1$d）</string>
+    <string name="handoff_edges_description">用于动态多智能体交接的图路由边。</string>
+    <string name="no_handoff_edges">未配置交接边。</string>
+    <string name="add_handoff_edge">添加交接边</string>
+    <string name="handoff_edge_from">从</string>
+    <string name="handoff_edge_to">到</string>
+    <string name="handoff_edge_description">描述（可选）</string>
+    <string name="handoff_edge_prompt">转交提示词（可选）</string>
+    <string name="handoff_edge_prompt_key">提示词参数名（可选）</string>
+    <string name="handoff_edge_exclude_results">排除先前的消息</string>
+    <string name="handoff_edge_arrow">%1$s → %2$s</string>
+    <string name="handoff_edge_multi">%1$d 个智能体 → %2$d 个智能体</string>
+    <string name="no_more_agents">没有更多可添加的智能体。</string>
+    <string name="select_agent">选择智能体</string>
+
+    <!-- MCP Tools selector -->
+    <string name="mcp_tools_count">MCP 工具（已选 %1$d 个）</string>
+    <string name="no_mcp_tools">没有可用的 MCP 工具。请在设置中配置 MCP 服务器。</string>
+    <string name="unknown_server">未知服务器</string>
+
+    <!-- Model picker -->
+    <string name="model_required_label">模型 *</string>
+    <string name="select_model_hint">选择一个模型…</string>
+    <string name="no_models_found">未找到模型</string>
+
+    <!-- Sharing section -->
+    <string name="sharing_and_permissions">分享与权限</string>
+    <string name="label_visibility">可见性</string>
+    <string name="label_collaborative">协作</string>
+    <string name="collaborative_description">允许其他用户修改此智能体</string>
+    <string name="collaborative_managed_server_side">在此版本中，访问权限由服务器端管理。</string>
+
+    <!-- Visibility labels -->
+    <string name="visibility_private">私有</string>
+    <string name="visibility_team">团队</string>
+    <string name="visibility_public">公开</string>
+
+    <!-- Support contact section -->
+    <string name="label_support_contact">支持联系人</string>
+    <string name="label_name">名称</string>
+    <string name="support_contact_placeholder">支持联系人姓名</string>
+    <string name="label_email">电子邮箱</string>
+
+    <!-- Version history -->
+    <string name="no_version_history">没有可用的版本历史</string>
+    <string name="version_number">版本 %1$d</string>
+    <string name="version_current">当前</string>
+    <string name="version_no_date">无可用日期</string>
+    <string name="version_unknown_date">日期未知</string>
+    <string name="version_snapshot_name">名称</string>
+    <string name="version_snapshot_description">描述</string>
+    <string name="version_snapshot_instructions">指令</string>
+    <string name="version_snapshot_artifacts">Artifacts</string>
+    <string name="version_snapshot_capabilities">能力</string>
+    <string name="version_snapshot_tools">工具</string>
+    <string name="version_snapshot_empty">—</string>
+    <string name="version_restore_confirm">将此智能体还原到所选版本？当前未保存的更改将丢失。</string>
+
+    <!-- ACL sharing (v0.8.5+) -->
+    <string name="acl_sharing_title">分享与访问</string>
+    <string name="acl_add_principal">添加用户或群组</string>
+    <string name="acl_no_grants">尚未授予任何人访问权限。</string>
+    <string name="acl_public_label">公开</string>
+    <string name="acl_public_description">允许任何能访问服务器的人</string>
+    <string name="acl_role">角色</string>
+    <string name="acl_revoke">吊销</string>
+    <string name="acl_search_hint">搜索用户或群组…</string>
+    <string name="acl_search_empty">无匹配项</string>
+    <string name="acl_grant_button">授予</string>
+    <string name="acl_grant_dialog_title">添加用户或群组</string>
+    <string name="acl_principal_user">用户</string>
+    <string name="acl_principal_group">群组</string>
+    <string name="acl_principal_role">角色</string>
+    <string name="acl_create_mode_notice">分享与访问控制在智能体保存后可用。</string>
+
+    <!-- Tool select dialog -->
+    <string name="agent_tools_title">智能体工具</string>
+    <string name="select_tools_description">为你的智能体选择要使用的工具</string>
+    <string name="search_tools_hint">搜索工具…</string>
+    <string name="no_tools_matching">没有与 \"%1$s\" 匹配的工具</string>
+    <string name="no_tools_available">没有可用的工具</string>
+
+    <!-- Per-capability file attachments -->
+    <string name="add_file">添加文件</string>
+    <string name="agent_files_save_first">附加文件前请先保存智能体</string>
+    <string name="agent_file_too_large">文件大小必须为 %1$d MB 或更小</string>
+    <string name="agent_file_upload_failed">文件上传失败</string>
+    <string name="agent_file_remove_failed">移除文件失败</string>
+    <string name="cd_remove_file">移除 %1$s</string>
+
+    <!-- Skills selector (v0.8.6) -->
+    <string name="label_skills">技能</string>
+    <string name="skills_disabled_hint">此智能体的技能已关闭。</string>
+    <string name="skills_enabled_all_hint">你能访问的所有技能都对此智能体可用。</string>
+    <string name="skills_enabled_allowlist_hint">仅所选技能对此智能体可用。</string>
+    <string name="add_skills">添加技能</string>
+    <string name="select_skills">选择技能</string>
+    <string name="search_skills_hint">搜索技能…</string>
+    <string name="no_skills_matching">没有与 \"%1$s\" 匹配的技能</string>
+    <string name="no_skills_available">没有可用的技能</string>
+    <string name="skills_done">完成</string>
+
+    <!-- Subagents config (v0.8.6) -->
+    <string name="label_subagents">子智能体</string>
+    <string name="subagents_description">让此智能体在隔离的上下文中将工作委派给其他智能体。</string>
+    <string name="subagents_allow_self">允许生成自身</string>
+    <string name="add_subagent">添加子智能体</string>
+    <string name="subagents_full">已达到子智能体的最大数量。</string>
+</resources>

@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="cancel">キャンセル</string>
+    <string name="save">保存</string>
+    <string name="delete">削除</string>
+    <string name="copy">コピー</string>
+    <string name="edit">編集</string>
+    <string name="regenerate">再生成</string>
+    <string name="action_rename">名前を変更</string>
+    <string name="action_submit">送信</string>
+    <string name="action_insert">挿入</string>
+    <string name="action_open">開く</string>
+    <string name="action_close">閉じる</string>
+    <string name="action_share">共有</string>
+    <string name="action_search">検索</string>
+    <string name="action_archive">アーカイブ</string>
+    <string name="action_duplicate">複製</string>
+    <string name="action_copy_link">リンクをコピー</string>
+
+    <!-- Chat screen -->
+    <string name="new_chat">新しいチャット</string>
+    <string name="send_message">送信</string>
+    <string name="stop_generating">停止</string>
+    <string name="message_hint">メッセージを入力…</string>
+    <string name="model_parameters">モデルパラメータ</string>
+    <string name="load_preset">プリセットを読み込む</string>
+    <string name="save_as_preset">プリセットとして保存</string>
+    <string name="search_models">モデルを検索…</string>
+    <string name="save_and_submit">保存して送信</string>
+    <string name="preset_name_label">プリセット名</string>
+    <string name="code">コード</string>
+    <string name="preview">プレビュー</string>
+    <string name="select_model">モデルを選択</string>
+    <string name="select_a_model">モデルを選択してください</string>
+    <string name="starred_group">スター付き</string>
+    <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
+    <string name="chat_agent_fallback_label">エージェント</string>
+    <string name="compare_models">モデルを比較</string>
+    <string name="how_can_i_help">今日は何をお手伝いしましょうか？</string>
+    <string name="recording">録音中…</string>
+    <string name="hint_message_model">%1$s にメッセージ</string>
+    <string name="hint_message">メッセージ…</string>
+
+    <!-- Content descriptions - Chat -->
+    <string name="cd_open_tools_menu">ツールメニューを開く</string>
+    <string name="cd_paste_image">クリップボードから画像を貼り付け</string>
+    <string name="cd_message_input">メッセージ入力欄</string>
+    <string name="cd_stop_voice_recording">音声録音を停止</string>
+    <string name="cd_start_voice_recording">音声録音を開始</string>
+    <string name="cd_stop_generation">生成を停止</string>
+    <string name="cd_send_message">メッセージを送信</string>
+    <string name="cd_open_drawer">ナビゲーションドロワーを開く</string>
+    <string name="cd_more_options">その他のオプション</string>
+    <string name="cd_more_tools">その他のツール</string>
+    <string name="cd_scroll_to_bottom">一番下までスクロール</string>
+    <string name="cd_select_model">モデルを選択</string>
+    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_comparison_enabled">比較が有効</string>
+
+    <!-- Content descriptions - Messages -->
+    <string name="cd_thumbs_up">高評価</string>
+    <string name="cd_thumbs_down">低評価</string>
+    <string name="cd_copy_message">メッセージをコピー</string>
+    <string name="cd_edit_message">メッセージを編集</string>
+    <string name="cd_regenerate_response">応答を再生成</string>
+    <string name="cd_stop_reading">読み上げを停止</string>
+    <string name="cd_read_aloud">読み上げ</string>
+    <string name="cd_fork_conversation">ここから会話をフォーク</string>
+    <string name="cd_previous_response">前の応答</string>
+    <string name="cd_next_response">次の応答</string>
+    <string name="cd_generating_response">応答を生成中</string>
+
+    <!-- Content descriptions - Images -->
+    <string name="cd_fullscreen_image">全画面画像</string>
+    <string name="cd_close">閉じる</string>
+    <string name="cd_save_to_device">デバイスに保存</string>
+    <string name="cd_share_image">画像を共有</string>
+    <string name="cd_failed_to_load_image">画像の読み込みに失敗しました</string>
+    <string name="cd_failed_to_load_generated_image">生成された画像の読み込みに失敗しました</string>
+    <string name="cd_embedded_image">メッセージ内の埋め込み画像</string>
+
+    <!-- Content descriptions - Search -->
+    <string name="cd_search_in_conversation">会話内を検索</string>
+    <string name="cd_previous_match">前の一致</string>
+    <string name="cd_next_match">次の一致</string>
+    <string name="cd_close_search">検索を閉じる</string>
+    <string name="cd_clear_search">検索をクリア</string>
+    <string name="hint_find_in_conversation">会話内を検索…</string>
+
+    <!-- Content descriptions - Code -->
+    <string name="cd_copy_code">コードをコピー</string>
+    <string name="cd_copied">コピー済み</string>
+    <string name="action_copy_code">コピー</string>
+    <string name="action_copied">コピーしました！</string>
+    <string name="cd_code_execution_result">コードの実行結果</string>
+    <string name="cd_exit_code_success">終了コード 0（成功）</string>
+    <string name="cd_exit_code_failure">終了コード %1$d（失敗）</string>
+    <string name="exit_code">終了 %1$d</string>
+    <string name="label_code">コード</string>
+    <string name="label_output">出力:</string>
+    <string name="label_error">エラー:</string>
+    <string name="label_input">入力:</string>
+    <string name="cd_collapse_code">コードを折りたたむ</string>
+    <string name="cd_expand_code">コードを展開</string>
+
+    <!-- Content descriptions - Thinking -->
+    <string name="cd_thinking_indicator">思考インジケーター</string>
+    <string name="label_thinking">思考中</string>
+    <string name="cd_collapse">折りたたむ</string>
+    <string name="cd_expand">展開</string>
+    <string name="cd_collapse_thinking">思考ブロックを折りたたむ</string>
+    <string name="cd_expand_thinking">思考ブロックを展開</string>
+
+    <!-- Content descriptions - Summary (context compaction, v0.8.5+) -->
+    <string name="label_summary">以前のメッセージの要約</string>
+    <string name="cd_summary_indicator">要約インジケーター</string>
+    <string name="cd_collapse_summary">要約ブロックを折りたたむ</string>
+    <string name="cd_expand_summary">要約ブロックを展開</string>
+
+    <!-- Content descriptions - Subagent trace (subagents, v0.8.6+) -->
+    <string name="label_subagent">サブエージェント</string>
+    <string name="cd_collapse_subagent">サブエージェント %1$s を折りたたむ</string>
+    <string name="cd_expand_subagent">サブエージェント %1$s を展開</string>
+
+    <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
+    <string name="office_preview_preparing">%1$s のプレビューを準備中…</string>
+    <string name="office_preview_failed">%1$s をプレビューできませんでした（%2$s）</string>
+    <string name="office_preview_unavailable">%1$s — プレビューは利用できません</string>
+
+    <!-- Content descriptions - Tool calls -->
+    <string name="cd_tool_call">ツール呼び出し</string>
+    <string name="cd_collapse_tool_call">ツール呼び出し %1$s を折りたたむ</string>
+    <string name="cd_expand_tool_call">ツール呼び出し %1$s を展開</string>
+    <string name="cd_tool_complete">完了</string>
+    <string name="cd_tool_enabled">有効</string>
+    <string name="video_not_supported">動画コンテンツはサポートされていません</string>
+
+    <!-- Tools bottom sheet -->
+    <string name="tool_camera">カメラ</string>
+    <string name="tool_photos">写真</string>
+    <string name="tool_files">ファイル</string>
+    <string name="tool_model">モデル</string>
+    <string name="tool_model_parameters">モデルパラメータ</string>
+    <string name="tool_model_parameters_desc">温度やトークンなどを調整</string>
+    <string name="tool_web_search">ウェブ検索</string>
+    <string name="tool_web_search_desc">ウェブで情報を検索</string>
+    <string name="tool_code">コード</string>
+    <string name="tool_code_desc">コードを実行・分析</string>
+    <string name="tool_file_search">ファイル検索</string>
+    <string name="tool_file_search_desc">アップロード済みのファイルを検索</string>
+    <string name="tool_mcp">MCP</string>
+    <string name="tool_mcp_desc">Model Context Protocolサーバー</string>
+    <string name="cd_web_search_enabled">ウェブ検索が有効</string>
+    <string name="cd_code_enabled">コードインタープリターが有効</string>
+    <string name="cd_file_search_enabled">ファイル検索が有効</string>
+
+    <!-- Attachments -->
+    <string name="cd_attach_file">ファイルを添付</string>
+    <string name="toast_file_attach_unavailable">ファイル添付はまだiOSでは利用できません</string>
+    <string name="files_count">ファイル（%1$d）</string>
+    <string name="cd_attached_file">添付ファイル: %1$s</string>
+    <string name="cd_preview_file">%1$s のプレビュー</string>
+    <string name="cd_remove_file">%1$s を削除</string>
+
+    <!-- Agent handoff -->
+    <string name="cd_agent_handoff">%1$s から %2$s へのエージェント引き継ぎ</string>
+    <string name="cd_handed_off_to">引き継ぎ先</string>
+    <string name="agent_unknown">不明</string>
+    <string name="agent_previous">前のエージェント</string>
+    <string name="agent_next">次のエージェント</string>
+
+    <!-- Audio/Video -->
+    <string name="cd_pause">一時停止</string>
+    <string name="cd_play">再生</string>
+    <string name="cd_play_video">動画を再生</string>
+    <string name="audio_no_data">音声データがありません</string>
+    <string name="audio_decode_failed">音声のデコードに失敗しました</string>
+
+    <!-- Citation -->
+    <string name="citation_number">引用 %1$d</string>
+    <string name="cd_open_citation_url">引用URLを開く</string>
+
+    <!-- Fork options -->
+    <string name="fork_conversation">会話をフォーク</string>
+    <string name="fork_visible_messages">表示中のメッセージ</string>
+    <string name="fork_visible_messages_desc">メッセージの直接の経路のみ</string>
+    <string name="fork_include_branches">分岐を含める</string>
+    <string name="fork_include_branches_desc">直接の経路に加えて兄弟メッセージ</string>
+    <string name="fork_all_to_target">対象の階層まですべて</string>
+    <string name="fork_all_to_target_desc">この階層までのすべてのメッセージと分岐</string>
+    <string name="fork_start_new">対象から新しい会話を開始</string>
+    <string name="fork_start_new_desc">ルートではなく選択したメッセージからフォークを開始します</string>
+
+    <!-- Image viewer toasts -->
+    <string name="toast_failed_to_load_image">画像の読み込みに失敗しました</string>
+    <string name="toast_failed_to_save_image">画像の保存に失敗しました</string>
+    <string name="toast_image_saved">画像をギャラリーに保存しました</string>
+    <string name="toast_failed_to_save_with_error">画像の保存に失敗しました: %1$s</string>
+    <string name="toast_storage_permission_required">画像を保存するにはストレージの権限が必要です</string>
+
+    <!-- Image generation -->
+    <string name="generating_image">画像を生成中…</string>
+    <string name="image_generated">画像を生成しました</string>
+    <string name="cd_generated_image">生成された画像</string>
+
+    <!-- Landing page greetings -->
+    <string name="greeting_late_night">こんばんは、夜更かしですね</string>
+    <string name="greeting_weekend_morning">楽しい週末の朝を</string>
+    <string name="greeting_weekend_afternoon">楽しい週末の午後を</string>
+    <string name="greeting_weekend_evening">楽しい週末の夜を</string>
+    <string name="greeting_early_morning">おはようございます、早起きですね</string>
+    <string name="greeting_morning">おはようございます</string>
+    <string name="greeting_afternoon">こんにちは</string>
+    <string name="greeting_evening">こんばんは</string>
+
+    <!-- Log content -->
+    <string name="log_output">ログ出力</string>
+    <string name="cd_collapse_log">%1$s を折りたたむ</string>
+    <string name="cd_expand_log">%1$s を展開</string>
+
+    <!-- Table dialog -->
+    <string name="cd_expand_table">表を展開</string>
+    <string name="dialog_table">表</string>
+
+    <!-- MCP -->
+    <string name="cd_select_mcp_servers">MCPサーバーを選択</string>
+    <string name="cd_mcp_resources">MCPリソース: %1$d 件</string>
+    <string name="cd_mcp_resource">MCPリソース: %1$s</string>
+
+    <!-- Memory artifact -->
+    <string name="cd_memory_artifact">メモリアーティファクト: %1$s</string>
+    <string name="memory_artifact_untitled">無題</string>
+    <string name="label_memory">メモリ</string>
+
+    <!-- Mermaid diagram -->
+    <string name="label_mermaid">mermaid</string>
+    <string name="cd_show_diagram">図を表示</string>
+    <string name="cd_view_code">コードを表示</string>
+    <string name="label_diagram">図</string>
+    <string name="cd_fullscreen">全画面</string>
+    <string name="cd_close_fullscreen">全画面を閉じる</string>
+
+    <!-- Message bubble -->
+    <string name="sender_you">あなた</string>
+    <string name="sender_assistant">アシスタント</string>
+
+    <!-- Message files -->
+    <string name="file_fallback">ファイル</string>
+
+    <!-- Model selector sheet -->
+    <string name="cd_selected">選択済み</string>
+    <string name="cd_public_agent">公開エージェント</string>
+    <string name="cd_pin_favorite">お気に入りにピン留め</string>
+    <string name="cd_unpin_favorite">お気に入りのピンを外す</string>
+    <string name="cd_collapse_section">%1$s を折りたたむ</string>
+    <string name="cd_expand_section">%1$s を展開</string>
+    <string name="set_api_key_action">APIキーを設定</string>
+    <string name="cd_set_api_key">%1$s のAPIキーを設定</string>
+
+    <!-- Preset picker -->
+    <string name="select_preset">プリセットを選択</string>
+    <string name="no_presets_saved">保存されたプリセットはまだありません</string>
+    <string name="cd_edit_preset">%1$s を編集</string>
+    <string name="cd_delete_preset">%1$s を削除</string>
+    <string name="preset_endpoint">エンドポイント: %1$s</string>
+    <string name="preset_model">モデル: %1$s</string>
+
+    <!-- Feedback dialog -->
+    <string name="dialog_title_feedback">フィードバックを送る</string>
+    <string name="feedback_question">この応答の問題点は何でしたか？</string>
+    <string name="hint_optional_comment">任意のコメント…</string>
+
+    <!-- Streaming tool call -->
+    <string name="tool_call_output">出力:</string>
+
+    <!-- Web search result -->
+    <string name="cd_search_result">検索結果: %1$s</string>
+
+    <!-- Rename dialog -->
+    <string name="dialog_title_rename">会話の名前を変更</string>
+    <string name="hint_title">タイトル</string>
+
+    <!-- Delete dialog -->
+    <string name="dialog_title_delete_conversation">会話を削除</string>
+    <string name="dialog_delete_conversation_message">この会話を完全に削除します。この操作は取り消せません。</string>
+
+    <!-- Chat menu options -->
+    <string name="menu_search">検索</string>
+    <string name="menu_rename">名前を変更</string>
+
+    <!-- Artifacts -->
+    <string name="cd_open_artifact">アーティファクトを開く</string>
+    <string name="cd_share_artifact">アーティファクトを共有</string>
+    <string name="cd_previous_version">前のバージョン</string>
+    <string name="cd_next_version">次のバージョン</string>
+    <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="label_resource">リソース</string>
+
+    <!-- Prompts -->
+    <string name="prompts_library">プロンプトライブラリ</string>
+    <string name="use_in_chat">チャットで使用</string>
+    <string name="set_production">本番に設定</string>
+    <string name="prompt_name_label">名前</string>
+    <string name="prompt_description_label">説明</string>
+    <string name="prompt_command_label">コマンド</string>
+    <string name="prompt_text_label">プロンプトテキスト</string>
+    <string name="prompt_content">プロンプトの内容</string>
+    <string name="cd_share_prompt">プロンプトを共有</string>
+    <string name="cd_edit_prompt">プロンプトを編集</string>
+    <string name="cd_delete_prompt">プロンプトを削除</string>
+    <string name="cd_back">戻る</string>
+    <string name="cd_version_history">バージョン履歴</string>
+    <string name="cd_filter_sort">フィルターと並べ替え</string>
+    <string name="cd_create_prompt">プロンプトを作成</string>
+    <string name="cd_remove_filter">フィルターを削除</string>
+    <string name="cd_reset_sort">並べ替えをリセット</string>
+    <string name="cd_share">共有</string>
+    <string name="prompt_author">作成者: %1$s</string>
+    <string name="prompt_sort_label">並べ替え: %1$s</string>
+
+    <!-- Prompt versions -->
+    <string name="version_history">バージョン履歴</string>
+    <string name="no_versions">利用可能なバージョンがありません</string>
+    <string name="label_production">本番</string>
+    <string name="version_number">v%1$d</string>
+
+    <!-- Prompt variables -->
+    <string name="label_variables">変数</string>
+
+    <!-- Prompt filter sheet -->
+    <string name="label_category">カテゴリ</string>
+    <string name="label_all">すべて</string>
+    <string name="label_sort_by">並べ替え基準</string>
+
+    <!-- Prompt share dialog -->
+    <string name="dialog_title_share_prompt">プロンプトを共有</string>
+    <string name="label_permission">権限</string>
+
+    <!-- Variable input dialog -->
+    <string name="dialog_title_fill_variables">変数を入力</string>
+
+    <!-- Temp chat toggle -->
+    <string name="cd_temp_chat">一時的なチャット</string>
+    <string name="label_temp_chat">一時</string>
+
+    <!-- Comparison mode -->
+    <string name="continue_with_response">この応答で続ける</string>
+    <string name="waiting_for_response">応答を待っています…</string>
+
+    <!-- Slash command menu -->
+    <string name="slash_command_title">/%1$s</string>
+
+    <!-- Provider Keys chat-time errors. -->
+    <string name="provider_keys_chat_error_no_key">キーが見つかりません。キーを入力してもう一度お試しください。</string>
+    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <string name="provider_keys_chat_error_expired">%1$s に提供されたキーは %2$s に期限切れになりました。新しいキーを入力してもう一度お試しください。</string>
+    <string name="provider_keys_chat_error_invalid">無効なキーが提供されました。有効なキーを入力してもう一度お試しください。</string>
+    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
+    <string name="provider_keys_chat_error_cta">キー設定を開く</string>
+
+    <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
+    <string name="send_block_select_agent">メッセージを送信する前にエージェントを選択してください。</string>
+    <string name="send_block_select_model">メッセージを送信する前にモデルを選択してください。</string>
+    <string name="send_block_agents_unavailable">このサーバーではエージェントを利用できません。別のモデルを選択してください。</string>
+    <string name="send_block_agent_not_available">選択したエージェントはこのサーバーで利用できません。別のエージェントを選択してください。</string>
+    <string name="send_block_model_not_available">選択したモデルはこのサーバーで利用できません。別のモデルを選択してください。</string>
+    <string name="send_block_model_load_failed">選択したモデルをまだ読み込めませんでした。もう一度お試しいただくか、別のモデルを選択してください。</string>
+</resources>

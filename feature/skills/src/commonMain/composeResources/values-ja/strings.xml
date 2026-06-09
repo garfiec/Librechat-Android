@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">スキル</string>
+    <string name="skills_back">戻る</string>
+    <string name="skills_create">スキルを作成</string>
+    <string name="skills_import">スキルをインポート</string>
+    <string name="skills_search_hint">スキルを検索…</string>
+    <string name="skills_empty">スキルはまだありません。</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">ファイル</string>
+    <string name="skill_files_empty">添付されたファイルはありません。</string>
+    <string name="skill_files_add">ファイルを追加</string>
+    <string name="skill_files_remove">%1$s を削除</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">編集</string>
+    <string name="skill_delete">削除</string>
+    <string name="skill_show_source">ソースを表示</string>
+    <string name="skill_show_rendered">レンダリング表示</string>
+    <string name="skill_category_label">カテゴリ: %1$s</string>
+    <string name="skill_version_label">バージョン %1$d</string>
+    <string name="skill_delete_confirm_title">スキルを削除しますか？</string>
+    <string name="skill_delete_confirm_message">「%1$s」を完全に削除します。この操作は取り消せません。</string>
+    <string name="skill_empty_body">このスキルには内容がありません。</string>
+    <string name="skill_active_label">有効</string>
+    <string name="skill_active_description">このスキルをチャットで使用できるようにします。</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">新しいスキル</string>
+    <string name="skill_editor_edit_title">スキルを編集</string>
+    <string name="skill_field_name">名前</string>
+    <string name="skill_field_name_hint">lowercase-kebab-case</string>
+    <string name="skill_field_name_error">小文字、数字、ハイフンを使用してください（最大64文字）。</string>
+    <string name="skill_field_display_title">表示タイトル</string>
+    <string name="skill_field_description">説明</string>
+    <string name="skill_field_description_error">説明は必須です（最大1024文字）。</string>
+    <string name="skill_field_body">内容（Markdown）</string>
+    <string name="skill_field_category">カテゴリ</string>
+    <string name="skill_category_none">なし</string>
+    <string name="skill_field_always_apply">このスキルを常に適用する</string>
+    <string name="skill_save">保存</string>
+    <string name="skill_cancel">キャンセル</string>
+    <string name="skill_conflict_dismiss">OK</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">共有と権限</string>
+    <string name="skill_acl_no_grants">まだ誰とも共有されていません。</string>
+    <string name="skill_acl_add_principal">ユーザーまたはグループを追加</string>
+    <string name="skill_acl_grant_dialog_title">スキルを共有</string>
+    <string name="skill_acl_search_hint">ユーザー、グループ、またはロールを検索</string>
+    <string name="skill_acl_search_empty">一致するものがありません</string>
+    <string name="skill_acl_role">ロール</string>
+    <string name="skill_acl_revoke">アクセスを削除</string>
+    <string name="skill_acl_public_label">公開</string>
+    <string name="skill_acl_public_description">このサーバーの誰でもこのスキルを使用できます。</string>
+    <string name="skill_acl_principal_user">ユーザー</string>
+    <string name="skill_acl_principal_group">グループ</string>
+    <string name="skill_acl_principal_role">ロール</string>
+    <string name="skill_acl_collapse">折りたたむ</string>
+    <string name="skill_acl_expand">展開</string>
+    <string name="skill_acl_close">閉じる</string>
+</resources>

@@ -12,6 +12,7 @@ import coil3.memory.MemoryCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.request.crossfade
 import coil3.svg.SvgDecoder
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.ui.theme.LibreChatTheme
@@ -57,19 +58,30 @@ fun LibreChatApp() {
     val themeMode by themeDataStore.themeMode.collectAsState(initial = themeDataStore.initialThemeMode)
     val accentColorArgb by themeDataStore.accentColor.collectAsState(initial = themeDataStore.initialAccentColor)
     val useDynamicColor by themeDataStore.useDynamicColor.collectAsState(initial = themeDataStore.initialUseDynamicColor)
+
+    val settingsDataStore = koinInject<SettingsDataStore>()
+    // Gate on the language warm-up too so a persisted non-system language is applied before the
+    // first frame (no flash of the system locale before switching).
+    val localeReady by settingsDataStore.isReady.collectAsState()
+    val selectedLanguage by settingsDataStore.selectedLanguage.collectAsState(
+        initial = settingsDataStore.initialSelectedLanguage,
+    )
+    // The DEFAULT_LANGUAGE sentinel ("system") maps to no override → keep the device locale.
+    val appLocale = selectedLanguage.takeIf { it != SettingsDataStore.DEFAULT_LANGUAGE }
+
     val systemDark = isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> systemDark
     }
-    if (themeReady) {
+    if (themeReady && localeReady) {
         LibreChatTheme(
             darkTheme = darkTheme,
             accentColor = Color(accentColorArgb),
             useDynamicColor = useDynamicColor,
         ) {
-            LibreChatNavHost()
+            LibreChatNavHost(appLocaleTag = appLocale)
         }
     }
 }

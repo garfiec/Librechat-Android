@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">Habilidades</string>
+    <string name="skills_back">Atrás</string>
+    <string name="skills_create">Crear habilidad</string>
+    <string name="skills_import">Importar habilidad</string>
+    <string name="skills_search_hint">Buscar habilidades…</string>
+    <string name="skills_empty">Aún no hay habilidades.</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">Archivos</string>
+    <string name="skill_files_empty">No hay archivos adjuntos.</string>
+    <string name="skill_files_add">Añadir archivo</string>
+    <string name="skill_files_remove">Eliminar %1$s</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">Editar</string>
+    <string name="skill_delete">Eliminar</string>
+    <string name="skill_show_source">Mostrar fuente</string>
+    <string name="skill_show_rendered">Mostrar renderizado</string>
+    <string name="skill_category_label">Categoría: %1$s</string>
+    <string name="skill_version_label">Versión %1$d</string>
+    <string name="skill_delete_confirm_title">¿Eliminar habilidad?</string>
+    <string name="skill_delete_confirm_message">Esto elimina permanentemente \"%1$s\". Esta acción no se puede deshacer.</string>
+    <string name="skill_empty_body">Esta habilidad no tiene contenido.</string>
+    <string name="skill_active_label">Activa</string>
+    <string name="skill_active_description">Hacer que esta habilidad esté disponible para usar en los chats.</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">Nueva habilidad</string>
+    <string name="skill_editor_edit_title">Editar habilidad</string>
+    <string name="skill_field_name">Nombre</string>
+    <string name="skill_field_name_hint">minúsculas-kebab-case</string>
+    <string name="skill_field_name_error">Usa letras minúsculas, dígitos y guiones (máx. 64).</string>
+    <string name="skill_field_display_title">Título visible</string>
+    <string name="skill_field_description">Descripción</string>
+    <string name="skill_field_description_error">La descripción es obligatoria (máx. 1024 caracteres).</string>
+    <string name="skill_field_body">Contenido (markdown)</string>
+    <string name="skill_field_category">Categoría</string>
+    <string name="skill_category_none">Ninguna</string>
+    <string name="skill_field_always_apply">Aplicar siempre esta habilidad</string>
+    <string name="skill_save">Guardar</string>
+    <string name="skill_cancel">Cancelar</string>
+    <string name="skill_conflict_dismiss">Aceptar</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">Compartir y permisos</string>
+    <string name="skill_acl_no_grants">Aún no se ha compartido con nadie.</string>
+    <string name="skill_acl_add_principal">Añadir personas o grupos</string>
+    <string name="skill_acl_grant_dialog_title">Compartir habilidad</string>
+    <string name="skill_acl_search_hint">Buscar usuarios, grupos o roles</string>
+    <string name="skill_acl_search_empty">Sin coincidencias</string>
+    <string name="skill_acl_role">Rol</string>
+    <string name="skill_acl_revoke">Quitar acceso</string>
+    <string name="skill_acl_public_label">Público</string>
+    <string name="skill_acl_public_description">Cualquier persona en este servidor puede usar esta habilidad.</string>
+    <string name="skill_acl_principal_user">Usuario</string>
+    <string name="skill_acl_principal_group">Grupo</string>
+    <string name="skill_acl_principal_role">Rol</string>
+    <string name="skill_acl_collapse">Contraer</string>
+    <string name="skill_acl_expand">Expandir</string>
+    <string name="skill_acl_close">Cerrar</string>
+</resources>

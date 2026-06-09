@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="action_add">添加</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_clear">清除</string>
+    <string name="action_confirm">确认</string>
+    <string name="action_creating">创建中…</string>
+    <string name="action_create">创建</string>
+    <string name="action_delete">删除</string>
+    <string name="action_done">完成</string>
+    <string name="action_retry">重试</string>
+    <string name="action_revoke_all">全部吊销</string>
+    <string name="action_save">保存</string>
+    <string name="action_sign_out">退出登录</string>
+    <string name="action_upload">上传</string>
+    <string name="action_uploading">上传中…</string>
+    <string name="action_verify">验证</string>
+    <string name="action_verifying">验证中…</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_add_memory">添加记忆</string>
+    <string name="cd_add_server">添加服务器</string>
+    <string name="cd_back">返回</string>
+    <string name="cd_change_avatar">更换头像</string>
+    <string name="cd_choose_image">选择图片</string>
+    <string name="cd_collapse_tools">收起工具</string>
+    <string name="cd_copy_api_key">复制 API 密钥</string>
+    <string name="cd_copy_link">复制链接</string>
+    <string name="cd_create_api_key">创建 API 密钥</string>
+    <string name="cd_current_avatar">当前头像</string>
+    <string name="cd_delete">删除</string>
+    <string name="cd_delete_api_key">删除 API 密钥</string>
+    <string name="cd_delete_memory">删除记忆</string>
+    <string name="cd_delete_preset">删除预设</string>
+    <string name="cd_delete_server">删除服务器</string>
+    <string name="cd_delete_shared_link">删除分享链接</string>
+    <string name="cd_edit">编辑</string>
+    <string name="cd_edit_memory">编辑记忆</string>
+    <string name="cd_edit_server">编辑服务器</string>
+    <string name="cd_expand_tools">展开工具</string>
+    <string name="cd_loading_profile">正在加载个人资料</string>
+    <string name="cd_make_private">设为私有</string>
+    <string name="cd_make_public">设为公开</string>
+    <string name="cd_preview_voice">试听语音</string>
+    <string name="cd_qr_code">身份验证器应用的二维码</string>
+    <string name="cd_reinitialize">重新初始化</string>
+    <string name="cd_avatar_preview">头像预览</string>
+    <string name="cd_selected">已选择</string>
+    <string name="cd_selected_avatar">已选头像</string>
+    <string name="cd_stop_voice_preview">停止语音试听</string>
+    <string name="cd_test_tts_voice">测试所选 TTS 语音</string>
+    <string name="cd_toggle_auto_read">切换自动朗读回复</string>
+    <string name="cd_toggle_auto_send_stt">切换语音后自动发送</string>
+    <string name="cd_toggle_memories">切换记忆</string>
+    <string name="cd_tts_voice_selector">选择 TTS 语音。当前为 %1$s</string>
+    <string name="cd_user_avatar">用户头像</string>
+    <string name="cd_view_all_tools">查看全部工具</string>
+    <string name="cd_view_tools">查看工具</string>
+
+    <!-- Section headers -->
+    <string name="section_about">关于</string>
+    <string name="section_account">账户</string>
+    <string name="section_advanced">高级</string>
+    <string name="section_appearance">外观</string>
+    <string name="section_balance">余额</string>
+    <string name="section_chat_preferences">聊天偏好</string>
+    <string name="section_conversations">对话</string>
+    <string name="section_danger_zone">危险操作区</string>
+    <string name="section_data_management">数据管理</string>
+    <string name="section_general">通用</string>
+    <string name="section_language">语言</string>
+    <string name="section_layout">布局</string>
+    <string name="section_mcp_servers">MCP 服务器</string>
+    <string name="section_memories">记忆</string>
+    <string name="section_personalization">个性化</string>
+    <string name="section_presets">预设</string>
+    <string name="section_profile">个人资料</string>
+    <string name="section_security">安全</string>
+    <string name="section_speech">语音</string>
+    <string name="section_tablet">平板</string>
+
+    <!-- Screen titles -->
+    <string name="title_account">账户</string>
+    <string name="title_api_keys">API 密钥</string>
+    <string name="title_chat">聊天</string>
+    <string name="title_commands">命令</string>
+    <string name="title_data">数据</string>
+    <string name="title_general">通用</string>
+    <string name="title_memories">记忆</string>
+    <string name="title_mcp_servers">MCP 服务器</string>
+    <string name="title_presets">预设</string>
+    <string name="title_settings">设置</string>
+    <string name="title_shared_links">分享链接</string>
+
+    <!-- Tabbed settings tabs -->
+    <string name="tab_general">通用</string>
+    <string name="tab_chat">聊天</string>
+    <string name="tab_account">账户</string>
+    <string name="tab_data">数据</string>
+
+    <!-- Theme -->
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+
+    <!-- Accent color -->
+    <string name="accent_color">强调色</string>
+    <string name="accent_color_custom">自定义</string>
+    <string name="accent_color_hex">十六进制</string>
+    <string name="use_wallpaper_colors">使用壁纸取色</string>
+    <string name="use_wallpaper_colors_desc">让应用强调色与系统壁纸保持一致（Material You）</string>
+
+    <!-- Settings rows -->
+    <string name="language">语言</string>
+    <string name="language_system_default">跟随系统</string>
+    <string name="personalization">个性化</string>
+    <string name="status_enabled">已启用</string>
+    <string name="status_disabled">已禁用</string>
+    <string name="fork_behavior">分叉行为</string>
+    <string name="commands">命令</string>
+    <string name="commands_enabled_count">已启用 %1$d 个</string>
+    <string name="api_keys">API 密钥</string>
+    <string name="api_keys_subtitle">管理用于程序化访问的 API 密钥</string>
+    <string name="presets">预设</string>
+    <string name="presets_subtitle">管理对话预设</string>
+    <string name="favorites">收藏</string>
+    <string name="favorites_subtitle">管理已固定的智能体和模型</string>
+    <string name="favorites_title">收藏</string>
+    <string name="favorites_empty_title">暂无收藏</string>
+    <string name="favorites_empty_message">在模型选择器中固定智能体或模型，即可在此查看。</string>
+    <string name="favorites_count_of">%1$d / %2$d</string>
+    <string name="favorites_unpin_cd">取消固定收藏</string>
+
+    <!-- About info -->
+    <string name="app_version_label">应用版本</string>
+    <string name="app_build_label">构建</string>
+    <string name="server_label">服务器</string>
+    <string name="server_not_configured">未配置</string>
+    <string name="server_build_commit_label">服务器提交</string>
+    <string name="server_build_branch_label">服务器分支</string>
+    <string name="server_build_date_label">服务器构建日期</string>
+
+    <!-- Tablet settings -->
+    <string name="sidebar_swipe_gesture">侧边栏滑动手势</string>
+    <string name="sidebar_swipe_gesture_desc">在平板布局中从左侧边缘滑动以打开侧边栏</string>
+
+    <!-- Balance -->
+    <string name="token_credits">Token 额度</string>
+    <string name="available_balance">可用余额</string>
+    <string name="cd_token_balance">Token 余额：%1$s 额度</string>
+
+    <!-- Chat settings -->
+    <string name="chat_layout">聊天布局</string>
+    <string name="chat_layout_thread">线程式</string>
+    <string name="chat_layout_two_sided">双侧聊天</string>
+    <string name="chat_layout_thread_desc">所有消息左对齐，带头像和名称</string>
+    <string name="chat_layout_two_sided_desc">用户消息靠右，智能体靠左</string>
+    <string name="show_bubbles">显示气泡</string>
+    <string name="show_bubbles_desc">为消息添加圆角气泡背景</string>
+    <string name="show_avatars">显示头像</string>
+    <string name="show_avatars_desc">在消息旁显示用户和智能体头像</string>
+    <string name="starred_models_title">星标模型</string>
+    <string name="starred_models_desc">在模型选择器顶部显示已固定的模型和智能体</string>
+    <string name="starred_models_off">关闭</string>
+    <string name="starred_models_grouped">顶部可折叠分组</string>
+    <string name="starred_models_top">置于顶部，不分组</string>
+    <string name="font_size">字体大小</string>
+    <string name="font_size_small">小</string>
+    <string name="font_size_medium">中</string>
+    <string name="font_size_large">大</string>
+    <string name="latex_renderer">LaTeX 渲染器</string>
+    <string name="latex_katex">KaTeX（渲染）</string>
+    <string name="latex_katex_desc">通过 WebView 完整渲染 LaTeX</string>
+    <string name="latex_native">纯文本（快速）</string>
+    <string name="latex_native_desc">显示原始 LaTeX 源码以获得更流畅的滚动性能</string>
+    <string name="auto_scroll">流式输出时自动滚动</string>
+    <string name="auto_scroll_desc">在生成回复时自动滚动到新内容</string>
+    <string name="show_thinking_blocks">显示思考块</string>
+    <string name="show_thinking_blocks_desc">在可用时显示模型的推理步骤</string>
+    <string name="show_image_descriptions">显示图片描述</string>
+    <string name="show_image_descriptions_desc">在图片下方显示 AI 生成的图片提示词</string>
+    <string name="dismiss_keyboard_on_send">发送后收起键盘</string>
+    <string name="dismiss_keyboard_on_send_desc">发送消息后自动隐藏键盘</string>
+
+    <!-- Artifacts -->
+    <string name="section_artifacts">Artifacts</string>
+    <string name="artifacts_section_desc">直接在聊天中渲染 artifact，而不是隐藏在需点击打开的卡片后面。点击内嵌 artifact 可打开全屏视图。</string>
+    <string name="inline_artifact_mermaid">Mermaid 图表</string>
+    <string name="inline_artifact_mermaid_desc">内嵌渲染 Mermaid 流程图和图表</string>
+    <string name="inline_artifact_svg">SVG 图片</string>
+    <string name="inline_artifact_svg_desc">内嵌渲染 SVG 矢量图形</string>
+    <string name="inline_artifact_html">HTML</string>
+    <string name="inline_artifact_html_desc">内嵌渲染 HTML 页面（从 CDN 加载 Tailwind）</string>
+    <string name="inline_artifact_react">React 组件</string>
+    <string name="inline_artifact_react_desc">内嵌渲染 React 组件（从 CDN 加载 React + Babel）</string>
+    <string name="inline_artifact_markdown">Markdown 文档</string>
+    <string name="inline_artifact_markdown_desc">内嵌渲染 Markdown artifact，并对代码块进行语法高亮</string>
+
+    <!-- Security -->
+    <string name="two_factor_auth">两步验证</string>
+    <string name="enable_two_factor">启用两步验证</string>
+    <string name="disable_two_factor">禁用两步验证</string>
+    <string name="view_backup_codes">查看备用码</string>
+
+    <!-- 2FA setup dialog -->
+    <string name="dialog_title_enable_2fa">启用两步验证</string>
+    <string name="dialog_title_disable_2fa">禁用两步验证</string>
+    <string name="twofa_scan_instructions">复制下方的 URI 并粘贴到你的身份验证器应用中（例如 Google Authenticator、Authy），然后输入验证码。</string>
+    <string name="twofa_disable_instructions">输入身份验证器验证码以禁用两步验证。</string>
+    <string name="hint_verification_code">验证码</string>
+
+    <!-- OTP verification dialogs -->
+    <string name="otp_title_verify_identity">验证身份</string>
+    <string name="otp_desc_delete_account">输入你的两步验证码以删除账户。</string>
+    <string name="otp_desc_reenroll_2fa">输入当前的两步验证码以重新注册。</string>
+    <string name="otp_desc_regenerate_backup_codes">输入你的两步验证码以重新生成备用码。</string>
+    <string name="otp_verify">验证</string>
+    <string name="otp_cancel">取消</string>
+    <string name="otp_backup_code_label">备用码</string>
+    <string name="otp_use_backup_code">改用备用码</string>
+    <string name="otp_use_otp_code">改用 OTP 验证码</string>
+
+    <!-- Backup codes dialog -->
+    <string name="dialog_title_backup_codes">备用码</string>
+    <string name="backup_codes_instructions">请将这些备用码保存在安全的地方。每个备用码只能使用一次。</string>
+
+    <!-- Danger zone -->
+    <string name="delete_account">删除账户</string>
+    <string name="dialog_title_sign_out">退出登录</string>
+    <string name="dialog_sign_out_message">确定要退出登录吗？</string>
+    <string name="dialog_title_delete_account">删除账户</string>
+    <string name="dialog_delete_account_message">此操作无法撤销。你的所有数据将被永久删除。</string>
+
+    <!-- Clear cache dialog -->
+    <string name="dialog_title_clear_cache">清除缓存</string>
+    <string name="dialog_clear_cache_message">这将清除已缓存的图片和临时数据。你的账户数据不会受到影响。</string>
+
+    <!-- Revoke keys dialog -->
+    <string name="dialog_title_revoke_keys">吊销所有 API 密钥</string>
+    <string name="dialog_revoke_keys_message">这将吊销你所有已存储的 API 密钥。如需继续使用外部服务，你需要重新输入它们。</string>
+
+    <!-- Data settings -->
+    <string name="clear_all_conversations">清除所有对话</string>
+    <string name="clearing">清除中…</string>
+    <string name="archived_conversations">已归档对话</string>
+    <string name="export_all_data">导出全部数据</string>
+    <string name="shared_links">分享链接</string>
+    <string name="clear_cache">清除缓存</string>
+    <string name="revoke_all_api_keys">吊销所有 API 密钥</string>
+    <string name="revoking">吊销中…</string>
+    <string name="dialog_title_clear_conversations">清除所有对话</string>
+    <string name="dialog_clear_conversations_message">这将永久删除你的所有对话。此操作无法撤销。</string>
+    <string name="clear_all">全部清除</string>
+    <string name="export_coming_soon">导出功能即将推出</string>
+    <string name="error_could_not_load_settings">无法加载设置</string>
+
+    <!-- Diagnostic logs (issue #96) -->
+    <string name="section_diagnostic_logs">诊断日志</string>
+    <string name="export_diagnostic_logs">导出诊断日志</string>
+    <string name="export_diagnostic_logs_with_size">导出诊断日志（%1$s）</string>
+    <string name="exporting_logs">导出中…</string>
+    <string name="clear_diagnostic_logs">清除诊断日志</string>
+    <string name="clearing_logs">清除中…</string>
+    <string name="logs_exported">诊断日志已导出</string>
+    <string name="dialog_title_clear_logs">清除诊断日志</string>
+    <string name="dialog_clear_logs_message">这将从本设备永久删除所有已存储的诊断日志。此操作无法撤销。</string>
+
+    <!-- Speech settings -->
+    <string name="auto_send_after_speech">语音后自动发送</string>
+    <string name="auto_send_after_speech_desc">语音转文字完成后自动发送消息</string>
+    <string name="auto_read_responses">自动朗读回复</string>
+    <string name="auto_read_responses_desc">使用文字转语音自动朗读 AI 回复</string>
+    <string name="tts_voice">TTS 语音</string>
+    <string name="test_voice">测试语音</string>
+    <string name="no_server_tts_voices">没有可用的服务器 TTS 语音。服务器上可能未配置语音功能。</string>
+    <string name="using_device_tts">正在使用设备的文字转语音引擎。请在下方的文字转语音设置中配置语音和语速。</string>
+    <string name="speech_to_text_settings">语音转文字设置</string>
+    <string name="text_to_speech_settings">文字转语音设置</string>
+
+    <!-- STT detail dialog -->
+    <string name="stt_engine_label">引擎</string>
+    <string name="stt_language_label">语言</string>
+    <string name="stt_on_device">设备端</string>
+    <string name="stt_default">默认</string>
+    <string name="stt_hint_whisper">Whisper 使用服务器端转录。你的服务器必须已启用 STT。</string>
+    <string name="stt_hint_device">使用设备内置的语音识别器。在受支持的设备上可离线使用。</string>
+    <string name="stt_hint_google">使用 Google 的语音识别器。需要安装 Google 应用。</string>
+    <string name="stt_hint_default">在可用时使用服务器转录（Whisper），否则回退到设备端识别。</string>
+    <string name="stt_auto_detect">自动检测</string>
+
+    <!-- TTS detail dialog -->
+    <string name="tts_source_label">来源</string>
+    <string name="tts_source_device">设备（内置）</string>
+    <string name="tts_source_server">服务器</string>
+    <string name="tts_voice_label">语音</string>
+    <string name="tts_engine_label">引擎</string>
+    <string name="tts_system_default">跟随系统</string>
+    <string name="tts_speech_rate">语速：%1$.1fx</string>
+    <string name="tts_pitch">音调：%1$.1f</string>
+    <string name="tts_cache_audio">缓存音频</string>
+    <string name="tts_preview_text">这是所选语音的试听。</string>
+    <string name="tts_stop_preview">停止试听</string>
+    <string name="tts_preview_voice">试听语音</string>
+
+    <!-- Memories -->
+    <string name="enable_memories">启用记忆</string>
+    <string name="enable_memories_desc">允许 AI 在不同对话间记住信息</string>
+    <string name="no_memories_saved">尚未保存任何记忆</string>
+    <string name="memories_add_hint">点击 + 按钮添加记忆</string>
+    <string name="add_memory">添加记忆</string>
+    <string name="edit_memory">编辑记忆</string>
+    <string name="dialog_title_delete_memory">删除记忆</string>
+    <string name="dialog_delete_memory_message">确定要删除记忆 \"%1$s\" 吗？</string>
+    <string name="memory_key_label">键</string>
+    <string name="memory_value_label">值</string>
+
+    <!-- MCP -->
+    <string name="add_mcp_server">添加 MCP 服务器</string>
+    <string name="edit_mcp_server">编辑 MCP 服务器</string>
+    <string name="mcp_not_available">此服务器不支持 MCP</string>
+    <string name="no_mcp_servers">未配置 MCP 服务器</string>
+    <string name="mcp_add_hint">点击 + 按钮添加服务器</string>
+    <string name="mcp_name_label">名称</string>
+    <string name="mcp_description_label">描述</string>
+    <string name="mcp_description_optional">可选</string>
+    <string name="mcp_url_label">URL</string>
+    <string name="mcp_type_label">类型</string>
+    <string name="mcp_type_sse">SSE</string>
+    <string name="mcp_type_streamable_http">Streamable HTTP</string>
+    <string name="mcp_auth_label">身份验证</string>
+    <string name="mcp_auth_none">无</string>
+    <string name="mcp_auth_api_key">API 密钥</string>
+    <string name="mcp_auth_oauth">OAuth</string>
+    <string name="mcp_auth_key_type">密钥类型</string>
+    <string name="mcp_auth_bearer">Bearer</string>
+    <string name="mcp_auth_basic">Basic</string>
+    <string name="mcp_auth_custom">自定义</string>
+    <string name="mcp_header_name_label">请求头名称</string>
+    <string name="mcp_header_name_placeholder">X-API-Key</string>
+    <string name="mcp_api_key_label">API 密钥</string>
+    <string name="mcp_oauth_client_id">Client ID</string>
+    <string name="mcp_oauth_client_secret">Client Secret</string>
+    <string name="mcp_oauth_auth_url">授权 URL</string>
+    <string name="mcp_oauth_token_url">Token URL</string>
+    <string name="mcp_oauth_scope">作用域</string>
+    <string name="mcp_oauth_scope_placeholder">read execute</string>
+    <string name="dialog_title_delete_server">删除服务器</string>
+    <string name="dialog_delete_server_message">确定要删除 \"%1$s\" 吗？</string>
+    <string name="error_failed_to_load_servers">加载服务器失败</string>
+    <string name="mcp_tools_count">%1$d 个工具%2$s</string>
+    <string name="mcp_tools_available">有 %1$d 个工具%2$s可用</string>
+    <string name="mcp_all_tools">所有 MCP 工具</string>
+    <string name="mcp_tools_for_server">工具：%1$s</string>
+    <string name="no_tools_available">没有可用的工具</string>
+    <string name="mcp_tool_server">服务器：%1$s</string>
+
+    <!-- MCP tools sheet -->
+    <string name="mcp_server_unknown">未知</string>
+
+    <!-- Fork settings -->
+    <string name="fork_mode_direct_path">可见消息</string>
+    <string name="fork_mode_direct_path_desc">仅包含到所选消息的直接消息路径</string>
+    <string name="fork_mode_include_branches">包含分支</string>
+    <string name="fork_mode_include_branches_desc">直接路径以及各层级的同级消息</string>
+    <string name="fork_mode_target_level">直到目标层级的全部</string>
+    <string name="fork_mode_target_level_desc">直到目标消息层级的所有消息和分支（默认）</string>
+
+    <!-- Language selector -->
+    <string name="hint_search_languages">搜索语言</string>
+
+    <!-- Personalization dialog -->
+    <string name="enable_personalization">启用个性化</string>
+    <string name="about_you_label">关于你</string>
+    <string name="about_you_hint">为了提供上下文，AI 应该了解你的哪些信息？</string>
+    <string name="response_style_label">AI 应如何回复？</string>
+    <string name="response_style_hint">回复时偏好的语气、格式或风格</string>
+
+    <!-- Commands screen -->
+    <string name="no_commands_available">没有可用的命令</string>
+
+    <!-- Avatar upload dialog -->
+    <string name="dialog_title_update_avatar">更新头像</string>
+    <string name="avatar_choose_hint">点击相机图标选择图片</string>
+
+    <!-- API Keys screen -->
+    <string name="api_keys_not_available">API 密钥不可用</string>
+    <string name="api_keys_not_supported">你的服务器版本不支持此功能。</string>
+    <string name="no_api_keys">没有 API 密钥</string>
+    <string name="no_api_keys_desc">创建一个 API 密钥以程序化访问 API。</string>
+    <string name="dialog_title_delete_api_key">删除 API 密钥</string>
+    <string name="dialog_delete_api_key_message">确定要删除 API 密钥 \"%1$s\" 吗？此操作无法撤销。</string>
+    <string name="created_prefix">创建于：%1$s</string>
+
+    <!-- API Key create dialog -->
+    <string name="dialog_title_create_api_key">创建 API 密钥</string>
+    <string name="api_key_name_hint">为你的 API 密钥取一个描述性名称，以便识别其用途。</string>
+    <string name="hint_key_name">密钥名称</string>
+    <string name="hint_key_name_placeholder">例如：我的应用</string>
+    <string name="dialog_title_api_key_created">API 密钥已创建</string>
+    <string name="api_key_created_warning">你的 API 密钥已创建。请立即复制——你将无法再次查看它。</string>
+    <string name="copied_to_clipboard">已复制到剪贴板</string>
+
+    <!-- Preset manager -->
+    <string name="no_presets">没有预设</string>
+    <string name="no_presets_desc">从聊天界面保存预设，即可在此管理</string>
+    <string name="dialog_title_delete_preset">删除预设</string>
+    <string name="dialog_delete_preset_message">确定要删除 \"%1$s\" 吗？</string>
+
+    <!-- Shared links -->
+    <string name="no_shared_links">没有分享链接</string>
+    <string name="no_shared_links_desc">分享一个对话即可在此查看</string>
+    <string name="dialog_title_delete_shared_link">删除分享链接</string>
+    <string name="dialog_delete_shared_link_message">这将移除 \"%1$s\" 的分享链接。拥有该链接的人将无法再访问它。</string>
+    <string name="visibility_public">公开</string>
+    <string name="visibility_private">私有</string>
+    <string name="error_failed_to_load_memories">加载记忆失败</string>
+
+    <!-- Provider API Keys -->
+    <string name="provider_keys_title">提供商 API 密钥</string>
+    <string name="provider_keys_subtitle">为需要密钥的端点设置你自己的密钥</string>
+    <string name="provider_keys_dialog_title">为 %1$s 设置 API 密钥</string>
+    <string name="provider_keys_status_set_expires">%1$s 后过期</string>
+    <string name="provider_keys_status_set_never">你的密钥永不过期</string>
+    <string name="provider_keys_status_unset">未设置</string>
+    <string name="provider_keys_status_expired">已过期</string>
+    <string name="provider_keys_status_loading">正在检查密钥状态…</string>
+    <string name="provider_keys_field_api_key_label">密钥</string>
+    <string name="provider_keys_field_base_url_label">Base URL</string>
+    <string name="provider_keys_field_base_url_optional_suffix">（可选）</string>
+    <string name="provider_keys_field_api_key_for_endpoint">%1$s API 密钥</string>
+    <string name="provider_keys_field_api_url_for_endpoint">%1$s API URL</string>
+
+    <string name="provider_keys_field_azure_api_key">Azure OpenAI API 密钥</string>
+    <string name="provider_keys_field_azure_instance">Azure 实例名称</string>
+    <string name="provider_keys_field_azure_deployment">Azure 部署名称</string>
+    <string name="provider_keys_field_azure_api_version">Azure API 版本</string>
+
+    <string name="provider_keys_field_google_api_key">Google API 密钥</string>
+    <string name="provider_keys_field_google_gemini_api">（Gemini API）</string>
+    <string name="provider_keys_field_google_service_key">Google 服务账号密钥</string>
+    <string name="provider_keys_field_google_import">导入服务账号 JSON 密钥。</string>
+    <string name="provider_keys_field_google_invalid">服务账号 JSON 密钥无效，你导入的文件正确吗？</string>
+    <string name="provider_keys_field_google_imported">已成功导入服务账号 JSON 密钥</string>
+    <string name="provider_keys_field_google_paste_label">或粘贴服务账号 JSON</string>
+    <string name="provider_keys_field_google_paste_only_hint">请在下方粘贴服务账号 JSON。</string>
+    <string name="provider_keys_field_google_service_key_or_gemini">Google 服务密钥或 Gemini API 密钥</string>
+
+    <string name="provider_keys_field_bedrock_access_key_id">Access Key ID</string>
+    <string name="provider_keys_field_bedrock_secret_access_key">Secret Access Key</string>
+    <string name="provider_keys_field_bedrock_session_token">Session Token</string>
+    <string name="provider_keys_field_bedrock_session_token_optional_suffix">（可选）</string>
+
+    <string name="provider_keys_required_fields">以下字段为必填项：%1$s</string>
+    <string name="provider_keys_revoke">吊销</string>
+    <string name="provider_keys_revoke_failed">吊销 API 密钥失败。请重试。</string>
+    <string name="provider_keys_revoke_success">API 密钥已成功吊销</string>
+    <string name="provider_keys_revoke_all">吊销密钥</string>
+    <string name="provider_keys_revoke_all_confirm">确定要吊销所有密钥吗？</string>
+    <string name="provider_keys_revoke_all_failed">吊销所有密钥失败</string>
+    <string name="provider_keys_save_failed">保存 API 密钥失败。请重试。</string>
+    <string name="provider_keys_save_success">API 密钥已成功保存</string>
+
+    <string name="provider_keys_expiry_label">过期时间</string>
+    <string name="provider_keys_expiry_30m">30 分钟后</string>
+    <string name="provider_keys_expiry_2h">2 小时后</string>
+    <string name="provider_keys_expiry_12h">12 小时后</string>
+    <string name="provider_keys_expiry_1d">1 天后</string>
+    <string name="provider_keys_expiry_7d">7 天后</string>
+    <string name="provider_keys_expiry_30d">30 天后</string>
+    <string name="provider_keys_expiry_never">永不</string>
+
+    <string name="provider_keys_empty_title">没有端点需要用户提供密钥</string>
+    <string name="provider_keys_empty_desc">需要你自己 API 密钥的端点将显示在此处。</string>
+    <string name="provider_keys_revoke_all_action">全部吊销</string>
+
+    <!-- Admin: role skill access -->
+    <string name="role_skills_settings_row">技能访问权限（管理员）</string>
+    <string name="role_skills_title">技能访问权限</string>
+    <string name="role_skills_back">返回</string>
+    <string name="role_skills_description">控制每个角色拥有哪些技能能力。更改将应用于所有具有所选角色的用户。</string>
+    <string name="role_skills_role_label">角色</string>
+    <string name="role_skills_use">使用技能</string>
+    <string name="role_skills_create">创建和编辑技能</string>
+    <string name="role_skills_share">分享技能</string>
+    <string name="role_skills_share_public">公开分享技能</string>
+    <string name="role_skills_save">保存</string>
+</resources>

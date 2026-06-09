@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">Skills</string>
+    <string name="skills_back">Zurück</string>
+    <string name="skills_create">Skill erstellen</string>
+    <string name="skills_import">Skill importieren</string>
+    <string name="skills_search_hint">Skills suchen…</string>
+    <string name="skills_empty">Noch keine Skills.</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">Dateien</string>
+    <string name="skill_files_empty">Keine Dateien angehängt.</string>
+    <string name="skill_files_add">Datei hinzufügen</string>
+    <string name="skill_files_remove">%1$s entfernen</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">Bearbeiten</string>
+    <string name="skill_delete">Löschen</string>
+    <string name="skill_show_source">Quelle anzeigen</string>
+    <string name="skill_show_rendered">Gerendert anzeigen</string>
+    <string name="skill_category_label">Kategorie: %1$s</string>
+    <string name="skill_version_label">Version %1$d</string>
+    <string name="skill_delete_confirm_title">Skill löschen?</string>
+    <string name="skill_delete_confirm_message">Dies löscht \"%1$s\" dauerhaft. Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="skill_empty_body">Dieser Skill hat keinen Inhalt.</string>
+    <string name="skill_active_label">Aktiv</string>
+    <string name="skill_active_description">Diesen Skill zur Verwendung in Chats verfügbar machen.</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">Neuer Skill</string>
+    <string name="skill_editor_edit_title">Skill bearbeiten</string>
+    <string name="skill_field_name">Name</string>
+    <string name="skill_field_name_hint">lowercase-kebab-case</string>
+    <string name="skill_field_name_error">Verwende Kleinbuchstaben, Ziffern und Bindestriche (max. 64).</string>
+    <string name="skill_field_display_title">Anzeigetitel</string>
+    <string name="skill_field_description">Beschreibung</string>
+    <string name="skill_field_description_error">Beschreibung ist erforderlich (max. 1024 Zeichen).</string>
+    <string name="skill_field_body">Inhalt (Markdown)</string>
+    <string name="skill_field_category">Kategorie</string>
+    <string name="skill_category_none">Keine</string>
+    <string name="skill_field_always_apply">Diesen Skill immer anwenden</string>
+    <string name="skill_save">Speichern</string>
+    <string name="skill_cancel">Abbrechen</string>
+    <string name="skill_conflict_dismiss">OK</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">Teilen &amp; Berechtigungen</string>
+    <string name="skill_acl_no_grants">Noch mit niemandem geteilt.</string>
+    <string name="skill_acl_add_principal">Personen oder Gruppen hinzufügen</string>
+    <string name="skill_acl_grant_dialog_title">Skill teilen</string>
+    <string name="skill_acl_search_hint">Benutzer, Gruppen oder Rollen suchen</string>
+    <string name="skill_acl_search_empty">Keine Treffer</string>
+    <string name="skill_acl_role">Rolle</string>
+    <string name="skill_acl_revoke">Zugriff entfernen</string>
+    <string name="skill_acl_public_label">Öffentlich</string>
+    <string name="skill_acl_public_description">Jeder auf diesem Server kann diesen Skill verwenden.</string>
+    <string name="skill_acl_principal_user">Benutzer</string>
+    <string name="skill_acl_principal_group">Gruppe</string>
+    <string name="skill_acl_principal_role">Rolle</string>
+    <string name="skill_acl_collapse">Einklappen</string>
+    <string name="skill_acl_expand">Ausklappen</string>
+    <string name="skill_acl_close">Schließen</string>
+</resources>

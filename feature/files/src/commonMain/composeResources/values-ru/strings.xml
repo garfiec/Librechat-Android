@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="files">Файлы</string>
+    <string name="upload">Загрузить</string>
+    <string name="delete">Удалить</string>
+    <string name="cancel">Отмена</string>
+    <string name="done">Готово</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_exit_edit_mode">Выйти из режима редактирования</string>
+    <string name="cd_select_all">Выбрать все</string>
+    <string name="cd_delete_selected">Удалить выбранные</string>
+    <string name="cd_edit_files">Редактировать файлы</string>
+    <string name="cd_switch_to_grid">Переключить на сетку</string>
+    <string name="cd_switch_to_list">Переключить на список</string>
+    <string name="cd_sort_files">Сортировать файлы</string>
+    <string name="cd_upload_file">Загрузить файл</string>
+    <string name="cd_delete_file">Удалить %1$s</string>
+    <string name="cd_thumbnail">Миниатюра %1$s</string>
+    <string name="cd_close_preview">Закрыть предпросмотр</string>
+    <string name="cd_cancel_upload">Отменить загрузку</string>
+    <string name="cd_ascending">По возрастанию</string>
+    <string name="cd_descending">По убыванию</string>
+
+    <!-- Selection mode -->
+    <string name="select_files">Выбрать файлы</string>
+    <string name="selected_count">Выбрано: %1$d</string>
+
+    <!-- Empty states -->
+    <string name="no_files">Нет файлов</string>
+    <string name="upload_to_get_started">Загрузите файлы, чтобы начать</string>
+    <string name="no_filter_files">Нет: %1$s</string>
+    <string name="no_filter_files_found">Файлы «%1$s» не найдены</string>
+    <string name="could_not_load_files">Не удалось загрузить файлы</string>
+
+    <!-- Delete dialogs -->
+    <string name="delete_count_files">Удалить файлов: %1$d%2$s?</string>
+    <string name="action_cannot_be_undone">Это действие нельзя отменить.</string>
+    <string name="delete_file_question">Удалить файл?</string>
+    <string name="delete_file_message">Удалить "%1$s"? Это действие нельзя отменить.</string>
+    <string name="this_file">этот файл</string>
+
+    <!-- File preview -->
+    <string name="image_preview_unavailable">Предпросмотр изображения недоступен</string>
+    <string name="preview_of">Предпросмотр %1$s</string>
+    <string name="loading_pdf">Загрузка PDF…</string>
+    <string name="page_of">Страница %1$d из %2$d</string>
+    <string name="page_cd">Страница %1$d из %2$s</string>
+    <string name="could_not_render_pdf">Не удалось отобразить предпросмотр PDF</string>
+    <string name="failed_to_download_pdf">Не удалось скачать PDF</string>
+    <string name="failed_to_render_pdf">Не удалось отобразить PDF</string>
+    <string name="loading_file_content">Загрузка содержимого файла…</string>
+    <string name="could_not_load_file_content">Не удалось загрузить содержимое файла</string>
+    <string name="failed_to_download_file">Не удалось скачать файл</string>
+    <string name="failed_to_load_content">Не удалось загрузить содержимое файла</string>
+    <string name="content_truncated">\n\n--- Содержимое усечено (файл слишком большой) ---</string>
+
+    <!-- Info row labels -->
+    <string name="info_type">Тип</string>
+    <string name="info_size">Размер</string>
+    <string name="info_created">Создан</string>
+    <string name="info_source">Источник</string>
+
+    <!-- Upload progress -->
+    <string name="uploading">Загрузка…</string>
+</resources>

@@ -60,6 +60,7 @@ class SettingsViewModelTest {
     private val themeDataStore = mockk<ThemeDataStore>(relaxed = true)
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
     private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+    private val selectedLanguageFlow = MutableStateFlow(SettingsDataStore.DEFAULT_LANGUAGE)
     private val mcpRepository = mockk<McpRepository>(relaxed = true)
     private val memoryRepository = mockk<MemoryRepository>(relaxed = true)
     private val speechRepository = mockk<SpeechRepository>(relaxed = true)
@@ -110,6 +111,8 @@ class SettingsViewModelTest {
         every { settingsDataStore.showAvatars } returns MutableStateFlow(true)
         every { settingsDataStore.showBubbles } returns MutableStateFlow(false)
         every { settingsDataStore.latexRenderer } returns MutableStateFlow(LatexRenderer.KATEX)
+        every { settingsDataStore.selectedLanguage } returns selectedLanguageFlow
+        coEvery { settingsDataStore.setSelectedLanguage(any()) } answers { selectedLanguageFlow.value = firstArg() }
 
         // Setup default API responses
         coEvery { userRepository.getUser() } returns Result.Success(testUser)
@@ -370,6 +373,7 @@ class SettingsViewModelTest {
         viewModel.setLanguage("fr")
         advanceUntilIdle()
 
+        coVerify { settingsDataStore.setSelectedLanguage("fr") }
         assertThat(viewModel.uiState.value.selectedLanguage).isEqualTo("fr")
         assertThat(viewModel.uiState.value.showLanguageDialog).isFalse()
     }

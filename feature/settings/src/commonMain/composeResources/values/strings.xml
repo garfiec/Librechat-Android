@@ -113,6 +113,7 @@
 
     <!-- Settings rows -->
     <string name="language">Language</string>
+    <string name="language_system_default">System default</string>
     <string name="personalization">Personalization</string>
     <string name="status_enabled">Enabled</string>
     <string name="status_disabled">Disabled</string>

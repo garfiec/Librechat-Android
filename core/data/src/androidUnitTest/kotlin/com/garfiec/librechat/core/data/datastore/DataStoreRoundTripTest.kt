@@ -108,7 +108,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_defaults() = runTest(testDispatcher) {
         val ds = createDataStore("settings")
-        val store = SettingsDataStore(ds)
+        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         assertThat(store.autoScrollEnabled.first()).isTrue()
         assertThat(store.showThinkingBlocks.first()).isTrue()
@@ -118,12 +118,13 @@ class DataStoreRoundTripTest {
         assertThat(store.latexRenderer.first()).isEqualTo(LatexRenderer.KATEX)
         assertThat(store.showAvatars.first()).isTrue()
         assertThat(store.showBubbles.first()).isFalse()
+        assertThat(store.selectedLanguage.first()).isEqualTo("system")
     }
 
     @Test
     fun settingsDataStore_roundTrip_booleans() = runTest(testDispatcher) {
         val ds = createDataStore("settings-bool")
-        val store = SettingsDataStore(ds)
+        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         store.setAutoScrollEnabled(false)
         store.setShowThinkingBlocks(false)
@@ -141,7 +142,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_roundTrip_enums() = runTest(testDispatcher) {
         val ds = createDataStore("settings-enums")
-        val store = SettingsDataStore(ds)
+        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         store.setLatexRenderer(LatexRenderer.NATIVE)
         assertThat(store.latexRenderer.first()).isEqualTo(LatexRenderer.NATIVE)
@@ -156,7 +157,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_roundTrip_strings() = runTest(testDispatcher) {
         val ds = createDataStore("settings-strings")
-        val store = SettingsDataStore(ds)
+        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         store.setLastUsedModel("anthropic", "claude-3.5-sonnet")
         assertThat(store.lastUsedEndpoint.first()).isEqualTo("anthropic")
@@ -164,12 +165,15 @@ class DataStoreRoundTripTest {
 
         store.setSelectedVoiceId("voice-en-us-001")
         assertThat(store.selectedVoiceId.first()).isEqualTo("voice-en-us-001")
+
+        store.setSelectedLanguage("zh-Hans")
+        assertThat(store.selectedLanguage.first()).isEqualTo("zh-Hans")
     }
 
     @Test
     fun settingsDataStore_roundTrip_floats() = runTest(testDispatcher) {
         val ds = createDataStore("settings-floats")
-        val store = SettingsDataStore(ds)
+        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         store.setTtsSpeechRate(1.5f)
         store.setTtsPitch(0.8f)
@@ -180,7 +184,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_roundTrip_mcpServers() = runTest(testDispatcher) {
         val ds = createDataStore("settings-mcp")
-        val store = SettingsDataStore(ds)
+        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
 
         store.setSelectedMcpServers(setOf("server-a", "server-b"))
         assertThat(store.selectedMcpServers.first()).containsExactly("server-a", "server-b")

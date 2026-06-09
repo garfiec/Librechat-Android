@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Server URL -->
+    <string name="server_url_label">URL del servidor</string>
+    <string name="server_url_placeholder">https://tu-servidor.com</string>
+    <string name="server_url_connect">Conectar</string>
+    <string name="connect_to_librechat">Conectar a LibreChat</string>
+    <string name="enter_server_url_hint">Introduce la URL de tu servidor para empezar</string>
+    <string name="insecure_connection_title">Conexión no segura</string>
+    <string name="insecure_connection_message">Te estás conectando mediante HTTP. Tus credenciales de inicio de sesión y mensajes se enviarán sin cifrar y podrían ser interceptados por otras personas en la red.\n\nUsa HTTP solo para servidores de desarrollo local.</string>
+    <string name="connect_anyway">Conectar de todos modos</string>
+    <string name="cancel">Cancelar</string>
+
+    <!-- Login -->
+    <string name="login_title">Iniciar sesión</string>
+    <string name="email_label">Correo electrónico</string>
+    <string name="password_label">Contraseña</string>
+    <string name="continue_button">Continuar</string>
+    <string name="forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="no_account_sign_up">¿No tienes una cuenta? Regístrate</string>
+    <string name="or_continue_with">O continúa con</string>
+
+    <!-- OAuth provider labels -->
+    <string name="oauth_google">Continuar con Google</string>
+    <string name="oauth_github">Continuar con GitHub</string>
+    <string name="oauth_discord">Continuar con Discord</string>
+    <string name="oauth_facebook">Continuar con Facebook</string>
+    <string name="oauth_apple">Continuar con Apple</string>
+    <string name="oauth_openid">Continuar con OpenID</string>
+    <string name="oauth_generic">Continuar con %1$s</string>
+
+    <!-- Register -->
+    <string name="register_title">Crear cuenta</string>
+    <string name="full_name_label">Nombre completo</string>
+    <string name="username_label">Nombre de usuario</string>
+    <string name="confirm_password_label">Confirmar contraseña</string>
+    <string name="sign_up">Regístrate</string>
+    <string name="have_account_sign_in">¿Ya tienes una cuenta? Inicia sesión</string>
+
+    <!-- Forgot Password -->
+    <string name="reset_password_title">Restablecer contraseña</string>
+    <string name="forgot_your_password">¿Olvidaste tu contraseña?</string>
+    <string name="enter_email_for_reset">Introduce tu correo para recibir un enlace de restablecimiento</string>
+    <string name="send_reset_link">Enviar enlace de restablecimiento</string>
+    <string name="check_your_email">Revisa tu correo</string>
+    <string name="reset_link_sent">Hemos enviado un enlace para restablecer la contraseña a %1$s</string>
+    <string name="back_to_sign_in">Volver a iniciar sesión</string>
+
+    <!-- Reset Password -->
+    <string name="reset_password_screen_title">Restablecer contraseña</string>
+    <string name="password_reset_successful">Contraseña restablecida correctamente</string>
+    <string name="password_reset_message">Tu contraseña se ha actualizado. Ahora puedes iniciar sesión con tu nueva contraseña.</string>
+    <string name="set_new_password">Establecer nueva contraseña</string>
+    <string name="enter_new_password_hint">Introduce tu nueva contraseña a continuación</string>
+    <string name="new_password_label">Nueva contraseña</string>
+    <string name="confirm_new_password_label">Confirmar nueva contraseña</string>
+    <string name="reset_password_button">Restablecer contraseña</string>
+
+    <!-- Two-Factor -->
+    <string name="two_factor_title">Autenticación de dos factores</string>
+    <string name="enter_verification_code">Introduce el código de verificación</string>
+    <string name="enter_backup_code">Introduce el código de respaldo</string>
+    <string name="authenticator_prompt">Introduce el código de 6 dígitos de tu app de autenticación</string>
+    <string name="backup_code_prompt">Introduce uno de tus códigos de respaldo</string>
+    <string name="verify">Verificar</string>
+    <string name="use_authenticator_code">Usar código de autenticación</string>
+    <string name="use_backup_code">Usar código de respaldo</string>
+    <string name="backup_code_label">Código de respaldo</string>
+
+    <!-- Verify Email -->
+    <string name="verify_email_title">Verificar correo</string>
+    <string name="verification_link_sent">Hemos enviado un enlace de verificación a</string>
+    <string name="click_link_to_verify">Haz clic en el enlace del correo para verificar tu cuenta.</string>
+    <string name="verification_email_sent">¡Correo de verificación enviado!</string>
+    <string name="resend_verification_email">Reenviar correo de verificación</string>
+    <string name="resend_in_seconds">Reenviar en %1$ds</string>
+
+    <!-- Terms -->
+    <string name="terms_title">Términos del servicio</string>
+    <string name="i_accept">Acepto</string>
+    <string name="retry">Reintentar</string>
+
+    <!-- Common -->
+    <string name="back">Atrás</string>
+</resources>

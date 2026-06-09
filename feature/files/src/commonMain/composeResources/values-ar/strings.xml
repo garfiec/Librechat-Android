@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="files">الملفات</string>
+    <string name="upload">رفع</string>
+    <string name="delete">حذف</string>
+    <string name="cancel">إلغاء</string>
+    <string name="done">تم</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_exit_edit_mode">الخروج من وضع التعديل</string>
+    <string name="cd_select_all">تحديد الكل</string>
+    <string name="cd_delete_selected">حذف المحدد</string>
+    <string name="cd_edit_files">تعديل الملفات</string>
+    <string name="cd_switch_to_grid">التبديل إلى عرض الشبكة</string>
+    <string name="cd_switch_to_list">التبديل إلى عرض القائمة</string>
+    <string name="cd_sort_files">ترتيب الملفات</string>
+    <string name="cd_upload_file">رفع ملف</string>
+    <string name="cd_delete_file">حذف %1$s</string>
+    <string name="cd_thumbnail">صورة مصغّرة لـ %1$s</string>
+    <string name="cd_close_preview">إغلاق المعاينة</string>
+    <string name="cd_cancel_upload">إلغاء الرفع</string>
+    <string name="cd_ascending">تصاعدي</string>
+    <string name="cd_descending">تنازلي</string>
+
+    <!-- Selection mode -->
+    <string name="select_files">تحديد الملفات</string>
+    <string name="selected_count">%1$d محدد</string>
+
+    <!-- Empty states -->
+    <string name="no_files">لا توجد ملفات</string>
+    <string name="upload_to_get_started">ارفع ملفات للبدء</string>
+    <string name="no_filter_files">لا توجد %1$s</string>
+    <string name="no_filter_files_found">لم يتم العثور على ملفات %1$s</string>
+    <string name="could_not_load_files">تعذّر تحميل الملفات</string>
+
+    <!-- Delete dialogs -->
+    <string name="delete_count_files">حذف %1$d ملف%2$s؟</string>
+    <string name="action_cannot_be_undone">لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="delete_file_question">حذف الملف؟</string>
+    <string name="delete_file_message">حذف "%1$s"؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="this_file">هذا الملف</string>
+
+    <!-- File preview -->
+    <string name="image_preview_unavailable">معاينة الصورة غير متاحة</string>
+    <string name="preview_of">معاينة %1$s</string>
+    <string name="loading_pdf">جارٍ تحميل PDF…</string>
+    <string name="page_of">الصفحة %1$d من %2$d</string>
+    <string name="page_cd">الصفحة %1$d من %2$s</string>
+    <string name="could_not_render_pdf">تعذّر عرض معاينة PDF</string>
+    <string name="failed_to_download_pdf">فشل تنزيل PDF</string>
+    <string name="failed_to_render_pdf">فشل عرض PDF</string>
+    <string name="loading_file_content">جارٍ تحميل محتوى الملف…</string>
+    <string name="could_not_load_file_content">تعذّر تحميل محتوى الملف</string>
+    <string name="failed_to_download_file">فشل تنزيل الملف</string>
+    <string name="failed_to_load_content">فشل تحميل محتوى الملف</string>
+    <string name="content_truncated">\n\n--- تم اقتطاع المحتوى (الملف كبير جدًا) ---</string>
+
+    <!-- Info row labels -->
+    <string name="info_type">النوع</string>
+    <string name="info_size">الحجم</string>
+    <string name="info_created">تاريخ الإنشاء</string>
+    <string name="info_source">المصدر</string>
+
+    <!-- Upload progress -->
+    <string name="uploading">جارٍ الرفع…</string>
+</resources>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="rename">Renommer</string>
+    <string name="cancel">Annuler</string>
+    <string name="delete">Supprimer</string>
+    <string name="archive">Archiver</string>
+    <string name="unarchive">Désarchiver</string>
+    <string name="export">Exporter</string>
+    <string name="share">Partager</string>
+    <string name="duplicate">Dupliquer</string>
+    <string name="clear">Effacer</string>
+    <string name="back">Retour</string>
+    <string name="new_chat">Nouvelle discussion</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_new_chat">Nouvelle discussion</string>
+    <string name="cd_archived_conversations">Conversations archivées</string>
+    <string name="cd_search">Rechercher</string>
+    <string name="cd_clear_search">Effacer la recherche</string>
+    <string name="cd_bookmarked">Marqué d\'un signet</string>
+    <string name="cd_conversation_actions">Actions de conversation</string>
+    <string name="cd_add_tag">Ajouter une étiquette</string>
+    <string name="cd_hide_tags">Masquer les étiquettes</string>
+    <string name="cd_show_tags">Afficher les étiquettes</string>
+    <string name="cd_clear_filter">Effacer le filtre</string>
+    <string name="cd_unarchive">Désarchiver</string>
+    <string name="cd_delete">Supprimer</string>
+
+    <!-- Conversation list screen -->
+    <string name="conversations">Conversations</string>
+    <string name="search_conversations">Rechercher des conversations…</string>
+    <string name="could_not_load_conversations">Impossible de charger les conversations</string>
+    <string name="no_results_found">Aucun résultat trouvé</string>
+    <string name="no_conversations_yet">Aucune conversation pour l\'instant</string>
+    <string name="try_different_search">Essayez un autre terme de recherche</string>
+    <string name="start_new_chat">Démarrez une nouvelle discussion pour commencer</string>
+    <string name="unknown_error">Une erreur inconnue s\'est produite</string>
+    <string name="conversation_exported">Conversation exportée</string>
+    <string name="export_failed">Échec de l\'exportation : %1$s</string>
+    <string name="import_failed">Échec de l\'importation : %1$s</string>
+    <string name="link_copied">Lien copié !</string>
+    <string name="imported_title">Importée : %1$s</string>
+    <string name="copy_of">Copie de %1$s</string>
+
+    <!-- Conversation actions -->
+    <string name="remove_bookmark">Supprimer le signet</string>
+    <string name="bookmark">Signet</string>
+    <string name="tags">Étiquettes</string>
+    <string name="rename_conversation">Renommer la conversation</string>
+    <string name="rename_dialog_message">Saisissez un nouveau titre pour cette conversation.</string>
+    <string name="title_label">Titre</string>
+    <string name="delete_conversation">Supprimer la conversation</string>
+    <string name="delete_confirmation_message">Voulez-vous vraiment supprimer \"%1$s\" ? Cette action est irréversible.</string>
+    <string name="this_conversation">cette conversation</string>
+
+    <!-- Tag picker -->
+    <string name="no_tags_yet">Aucune étiquette pour l\'instant. Ajoutez-en une ci-dessous.</string>
+    <string name="add_new_tag">Ajouter une nouvelle étiquette</string>
+
+    <!-- Tag filter bar -->
+    <string name="tags_active_count">%1$d étiquette%2$s active(s)</string>
+
+    <!-- Export format picker -->
+    <string name="export_format">Format d\'exportation</string>
+    <string name="format_json">JSON</string>
+    <string name="format_json_description">Exportation complète des données, réimportable</string>
+    <string name="format_markdown">Markdown</string>
+    <string name="format_markdown_description">Format texte lisible</string>
+
+    <!-- Archived conversations screen -->
+    <string name="archived_conversations">Conversations archivées</string>
+    <string name="could_not_load_archived">Impossible de charger les conversations archivées</string>
+    <string name="no_archived_conversations">Aucune conversation archivée</string>
+    <string name="archived_will_appear_here">Les conversations archivées apparaîtront ici</string>
+
+    <!-- Conversation item fallback -->
+    <string name="chat">Discussion</string>
+</resources>

@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="agents">에이전트</string>
+    <string name="marketplace">마켓플레이스</string>
+    <string name="search_agents">에이전트 검색…</string>
+    <string name="start_chat">채팅 시작</string>
+    <string name="edit">편집</string>
+    <string name="delete">삭제</string>
+    <string name="cancel">취소</string>
+    <string name="duplicate">복제</string>
+    <string name="save">저장</string>
+    <string name="create">생성</string>
+    <string name="apply">적용</string>
+    <string name="add">추가</string>
+    <string name="remove">제거</string>
+    <string name="revert">되돌리기</string>
+    <string name="close">닫기</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_create_agent">에이전트 생성</string>
+    <string name="cd_search">검색</string>
+    <string name="cd_back">뒤로</string>
+    <string name="cd_more_actions">추가 작업</string>
+    <string name="cd_more_options">추가 옵션</string>
+    <string name="cd_collapse">접기</string>
+    <string name="cd_expand">펼치기</string>
+    <string name="cd_remove_item">%1$s 제거</string>
+    <string name="cd_edit_action">작업 편집</string>
+    <string name="cd_delete_action">작업 삭제</string>
+    <string name="cd_add_starter">스타터 추가</string>
+    <string name="cd_agent_avatar_tap">에이전트 아바타. 탭하여 변경합니다.</string>
+    <string name="cd_agent_avatar_name">%1$s 아바타</string>
+    <string name="cd_tool_icon">%1$s 아이콘</string>
+
+    <!-- Marketplace screen -->
+    <string name="search_agents_hint">에이전트 검색…</string>
+    <string name="no_agents_found">에이전트를 찾을 수 없습니다</string>
+    <string name="no_agents_available">사용 가능한 에이전트가 없습니다</string>
+    <string name="agents_not_available_title">에이전트를 사용할 수 없습니다</string>
+    <string name="agents_not_available_description">서버 관리자가 계정에 대한 에이전트를 사용 중지했습니다.</string>
+    <string name="try_different_search">다른 검색어를 사용해 보세요</string>
+    <string name="check_back_later">나중에 새 에이전트를 확인하세요</string>
+    <string name="error_unknown">알 수 없는 오류가 발생했습니다</string>
+    <string name="unknown_author">알 수 없음</string>
+
+    <!-- Detail screen -->
+    <string name="agent_title">에이전트</string>
+    <string name="delete_agent">에이전트 삭제</string>
+    <string name="delete_agent_confirm">\"%1$s\"을(를) 삭제하시겠습니까? 되돌릴 수 없습니다.</string>
+    <string name="delete_this_agent">이 에이전트</string>
+    <string name="by_author">작성자: %1$s</string>
+    <string name="label_description">설명</string>
+    <string name="no_description">설명 없음</string>
+    <string name="label_category">카테고리</string>
+    <string name="label_model">모델</string>
+    <string name="default_value">기본값</string>
+    <string name="label_tools">도구</string>
+    <string name="label_conversation_starters">대화 스타터</string>
+
+    <!-- Editor screen -->
+    <string name="edit_agent">에이전트 편집</string>
+    <string name="create_agent">에이전트 생성</string>
+    <string name="duplicate_agent">에이전트 복제</string>
+    <string name="delete_agent_editor_confirm">이 에이전트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
+    <string name="duplicate_agent_confirm">이 에이전트의 사본을 만드시겠습니까?</string>
+    <string name="version_history">버전 기록</string>
+    <string name="tap_to_change_avatar">탭하여 아바타 변경</string>
+    <string name="remove_avatar">아바타 제거</string>
+    <string name="agent_name_label">이름 *</string>
+    <string name="agent_name_placeholder">선택 사항: 에이전트의 이름</string>
+    <string name="agent_description_label">설명</string>
+    <string name="agent_description_placeholder">선택 사항: 여기에 에이전트를 설명하세요</string>
+    <string name="agent_instructions_label">지침</string>
+    <string name="agent_instructions_placeholder">에이전트가 사용하는 시스템 지침</string>
+    <string name="insert_variable">변수 삽입</string>
+    <string name="cd_insert_variable">변수 삽입</string>
+    <string name="special_var_current_date">현재 날짜</string>
+    <string name="special_var_current_user">현재 사용자</string>
+    <string name="special_var_iso_datetime">ISO 날짜시간</string>
+    <string name="special_var_current_datetime">현재 날짜시간</string>
+    <string name="label_capabilities">기능</string>
+    <string name="label_tools_and_actions">도구 &amp; 작업</string>
+    <string name="add_tools">도구 추가</string>
+    <string name="add_starter_hint">스타터 추가…</string>
+    <string name="save_changes">변경 사항 저장</string>
+
+    <!-- Actions panel -->
+    <string name="openapi_actions_count">OpenAPI 작업 (%1$d)</string>
+    <string name="no_actions_configured">구성된 작업이 없습니다. OpenAPI 작업을 추가하여 외부 API를 연결하세요.</string>
+    <string name="add_action">작업 추가</string>
+    <string name="edit_action">작업 편집</string>
+    <string name="auth_api_key">API 키</string>
+    <string name="auth_oauth">OAuth</string>
+    <string name="auth_none">없음</string>
+    <string name="action_auth_info">인증: %1$s | 함수 %2$d개</string>
+    <string name="label_action">작업</string>
+
+    <!-- Action editor dialog -->
+    <string name="label_authentication">인증</string>
+    <string name="auth_api_key_full">API 키 인증</string>
+    <string name="auth_oauth_full">OAuth 인증</string>
+    <string name="auth_no_auth">인증 없음</string>
+    <string name="label_openapi_schema">OpenAPI 스키마</string>
+    <string name="openapi_schema_hint">OpenAPI 사양을 JSON 또는 YAML 형식으로 붙여넣으세요.</string>
+    <string name="label_openapi_spec">OpenAPI 사양 (JSON 또는 YAML)</string>
+    <string name="validating">검증 중…</string>
+    <string name="domain_prefix">도메인: %1$s</string>
+    <string name="available_actions_count">사용 가능한 작업 (%1$d)</string>
+    <string name="label_privacy_policy_url">개인정보처리방침 URL</string>
+    <string name="label_save_or_create">%1$s</string>
+
+    <!-- Auth config dialog -->
+    <string name="label_authentication_type">인증 유형</string>
+    <string name="label_api_key_settings">API 키 설정</string>
+    <string name="label_api_key">API 키</string>
+    <string name="label_authorization_type">권한 부여 유형</string>
+    <string name="auth_basic">Basic</string>
+    <string name="auth_bearer">Bearer</string>
+    <string name="auth_custom">사용자 지정</string>
+    <string name="label_custom_auth_header">사용자 지정 인증 헤더</string>
+    <string name="label_oauth_settings">OAuth 설정</string>
+    <string name="label_client_id">Client ID</string>
+    <string name="label_client_secret">Client Secret</string>
+    <string name="label_authorization_url">Authorization URL</string>
+    <string name="label_token_url">Token URL</string>
+    <string name="label_scope">Scope</string>
+    <string name="label_token_exchange_method">토큰 교환 방식</string>
+    <string name="token_default_post">기본값 (POST)</string>
+    <string name="token_basic_auth_header">Basic 인증 헤더</string>
+
+    <!-- Function table -->
+    <string name="table_name">이름</string>
+    <string name="table_method">메서드</string>
+    <string name="table_path">경로</string>
+
+    <!-- Advanced panel -->
+    <string name="advanced_settings">모델 설정</string>
+    <string name="label_temperature">Temperature</string>
+    <string name="temperature_description">무작위성을 제어합니다. 낮을수록 더 집중적입니다.</string>
+    <string name="label_top_p">Top P</string>
+    <string name="top_p_description">Nucleus 샘플링 컷오프.</string>
+    <string name="label_max_tokens">최대 토큰</string>
+    <string name="max_tokens_description">응답의 최대 토큰 수입니다. 기본값을 사용하려면 비워 두세요.</string>
+
+    <!-- Avatar picker -->
+    <!-- (content descriptions above) -->
+
+    <!-- Capabilities section -->
+    <string name="label_artifacts">아티팩트</string>
+    <string name="artifacts_description">아티팩트 생성 사용</string>
+    <string name="artifacts_mode_off">끔</string>
+    <string name="artifacts_mode_default">기본값</string>
+    <string name="artifacts_mode_shadcnui">shadcn/ui</string>
+    <string name="artifacts_mode_custom">사용자 지정</string>
+    <string name="label_end_after_tools">도구 실행 후 종료</string>
+    <string name="end_after_tools_description">도구 실행이 완료되면 중지합니다</string>
+    <string name="label_hide_sequential_outputs">순차 출력 숨기기</string>
+    <string name="hide_sequential_description">중간 도구 출력 숨기기</string>
+    <string name="label_recursion_limit">재귀 한도</string>
+    <string name="recursion_limit_description">재귀 도구 호출의 최대 횟수</string>
+
+    <!-- Category selector -->
+    <string name="general">일반</string>
+
+    <!-- Code Interpreter section -->
+    <string name="label_code_interpreter">코드 인터프리터</string>
+    <string name="code_interpreter_description">에이전트가 문제 해결을 위해 코드를 작성하고 실행하도록 허용합니다</string>
+
+    <!-- Web Search section -->
+    <string name="label_web_search">웹 검색</string>
+    <string name="web_search_description">에이전트가 최신 정보를 위해 웹을 검색하도록 허용합니다</string>
+
+    <!-- Tool auth dialog -->
+    <string name="tool_auth_revoke">해제</string>
+    <string name="tool_auth_code_title">코드 인터프리터 API 키</string>
+    <string name="tool_auth_code_description">서버가 사용자를 대신해 코드를 실행하는 데 사용할 API 키를 입력하세요. 에이전트가 아닌 계정에 저장됩니다.</string>
+    <string name="tool_auth_code_field">LibreChat Code API 키</string>
+    <string name="tool_auth_required">이 도구를 사용하려면 인증이 필요합니다</string>
+
+    <!-- File Context section -->
+    <string name="label_file_context">파일 컨텍스트</string>
+    <string name="file_context_description">항상 대화 컨텍스트로 포함되는 파일을 첨부합니다</string>
+
+    <!-- File Search section -->
+    <string name="label_file_search">파일 검색</string>
+    <string name="file_search_description">에이전트가 업로드한 파일과 문서를 검색하도록 사용 설정합니다</string>
+
+    <!-- Handoff config -->
+    <!-- Chain (sequential multi-agent) -->
+    <string name="chain_agents_count">체인 에이전트 (%1$d)</string>
+    <string name="chain_description">이 에이전트 이후에 순차적으로 실행되는 에이전트입니다. 한도는 %1$d개입니다.</string>
+    <string name="no_chain_agents">구성된 체인 에이전트가 없습니다.</string>
+    <string name="add_chain_agent">체인 에이전트 추가</string>
+    <string name="chain_full">체인 에이전트의 최대 수에 도달했습니다.</string>
+    <!-- Handoffs (graph edges) -->
+    <string name="handoff_edges_count">인계 엣지 (%1$d)</string>
+    <string name="handoff_edges_description">동적 다중 에이전트 인계를 위한 그래프 라우팅 엣지.</string>
+    <string name="no_handoff_edges">구성된 인계 엣지가 없습니다.</string>
+    <string name="add_handoff_edge">인계 엣지 추가</string>
+    <string name="handoff_edge_from">시작</string>
+    <string name="handoff_edge_to">대상</string>
+    <string name="handoff_edge_description">설명 (선택 사항)</string>
+    <string name="handoff_edge_prompt">전송 프롬프트 (선택 사항)</string>
+    <string name="handoff_edge_prompt_key">프롬프트 매개변수 이름 (선택 사항)</string>
+    <string name="handoff_edge_exclude_results">이전 메시지 제외</string>
+    <string name="handoff_edge_arrow">%1$s → %2$s</string>
+    <string name="handoff_edge_multi">에이전트 %1$d개 → 에이전트 %2$d개</string>
+    <string name="no_more_agents">추가할 수 있는 에이전트가 더 이상 없습니다.</string>
+    <string name="select_agent">에이전트 선택</string>
+
+    <!-- MCP Tools selector -->
+    <string name="mcp_tools_count">MCP 도구 (%1$d개 선택됨)</string>
+    <string name="no_mcp_tools">사용 가능한 MCP 도구가 없습니다. 설정에서 MCP 서버를 구성하세요.</string>
+    <string name="unknown_server">알 수 없는 서버</string>
+
+    <!-- Model picker -->
+    <string name="model_required_label">모델 *</string>
+    <string name="select_model_hint">모델을 선택하세요…</string>
+    <string name="no_models_found">모델을 찾을 수 없습니다</string>
+
+    <!-- Sharing section -->
+    <string name="sharing_and_permissions">공유 &amp; 권한</string>
+    <string name="label_visibility">공개 범위</string>
+    <string name="label_collaborative">공동 작업</string>
+    <string name="collaborative_description">다른 사용자가 이 에이전트를 수정하도록 허용합니다</string>
+    <string name="collaborative_managed_server_side">이 버전에서는 접근 권한이 서버 측에서 관리됩니다.</string>
+
+    <!-- Visibility labels -->
+    <string name="visibility_private">비공개</string>
+    <string name="visibility_team">팀</string>
+    <string name="visibility_public">공개</string>
+
+    <!-- Support contact section -->
+    <string name="label_support_contact">지원 연락처</string>
+    <string name="label_name">이름</string>
+    <string name="support_contact_placeholder">지원 연락처 이름</string>
+    <string name="label_email">이메일</string>
+
+    <!-- Version history -->
+    <string name="no_version_history">사용 가능한 버전 기록이 없습니다</string>
+    <string name="version_number">버전 %1$d</string>
+    <string name="version_current">활성</string>
+    <string name="version_no_date">날짜 없음</string>
+    <string name="version_unknown_date">알 수 없는 날짜</string>
+    <string name="version_snapshot_name">이름</string>
+    <string name="version_snapshot_description">설명</string>
+    <string name="version_snapshot_instructions">지침</string>
+    <string name="version_snapshot_artifacts">아티팩트</string>
+    <string name="version_snapshot_capabilities">기능</string>
+    <string name="version_snapshot_tools">도구</string>
+    <string name="version_snapshot_empty">—</string>
+    <string name="version_restore_confirm">이 에이전트를 선택한 버전으로 되돌리시겠습니까? 현재 저장되지 않은 변경 사항은 손실됩니다.</string>
+
+    <!-- ACL sharing (v0.8.5+) -->
+    <string name="acl_sharing_title">공유 &amp; 접근</string>
+    <string name="acl_add_principal">사용자 또는 그룹 추가</string>
+    <string name="acl_no_grants">아직 접근 권한이 부여된 사용자가 없습니다.</string>
+    <string name="acl_public_label">공개</string>
+    <string name="acl_public_description">서버에 접근할 수 있는 모든 사람에게 허용</string>
+    <string name="acl_role">역할</string>
+    <string name="acl_revoke">해제</string>
+    <string name="acl_search_hint">사용자 또는 그룹 검색…</string>
+    <string name="acl_search_empty">일치하는 항목 없음</string>
+    <string name="acl_grant_button">부여</string>
+    <string name="acl_grant_dialog_title">사용자 또는 그룹 추가</string>
+    <string name="acl_principal_user">사용자</string>
+    <string name="acl_principal_group">그룹</string>
+    <string name="acl_principal_role">역할</string>
+    <string name="acl_create_mode_notice">공유 &amp; 접근 제어는 에이전트를 저장한 후에 사용할 수 있습니다.</string>
+
+    <!-- Tool select dialog -->
+    <string name="agent_tools_title">에이전트 도구</string>
+    <string name="select_tools_description">에이전트가 사용할 도구를 선택하세요</string>
+    <string name="search_tools_hint">도구 검색…</string>
+    <string name="no_tools_matching">\"%1$s\"과(와) 일치하는 도구가 없습니다</string>
+    <string name="no_tools_available">사용 가능한 도구가 없습니다</string>
+
+    <!-- Per-capability file attachments -->
+    <string name="add_file">파일 추가</string>
+    <string name="agent_files_save_first">파일을 첨부하기 전에 에이전트를 저장하세요</string>
+    <string name="agent_file_too_large">파일은 %1$d MB 이하여야 합니다</string>
+    <string name="agent_file_upload_failed">파일 업로드에 실패했습니다</string>
+    <string name="agent_file_remove_failed">파일 제거에 실패했습니다</string>
+    <string name="cd_remove_file">%1$s 제거</string>
+
+    <!-- Skills selector (v0.8.6) -->
+    <string name="label_skills">스킬</string>
+    <string name="skills_disabled_hint">이 에이전트에는 스킬이 꺼져 있습니다.</string>
+    <string name="skills_enabled_all_hint">접근할 수 있는 모든 스킬을 이 에이전트가 사용할 수 있습니다.</string>
+    <string name="skills_enabled_allowlist_hint">선택한 스킬만 이 에이전트가 사용할 수 있습니다.</string>
+    <string name="add_skills">스킬 추가</string>
+    <string name="select_skills">스킬 선택</string>
+    <string name="search_skills_hint">스킬 검색…</string>
+    <string name="no_skills_matching">\"%1$s\"과(와) 일치하는 스킬이 없습니다</string>
+    <string name="no_skills_available">사용 가능한 스킬이 없습니다</string>
+    <string name="skills_done">완료</string>
+
+    <!-- Subagents config (v0.8.6) -->
+    <string name="label_subagents">서브에이전트</string>
+    <string name="subagents_description">이 에이전트가 격리된 컨텍스트에서 다른 에이전트에게 작업을 위임하도록 허용합니다.</string>
+    <string name="subagents_allow_self">자신을 생성하도록 허용</string>
+    <string name="add_subagent">서브에이전트 추가</string>
+    <string name="subagents_full">서브에이전트의 최대 수에 도달했습니다.</string>
+</resources>

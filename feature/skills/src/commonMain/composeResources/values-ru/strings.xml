@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List -->
+    <string name="skills_title">Навыки</string>
+    <string name="skills_back">Назад</string>
+    <string name="skills_create">Создать навык</string>
+    <string name="skills_import">Импортировать навык</string>
+    <string name="skills_search_hint">Поиск навыков…</string>
+    <string name="skills_empty">Пока нет навыков.</string>
+
+    <!-- Files -->
+    <string name="skill_files_title">Файлы</string>
+    <string name="skill_files_empty">Нет прикреплённых файлов.</string>
+    <string name="skill_files_add">Добавить файл</string>
+    <string name="skill_files_remove">Удалить %1$s</string>
+
+    <!-- Detail -->
+    <string name="skill_edit">Изменить</string>
+    <string name="skill_delete">Удалить</string>
+    <string name="skill_show_source">Показать исходник</string>
+    <string name="skill_show_rendered">Показать отрисованное</string>
+    <string name="skill_category_label">Категория: %1$s</string>
+    <string name="skill_version_label">Версия %1$d</string>
+    <string name="skill_delete_confirm_title">Удалить навык?</string>
+    <string name="skill_delete_confirm_message">Это безвозвратно удалит \"%1$s\". Это нельзя отменить.</string>
+    <string name="skill_empty_body">У этого навыка нет содержимого.</string>
+    <string name="skill_active_label">Активен</string>
+    <string name="skill_active_description">Сделать этот навык доступным для использования в чатах.</string>
+
+    <!-- Editor -->
+    <string name="skill_editor_create_title">Новый навык</string>
+    <string name="skill_editor_edit_title">Изменить навык</string>
+    <string name="skill_field_name">Имя</string>
+    <string name="skill_field_name_hint">lowercase-kebab-case</string>
+    <string name="skill_field_name_error">Используйте строчные буквы, цифры и дефисы (макс. 64).</string>
+    <string name="skill_field_display_title">Отображаемое название</string>
+    <string name="skill_field_description">Описание</string>
+    <string name="skill_field_description_error">Описание обязательно (макс. 1024 символа).</string>
+    <string name="skill_field_body">Содержимое (markdown)</string>
+    <string name="skill_field_category">Категория</string>
+    <string name="skill_category_none">Нет</string>
+    <string name="skill_field_always_apply">Всегда применять этот навык</string>
+    <string name="skill_save">Сохранить</string>
+    <string name="skill_cancel">Отмена</string>
+    <string name="skill_conflict_dismiss">ОК</string>
+
+    <!-- Sharing (ACL) -->
+    <string name="skill_acl_title">Доступ и разрешения</string>
+    <string name="skill_acl_no_grants">Пока ни с кем не поделено.</string>
+    <string name="skill_acl_add_principal">Добавить людей или группы</string>
+    <string name="skill_acl_grant_dialog_title">Поделиться навыком</string>
+    <string name="skill_acl_search_hint">Поиск пользователей, групп или ролей</string>
+    <string name="skill_acl_search_empty">Совпадений нет</string>
+    <string name="skill_acl_role">Роль</string>
+    <string name="skill_acl_revoke">Закрыть доступ</string>
+    <string name="skill_acl_public_label">Публичный</string>
+    <string name="skill_acl_public_description">Этот навык может использовать любой на этом сервере.</string>
+    <string name="skill_acl_principal_user">Пользователь</string>
+    <string name="skill_acl_principal_group">Группа</string>
+    <string name="skill_acl_principal_role">Роль</string>
+    <string name="skill_acl_collapse">Свернуть</string>
+    <string name="skill_acl_expand">Развернуть</string>
+    <string name="skill_acl_close">Закрыть</string>
+</resources>

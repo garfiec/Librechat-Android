@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="agents">エージェント</string>
+    <string name="marketplace">マーケットプレイス</string>
+    <string name="search_agents">エージェントを検索…</string>
+    <string name="start_chat">チャットを開始</string>
+    <string name="edit">編集</string>
+    <string name="delete">削除</string>
+    <string name="cancel">キャンセル</string>
+    <string name="duplicate">複製</string>
+    <string name="save">保存</string>
+    <string name="create">作成</string>
+    <string name="apply">適用</string>
+    <string name="add">追加</string>
+    <string name="remove">削除</string>
+    <string name="revert">元に戻す</string>
+    <string name="close">閉じる</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_create_agent">エージェントを作成</string>
+    <string name="cd_search">検索</string>
+    <string name="cd_back">戻る</string>
+    <string name="cd_more_actions">その他の操作</string>
+    <string name="cd_more_options">その他のオプション</string>
+    <string name="cd_collapse">折りたたむ</string>
+    <string name="cd_expand">展開</string>
+    <string name="cd_remove_item">%1$s を削除</string>
+    <string name="cd_edit_action">アクションを編集</string>
+    <string name="cd_delete_action">アクションを削除</string>
+    <string name="cd_add_starter">スターターを追加</string>
+    <string name="cd_agent_avatar_tap">エージェントのアバター。タップして変更します。</string>
+    <string name="cd_agent_avatar_name">%1$s のアバター</string>
+    <string name="cd_tool_icon">%1$s のアイコン</string>
+
+    <!-- Marketplace screen -->
+    <string name="search_agents_hint">エージェントを検索…</string>
+    <string name="no_agents_found">エージェントが見つかりません</string>
+    <string name="no_agents_available">利用可能なエージェントがありません</string>
+    <string name="agents_not_available_title">エージェントを利用できません</string>
+    <string name="agents_not_available_description">サーバー管理者がお使いのアカウントでエージェントを無効にしています。</string>
+    <string name="try_different_search">別の検索語をお試しください</string>
+    <string name="check_back_later">新しいエージェントについては後でもう一度ご確認ください</string>
+    <string name="error_unknown">不明なエラーが発生しました</string>
+    <string name="unknown_author">不明</string>
+
+    <!-- Detail screen -->
+    <string name="agent_title">エージェント</string>
+    <string name="delete_agent">エージェントを削除</string>
+    <string name="delete_agent_confirm">「%1$s」を削除してもよろしいですか？この操作は取り消せません。</string>
+    <string name="delete_this_agent">このエージェント</string>
+    <string name="by_author">作成者: %1$s</string>
+    <string name="label_description">説明</string>
+    <string name="no_description">説明なし</string>
+    <string name="label_category">カテゴリ</string>
+    <string name="label_model">モデル</string>
+    <string name="default_value">デフォルト</string>
+    <string name="label_tools">ツール</string>
+    <string name="label_conversation_starters">会話のきっかけ</string>
+
+    <!-- Editor screen -->
+    <string name="edit_agent">エージェントを編集</string>
+    <string name="create_agent">エージェントを作成</string>
+    <string name="duplicate_agent">エージェントを複製</string>
+    <string name="delete_agent_editor_confirm">このエージェントを削除してもよろしいですか？この操作は取り消せません。</string>
+    <string name="duplicate_agent_confirm">このエージェントのコピーを作成しますか？</string>
+    <string name="version_history">バージョン履歴</string>
+    <string name="tap_to_change_avatar">タップしてアバターを変更</string>
+    <string name="remove_avatar">アバターを削除</string>
+    <string name="agent_name_label">名前 *</string>
+    <string name="agent_name_placeholder">任意: エージェントの名前</string>
+    <string name="agent_description_label">説明</string>
+    <string name="agent_description_placeholder">任意: ここにエージェントの説明を入力</string>
+    <string name="agent_instructions_label">指示</string>
+    <string name="agent_instructions_placeholder">エージェントが使用するシステム指示</string>
+    <string name="insert_variable">変数を挿入</string>
+    <string name="cd_insert_variable">変数を挿入</string>
+    <string name="special_var_current_date">現在の日付</string>
+    <string name="special_var_current_user">現在のユーザー</string>
+    <string name="special_var_iso_datetime">ISO日時</string>
+    <string name="special_var_current_datetime">現在の日時</string>
+    <string name="label_capabilities">機能</string>
+    <string name="label_tools_and_actions">ツールとアクション</string>
+    <string name="add_tools">ツールを追加</string>
+    <string name="add_starter_hint">スターターを追加…</string>
+    <string name="save_changes">変更を保存</string>
+
+    <!-- Actions panel -->
+    <string name="openapi_actions_count">OpenAPIアクション（%1$d）</string>
+    <string name="no_actions_configured">アクションが設定されていません。OpenAPIアクションを追加して外部APIに接続します。</string>
+    <string name="add_action">アクションを追加</string>
+    <string name="edit_action">アクションを編集</string>
+    <string name="auth_api_key">APIキー</string>
+    <string name="auth_oauth">OAuth</string>
+    <string name="auth_none">なし</string>
+    <string name="action_auth_info">認証: %1$s | %2$d 個の関数</string>
+    <string name="label_action">アクション</string>
+
+    <!-- Action editor dialog -->
+    <string name="label_authentication">認証</string>
+    <string name="auth_api_key_full">APIキー認証</string>
+    <string name="auth_oauth_full">OAuth認証</string>
+    <string name="auth_no_auth">認証なし</string>
+    <string name="label_openapi_schema">OpenAPIスキーマ</string>
+    <string name="openapi_schema_hint">OpenAPI仕様をJSONまたはYAML形式で貼り付けてください。</string>
+    <string name="label_openapi_spec">OpenAPI仕様（JSONまたはYAML）</string>
+    <string name="validating">検証中…</string>
+    <string name="domain_prefix">ドメイン: %1$s</string>
+    <string name="available_actions_count">利用可能なアクション（%1$d）</string>
+    <string name="label_privacy_policy_url">プライバシーポリシーのURL</string>
+    <string name="label_save_or_create">%1$s</string>
+
+    <!-- Auth config dialog -->
+    <string name="label_authentication_type">認証の種類</string>
+    <string name="label_api_key_settings">APIキーの設定</string>
+    <string name="label_api_key">APIキー</string>
+    <string name="label_authorization_type">認可の種類</string>
+    <string name="auth_basic">Basic</string>
+    <string name="auth_bearer">Bearer</string>
+    <string name="auth_custom">カスタム</string>
+    <string name="label_custom_auth_header">カスタム認証ヘッダー</string>
+    <string name="label_oauth_settings">OAuthの設定</string>
+    <string name="label_client_id">クライアントID</string>
+    <string name="label_client_secret">クライアントシークレット</string>
+    <string name="label_authorization_url">認可URL</string>
+    <string name="label_token_url">トークンURL</string>
+    <string name="label_scope">スコープ</string>
+    <string name="label_token_exchange_method">トークン交換方式</string>
+    <string name="token_default_post">デフォルト（POST）</string>
+    <string name="token_basic_auth_header">Basic認証ヘッダー</string>
+
+    <!-- Function table -->
+    <string name="table_name">名前</string>
+    <string name="table_method">メソッド</string>
+    <string name="table_path">パス</string>
+
+    <!-- Advanced panel -->
+    <string name="advanced_settings">モデル設定</string>
+    <string name="label_temperature">Temperature</string>
+    <string name="temperature_description">ランダム性を制御します。低いほど焦点が絞られます。</string>
+    <string name="label_top_p">Top P</string>
+    <string name="top_p_description">核サンプリングのしきい値。</string>
+    <string name="label_max_tokens">最大トークン数</string>
+    <string name="max_tokens_description">応答の最大トークン数。デフォルトの場合は空のままにします。</string>
+
+    <!-- Avatar picker -->
+    <!-- (content descriptions above) -->
+
+    <!-- Capabilities section -->
+    <string name="label_artifacts">アーティファクト</string>
+    <string name="artifacts_description">アーティファクトの生成を有効にする</string>
+    <string name="artifacts_mode_off">オフ</string>
+    <string name="artifacts_mode_default">デフォルト</string>
+    <string name="artifacts_mode_shadcnui">shadcn/ui</string>
+    <string name="artifacts_mode_custom">カスタム</string>
+    <string name="label_end_after_tools">ツール後に終了</string>
+    <string name="end_after_tools_description">ツールの実行完了後に停止します</string>
+    <string name="label_hide_sequential_outputs">連続した出力を非表示</string>
+    <string name="hide_sequential_description">中間的なツールの出力を非表示にします</string>
+    <string name="label_recursion_limit">再帰の上限</string>
+    <string name="recursion_limit_description">再帰的なツール呼び出しの最大回数</string>
+
+    <!-- Category selector -->
+    <string name="general">一般</string>
+
+    <!-- Code Interpreter section -->
+    <string name="label_code_interpreter">コードインタープリター</string>
+    <string name="code_interpreter_description">問題を解決するためにエージェントがコードを記述・実行できるようにします</string>
+
+    <!-- Web Search section -->
+    <string name="label_web_search">ウェブ検索</string>
+    <string name="web_search_description">最新情報をウェブで検索することをエージェントに許可します</string>
+
+    <!-- Tool auth dialog -->
+    <string name="tool_auth_revoke">取り消す</string>
+    <string name="tool_auth_code_title">コードインタープリターのAPIキー</string>
+    <string name="tool_auth_code_description">サーバーがあなたの代わりにコードを実行するために使用するAPIキーを入力してください。エージェントではなくアカウントに保存されます。</string>
+    <string name="tool_auth_code_field">LibreChat Code APIキー</string>
+    <string name="tool_auth_required">このツールを有効にするには認証が必要です</string>
+
+    <!-- File Context section -->
+    <string name="label_file_context">ファイルコンテキスト</string>
+    <string name="file_context_description">常に会話のコンテキストに含めるファイルを添付します</string>
+
+    <!-- File Search section -->
+    <string name="label_file_search">ファイル検索</string>
+    <string name="file_search_description">アップロードされたファイルや文書をエージェントが検索できるようにします</string>
+
+    <!-- Handoff config -->
+    <!-- Chain (sequential multi-agent) -->
+    <string name="chain_agents_count">チェーンエージェント（%1$d）</string>
+    <string name="chain_description">このエージェントの後に順番に実行されるエージェント。上限は %1$d です。</string>
+    <string name="no_chain_agents">チェーンエージェントが設定されていません。</string>
+    <string name="add_chain_agent">チェーンエージェントを追加</string>
+    <string name="chain_full">チェーンエージェントの最大数に達しました。</string>
+    <!-- Handoffs (graph edges) -->
+    <string name="handoff_edges_count">引き継ぎエッジ（%1$d）</string>
+    <string name="handoff_edges_description">動的なマルチエージェント引き継ぎのためのグラフルーティングエッジ。</string>
+    <string name="no_handoff_edges">引き継ぎエッジが設定されていません。</string>
+    <string name="add_handoff_edge">引き継ぎエッジを追加</string>
+    <string name="handoff_edge_from">送信元</string>
+    <string name="handoff_edge_to">送信先</string>
+    <string name="handoff_edge_description">説明（任意）</string>
+    <string name="handoff_edge_prompt">転送プロンプト（任意）</string>
+    <string name="handoff_edge_prompt_key">プロンプトのパラメータ名（任意）</string>
+    <string name="handoff_edge_exclude_results">以前のメッセージを除外</string>
+    <string name="handoff_edge_arrow">%1$s → %2$s</string>
+    <string name="handoff_edge_multi">%1$d 個のエージェント → %2$d 個のエージェント</string>
+    <string name="no_more_agents">追加できるエージェントがありません。</string>
+    <string name="select_agent">エージェントを選択</string>
+
+    <!-- MCP Tools selector -->
+    <string name="mcp_tools_count">MCPツール（%1$d 個選択）</string>
+    <string name="no_mcp_tools">利用可能なMCPツールがありません。設定でMCPサーバーを構成してください。</string>
+    <string name="unknown_server">不明なサーバー</string>
+
+    <!-- Model picker -->
+    <string name="model_required_label">モデル *</string>
+    <string name="select_model_hint">モデルを選択…</string>
+    <string name="no_models_found">モデルが見つかりません</string>
+
+    <!-- Sharing section -->
+    <string name="sharing_and_permissions">共有と権限</string>
+    <string name="label_visibility">公開範囲</string>
+    <string name="label_collaborative">共同編集</string>
+    <string name="collaborative_description">他のユーザーがこのエージェントを変更できるようにします</string>
+    <string name="collaborative_managed_server_side">このバージョンではアクセス権限はサーバー側で管理されます。</string>
+
+    <!-- Visibility labels -->
+    <string name="visibility_private">非公開</string>
+    <string name="visibility_team">チーム</string>
+    <string name="visibility_public">公開</string>
+
+    <!-- Support contact section -->
+    <string name="label_support_contact">サポート連絡先</string>
+    <string name="label_name">名前</string>
+    <string name="support_contact_placeholder">サポート連絡先の名前</string>
+    <string name="label_email">メールアドレス</string>
+
+    <!-- Version history -->
+    <string name="no_version_history">利用可能なバージョン履歴がありません</string>
+    <string name="version_number">バージョン %1$d</string>
+    <string name="version_current">有効</string>
+    <string name="version_no_date">日付がありません</string>
+    <string name="version_unknown_date">不明な日付</string>
+    <string name="version_snapshot_name">名前</string>
+    <string name="version_snapshot_description">説明</string>
+    <string name="version_snapshot_instructions">指示</string>
+    <string name="version_snapshot_artifacts">アーティファクト</string>
+    <string name="version_snapshot_capabilities">機能</string>
+    <string name="version_snapshot_tools">ツール</string>
+    <string name="version_snapshot_empty">—</string>
+    <string name="version_restore_confirm">このエージェントを選択したバージョンに戻しますか？現在の未保存の変更は失われます。</string>
+
+    <!-- ACL sharing (v0.8.5+) -->
+    <string name="acl_sharing_title">共有とアクセス</string>
+    <string name="acl_add_principal">ユーザーまたはグループを追加</string>
+    <string name="acl_no_grants">まだ誰にもアクセスが許可されていません。</string>
+    <string name="acl_public_label">公開</string>
+    <string name="acl_public_description">サーバーにアクセスできるすべての人に許可します</string>
+    <string name="acl_role">ロール</string>
+    <string name="acl_revoke">取り消す</string>
+    <string name="acl_search_hint">ユーザーまたはグループを検索…</string>
+    <string name="acl_search_empty">一致するものがありません</string>
+    <string name="acl_grant_button">許可</string>
+    <string name="acl_grant_dialog_title">ユーザーまたはグループを追加</string>
+    <string name="acl_principal_user">ユーザー</string>
+    <string name="acl_principal_group">グループ</string>
+    <string name="acl_principal_role">ロール</string>
+    <string name="acl_create_mode_notice">共有とアクセス制御はエージェントの保存後に利用できます。</string>
+
+    <!-- Tool select dialog -->
+    <string name="agent_tools_title">エージェントツール</string>
+    <string name="select_tools_description">エージェントが使用するツールを選択します</string>
+    <string name="search_tools_hint">ツールを検索…</string>
+    <string name="no_tools_matching">「%1$s」に一致するツールがありません</string>
+    <string name="no_tools_available">利用可能なツールがありません</string>
+
+    <!-- Per-capability file attachments -->
+    <string name="add_file">ファイルを追加</string>
+    <string name="agent_files_save_first">ファイルを添付する前にエージェントを保存してください</string>
+    <string name="agent_file_too_large">ファイルは %1$d MB 以下にしてください</string>
+    <string name="agent_file_upload_failed">ファイルのアップロードに失敗しました</string>
+    <string name="agent_file_remove_failed">ファイルの削除に失敗しました</string>
+    <string name="cd_remove_file">%1$s を削除</string>
+
+    <!-- Skills selector (v0.8.6) -->
+    <string name="label_skills">スキル</string>
+    <string name="skills_disabled_hint">このエージェントではスキルがオフになっています。</string>
+    <string name="skills_enabled_all_hint">アクセスできるすべてのスキルがこのエージェントで利用できます。</string>
+    <string name="skills_enabled_allowlist_hint">選択したスキルのみがこのエージェントで利用できます。</string>
+    <string name="add_skills">スキルを追加</string>
+    <string name="select_skills">スキルを選択</string>
+    <string name="search_skills_hint">スキルを検索…</string>
+    <string name="no_skills_matching">「%1$s」に一致するスキルがありません</string>
+    <string name="no_skills_available">利用可能なスキルがありません</string>
+    <string name="skills_done">完了</string>
+
+    <!-- Subagents config (v0.8.6) -->
+    <string name="label_subagents">サブエージェント</string>
+    <string name="subagents_description">このエージェントが分離されたコンテキストで他のエージェントに作業を委任できるようにします。</string>
+    <string name="subagents_allow_self">自分自身の生成を許可</string>
+    <string name="add_subagent">サブエージェントを追加</string>
+    <string name="subagents_full">サブエージェントの最大数に達しました。</string>
+</resources>

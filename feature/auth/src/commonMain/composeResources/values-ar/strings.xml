@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Server URL -->
+    <string name="server_url_label">رابط الخادم</string>
+    <string name="server_url_placeholder">https://your-server.com</string>
+    <string name="server_url_connect">اتصال</string>
+    <string name="connect_to_librechat">الاتصال بـ LibreChat</string>
+    <string name="enter_server_url_hint">أدخل رابط خادمك للبدء</string>
+    <string name="insecure_connection_title">اتصال غير آمن</string>
+    <string name="insecure_connection_message">أنت تتصل عبر HTTP. سيتم إرسال بيانات تسجيل الدخول والرسائل الخاصة بك دون تشفير وقد يعترضها آخرون على الشبكة.\n\nاستخدم HTTP فقط لخوادم التطوير المحلية.</string>
+    <string name="connect_anyway">الاتصال على أي حال</string>
+    <string name="cancel">إلغاء</string>
+
+    <!-- Login -->
+    <string name="login_title">تسجيل الدخول</string>
+    <string name="email_label">البريد الإلكتروني</string>
+    <string name="password_label">كلمة المرور</string>
+    <string name="continue_button">متابعة</string>
+    <string name="forgot_password">هل نسيت كلمة المرور؟</string>
+    <string name="no_account_sign_up">ليس لديك حساب؟ سجّل الآن</string>
+    <string name="or_continue_with">أو تابع باستخدام</string>
+
+    <!-- OAuth provider labels -->
+    <string name="oauth_google">المتابعة باستخدام Google</string>
+    <string name="oauth_github">المتابعة باستخدام GitHub</string>
+    <string name="oauth_discord">المتابعة باستخدام Discord</string>
+    <string name="oauth_facebook">المتابعة باستخدام Facebook</string>
+    <string name="oauth_apple">المتابعة باستخدام Apple</string>
+    <string name="oauth_openid">المتابعة باستخدام OpenID</string>
+    <string name="oauth_generic">المتابعة باستخدام %1$s</string>
+
+    <!-- Register -->
+    <string name="register_title">إنشاء حساب</string>
+    <string name="full_name_label">الاسم الكامل</string>
+    <string name="username_label">اسم المستخدم</string>
+    <string name="confirm_password_label">تأكيد كلمة المرور</string>
+    <string name="sign_up">سجّل الآن</string>
+    <string name="have_account_sign_in">لديك حساب بالفعل؟ سجّل الدخول</string>
+
+    <!-- Forgot Password -->
+    <string name="reset_password_title">إعادة تعيين كلمة المرور</string>
+    <string name="forgot_your_password">هل نسيت كلمة المرور؟</string>
+    <string name="enter_email_for_reset">أدخل بريدك الإلكتروني لتلقّي رابط إعادة التعيين</string>
+    <string name="send_reset_link">إرسال رابط إعادة التعيين</string>
+    <string name="check_your_email">تحقّق من بريدك الإلكتروني</string>
+    <string name="reset_link_sent">لقد أرسلنا رابط إعادة تعيين كلمة المرور إلى %1$s</string>
+    <string name="back_to_sign_in">العودة إلى تسجيل الدخول</string>
+
+    <!-- Reset Password -->
+    <string name="reset_password_screen_title">إعادة تعيين كلمة المرور</string>
+    <string name="password_reset_successful">تمت إعادة تعيين كلمة المرور بنجاح</string>
+    <string name="password_reset_message">تم تحديث كلمة المرور الخاصة بك. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.</string>
+    <string name="set_new_password">تعيين كلمة مرور جديدة</string>
+    <string name="enter_new_password_hint">أدخل كلمة المرور الجديدة أدناه</string>
+    <string name="new_password_label">كلمة المرور الجديدة</string>
+    <string name="confirm_new_password_label">تأكيد كلمة المرور الجديدة</string>
+    <string name="reset_password_button">إعادة تعيين كلمة المرور</string>
+
+    <!-- Two-Factor -->
+    <string name="two_factor_title">المصادقة الثنائية</string>
+    <string name="enter_verification_code">أدخل رمز التحقق</string>
+    <string name="enter_backup_code">أدخل رمز النسخ الاحتياطي</string>
+    <string name="authenticator_prompt">أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة الخاص بك</string>
+    <string name="backup_code_prompt">أدخل أحد رموز النسخ الاحتياطي الخاصة بك</string>
+    <string name="verify">تحقّق</string>
+    <string name="use_authenticator_code">استخدام رمز المصادقة</string>
+    <string name="use_backup_code">استخدام رمز النسخ الاحتياطي</string>
+    <string name="backup_code_label">رمز النسخ الاحتياطي</string>
+
+    <!-- Verify Email -->
+    <string name="verify_email_title">التحقق من البريد الإلكتروني</string>
+    <string name="verification_link_sent">لقد أرسلنا رابط تحقق إلى</string>
+    <string name="click_link_to_verify">انقر على الرابط الموجود في البريد الإلكتروني للتحقق من حسابك.</string>
+    <string name="verification_email_sent">تم إرسال بريد التحقق!</string>
+    <string name="resend_verification_email">إعادة إرسال بريد التحقق</string>
+    <string name="resend_in_seconds">إعادة الإرسال خلال %1$d ثانية</string>
+
+    <!-- Terms -->
+    <string name="terms_title">شروط الخدمة</string>
+    <string name="i_accept">أوافق</string>
+    <string name="retry">إعادة المحاولة</string>
+
+    <!-- Common -->
+    <string name="back">رجوع</string>
+</resources>

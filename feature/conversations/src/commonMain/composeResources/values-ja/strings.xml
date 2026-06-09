@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="rename">名前を変更</string>
+    <string name="cancel">キャンセル</string>
+    <string name="delete">削除</string>
+    <string name="archive">アーカイブ</string>
+    <string name="unarchive">アーカイブを解除</string>
+    <string name="export">エクスポート</string>
+    <string name="share">共有</string>
+    <string name="duplicate">複製</string>
+    <string name="clear">クリア</string>
+    <string name="back">戻る</string>
+    <string name="new_chat">新しいチャット</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_new_chat">新しいチャット</string>
+    <string name="cd_archived_conversations">アーカイブ済みの会話</string>
+    <string name="cd_search">検索</string>
+    <string name="cd_clear_search">検索をクリア</string>
+    <string name="cd_bookmarked">ブックマーク済み</string>
+    <string name="cd_conversation_actions">会話の操作</string>
+    <string name="cd_add_tag">タグを追加</string>
+    <string name="cd_hide_tags">タグを非表示</string>
+    <string name="cd_show_tags">タグを表示</string>
+    <string name="cd_clear_filter">フィルターをクリア</string>
+    <string name="cd_unarchive">アーカイブを解除</string>
+    <string name="cd_delete">削除</string>
+
+    <!-- Conversation list screen -->
+    <string name="conversations">会話</string>
+    <string name="search_conversations">会話を検索…</string>
+    <string name="could_not_load_conversations">会話を読み込めませんでした</string>
+    <string name="no_results_found">結果が見つかりません</string>
+    <string name="no_conversations_yet">会話はまだありません</string>
+    <string name="try_different_search">別の検索語をお試しください</string>
+    <string name="start_new_chat">新しいチャットを開始しましょう</string>
+    <string name="unknown_error">不明なエラーが発生しました</string>
+    <string name="conversation_exported">会話をエクスポートしました</string>
+    <string name="export_failed">エクスポートに失敗しました: %1$s</string>
+    <string name="import_failed">インポートに失敗しました: %1$s</string>
+    <string name="link_copied">リンクをコピーしました！</string>
+    <string name="imported_title">インポート済み: %1$s</string>
+    <string name="copy_of">%1$s のコピー</string>
+
+    <!-- Conversation actions -->
+    <string name="remove_bookmark">ブックマークを解除</string>
+    <string name="bookmark">ブックマーク</string>
+    <string name="tags">タグ</string>
+    <string name="rename_conversation">会話の名前を変更</string>
+    <string name="rename_dialog_message">この会話の新しいタイトルを入力してください。</string>
+    <string name="title_label">タイトル</string>
+    <string name="delete_conversation">会話を削除</string>
+    <string name="delete_confirmation_message">「%1$s」を削除してもよろしいですか？この操作は取り消せません。</string>
+    <string name="this_conversation">この会話</string>
+
+    <!-- Tag picker -->
+    <string name="no_tags_yet">タグはまだありません。下から追加してください。</string>
+    <string name="add_new_tag">新しいタグを追加</string>
+
+    <!-- Tag filter bar -->
+    <string name="tags_active_count">%1$d 個のタグ%2$sが有効</string>
+
+    <!-- Export format picker -->
+    <string name="export_format">エクスポート形式</string>
+    <string name="format_json">JSON</string>
+    <string name="format_json_description">完全なデータエクスポート、再インポート可能</string>
+    <string name="format_markdown">Markdown</string>
+    <string name="format_markdown_description">読みやすいテキスト形式</string>
+
+    <!-- Archived conversations screen -->
+    <string name="archived_conversations">アーカイブ済みの会話</string>
+    <string name="could_not_load_archived">アーカイブ済みの会話を読み込めませんでした</string>
+    <string name="no_archived_conversations">アーカイブ済みの会話がありません</string>
+    <string name="archived_will_appear_here">アーカイブした会話はここに表示されます</string>
+
+    <!-- Conversation item fallback -->
+    <string name="chat">チャット</string>
+</resources>

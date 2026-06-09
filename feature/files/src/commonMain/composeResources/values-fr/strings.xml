@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="files">Fichiers</string>
+    <string name="upload">Téléverser</string>
+    <string name="delete">Supprimer</string>
+    <string name="cancel">Annuler</string>
+    <string name="done">Terminé</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_exit_edit_mode">Quitter le mode édition</string>
+    <string name="cd_select_all">Tout sélectionner</string>
+    <string name="cd_delete_selected">Supprimer la sélection</string>
+    <string name="cd_edit_files">Modifier les fichiers</string>
+    <string name="cd_switch_to_grid">Passer en vue grille</string>
+    <string name="cd_switch_to_list">Passer en vue liste</string>
+    <string name="cd_sort_files">Trier les fichiers</string>
+    <string name="cd_upload_file">Téléverser un fichier</string>
+    <string name="cd_delete_file">Supprimer %1$s</string>
+    <string name="cd_thumbnail">Miniature de %1$s</string>
+    <string name="cd_close_preview">Fermer l\'aperçu</string>
+    <string name="cd_cancel_upload">Annuler le téléversement</string>
+    <string name="cd_ascending">Croissant</string>
+    <string name="cd_descending">Décroissant</string>
+
+    <!-- Selection mode -->
+    <string name="select_files">Sélectionner des fichiers</string>
+    <string name="selected_count">%1$d sélectionné(s)</string>
+
+    <!-- Empty states -->
+    <string name="no_files">Aucun fichier</string>
+    <string name="upload_to_get_started">Téléversez des fichiers pour commencer</string>
+    <string name="no_filter_files">Aucun %1$s</string>
+    <string name="no_filter_files_found">Aucun fichier %1$s trouvé</string>
+    <string name="could_not_load_files">Impossible de charger les fichiers</string>
+
+    <!-- Delete dialogs -->
+    <string name="delete_count_files">Supprimer %1$d fichier%2$s ?</string>
+    <string name="action_cannot_be_undone">Cette action est irréversible.</string>
+    <string name="delete_file_question">Supprimer le fichier ?</string>
+    <string name="delete_file_message">Supprimer "%1$s" ? Cette action est irréversible.</string>
+    <string name="this_file">ce fichier</string>
+
+    <!-- File preview -->
+    <string name="image_preview_unavailable">Aperçu de l\'image non disponible</string>
+    <string name="preview_of">Aperçu de %1$s</string>
+    <string name="loading_pdf">Chargement du PDF…</string>
+    <string name="page_of">Page %1$d sur %2$d</string>
+    <string name="page_cd">Page %1$d sur %2$s</string>
+    <string name="could_not_render_pdf">Impossible d\'afficher l\'aperçu du PDF</string>
+    <string name="failed_to_download_pdf">Échec du téléchargement du PDF</string>
+    <string name="failed_to_render_pdf">Échec de l\'affichage du PDF</string>
+    <string name="loading_file_content">Chargement du contenu du fichier…</string>
+    <string name="could_not_load_file_content">Impossible de charger le contenu du fichier</string>
+    <string name="failed_to_download_file">Échec du téléchargement du fichier</string>
+    <string name="failed_to_load_content">Échec du chargement du contenu du fichier</string>
+    <string name="content_truncated">\n\n--- Contenu tronqué (fichier trop volumineux) ---</string>
+
+    <!-- Info row labels -->
+    <string name="info_type">Type</string>
+    <string name="info_size">Taille</string>
+    <string name="info_created">Créé</string>
+    <string name="info_source">Source</string>
+
+    <!-- Upload progress -->
+    <string name="uploading">Téléversement…</string>
+</resources>

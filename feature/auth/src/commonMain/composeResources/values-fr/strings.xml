@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Server URL -->
+    <string name="server_url_label">URL du serveur</string>
+    <string name="server_url_placeholder">https://votre-serveur.com</string>
+    <string name="server_url_connect">Se connecter</string>
+    <string name="connect_to_librechat">Se connecter à LibreChat</string>
+    <string name="enter_server_url_hint">Saisissez l\'URL de votre serveur pour commencer</string>
+    <string name="insecure_connection_title">Connexion non sécurisée</string>
+    <string name="insecure_connection_message">Vous vous connectez via HTTP. Vos identifiants de connexion et vos messages seront envoyés sans chiffrement et pourraient être interceptés par d\'autres personnes sur le réseau.\n\nN\'utilisez HTTP que pour les serveurs de développement local.</string>
+    <string name="connect_anyway">Se connecter quand même</string>
+    <string name="cancel">Annuler</string>
+
+    <!-- Login -->
+    <string name="login_title">Se connecter</string>
+    <string name="email_label">E-mail</string>
+    <string name="password_label">Mot de passe</string>
+    <string name="continue_button">Continuer</string>
+    <string name="forgot_password">Mot de passe oublié ?</string>
+    <string name="no_account_sign_up">Vous n\'avez pas de compte ? Inscrivez-vous</string>
+    <string name="or_continue_with">Ou continuer avec</string>
+
+    <!-- OAuth provider labels -->
+    <string name="oauth_google">Continuer avec Google</string>
+    <string name="oauth_github">Continuer avec GitHub</string>
+    <string name="oauth_discord">Continuer avec Discord</string>
+    <string name="oauth_facebook">Continuer avec Facebook</string>
+    <string name="oauth_apple">Continuer avec Apple</string>
+    <string name="oauth_openid">Continuer avec OpenID</string>
+    <string name="oauth_generic">Continuer avec %1$s</string>
+
+    <!-- Register -->
+    <string name="register_title">Créer un compte</string>
+    <string name="full_name_label">Nom complet</string>
+    <string name="username_label">Nom d\'utilisateur</string>
+    <string name="confirm_password_label">Confirmer le mot de passe</string>
+    <string name="sign_up">S\'inscrire</string>
+    <string name="have_account_sign_in">Vous avez déjà un compte ? Connectez-vous</string>
+
+    <!-- Forgot Password -->
+    <string name="reset_password_title">Réinitialiser le mot de passe</string>
+    <string name="forgot_your_password">Mot de passe oublié ?</string>
+    <string name="enter_email_for_reset">Saisissez votre e-mail pour recevoir un lien de réinitialisation</string>
+    <string name="send_reset_link">Envoyer le lien de réinitialisation</string>
+    <string name="check_your_email">Consultez votre e-mail</string>
+    <string name="reset_link_sent">Nous avons envoyé un lien de réinitialisation du mot de passe à %1$s</string>
+    <string name="back_to_sign_in">Retour à la connexion</string>
+
+    <!-- Reset Password -->
+    <string name="reset_password_screen_title">Réinitialiser le mot de passe</string>
+    <string name="password_reset_successful">Mot de passe réinitialisé avec succès</string>
+    <string name="password_reset_message">Votre mot de passe a été mis à jour. Vous pouvez désormais vous connecter avec votre nouveau mot de passe.</string>
+    <string name="set_new_password">Définir un nouveau mot de passe</string>
+    <string name="enter_new_password_hint">Saisissez votre nouveau mot de passe ci-dessous</string>
+    <string name="new_password_label">Nouveau mot de passe</string>
+    <string name="confirm_new_password_label">Confirmer le nouveau mot de passe</string>
+    <string name="reset_password_button">Réinitialiser le mot de passe</string>
+
+    <!-- Two-Factor -->
+    <string name="two_factor_title">Authentification à deux facteurs</string>
+    <string name="enter_verification_code">Saisissez le code de vérification</string>
+    <string name="enter_backup_code">Saisissez le code de secours</string>
+    <string name="authenticator_prompt">Saisissez le code à 6 chiffres de votre application d\'authentification</string>
+    <string name="backup_code_prompt">Saisissez l\'un de vos codes de secours</string>
+    <string name="verify">Vérifier</string>
+    <string name="use_authenticator_code">Utiliser le code de l\'application d\'authentification</string>
+    <string name="use_backup_code">Utiliser un code de secours</string>
+    <string name="backup_code_label">Code de secours</string>
+
+    <!-- Verify Email -->
+    <string name="verify_email_title">Vérifier l\'e-mail</string>
+    <string name="verification_link_sent">Nous avons envoyé un lien de vérification à</string>
+    <string name="click_link_to_verify">Cliquez sur le lien dans l\'e-mail pour vérifier votre compte.</string>
+    <string name="verification_email_sent">E-mail de vérification envoyé !</string>
+    <string name="resend_verification_email">Renvoyer l\'e-mail de vérification</string>
+    <string name="resend_in_seconds">Renvoyer dans %1$ds</string>
+
+    <!-- Terms -->
+    <string name="terms_title">Conditions d\'utilisation</string>
+    <string name="i_accept">J\'accepte</string>
+    <string name="retry">Réessayer</string>
+
+    <!-- Common -->
+    <string name="back">Retour</string>
+</resources>

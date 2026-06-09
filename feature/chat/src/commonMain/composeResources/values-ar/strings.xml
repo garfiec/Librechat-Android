@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="cancel">إلغاء</string>
+    <string name="save">حفظ</string>
+    <string name="delete">حذف</string>
+    <string name="copy">نسخ</string>
+    <string name="edit">تعديل</string>
+    <string name="regenerate">إعادة إنشاء</string>
+    <string name="action_rename">إعادة تسمية</string>
+    <string name="action_submit">إرسال</string>
+    <string name="action_insert">إدراج</string>
+    <string name="action_open">فتح</string>
+    <string name="action_close">إغلاق</string>
+    <string name="action_share">مشاركة</string>
+    <string name="action_search">بحث</string>
+    <string name="action_archive">أرشفة</string>
+    <string name="action_duplicate">تكرار</string>
+    <string name="action_copy_link">نسخ الرابط</string>
+
+    <!-- Chat screen -->
+    <string name="new_chat">محادثة جديدة</string>
+    <string name="send_message">إرسال</string>
+    <string name="stop_generating">إيقاف</string>
+    <string name="message_hint">اكتب رسالة…</string>
+    <string name="model_parameters">معاملات النموذج</string>
+    <string name="load_preset">تحميل إعداد مسبق</string>
+    <string name="save_as_preset">الحفظ كإعداد مسبق</string>
+    <string name="search_models">البحث في النماذج…</string>
+    <string name="save_and_submit">حفظ وإرسال</string>
+    <string name="preset_name_label">اسم الإعداد المسبق</string>
+    <string name="code">الكود</string>
+    <string name="preview">معاينة</string>
+    <string name="select_model">اختيار النموذج</string>
+    <string name="select_a_model">اختر نموذجًا</string>
+    <string name="starred_group">المميزة بنجمة</string>
+    <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
+    <string name="chat_agent_fallback_label">وكيل</string>
+    <string name="compare_models">مقارنة النماذج</string>
+    <string name="how_can_i_help">كيف يمكنني مساعدتك اليوم؟</string>
+    <string name="recording">جارٍ التسجيل…</string>
+    <string name="hint_message_model">رسالة إلى %1$s</string>
+    <string name="hint_message">رسالة…</string>
+
+    <!-- Content descriptions - Chat -->
+    <string name="cd_open_tools_menu">فتح قائمة الأدوات</string>
+    <string name="cd_paste_image">لصق صورة من الحافظة</string>
+    <string name="cd_message_input">حقل إدخال الرسالة</string>
+    <string name="cd_stop_voice_recording">إيقاف التسجيل الصوتي</string>
+    <string name="cd_start_voice_recording">بدء التسجيل الصوتي</string>
+    <string name="cd_stop_generation">إيقاف الإنشاء</string>
+    <string name="cd_send_message">إرسال الرسالة</string>
+    <string name="cd_open_drawer">فتح درج التنقل</string>
+    <string name="cd_more_options">خيارات إضافية</string>
+    <string name="cd_more_tools">أدوات إضافية</string>
+    <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>
+    <string name="cd_select_model">اختيار النموذج</string>
+    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_comparison_enabled">المقارنة مُفعّلة</string>
+
+    <!-- Content descriptions - Messages -->
+    <string name="cd_thumbs_up">إعجاب</string>
+    <string name="cd_thumbs_down">عدم إعجاب</string>
+    <string name="cd_copy_message">نسخ الرسالة</string>
+    <string name="cd_edit_message">تعديل الرسالة</string>
+    <string name="cd_regenerate_response">إعادة إنشاء الرد</string>
+    <string name="cd_stop_reading">إيقاف القراءة</string>
+    <string name="cd_read_aloud">قراءة بصوت عالٍ</string>
+    <string name="cd_fork_conversation">تفريع المحادثة من هنا</string>
+    <string name="cd_previous_response">الرد السابق</string>
+    <string name="cd_next_response">الرد التالي</string>
+    <string name="cd_generating_response">جارٍ إنشاء الرد</string>
+
+    <!-- Content descriptions - Images -->
+    <string name="cd_fullscreen_image">صورة بملء الشاشة</string>
+    <string name="cd_close">إغلاق</string>
+    <string name="cd_save_to_device">الحفظ في الجهاز</string>
+    <string name="cd_share_image">مشاركة الصورة</string>
+    <string name="cd_failed_to_load_image">فشل تحميل الصورة</string>
+    <string name="cd_failed_to_load_generated_image">فشل تحميل الصورة المُنشأة</string>
+    <string name="cd_embedded_image">صورة مضمّنة في الرسالة</string>
+
+    <!-- Content descriptions - Search -->
+    <string name="cd_search_in_conversation">البحث في المحادثة</string>
+    <string name="cd_previous_match">التطابق السابق</string>
+    <string name="cd_next_match">التطابق التالي</string>
+    <string name="cd_close_search">إغلاق البحث</string>
+    <string name="cd_clear_search">مسح البحث</string>
+    <string name="hint_find_in_conversation">البحث في المحادثة…</string>
+
+    <!-- Content descriptions - Code -->
+    <string name="cd_copy_code">نسخ الكود</string>
+    <string name="cd_copied">تم النسخ</string>
+    <string name="action_copy_code">نسخ</string>
+    <string name="action_copied">تم النسخ!</string>
+    <string name="cd_code_execution_result">نتيجة تنفيذ الكود</string>
+    <string name="cd_exit_code_success">رمز الخروج 0 (نجاح)</string>
+    <string name="cd_exit_code_failure">رمز الخروج %1$d (فشل)</string>
+    <string name="exit_code">خروج %1$d</string>
+    <string name="label_code">الكود</string>
+    <string name="label_output">المخرجات:</string>
+    <string name="label_error">خطأ:</string>
+    <string name="label_input">المدخلات:</string>
+    <string name="cd_collapse_code">طي الكود</string>
+    <string name="cd_expand_code">توسيع الكود</string>
+
+    <!-- Content descriptions - Thinking -->
+    <string name="cd_thinking_indicator">مؤشر التفكير</string>
+    <string name="label_thinking">جارٍ التفكير</string>
+    <string name="cd_collapse">طي</string>
+    <string name="cd_expand">توسيع</string>
+    <string name="cd_collapse_thinking">طي كتلة التفكير</string>
+    <string name="cd_expand_thinking">توسيع كتلة التفكير</string>
+
+    <!-- Content descriptions - Summary (context compaction, v0.8.5+) -->
+    <string name="label_summary">ملخص الرسائل السابقة</string>
+    <string name="cd_summary_indicator">مؤشر الملخص</string>
+    <string name="cd_collapse_summary">طي كتلة الملخص</string>
+    <string name="cd_expand_summary">توسيع كتلة الملخص</string>
+
+    <!-- Content descriptions - Subagent trace (subagents, v0.8.6+) -->
+    <string name="label_subagent">وكيل فرعي</string>
+    <string name="cd_collapse_subagent">طي الوكيل الفرعي %1$s</string>
+    <string name="cd_expand_subagent">توسيع الوكيل الفرعي %1$s</string>
+
+    <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
+    <string name="office_preview_preparing">جارٍ تحضير معاينة %1$s…</string>
+    <string name="office_preview_failed">تعذّرت معاينة %1$s (%2$s)</string>
+    <string name="office_preview_unavailable">%1$s — المعاينة غير متاحة</string>
+
+    <!-- Content descriptions - Tool calls -->
+    <string name="cd_tool_call">استدعاء أداة</string>
+    <string name="cd_collapse_tool_call">طي استدعاء الأداة %1$s</string>
+    <string name="cd_expand_tool_call">توسيع استدعاء الأداة %1$s</string>
+    <string name="cd_tool_complete">مكتمل</string>
+    <string name="cd_tool_enabled">مُفعّل</string>
+    <string name="video_not_supported">محتوى الفيديو غير مدعوم</string>
+
+    <!-- Tools bottom sheet -->
+    <string name="tool_camera">الكاميرا</string>
+    <string name="tool_photos">الصور</string>
+    <string name="tool_files">الملفات</string>
+    <string name="tool_model">النموذج</string>
+    <string name="tool_model_parameters">معاملات النموذج</string>
+    <string name="tool_model_parameters_desc">ضبط درجة الحرارة والرموز والمزيد</string>
+    <string name="tool_web_search">البحث على الويب</string>
+    <string name="tool_web_search_desc">البحث على الويب عن المعلومات</string>
+    <string name="tool_code">الكود</string>
+    <string name="tool_code_desc">تشغيل الكود وتحليله</string>
+    <string name="tool_file_search">البحث في الملفات</string>
+    <string name="tool_file_search_desc">البحث في الملفات المرفوعة</string>
+    <string name="tool_mcp">MCP</string>
+    <string name="tool_mcp_desc">خوادم بروتوكول سياق النموذج (MCP)</string>
+    <string name="cd_web_search_enabled">البحث على الويب مُفعّل</string>
+    <string name="cd_code_enabled">مفسّر الكود مُفعّل</string>
+    <string name="cd_file_search_enabled">البحث في الملفات مُفعّل</string>
+
+    <!-- Attachments -->
+    <string name="cd_attach_file">إرفاق ملف</string>
+    <string name="toast_file_attach_unavailable">مرفقات الملفات غير متاحة على iOS بعد</string>
+    <string name="files_count">الملفات (%1$d)</string>
+    <string name="cd_attached_file">ملف مرفق: %1$s</string>
+    <string name="cd_preview_file">معاينة %1$s</string>
+    <string name="cd_remove_file">إزالة %1$s</string>
+
+    <!-- Agent handoff -->
+    <string name="cd_agent_handoff">تسليم الوكيل من %1$s إلى %2$s</string>
+    <string name="cd_handed_off_to">تم التسليم إلى</string>
+    <string name="agent_unknown">غير معروف</string>
+    <string name="agent_previous">الوكيل السابق</string>
+    <string name="agent_next">الوكيل التالي</string>
+
+    <!-- Audio/Video -->
+    <string name="cd_pause">إيقاف مؤقت</string>
+    <string name="cd_play">تشغيل</string>
+    <string name="cd_play_video">تشغيل الفيديو</string>
+    <string name="audio_no_data">لا توجد بيانات صوتية</string>
+    <string name="audio_decode_failed">فشل فك ترميز الصوت</string>
+
+    <!-- Citation -->
+    <string name="citation_number">الاستشهاد %1$d</string>
+    <string name="cd_open_citation_url">فتح رابط الاستشهاد</string>
+
+    <!-- Fork options -->
+    <string name="fork_conversation">تفريع المحادثة</string>
+    <string name="fork_visible_messages">الرسائل المرئية</string>
+    <string name="fork_visible_messages_desc">المسار المباشر للرسائل فقط</string>
+    <string name="fork_include_branches">تضمين الفروع</string>
+    <string name="fork_include_branches_desc">المسار المباشر بالإضافة إلى الرسائل الشقيقة</string>
+    <string name="fork_all_to_target">الكل حتى المستوى المستهدف</string>
+    <string name="fork_all_to_target_desc">جميع الرسائل والفروع حتى هذا المستوى</string>
+    <string name="fork_start_new">بدء محادثة جديدة من الهدف</string>
+    <string name="fork_start_new_desc">ابدأ التفريع من الرسالة المحددة بدلًا من الجذر</string>
+
+    <!-- Image viewer toasts -->
+    <string name="toast_failed_to_load_image">فشل تحميل الصورة</string>
+    <string name="toast_failed_to_save_image">فشل حفظ الصورة</string>
+    <string name="toast_image_saved">تم حفظ الصورة في المعرض</string>
+    <string name="toast_failed_to_save_with_error">فشل حفظ الصورة: %1$s</string>
+    <string name="toast_storage_permission_required">إذن التخزين مطلوب لحفظ الصور</string>
+
+    <!-- Image generation -->
+    <string name="generating_image">جارٍ إنشاء الصورة…</string>
+    <string name="image_generated">تم إنشاء الصورة</string>
+    <string name="cd_generated_image">صورة مُنشأة</string>
+
+    <!-- Landing page greetings -->
+    <string name="greeting_late_night">سهرة سعيدة</string>
+    <string name="greeting_weekend_morning">صباح عطلة سعيد</string>
+    <string name="greeting_weekend_afternoon">ظهيرة عطلة سعيدة</string>
+    <string name="greeting_weekend_evening">مساء عطلة سعيد</string>
+    <string name="greeting_early_morning">صباح الخير المبكر</string>
+    <string name="greeting_morning">صباح الخير</string>
+    <string name="greeting_afternoon">طاب يومك</string>
+    <string name="greeting_evening">مساء الخير</string>
+
+    <!-- Log content -->
+    <string name="log_output">مخرجات السجل</string>
+    <string name="cd_collapse_log">طي %1$s</string>
+    <string name="cd_expand_log">توسيع %1$s</string>
+
+    <!-- Table dialog -->
+    <string name="cd_expand_table">توسيع الجدول</string>
+    <string name="dialog_table">جدول</string>
+
+    <!-- MCP -->
+    <string name="cd_select_mcp_servers">اختيار خوادم MCP</string>
+    <string name="cd_mcp_resources">موارد MCP: %1$d عنصر</string>
+    <string name="cd_mcp_resource">مورد MCP: %1$s</string>
+
+    <!-- Memory artifact -->
+    <string name="cd_memory_artifact">عنصر الذاكرة: %1$s</string>
+    <string name="memory_artifact_untitled">بدون عنوان</string>
+    <string name="label_memory">الذاكرة</string>
+
+    <!-- Mermaid diagram -->
+    <string name="label_mermaid">mermaid</string>
+    <string name="cd_show_diagram">إظهار المخطط</string>
+    <string name="cd_view_code">عرض الكود</string>
+    <string name="label_diagram">المخطط</string>
+    <string name="cd_fullscreen">ملء الشاشة</string>
+    <string name="cd_close_fullscreen">إغلاق ملء الشاشة</string>
+
+    <!-- Message bubble -->
+    <string name="sender_you">أنت</string>
+    <string name="sender_assistant">المساعد</string>
+
+    <!-- Message files -->
+    <string name="file_fallback">ملف</string>
+
+    <!-- Model selector sheet -->
+    <string name="cd_selected">محدد</string>
+    <string name="cd_public_agent">وكيل عام</string>
+    <string name="cd_pin_favorite">التثبيت كمفضلة</string>
+    <string name="cd_unpin_favorite">إلغاء تثبيت المفضلة</string>
+    <string name="cd_collapse_section">طي %1$s</string>
+    <string name="cd_expand_section">توسيع %1$s</string>
+    <string name="set_api_key_action">تعيين مفتاح API</string>
+    <string name="cd_set_api_key">إعداد مفتاح API لـ %1$s</string>
+
+    <!-- Preset picker -->
+    <string name="select_preset">اختيار إعداد مسبق</string>
+    <string name="no_presets_saved">لا توجد إعدادات مسبقة محفوظة بعد</string>
+    <string name="cd_edit_preset">تعديل %1$s</string>
+    <string name="cd_delete_preset">حذف %1$s</string>
+    <string name="preset_endpoint">نقطة النهاية: %1$s</string>
+    <string name="preset_model">النموذج: %1$s</string>
+
+    <!-- Feedback dialog -->
+    <string name="dialog_title_feedback">تقديم ملاحظات</string>
+    <string name="feedback_question">ما المشكلة في هذا الرد؟</string>
+    <string name="hint_optional_comment">تعليق اختياري…</string>
+
+    <!-- Streaming tool call -->
+    <string name="tool_call_output">المخرجات:</string>
+
+    <!-- Web search result -->
+    <string name="cd_search_result">نتيجة البحث: %1$s</string>
+
+    <!-- Rename dialog -->
+    <string name="dialog_title_rename">إعادة تسمية المحادثة</string>
+    <string name="hint_title">العنوان</string>
+
+    <!-- Delete dialog -->
+    <string name="dialog_title_delete_conversation">حذف المحادثة</string>
+    <string name="dialog_delete_conversation_message">سيؤدي هذا إلى حذف هذه المحادثة نهائيًا. لا يمكن التراجع عن ذلك.</string>
+
+    <!-- Chat menu options -->
+    <string name="menu_search">بحث</string>
+    <string name="menu_rename">إعادة تسمية</string>
+
+    <!-- Artifacts -->
+    <string name="cd_open_artifact">فتح العنصر التفاعلي</string>
+    <string name="cd_share_artifact">مشاركة العنصر التفاعلي</string>
+    <string name="cd_previous_version">الإصدار السابق</string>
+    <string name="cd_next_version">الإصدار التالي</string>
+    <string name="artifact_version">الإصدار %1$d/%2$d</string>
+    <string name="label_resource">المورد</string>
+
+    <!-- Prompts -->
+    <string name="prompts_library">مكتبة المطالبات</string>
+    <string name="use_in_chat">استخدام في المحادثة</string>
+    <string name="set_production">تعيين كإنتاج</string>
+    <string name="prompt_name_label">الاسم</string>
+    <string name="prompt_description_label">الوصف</string>
+    <string name="prompt_command_label">الأمر</string>
+    <string name="prompt_text_label">نص المطالبة</string>
+    <string name="prompt_content">محتوى المطالبة</string>
+    <string name="cd_share_prompt">مشاركة المطالبة</string>
+    <string name="cd_edit_prompt">تعديل المطالبة</string>
+    <string name="cd_delete_prompt">حذف المطالبة</string>
+    <string name="cd_back">رجوع</string>
+    <string name="cd_version_history">سجل الإصدارات</string>
+    <string name="cd_filter_sort">التصفية والترتيب</string>
+    <string name="cd_create_prompt">إنشاء مطالبة</string>
+    <string name="cd_remove_filter">إزالة التصفية</string>
+    <string name="cd_reset_sort">إعادة تعيين الترتيب</string>
+    <string name="cd_share">مشاركة</string>
+    <string name="prompt_author">بواسطة %1$s</string>
+    <string name="prompt_sort_label">الترتيب: %1$s</string>
+
+    <!-- Prompt versions -->
+    <string name="version_history">سجل الإصدارات</string>
+    <string name="no_versions">لا توجد إصدارات متاحة</string>
+    <string name="label_production">الإنتاج</string>
+    <string name="version_number">الإصدار %1$d</string>
+
+    <!-- Prompt variables -->
+    <string name="label_variables">المتغيرات</string>
+
+    <!-- Prompt filter sheet -->
+    <string name="label_category">الفئة</string>
+    <string name="label_all">الكل</string>
+    <string name="label_sort_by">ترتيب حسب</string>
+
+    <!-- Prompt share dialog -->
+    <string name="dialog_title_share_prompt">مشاركة المطالبة</string>
+    <string name="label_permission">الإذن</string>
+
+    <!-- Variable input dialog -->
+    <string name="dialog_title_fill_variables">تعبئة المتغيرات</string>
+
+    <!-- Temp chat toggle -->
+    <string name="cd_temp_chat">محادثة مؤقتة</string>
+    <string name="label_temp_chat">مؤقتة</string>
+
+    <!-- Comparison mode -->
+    <string name="continue_with_response">المتابعة بهذا الرد</string>
+    <string name="waiting_for_response">في انتظار الرد…</string>
+
+    <!-- Slash command menu -->
+    <string name="slash_command_title">/%1$s</string>
+
+    <!-- Provider Keys chat-time errors. -->
+    <string name="provider_keys_chat_error_no_key">لم يتم العثور على مفتاح. يرجى تقديم مفتاح والمحاولة مرة أخرى.</string>
+    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <string name="provider_keys_chat_error_expired">انتهت صلاحية المفتاح المقدّم لـ %1$s في %2$s. يرجى تقديم مفتاح جديد والمحاولة مرة أخرى.</string>
+    <string name="provider_keys_chat_error_invalid">المفتاح المقدّم غير صالح. يرجى تقديم مفتاح صالح والمحاولة مرة أخرى.</string>
+    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
+    <string name="provider_keys_chat_error_cta">فتح إعدادات المفاتيح</string>
+
+    <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
+    <string name="send_block_select_agent">اختر وكيلًا قبل إرسال رسالتك.</string>
+    <string name="send_block_select_model">اختر نموذجًا قبل إرسال رسالتك.</string>
+    <string name="send_block_agents_unavailable">الوكلاء غير متاحين على هذا الخادم. يرجى اختيار نموذج مختلف.</string>
+    <string name="send_block_agent_not_available">الوكيل المحدد غير متاح على هذا الخادم. يرجى اختيار وكيل مختلف.</string>
+    <string name="send_block_model_not_available">النموذج المحدد غير متاح على هذا الخادم. يرجى اختيار نموذج مختلف.</string>
+    <string name="send_block_model_load_failed">تعذّر تحميل النموذج المحدد بعد. يرجى المحاولة مرة أخرى أو اختيار نموذج مختلف.</string>
+</resources>

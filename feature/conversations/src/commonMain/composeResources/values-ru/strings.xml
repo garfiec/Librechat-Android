@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="rename">Переименовать</string>
+    <string name="cancel">Отмена</string>
+    <string name="delete">Удалить</string>
+    <string name="archive">В архив</string>
+    <string name="unarchive">Из архива</string>
+    <string name="export">Экспорт</string>
+    <string name="share">Поделиться</string>
+    <string name="duplicate">Дублировать</string>
+    <string name="clear">Очистить</string>
+    <string name="back">Назад</string>
+    <string name="new_chat">Новый чат</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_new_chat">Новый чат</string>
+    <string name="cd_archived_conversations">Архивированные беседы</string>
+    <string name="cd_search">Поиск</string>
+    <string name="cd_clear_search">Очистить поиск</string>
+    <string name="cd_bookmarked">В закладках</string>
+    <string name="cd_conversation_actions">Действия с беседой</string>
+    <string name="cd_add_tag">Добавить тег</string>
+    <string name="cd_hide_tags">Скрыть теги</string>
+    <string name="cd_show_tags">Показать теги</string>
+    <string name="cd_clear_filter">Сбросить фильтр</string>
+    <string name="cd_unarchive">Из архива</string>
+    <string name="cd_delete">Удалить</string>
+
+    <!-- Conversation list screen -->
+    <string name="conversations">Беседы</string>
+    <string name="search_conversations">Поиск бесед…</string>
+    <string name="could_not_load_conversations">Не удалось загрузить беседы</string>
+    <string name="no_results_found">Ничего не найдено</string>
+    <string name="no_conversations_yet">Пока нет бесед</string>
+    <string name="try_different_search">Попробуйте другой поисковый запрос</string>
+    <string name="start_new_chat">Начните новый чат, чтобы приступить</string>
+    <string name="unknown_error">Произошла неизвестная ошибка</string>
+    <string name="conversation_exported">Беседа экспортирована</string>
+    <string name="export_failed">Сбой экспорта: %1$s</string>
+    <string name="import_failed">Сбой импорта: %1$s</string>
+    <string name="link_copied">Ссылка скопирована!</string>
+    <string name="imported_title">Импортировано: %1$s</string>
+    <string name="copy_of">Копия %1$s</string>
+
+    <!-- Conversation actions -->
+    <string name="remove_bookmark">Убрать закладку</string>
+    <string name="bookmark">В закладки</string>
+    <string name="tags">Теги</string>
+    <string name="rename_conversation">Переименовать беседу</string>
+    <string name="rename_dialog_message">Введите новое название для этой беседы.</string>
+    <string name="title_label">Название</string>
+    <string name="delete_conversation">Удалить беседу</string>
+    <string name="delete_confirmation_message">Вы уверены, что хотите удалить \"%1$s\"? Это действие нельзя отменить.</string>
+    <string name="this_conversation">эту беседу</string>
+
+    <!-- Tag picker -->
+    <string name="no_tags_yet">Пока нет тегов. Добавьте один ниже.</string>
+    <string name="add_new_tag">Добавить новый тег</string>
+
+    <!-- Tag filter bar -->
+    <string name="tags_active_count">Активных тегов: %1$d%2$s</string>
+
+    <!-- Export format picker -->
+    <string name="export_format">Формат экспорта</string>
+    <string name="format_json">JSON</string>
+    <string name="format_json_description">Полный экспорт данных, можно импортировать обратно</string>
+    <string name="format_markdown">Markdown</string>
+    <string name="format_markdown_description">Удобочитаемый текстовый формат</string>
+
+    <!-- Archived conversations screen -->
+    <string name="archived_conversations">Архивированные беседы</string>
+    <string name="could_not_load_archived">Не удалось загрузить архивированные беседы</string>
+    <string name="no_archived_conversations">Нет архивированных бесед</string>
+    <string name="archived_will_appear_here">Архивированные беседы появятся здесь</string>
+
+    <!-- Conversation item fallback -->
+    <string name="chat">Чат</string>
+</resources>

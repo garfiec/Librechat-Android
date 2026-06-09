@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Server URL -->
+    <string name="server_url_label">Server-URL</string>
+    <string name="server_url_placeholder">https://dein-server.com</string>
+    <string name="server_url_connect">Verbinden</string>
+    <string name="connect_to_librechat">Mit LibreChat verbinden</string>
+    <string name="enter_server_url_hint">Gib deine Server-URL ein, um zu beginnen</string>
+    <string name="insecure_connection_title">Unsichere Verbindung</string>
+    <string name="insecure_connection_message">Du verbindest dich über HTTP. Deine Anmeldedaten und Nachrichten werden unverschlüsselt gesendet und könnten von anderen im Netzwerk abgefangen werden.\n\nVerwende HTTP nur für lokale Entwicklungsserver.</string>
+    <string name="connect_anyway">Trotzdem verbinden</string>
+    <string name="cancel">Abbrechen</string>
+
+    <!-- Login -->
+    <string name="login_title">Anmelden</string>
+    <string name="email_label">E-Mail</string>
+    <string name="password_label">Passwort</string>
+    <string name="continue_button">Weiter</string>
+    <string name="forgot_password">Passwort vergessen?</string>
+    <string name="no_account_sign_up">Noch kein Konto? Registrieren</string>
+    <string name="or_continue_with">Oder fortfahren mit</string>
+
+    <!-- OAuth provider labels -->
+    <string name="oauth_google">Mit Google fortfahren</string>
+    <string name="oauth_github">Mit GitHub fortfahren</string>
+    <string name="oauth_discord">Mit Discord fortfahren</string>
+    <string name="oauth_facebook">Mit Facebook fortfahren</string>
+    <string name="oauth_apple">Mit Apple fortfahren</string>
+    <string name="oauth_openid">Mit OpenID fortfahren</string>
+    <string name="oauth_generic">Mit %1$s fortfahren</string>
+
+    <!-- Register -->
+    <string name="register_title">Konto erstellen</string>
+    <string name="full_name_label">Vollständiger Name</string>
+    <string name="username_label">Benutzername</string>
+    <string name="confirm_password_label">Passwort bestätigen</string>
+    <string name="sign_up">Registrieren</string>
+    <string name="have_account_sign_in">Bereits ein Konto? Anmelden</string>
+
+    <!-- Forgot Password -->
+    <string name="reset_password_title">Passwort zurücksetzen</string>
+    <string name="forgot_your_password">Passwort vergessen?</string>
+    <string name="enter_email_for_reset">Gib deine E-Mail ein, um einen Zurücksetzungs-Link zu erhalten</string>
+    <string name="send_reset_link">Zurücksetzungs-Link senden</string>
+    <string name="check_your_email">Überprüfe deine E-Mails</string>
+    <string name="reset_link_sent">Wir haben einen Link zum Zurücksetzen des Passworts an %1$s gesendet</string>
+    <string name="back_to_sign_in">Zurück zur Anmeldung</string>
+
+    <!-- Reset Password -->
+    <string name="reset_password_screen_title">Passwort zurücksetzen</string>
+    <string name="password_reset_successful">Passwort erfolgreich zurückgesetzt</string>
+    <string name="password_reset_message">Dein Passwort wurde aktualisiert. Du kannst dich jetzt mit deinem neuen Passwort anmelden.</string>
+    <string name="set_new_password">Neues Passwort festlegen</string>
+    <string name="enter_new_password_hint">Gib unten dein neues Passwort ein</string>
+    <string name="new_password_label">Neues Passwort</string>
+    <string name="confirm_new_password_label">Neues Passwort bestätigen</string>
+    <string name="reset_password_button">Passwort zurücksetzen</string>
+
+    <!-- Two-Factor -->
+    <string name="two_factor_title">Zwei-Faktor-Authentifizierung</string>
+    <string name="enter_verification_code">Bestätigungscode eingeben</string>
+    <string name="enter_backup_code">Backup-Code eingeben</string>
+    <string name="authenticator_prompt">Gib den 6-stelligen Code aus deiner Authenticator-App ein</string>
+    <string name="backup_code_prompt">Gib einen deiner Backup-Codes ein</string>
+    <string name="verify">Überprüfen</string>
+    <string name="use_authenticator_code">Authenticator-Code verwenden</string>
+    <string name="use_backup_code">Backup-Code verwenden</string>
+    <string name="backup_code_label">Backup-Code</string>
+
+    <!-- Verify Email -->
+    <string name="verify_email_title">E-Mail bestätigen</string>
+    <string name="verification_link_sent">Wir haben einen Bestätigungslink gesendet an</string>
+    <string name="click_link_to_verify">Klicke auf den Link in der E-Mail, um dein Konto zu bestätigen.</string>
+    <string name="verification_email_sent">Bestätigungs-E-Mail gesendet!</string>
+    <string name="resend_verification_email">Bestätigungs-E-Mail erneut senden</string>
+    <string name="resend_in_seconds">Erneut senden in %1$ds</string>
+
+    <!-- Terms -->
+    <string name="terms_title">Nutzungsbedingungen</string>
+    <string name="i_accept">Ich akzeptiere</string>
+    <string name="retry">Erneut versuchen</string>
+
+    <!-- Common -->
+    <string name="back">Zurück</string>
+</resources>

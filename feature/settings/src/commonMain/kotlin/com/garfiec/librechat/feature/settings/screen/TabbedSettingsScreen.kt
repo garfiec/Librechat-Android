@@ -27,7 +27,7 @@ import com.garfiec.librechat.feature.settings.resources.Res
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-private val SettingsTabs = listOf("General", "Chat", "Account", "Data")
+private const val SETTINGS_TAB_COUNT = 4
 
 /**
  * Single tabbed settings screen with Material 3 secondary tabs.
@@ -48,7 +48,13 @@ fun TabbedSettingsScreen(
     onNavigateToRoleSkillsAdmin: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pagerState = rememberPagerState(pageCount = { SettingsTabs.size })
+    val pagerState = rememberPagerState(pageCount = { SETTINGS_TAB_COUNT })
+    val tabTitles = listOf(
+        stringResource(Res.string.tab_general),
+        stringResource(Res.string.tab_chat),
+        stringResource(Res.string.tab_account),
+        stringResource(Res.string.tab_data),
+    )
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -72,7 +78,7 @@ fun TabbedSettingsScreen(
                     selectedTabIndex = pagerState.currentPage,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    SettingsTabs.forEachIndexed { index, title ->
+                    tabTitles.forEachIndexed { index, title ->
                         Tab(
                             selected = pagerState.currentPage == index,
                             onClick = {

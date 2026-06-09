@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common actions -->
+    <string name="action_add">追加</string>
+    <string name="action_cancel">キャンセル</string>
+    <string name="action_clear">クリア</string>
+    <string name="action_confirm">確認</string>
+    <string name="action_creating">作成中…</string>
+    <string name="action_create">作成</string>
+    <string name="action_delete">削除</string>
+    <string name="action_done">完了</string>
+    <string name="action_retry">再試行</string>
+    <string name="action_revoke_all">すべて取り消す</string>
+    <string name="action_save">保存</string>
+    <string name="action_sign_out">サインアウト</string>
+    <string name="action_upload">アップロード</string>
+    <string name="action_uploading">アップロード中…</string>
+    <string name="action_verify">確認</string>
+    <string name="action_verifying">確認中…</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_add_memory">メモリを追加</string>
+    <string name="cd_add_server">サーバーを追加</string>
+    <string name="cd_back">戻る</string>
+    <string name="cd_change_avatar">アバターを変更</string>
+    <string name="cd_choose_image">画像を選択</string>
+    <string name="cd_collapse_tools">ツールを折りたたむ</string>
+    <string name="cd_copy_api_key">APIキーをコピー</string>
+    <string name="cd_copy_link">リンクをコピー</string>
+    <string name="cd_create_api_key">APIキーを作成</string>
+    <string name="cd_current_avatar">現在のアバター</string>
+    <string name="cd_delete">削除</string>
+    <string name="cd_delete_api_key">APIキーを削除</string>
+    <string name="cd_delete_memory">メモリを削除</string>
+    <string name="cd_delete_preset">プリセットを削除</string>
+    <string name="cd_delete_server">サーバーを削除</string>
+    <string name="cd_delete_shared_link">共有リンクを削除</string>
+    <string name="cd_edit">編集</string>
+    <string name="cd_edit_memory">メモリを編集</string>
+    <string name="cd_edit_server">サーバーを編集</string>
+    <string name="cd_expand_tools">ツールを展開</string>
+    <string name="cd_loading_profile">プロフィールを読み込み中</string>
+    <string name="cd_make_private">非公開にする</string>
+    <string name="cd_make_public">公開にする</string>
+    <string name="cd_preview_voice">音声をプレビュー</string>
+    <string name="cd_qr_code">認証アプリ用のQRコード</string>
+    <string name="cd_reinitialize">再初期化</string>
+    <string name="cd_avatar_preview">アバターのプレビュー</string>
+    <string name="cd_selected">選択済み</string>
+    <string name="cd_selected_avatar">選択されたアバター</string>
+    <string name="cd_stop_voice_preview">音声プレビューを停止</string>
+    <string name="cd_test_tts_voice">選択したTTS音声をテスト</string>
+    <string name="cd_toggle_auto_read">応答の自動読み上げを切り替え</string>
+    <string name="cd_toggle_auto_send_stt">音声入力後の自動送信を切り替え</string>
+    <string name="cd_toggle_memories">メモリを切り替え</string>
+    <string name="cd_tts_voice_selector">TTS音声を選択。現在は %1$s</string>
+    <string name="cd_user_avatar">ユーザーのアバター</string>
+    <string name="cd_view_all_tools">すべてのツールを表示</string>
+    <string name="cd_view_tools">ツールを表示</string>
+
+    <!-- Section headers -->
+    <string name="section_about">情報</string>
+    <string name="section_account">アカウント</string>
+    <string name="section_advanced">詳細設定</string>
+    <string name="section_appearance">外観</string>
+    <string name="section_balance">残高</string>
+    <string name="section_chat_preferences">チャット設定</string>
+    <string name="section_conversations">会話</string>
+    <string name="section_danger_zone">危険な操作</string>
+    <string name="section_data_management">データ管理</string>
+    <string name="section_general">一般</string>
+    <string name="section_language">言語</string>
+    <string name="section_layout">レイアウト</string>
+    <string name="section_mcp_servers">MCPサーバー</string>
+    <string name="section_memories">メモリ</string>
+    <string name="section_personalization">パーソナライズ</string>
+    <string name="section_presets">プリセット</string>
+    <string name="section_profile">プロフィール</string>
+    <string name="section_security">セキュリティ</string>
+    <string name="section_speech">音声</string>
+    <string name="section_tablet">タブレット</string>
+
+    <!-- Screen titles -->
+    <string name="title_account">アカウント</string>
+    <string name="title_api_keys">APIキー</string>
+    <string name="title_chat">チャット</string>
+    <string name="title_commands">コマンド</string>
+    <string name="title_data">データ</string>
+    <string name="title_general">一般</string>
+    <string name="title_memories">メモリ</string>
+    <string name="title_mcp_servers">MCPサーバー</string>
+    <string name="title_presets">プリセット</string>
+    <string name="title_settings">設定</string>
+    <string name="title_shared_links">共有リンク</string>
+
+    <!-- Tabbed settings tabs -->
+    <string name="tab_general">一般</string>
+    <string name="tab_chat">チャット</string>
+    <string name="tab_account">アカウント</string>
+    <string name="tab_data">データ</string>
+
+    <!-- Theme -->
+    <string name="theme_system">システムのデフォルト</string>
+    <string name="theme_light">ライト</string>
+    <string name="theme_dark">ダーク</string>
+
+    <!-- Accent color -->
+    <string name="accent_color">アクセントカラー</string>
+    <string name="accent_color_custom">カスタム</string>
+    <string name="accent_color_hex">16進数</string>
+    <string name="use_wallpaper_colors">壁紙の色を使用</string>
+    <string name="use_wallpaper_colors_desc">アプリのアクセントをシステムの壁紙に合わせます（Material You）</string>
+
+    <!-- Settings rows -->
+    <string name="language">言語</string>
+    <string name="language_system_default">システムのデフォルト</string>
+    <string name="personalization">パーソナライズ</string>
+    <string name="status_enabled">有効</string>
+    <string name="status_disabled">無効</string>
+    <string name="fork_behavior">フォークの動作</string>
+    <string name="commands">コマンド</string>
+    <string name="commands_enabled_count">%1$d 件有効</string>
+    <string name="api_keys">APIキー</string>
+    <string name="api_keys_subtitle">プログラムによるアクセス用のAPIキーを管理</string>
+    <string name="presets">プリセット</string>
+    <string name="presets_subtitle">会話のプリセットを管理</string>
+    <string name="favorites">お気に入り</string>
+    <string name="favorites_subtitle">ピン留めしたエージェントとモデルを管理</string>
+    <string name="favorites_title">お気に入り</string>
+    <string name="favorites_empty_title">お気に入りはまだありません</string>
+    <string name="favorites_empty_message">モデルセレクターからエージェントやモデルをピン留めすると、ここに表示されます。</string>
+    <string name="favorites_count_of">%2$d 件中 %1$d 件</string>
+    <string name="favorites_unpin_cd">お気に入りのピンを外す</string>
+
+    <!-- About info -->
+    <string name="app_version_label">アプリのバージョン</string>
+    <string name="app_build_label">ビルド</string>
+    <string name="server_label">サーバー</string>
+    <string name="server_not_configured">未設定</string>
+    <string name="server_build_commit_label">サーバーのコミット</string>
+    <string name="server_build_branch_label">サーバーのブランチ</string>
+    <string name="server_build_date_label">サーバーのビルド日</string>
+
+    <!-- Tablet settings -->
+    <string name="sidebar_swipe_gesture">サイドバーのスワイプ操作</string>
+    <string name="sidebar_swipe_gesture_desc">タブレットレイアウトで左端からスワイプしてサイドバーを開きます</string>
+
+    <!-- Balance -->
+    <string name="token_credits">トークンクレジット</string>
+    <string name="available_balance">利用可能な残高</string>
+    <string name="cd_token_balance">トークン残高: %1$s クレジット</string>
+
+    <!-- Chat settings -->
+    <string name="chat_layout">チャットレイアウト</string>
+    <string name="chat_layout_thread">スレッド</string>
+    <string name="chat_layout_two_sided">左右に分かれたチャット</string>
+    <string name="chat_layout_thread_desc">すべてのメッセージをアバターと名前付きで左揃えに表示</string>
+    <string name="chat_layout_two_sided_desc">ユーザーのメッセージを右、エージェントを左に表示</string>
+    <string name="show_bubbles">吹き出しを表示</string>
+    <string name="show_bubbles_desc">メッセージに角丸の吹き出し背景を追加します</string>
+    <string name="show_avatars">アバターを表示</string>
+    <string name="show_avatars_desc">メッセージの横にユーザーとエージェントのアバターを表示します</string>
+    <string name="starred_models_title">スター付きモデル</string>
+    <string name="starred_models_desc">ピン留めしたモデルとエージェントをモデルピッカーの上部に表示します</string>
+    <string name="starred_models_off">オフ</string>
+    <string name="starred_models_grouped">上部に折りたたみ可能なグループ</string>
+    <string name="starred_models_top">上部に表示、グループ化なし</string>
+    <string name="font_size">フォントサイズ</string>
+    <string name="font_size_small">小</string>
+    <string name="font_size_medium">中</string>
+    <string name="font_size_large">大</string>
+    <string name="latex_renderer">LaTeXレンダラー</string>
+    <string name="latex_katex">KaTeX（レンダリング）</string>
+    <string name="latex_katex_desc">WebView経由で完全なLaTeXをレンダリング</string>
+    <string name="latex_native">プレーンテキスト（高速）</string>
+    <string name="latex_native_desc">スクロール性能向上のため生のLaTeXソースを表示します</string>
+    <string name="auto_scroll">ストリーミング中に自動スクロール</string>
+    <string name="auto_scroll_desc">応答の生成中に新しいコンテンツへ自動でスクロールします</string>
+    <string name="show_thinking_blocks">思考ブロックを表示</string>
+    <string name="show_thinking_blocks_desc">利用可能な場合にモデルの推論ステップを表示します</string>
+    <string name="show_image_descriptions">画像の説明を表示</string>
+    <string name="show_image_descriptions_desc">画像の下にAIが生成したプロンプトを表示します</string>
+    <string name="dismiss_keyboard_on_send">送信後にキーボードを閉じる</string>
+    <string name="dismiss_keyboard_on_send_desc">メッセージ送信後にキーボードを自動で非表示にします</string>
+
+    <!-- Artifacts -->
+    <string name="section_artifacts">アーティファクト</string>
+    <string name="artifacts_section_desc">タップして開くカードの代わりに、アーティファクトをチャット内に直接レンダリングします。インラインのアーティファクトをタップすると全画面表示が開きます。</string>
+    <string name="inline_artifact_mermaid">Mermaid図</string>
+    <string name="inline_artifact_mermaid_desc">Mermaidのフローチャートや図をインラインでレンダリング</string>
+    <string name="inline_artifact_svg">SVG画像</string>
+    <string name="inline_artifact_svg_desc">SVGベクター画像をインラインでレンダリング</string>
+    <string name="inline_artifact_html">HTML</string>
+    <string name="inline_artifact_html_desc">HTMLページをインラインでレンダリング（TailwindをCDNから読み込み）</string>
+    <string name="inline_artifact_react">Reactコンポーネント</string>
+    <string name="inline_artifact_react_desc">Reactコンポーネントをインラインでレンダリング（React + BabelをCDNから読み込み）</string>
+    <string name="inline_artifact_markdown">Markdownドキュメント</string>
+    <string name="inline_artifact_markdown_desc">構文ハイライト付きのコードブロックでMarkdownアーティファクトをインラインでレンダリング</string>
+
+    <!-- Security -->
+    <string name="two_factor_auth">二要素認証</string>
+    <string name="enable_two_factor">二要素認証を有効にする</string>
+    <string name="disable_two_factor">二要素認証を無効にする</string>
+    <string name="view_backup_codes">バックアップコードを表示</string>
+
+    <!-- 2FA setup dialog -->
+    <string name="dialog_title_enable_2fa">二要素認証を有効にする</string>
+    <string name="dialog_title_disable_2fa">二要素認証を無効にする</string>
+    <string name="twofa_scan_instructions">以下のURIをコピーして認証アプリ（例: Google Authenticator、Authy）に貼り付け、確認コードを入力してください。</string>
+    <string name="twofa_disable_instructions">2FAを無効にするには認証アプリのコードを入力してください。</string>
+    <string name="hint_verification_code">確認コード</string>
+
+    <!-- OTP verification dialogs -->
+    <string name="otp_title_verify_identity">本人確認</string>
+    <string name="otp_desc_delete_account">アカウントを削除するには2FAコードを入力してください。</string>
+    <string name="otp_desc_reenroll_2fa">再登録するには現在の2FAコードを入力してください。</string>
+    <string name="otp_desc_regenerate_backup_codes">バックアップコードを再生成するには2FAコードを入力してください。</string>
+    <string name="otp_verify">確認</string>
+    <string name="otp_cancel">キャンセル</string>
+    <string name="otp_backup_code_label">バックアップコード</string>
+    <string name="otp_use_backup_code">代わりにバックアップコードを使用</string>
+    <string name="otp_use_otp_code">代わりにOTPコードを使用</string>
+
+    <!-- Backup codes dialog -->
+    <string name="dialog_title_backup_codes">バックアップコード</string>
+    <string name="backup_codes_instructions">これらのバックアップコードを安全な場所に保管してください。各コードは一度しか使用できません。</string>
+
+    <!-- Danger zone -->
+    <string name="delete_account">アカウントを削除</string>
+    <string name="dialog_title_sign_out">サインアウト</string>
+    <string name="dialog_sign_out_message">サインアウトしてもよろしいですか？</string>
+    <string name="dialog_title_delete_account">アカウントを削除</string>
+    <string name="dialog_delete_account_message">この操作は取り消せません。すべてのデータが完全に削除されます。</string>
+
+    <!-- Clear cache dialog -->
+    <string name="dialog_title_clear_cache">キャッシュをクリア</string>
+    <string name="dialog_clear_cache_message">キャッシュされた画像と一時データをクリアします。アカウントのデータには影響しません。</string>
+
+    <!-- Revoke keys dialog -->
+    <string name="dialog_title_revoke_keys">すべてのAPIキーを取り消す</string>
+    <string name="dialog_revoke_keys_message">保存されているすべてのAPIキーを取り消します。外部サービスを引き続き使用するには再入力が必要になります。</string>
+
+    <!-- Data settings -->
+    <string name="clear_all_conversations">すべての会話をクリア</string>
+    <string name="clearing">クリア中…</string>
+    <string name="archived_conversations">アーカイブ済みの会話</string>
+    <string name="export_all_data">すべてのデータをエクスポート</string>
+    <string name="shared_links">共有リンク</string>
+    <string name="clear_cache">キャッシュをクリア</string>
+    <string name="revoke_all_api_keys">すべてのAPIキーを取り消す</string>
+    <string name="revoking">取り消し中…</string>
+    <string name="dialog_title_clear_conversations">すべての会話をクリア</string>
+    <string name="dialog_clear_conversations_message">すべての会話を完全に削除します。この操作は取り消せません。</string>
+    <string name="clear_all">すべてクリア</string>
+    <string name="export_coming_soon">エクスポートは近日対応予定です</string>
+    <string name="error_could_not_load_settings">設定を読み込めませんでした</string>
+
+    <!-- Diagnostic logs (issue #96) -->
+    <string name="section_diagnostic_logs">診断ログ</string>
+    <string name="export_diagnostic_logs">診断ログをエクスポート</string>
+    <string name="export_diagnostic_logs_with_size">診断ログをエクスポート（%1$s）</string>
+    <string name="exporting_logs">エクスポート中…</string>
+    <string name="clear_diagnostic_logs">診断ログをクリア</string>
+    <string name="clearing_logs">クリア中…</string>
+    <string name="logs_exported">診断ログをエクスポートしました</string>
+    <string name="dialog_title_clear_logs">診断ログをクリア</string>
+    <string name="dialog_clear_logs_message">このデバイスに保存されているすべての診断ログを完全に削除します。この操作は取り消せません。</string>
+
+    <!-- Speech settings -->
+    <string name="auto_send_after_speech">音声入力後に自動送信</string>
+    <string name="auto_send_after_speech_desc">音声からテキストへの変換が完了した後にメッセージを自動送信します</string>
+    <string name="auto_read_responses">応答を自動読み上げ</string>
+    <string name="auto_read_responses_desc">テキスト読み上げを使ってAIの応答を自動で読み上げます</string>
+    <string name="tts_voice">TTS音声</string>
+    <string name="test_voice">音声をテスト</string>
+    <string name="no_server_tts_voices">利用可能なサーバーTTS音声がありません。サーバーで音声機能が設定されていない可能性があります。</string>
+    <string name="using_device_tts">デバイスのテキスト読み上げエンジンを使用しています。下の「テキスト読み上げ設定」で音声と速度を設定してください。</string>
+    <string name="speech_to_text_settings">音声入力の設定</string>
+    <string name="text_to_speech_settings">テキスト読み上げの設定</string>
+
+    <!-- STT detail dialog -->
+    <string name="stt_engine_label">エンジン</string>
+    <string name="stt_language_label">言語</string>
+    <string name="stt_on_device">オンデバイス</string>
+    <string name="stt_default">デフォルト</string>
+    <string name="stt_hint_whisper">Whisperはサーバー側の文字起こしを使用します。サーバーでSTTを有効にする必要があります。</string>
+    <string name="stt_hint_device">デバイス内蔵の音声認識を使用します。対応デバイスではオフラインで動作します。</string>
+    <string name="stt_hint_google">Googleの音声認識を使用します。Googleアプリがインストールされている必要があります。</string>
+    <string name="stt_hint_default">利用可能な場合はサーバーの文字起こし（Whisper）を使用し、そうでない場合はオンデバイス認識にフォールバックします。</string>
+    <string name="stt_auto_detect">自動検出</string>
+
+    <!-- TTS detail dialog -->
+    <string name="tts_source_label">ソース</string>
+    <string name="tts_source_device">デバイス（内蔵）</string>
+    <string name="tts_source_server">サーバー</string>
+    <string name="tts_voice_label">音声</string>
+    <string name="tts_engine_label">エンジン</string>
+    <string name="tts_system_default">システムのデフォルト</string>
+    <string name="tts_speech_rate">読み上げ速度: %1$.1fx</string>
+    <string name="tts_pitch">ピッチ: %1$.1f</string>
+    <string name="tts_cache_audio">音声をキャッシュ</string>
+    <string name="tts_preview_text">これは選択した音声のプレビューです。</string>
+    <string name="tts_stop_preview">プレビューを停止</string>
+    <string name="tts_preview_voice">音声をプレビュー</string>
+
+    <!-- Memories -->
+    <string name="enable_memories">メモリを有効にする</string>
+    <string name="enable_memories_desc">会話をまたいで情報を記憶することをAIに許可します</string>
+    <string name="no_memories_saved">保存されたメモリはまだありません</string>
+    <string name="memories_add_hint">＋ボタンをタップしてメモリを追加</string>
+    <string name="add_memory">メモリを追加</string>
+    <string name="edit_memory">メモリを編集</string>
+    <string name="dialog_title_delete_memory">メモリを削除</string>
+    <string name="dialog_delete_memory_message">メモリ「%1$s」を削除してもよろしいですか？</string>
+    <string name="memory_key_label">キー</string>
+    <string name="memory_value_label">値</string>
+
+    <!-- MCP -->
+    <string name="add_mcp_server">MCPサーバーを追加</string>
+    <string name="edit_mcp_server">MCPサーバーを編集</string>
+    <string name="mcp_not_available">このサーバーではMCPを利用できません</string>
+    <string name="no_mcp_servers">MCPサーバーが設定されていません</string>
+    <string name="mcp_add_hint">＋ボタンをタップしてサーバーを追加</string>
+    <string name="mcp_name_label">名前</string>
+    <string name="mcp_description_label">説明</string>
+    <string name="mcp_description_optional">任意</string>
+    <string name="mcp_url_label">URL</string>
+    <string name="mcp_type_label">種類</string>
+    <string name="mcp_type_sse">SSE</string>
+    <string name="mcp_type_streamable_http">Streamable HTTP</string>
+    <string name="mcp_auth_label">認証</string>
+    <string name="mcp_auth_none">なし</string>
+    <string name="mcp_auth_api_key">APIキー</string>
+    <string name="mcp_auth_oauth">OAuth</string>
+    <string name="mcp_auth_key_type">キーの種類</string>
+    <string name="mcp_auth_bearer">Bearer</string>
+    <string name="mcp_auth_basic">Basic</string>
+    <string name="mcp_auth_custom">カスタム</string>
+    <string name="mcp_header_name_label">ヘッダー名</string>
+    <string name="mcp_header_name_placeholder">X-API-Key</string>
+    <string name="mcp_api_key_label">APIキー</string>
+    <string name="mcp_oauth_client_id">クライアントID</string>
+    <string name="mcp_oauth_client_secret">クライアントシークレット</string>
+    <string name="mcp_oauth_auth_url">認可URL</string>
+    <string name="mcp_oauth_token_url">トークンURL</string>
+    <string name="mcp_oauth_scope">スコープ</string>
+    <string name="mcp_oauth_scope_placeholder">read execute</string>
+    <string name="dialog_title_delete_server">サーバーを削除</string>
+    <string name="dialog_delete_server_message">「%1$s」を削除してもよろしいですか？</string>
+    <string name="error_failed_to_load_servers">サーバーの読み込みに失敗しました</string>
+    <string name="mcp_tools_count">%1$d 個のツール%2$s</string>
+    <string name="mcp_tools_available">%1$d 個のツール%2$sが利用可能</string>
+    <string name="mcp_all_tools">すべてのMCPツール</string>
+    <string name="mcp_tools_for_server">ツール: %1$s</string>
+    <string name="no_tools_available">利用可能なツールがありません</string>
+    <string name="mcp_tool_server">サーバー: %1$s</string>
+
+    <!-- MCP tools sheet -->
+    <string name="mcp_server_unknown">不明</string>
+
+    <!-- Fork settings -->
+    <string name="fork_mode_direct_path">表示中のメッセージ</string>
+    <string name="fork_mode_direct_path_desc">選択したメッセージまでの直接の経路のみ</string>
+    <string name="fork_mode_include_branches">分岐を含める</string>
+    <string name="fork_mode_include_branches_desc">直接の経路に加え、各階層の兄弟メッセージ</string>
+    <string name="fork_mode_target_level">対象の階層まですべて</string>
+    <string name="fork_mode_target_level_desc">対象メッセージの階層までのすべてのメッセージと分岐（デフォルト）</string>
+
+    <!-- Language selector -->
+    <string name="hint_search_languages">言語を検索</string>
+
+    <!-- Personalization dialog -->
+    <string name="enable_personalization">パーソナライズを有効にする</string>
+    <string name="about_you_label">あなたについて</string>
+    <string name="about_you_hint">文脈としてAIが知っておくべきあなたの情報は何ですか？</string>
+    <string name="response_style_label">AIはどのように応答すべきですか？</string>
+    <string name="response_style_hint">応答に好みのトーン、形式、スタイル</string>
+
+    <!-- Commands screen -->
+    <string name="no_commands_available">利用可能なコマンドがありません</string>
+
+    <!-- Avatar upload dialog -->
+    <string name="dialog_title_update_avatar">アバターを更新</string>
+    <string name="avatar_choose_hint">カメラアイコンをタップして画像を選択</string>
+
+    <!-- API Keys screen -->
+    <string name="api_keys_not_available">APIキーを利用できません</string>
+    <string name="api_keys_not_supported">この機能はお使いのサーバーバージョンではサポートされていません。</string>
+    <string name="no_api_keys">APIキーがありません</string>
+    <string name="no_api_keys_desc">APIにプログラムでアクセスするためのAPIキーを作成してください。</string>
+    <string name="dialog_title_delete_api_key">APIキーを削除</string>
+    <string name="dialog_delete_api_key_message">APIキー「%1$s」を削除してもよろしいですか？この操作は取り消せません。</string>
+    <string name="created_prefix">作成日: %1$s</string>
+
+    <!-- API Key create dialog -->
+    <string name="dialog_title_create_api_key">APIキーを作成</string>
+    <string name="api_key_name_hint">用途を識別しやすいように、APIキーにわかりやすい名前を付けてください。</string>
+    <string name="hint_key_name">キー名</string>
+    <string name="hint_key_name_placeholder">例: My App</string>
+    <string name="dialog_title_api_key_created">APIキーを作成しました</string>
+    <string name="api_key_created_warning">APIキーを作成しました。今すぐコピーしてください。後で再表示することはできません。</string>
+    <string name="copied_to_clipboard">クリップボードにコピーしました</string>
+
+    <!-- Preset manager -->
+    <string name="no_presets">プリセットがありません</string>
+    <string name="no_presets_desc">チャット画面からプリセットを保存すると、ここで管理できます</string>
+    <string name="dialog_title_delete_preset">プリセットを削除</string>
+    <string name="dialog_delete_preset_message">「%1$s」を削除してもよろしいですか？</string>
+
+    <!-- Shared links -->
+    <string name="no_shared_links">共有リンクがありません</string>
+    <string name="no_shared_links_desc">会話を共有すると、ここに表示されます</string>
+    <string name="dialog_title_delete_shared_link">共有リンクを削除</string>
+    <string name="dialog_delete_shared_link_message">「%1$s」の共有リンクを削除します。リンクを持つ人はアクセスできなくなります。</string>
+    <string name="visibility_public">公開</string>
+    <string name="visibility_private">非公開</string>
+    <string name="error_failed_to_load_memories">メモリの読み込みに失敗しました</string>
+
+    <!-- Provider API Keys -->
+    <string name="provider_keys_title">プロバイダーAPIキー</string>
+    <string name="provider_keys_subtitle">キーが必要なエンドポイント向けに独自のキーを設定</string>
+    <string name="provider_keys_dialog_title">%1$s のAPIキーを設定</string>
+    <string name="provider_keys_status_set_expires">%1$s 後に期限切れ</string>
+    <string name="provider_keys_status_set_never">キーは期限切れになりません</string>
+    <string name="provider_keys_status_unset">未設定</string>
+    <string name="provider_keys_status_expired">期限切れ</string>
+    <string name="provider_keys_status_loading">キーの状態を確認中…</string>
+    <string name="provider_keys_field_api_key_label">キー</string>
+    <string name="provider_keys_field_base_url_label">ベースURL</string>
+    <string name="provider_keys_field_base_url_optional_suffix">（任意）</string>
+    <string name="provider_keys_field_api_key_for_endpoint">%1$s APIキー</string>
+    <string name="provider_keys_field_api_url_for_endpoint">%1$s API URL</string>
+
+    <string name="provider_keys_field_azure_api_key">Azure OpenAI APIキー</string>
+    <string name="provider_keys_field_azure_instance">Azureインスタンス名</string>
+    <string name="provider_keys_field_azure_deployment">Azureデプロイメント名</string>
+    <string name="provider_keys_field_azure_api_version">Azure APIバージョン</string>
+
+    <string name="provider_keys_field_google_api_key">Google APIキー</string>
+    <string name="provider_keys_field_google_gemini_api">(Gemini API)</string>
+    <string name="provider_keys_field_google_service_key">Googleサービスアカウントキー</string>
+    <string name="provider_keys_field_google_import">サービスアカウントのJSONキーをインポート。</string>
+    <string name="provider_keys_field_google_invalid">サービスアカウントのJSONキーが無効です。正しいファイルをインポートしましたか？</string>
+    <string name="provider_keys_field_google_imported">サービスアカウントのJSONキーを正常にインポートしました</string>
+    <string name="provider_keys_field_google_paste_label">またはサービスアカウントのJSONを貼り付け</string>
+    <string name="provider_keys_field_google_paste_only_hint">サービスアカウントのJSONを下に貼り付けてください。</string>
+    <string name="provider_keys_field_google_service_key_or_gemini">GoogleサービスキーまたはGemini APIキー</string>
+
+    <string name="provider_keys_field_bedrock_access_key_id">アクセスキーID</string>
+    <string name="provider_keys_field_bedrock_secret_access_key">シークレットアクセスキー</string>
+    <string name="provider_keys_field_bedrock_session_token">セッショントークン</string>
+    <string name="provider_keys_field_bedrock_session_token_optional_suffix">（任意）</string>
+
+    <string name="provider_keys_required_fields">次のフィールドは必須です: %1$s</string>
+    <string name="provider_keys_revoke">取り消す</string>
+    <string name="provider_keys_revoke_failed">APIキーの取り消しに失敗しました。もう一度お試しください。</string>
+    <string name="provider_keys_revoke_success">APIキーを取り消しました</string>
+    <string name="provider_keys_revoke_all">キーを取り消す</string>
+    <string name="provider_keys_revoke_all_confirm">すべてのキーを取り消してもよろしいですか？</string>
+    <string name="provider_keys_revoke_all_failed">すべてのキーの取り消しに失敗しました</string>
+    <string name="provider_keys_save_failed">APIキーの保存に失敗しました。もう一度お試しください。</string>
+    <string name="provider_keys_save_success">APIキーを保存しました</string>
+
+    <string name="provider_keys_expiry_label">有効期限</string>
+    <string name="provider_keys_expiry_30m">30分後</string>
+    <string name="provider_keys_expiry_2h">2時間後</string>
+    <string name="provider_keys_expiry_12h">12時間後</string>
+    <string name="provider_keys_expiry_1d">1日後</string>
+    <string name="provider_keys_expiry_7d">7日後</string>
+    <string name="provider_keys_expiry_30d">30日後</string>
+    <string name="provider_keys_expiry_never">なし</string>
+
+    <string name="provider_keys_empty_title">ユーザー提供のキーが必要なエンドポイントはありません</string>
+    <string name="provider_keys_empty_desc">独自のAPIキーが必要なエンドポイントがここに表示されます。</string>
+    <string name="provider_keys_revoke_all_action">すべて取り消す</string>
+
+    <!-- Admin: role skill access -->
+    <string name="role_skills_settings_row">スキルへのアクセス（管理者）</string>
+    <string name="role_skills_title">スキルへのアクセス</string>
+    <string name="role_skills_back">戻る</string>
+    <string name="role_skills_description">各ロールが持つスキル機能を制御します。変更は選択したロールのすべてのユーザーに適用されます。</string>
+    <string name="role_skills_role_label">ロール</string>
+    <string name="role_skills_use">スキルを使用</string>
+    <string name="role_skills_create">スキルの作成と編集</string>
+    <string name="role_skills_share">スキルを共有</string>
+    <string name="role_skills_share_public">スキルを公開で共有</string>
+    <string name="role_skills_save">保存</string>
+</resources>
