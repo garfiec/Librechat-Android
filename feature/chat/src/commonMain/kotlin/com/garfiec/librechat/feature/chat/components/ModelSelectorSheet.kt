@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.garfiec.librechat.core.common.EndpointConstants
@@ -68,6 +69,10 @@ private const val FUZZY_MATCH_THRESHOLD = 55
 
 /** Sentinel group key for the optional "Starred" section's expand/collapse state. */
 private const val STARRED_GROUP_KEY = "__starred__"
+
+/** Row vertical padding for grouped list items vs. the denser starred-at-top section. */
+private val ListItemVerticalPadding = 12.dp
+private val StarredItemVerticalPadding = 6.dp
 
 private fun fuzzyMatches(candidate: String, query: String): Boolean {
     // Short queries (1-2 chars) use substring matching for better UX
@@ -264,6 +269,13 @@ fun ModelSelectorSheet(
                         StarredModelsDisplay.OFF -> false
                     }
                     if (starredItemsVisible) {
+                        // The flat TOP list reads as a dense quick-access strip; GROUPED keeps
+                        // the standard row rhythm since it sits behind a collapsible header.
+                        val starredPadding = if (starredDisplay == StarredModelsDisplay.TOP) {
+                            StarredItemVerticalPadding
+                        } else {
+                            ListItemVerticalPadding
+                        }
                         items(starredAgents, key = { "starred_agent_${it.id}" }, contentType = { "agent" }) { agent ->
                             AgentListItem(
                                 agent = agent,
@@ -272,6 +284,7 @@ fun ModelSelectorSheet(
                                 onClick = { onModelSelect(EndpointConstants.AGENTS, agent.id) },
                                 isFavorite = true,
                                 onToggleFavorite = onToggleAgentFavorite?.let { toggle -> { toggle(agent.id) } },
+                                verticalPadding = starredPadding,
                             )
                         }
                         items(
@@ -285,6 +298,7 @@ fun ModelSelectorSheet(
                                 isFavorite = true,
                                 onClick = { onModelSelect(endpoint, model) },
                                 onToggleFavorite = onToggleModelFavorite?.let { toggle -> { toggle(endpoint, model) } },
+                                verticalPadding = starredPadding,
                             )
                         }
                     }
@@ -487,12 +501,13 @@ private fun LazyItemScope.ModelListItem(
     isFavorite: Boolean,
     onClick: () -> Unit,
     onToggleFavorite: (() -> Unit)?,
+    verticalPadding: Dp = ListItemVerticalPadding,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp)
+            .padding(vertical = verticalPadding, horizontal = 8.dp)
             .animateItem(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -527,6 +542,7 @@ private fun LazyItemScope.AgentListItem(
     onClick: () -> Unit,
     isFavorite: Boolean = false,
     onToggleFavorite: (() -> Unit)? = null,
+    verticalPadding: Dp = ListItemVerticalPadding,
 ) {
     val agentName = agent.name ?: agent.id
     val resolvedAvatarUrl = agent.avatarUrl?.let { url ->
@@ -537,7 +553,7 @@ private fun LazyItemScope.AgentListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp)
+            .padding(vertical = verticalPadding, horizontal = 8.dp)
             .animateItem(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
