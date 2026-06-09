@@ -173,3 +173,6 @@ formatting:
   ImportOrdering:
     excludes:
       - "**/build/generated/compose/resourceGenerator/**"
+  SpacingAroundParens:
+    excludes:
+      - "**/build/generated/compose/resourceGenerator/**"
