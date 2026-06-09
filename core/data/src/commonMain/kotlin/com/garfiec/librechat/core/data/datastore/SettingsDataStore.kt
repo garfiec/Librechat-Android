@@ -24,8 +24,9 @@ class SettingsDataStore(
     ioDispatcher: CoroutineDispatcher,
 ) {
     /**
-     * Selected app language as a BCP-47/ISO code (e.g. "es", "zh-Hans"), or [DEFAULT_LANGUAGE]
-     * ("en") when the user hasn't chosen one. Drives the runtime locale applied at the app root.
+     * Selected app language as a BCP-47/ISO code (e.g. "es", "zh"), or [DEFAULT_LANGUAGE] (the
+     * "follow the device locale" sentinel) when the user hasn't chosen one. Drives the runtime
+     * locale applied at the app root.
      */
     val selectedLanguage: Flow<String> = dataStore.data.map { prefs ->
         prefs[KEY_SELECTED_LANGUAGE] ?: DEFAULT_LANGUAGE

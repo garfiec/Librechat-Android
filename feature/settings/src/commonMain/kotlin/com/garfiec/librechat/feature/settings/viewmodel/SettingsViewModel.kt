@@ -211,7 +211,7 @@ data class SettingsUiState(
     val isCacheClearing: Boolean = false,
     val isKeyRevoking: Boolean = false,
     // Language
-    val selectedLanguage: String = "en",
+    val selectedLanguage: String = SettingsDataStore.DEFAULT_LANGUAGE,
     val showLanguageDialog: Boolean = false,
     // Fork settings
     val forkMode: String = "targetLevel",

@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -37,8 +38,8 @@ data class LanguageOption(
 
 /**
  * The languages the app actually ships translations for. Shown as endonyms (native names), which
- * by convention are not themselves translated. The "System default" sentinel ([SYSTEM_LANGUAGE])
- * is prepended at render time since its label is localized.
+ * by convention are not themselves translated. The "System default" sentinel
+ * ([SettingsDataStore.DEFAULT_LANGUAGE]) is prepended at render time since its label is localized.
  */
 private val SUPPORTED_LANGUAGES = listOf(
     LanguageOption("en", "English"),
@@ -53,12 +54,9 @@ private val SUPPORTED_LANGUAGES = listOf(
     LanguageOption("ar", "العربية"),
 )
 
-/** Sentinel code meaning "follow the device locale"; mirrors SettingsDataStore.DEFAULT_LANGUAGE. */
-private const val SYSTEM_LANGUAGE = "system"
-
 /** Display name (endonym) for a stored language [code], or [systemLabel] for the system sentinel. */
 internal fun languageDisplayName(code: String, systemLabel: String): String =
-    if (code == SYSTEM_LANGUAGE) {
+    if (code == SettingsDataStore.DEFAULT_LANGUAGE) {
         systemLabel
     } else {
         SUPPORTED_LANGUAGES.firstOrNull { it.code == code }?.displayName ?: code
@@ -74,7 +72,10 @@ internal fun LanguageSelectorDialog(
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
-    val systemOption = LanguageOption(SYSTEM_LANGUAGE, stringResource(Res.string.language_system_default))
+    val systemOption = LanguageOption(
+        SettingsDataStore.DEFAULT_LANGUAGE,
+        stringResource(Res.string.language_system_default),
+    )
     val languages = remember(systemOption) { listOf(systemOption) + SUPPORTED_LANGUAGES }
 
     val filtered = remember(searchQuery, languages) {
