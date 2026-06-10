@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.util
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.ui.platform.currentTopmostViewController
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -17,7 +18,6 @@ import platform.PhotosUI.PHPickerFilter
 import platform.PhotosUI.PHPickerResult
 import platform.PhotosUI.PHPickerViewController
 import platform.PhotosUI.PHPickerViewControllerDelegateProtocol
-import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIImage
@@ -27,8 +27,6 @@ import platform.UIKit.UIImagePickerControllerDelegateProtocol
 import platform.UIKit.UIImagePickerControllerOriginalImage
 import platform.UIKit.UIImagePickerControllerSourceType
 import platform.UIKit.UINavigationControllerDelegateProtocol
-import platform.UIKit.UIViewController
-import platform.UIKit.UIWindowScene
 import platform.UniformTypeIdentifiers.UTType
 import platform.UniformTypeIdentifiers.UTTypeContent
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
@@ -45,24 +43,13 @@ import platform.posix.memcpy
  */
 private var activePickerDelegate: NSObject? = null
 
-private fun getRootViewController(): UIViewController? {
-    val scene = UIApplication.sharedApplication.connectedScenes.firstOrNull() as? UIWindowScene
-    return scene?.keyWindow?.rootViewController?.let { root ->
-        var top = root
-        while (top.presentedViewController != null) {
-            top = top.presentedViewController!!
-        }
-        top
-    }
-}
-
 /**
  * Opens UIDocumentPickerViewController for general file selection.
  * Calls [onResult] with a list of [IosFileData] or [IosImageData].
  */
 fun openDocumentPicker(onResult: (List<Any>) -> Unit) {
     dispatch_async(dispatch_get_main_queue()) {
-        val viewController = getRootViewController() ?: run {
+        val viewController = currentTopmostViewController() ?: run {
             Logger.w { "IosFilePicker: no root view controller" }
             return@dispatch_async
         }
@@ -84,7 +71,7 @@ fun openDocumentPicker(onResult: (List<Any>) -> Unit) {
  */
 fun openPhotoPicker(onResult: (List<Any>) -> Unit) {
     dispatch_async(dispatch_get_main_queue()) {
-        val viewController = getRootViewController() ?: run {
+        val viewController = currentTopmostViewController() ?: run {
             Logger.w { "IosFilePicker: no root view controller" }
             return@dispatch_async
         }
@@ -108,7 +95,7 @@ fun openPhotoPicker(onResult: (List<Any>) -> Unit) {
  */
 fun openCamera(onResult: (List<Any>) -> Unit) {
     dispatch_async(dispatch_get_main_queue()) {
-        val viewController = getRootViewController() ?: run {
+        val viewController = currentTopmostViewController() ?: run {
             Logger.w { "IosFilePicker: no root view controller" }
             return@dispatch_async
         }

@@ -62,13 +62,5 @@ expect fun MermaidDiagram(
     modifier: Modifier = Modifier,
 )
 
-/** Platform-specific fullscreen image viewer with save/share capability. */
-@Composable
-expect fun FullscreenImageViewer(
-    imageUrl: String,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-)
-
 /** Platform-specific artifact download/share helper. */
 expect fun shareArtifact(title: String, content: String, language: String)

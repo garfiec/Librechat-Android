@@ -3,14 +3,26 @@ package com.garfiec.librechat.feature.chat.components
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
+import com.garfiec.librechat.core.ui.media.MediaActionBar
+import com.garfiec.librechat.core.ui.media.MediaPreviewState
+import com.garfiec.librechat.core.ui.media.ZoomableMediaPager
+import com.garfiec.librechat.core.ui.media.rememberSaveImageToGallery
+import com.garfiec.librechat.core.ui.media.rememberShareImage
 import com.garfiec.librechat.feature.chat.components.artifact.LocalInlineArtifactPrefs
 import com.garfiec.librechat.feature.chat.components.artifact.LocalMermaidRenderCache
 import com.garfiec.librechat.feature.chat.components.artifact.MermaidRenderCache
+import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.resources.cd_close
+import com.garfiec.librechat.feature.chat.resources.cd_image
+import com.garfiec.librechat.feature.chat.resources.cd_save_to_device
+import com.garfiec.librechat.feature.chat.resources.cd_share_image
 import com.garfiec.librechat.feature.chat.viewmodel.SubagentTrace
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Wraps the chat screen content with all chat-scoped CompositionLocals so that
- * each platform `Scaffold` doesn't repeat the provider list.
+ * each platform `Scaffold` doesn't repeat the provider list. Also hosts the full-screen
+ * zoomable media viewer overlay (driven by [mediaPreview]) so both platforms share one wiring.
  */
 @Composable
 fun ChatRoot(
@@ -18,6 +30,9 @@ fun ChatRoot(
     mermaidRenderCache: MermaidRenderCache,
     parsedMarkdownCache: ParsedMarkdownCache,
     subagentProgress: Map<String, SubagentTrace>,
+    mediaPreview: MediaPreviewState?,
+    onOpenMedia: (url: String) -> Unit,
+    onCloseMedia: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(
@@ -25,6 +40,37 @@ fun ChatRoot(
         LocalMermaidRenderCache provides mermaidRenderCache,
         LocalParsedMarkdownCache provides parsedMarkdownCache,
         LocalSubagentProgress provides subagentProgress,
-        content = content,
-    )
+        LocalChatMediaViewer provides onOpenMedia,
+    ) {
+        content()
+
+        // Remembered above the `if` so the save/share coroutine scope (and the permission
+        // launcher) live as long as the chat screen, not just while the viewer is open — a
+        // save/share in flight survives the user dismissing the viewer mid-operation.
+        val saveImage = rememberSaveImageToGallery()
+        val shareImage = rememberShareImage()
+        if (mediaPreview != null) {
+            // Resolved once here (not inside the per-item actions slot) so paging doesn't
+            // re-resolve string resources on every swipe.
+            val saveDescription = stringResource(Res.string.cd_save_to_device)
+            val shareDescription = stringResource(Res.string.cd_share_image)
+            val imageDescription = stringResource(Res.string.cd_image)
+            ZoomableMediaPager(
+                items = mediaPreview.items,
+                initialIndex = mediaPreview.initialIndex,
+                onDismiss = onCloseMedia,
+                closeContentDescription = stringResource(Res.string.cd_close),
+                defaultContentDescription = imageDescription,
+                actions = { item ->
+                    MediaActionBar(
+                        item = item,
+                        onSave = saveImage,
+                        onShare = shareImage,
+                        saveContentDescription = saveDescription,
+                        shareContentDescription = shareDescription,
+                    )
+                },
+            )
+        }
+    }
 }

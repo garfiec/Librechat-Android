@@ -29,10 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +45,7 @@ import coil3.compose.SubcomposeAsyncImage
 import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.resolveFileReferenceUrl
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -94,7 +92,7 @@ fun MessageFiles(
 
         // Image previews
         imageFiles.forEach { file ->
-            val imageUrl = resolveFileUrl(file, baseUrl)
+            val imageUrl = resolveFileReferenceUrl(file, baseUrl)
             if (imageUrl != null) {
                 MessageImagePreview(
                     imageUrl = imageUrl,
@@ -107,27 +105,6 @@ fun MessageFiles(
 }
 
 /**
- * Resolves a full URL for a file reference, handling relative paths.
- */
-private fun resolveFileUrl(file: FileReference, baseUrl: String): String? {
-    val filepath = file.filepath
-    if (filepath != null) {
-        return when {
-            filepath.startsWith("http") -> filepath
-            filepath.startsWith("/images/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
-            filepath.startsWith("/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
-            baseUrl.isNotBlank() -> "$baseUrl/api/files/$filepath"
-            else -> filepath
-        }
-    }
-    val fileId = file.fileId
-    if (fileId != null && baseUrl.isNotBlank()) {
-        return "$baseUrl/api/files/$fileId"
-    }
-    return null
-}
-
-/**
  * Inline image preview that can be tapped to open fullscreen.
  */
 @Composable
@@ -136,7 +113,7 @@ private fun MessageImagePreview(
     altText: String,
     modifier: Modifier = Modifier,
 ) {
-    var showFullscreen by remember { mutableStateOf(false) }
+    val openMedia = LocalChatMediaViewer.current
 
     SubcomposeAsyncImage(
         model = imageUrl,
@@ -146,7 +123,7 @@ private fun MessageImagePreview(
             .widthIn(max = 300.dp)
             .heightIn(max = 300.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable { showFullscreen = true }
+            .clickable { openMedia(imageUrl) }
             .semantics {
                 role = Role.Image
                 contentDescription = altText
@@ -185,13 +162,6 @@ private fun MessageImagePreview(
             }
         },
     )
-
-    if (showFullscreen) {
-        FullscreenImageViewer(
-            imageUrl = imageUrl,
-            onDismiss = { showFullscreen = false },
-        )
-    }
 }
 
 /**

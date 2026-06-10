@@ -72,8 +72,8 @@
     <string name="cd_generating_response">Generating response</string>
 
     <!-- Content descriptions - Images -->
-    <string name="cd_fullscreen_image">Fullscreen image</string>
     <string name="cd_close">Close</string>
+    <string name="cd_image">Image</string>
     <string name="cd_save_to_device">Save to device</string>
     <string name="cd_share_image">Share image</string>
     <string name="cd_failed_to_load_image">Failed to load image</string>

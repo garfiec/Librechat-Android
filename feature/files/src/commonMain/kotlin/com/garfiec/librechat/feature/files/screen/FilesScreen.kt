@@ -76,6 +76,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.garfiec.librechat.core.ui.components.EmptyState
 import com.garfiec.librechat.core.ui.components.ErrorBanner
+import com.garfiec.librechat.core.ui.media.MediaActionBar
+import com.garfiec.librechat.core.ui.media.ZoomableMediaPager
+import com.garfiec.librechat.core.ui.media.rememberSaveImageToGallery
+import com.garfiec.librechat.core.ui.media.rememberShareImage
 import com.garfiec.librechat.feature.files.FileDisplayData
 import com.garfiec.librechat.feature.files.components.UploadProgressCard
 import com.garfiec.librechat.feature.files.platform.rememberFilePickerLauncher
@@ -305,6 +309,8 @@ fun FilesScreen(
                                             onClick = {
                                                 if (uiState.isSelectionMode) {
                                                     viewModel.toggleFileSelection(file.fileId)
+                                                } else if (file.type.startsWith("image/")) {
+                                                    viewModel.openImagePreview(file.fileId)
                                                 } else {
                                                     viewModel.openFilePreview(file.fileId)
                                                 }
@@ -336,6 +342,8 @@ fun FilesScreen(
                                             onClick = {
                                                 if (uiState.isSelectionMode) {
                                                     viewModel.toggleFileSelection(file.fileId)
+                                                } else if (file.type.startsWith("image/")) {
+                                                    viewModel.openImagePreview(file.fileId)
                                                 } else {
                                                     viewModel.openFilePreview(file.fileId)
                                                 }
@@ -431,6 +439,36 @@ fun FilesScreen(
             file = previewFile,
             onDismiss = viewModel::closeFilePreview,
             onDownloadFile = viewModel::downloadFileBytes,
+        )
+    }
+
+    // Full-screen zoomable image viewer.
+    // Remembered above the `if` so the save/share scope (and the permission launcher) live as
+    // long as the screen, letting an in-flight save/share survive the viewer being dismissed.
+    val mediaPreview = uiState.mediaPreview
+    val saveImage = rememberSaveImageToGallery()
+    val shareImage = rememberShareImage()
+    if (mediaPreview != null) {
+        // Resolved once here (not inside the per-item actions slot) so paging doesn't re-resolve
+        // string resources on every swipe.
+        val saveDescription = stringResource(Res.string.cd_save_image)
+        val shareDescription = stringResource(Res.string.cd_share_image)
+        val imageDescription = stringResource(Res.string.cd_image)
+        ZoomableMediaPager(
+            items = mediaPreview.items,
+            initialIndex = mediaPreview.initialIndex,
+            onDismiss = viewModel::closeMediaPreview,
+            closeContentDescription = stringResource(Res.string.cd_close_preview),
+            defaultContentDescription = imageDescription,
+            actions = { item ->
+                MediaActionBar(
+                    item = item,
+                    onSave = saveImage,
+                    onShare = shareImage,
+                    saveContentDescription = saveDescription,
+                    shareContentDescription = shareDescription,
+                )
+            },
         )
     }
 }

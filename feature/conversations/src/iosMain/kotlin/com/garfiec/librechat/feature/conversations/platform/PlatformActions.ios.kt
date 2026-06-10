@@ -3,12 +3,12 @@ package com.garfiec.librechat.feature.conversations.platform
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.ui.platform.currentTopmostViewController
+import com.garfiec.librechat.core.ui.platform.presentSheet
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
-import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
@@ -19,12 +19,7 @@ import platform.Foundation.writeToFile
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIAlertController
 import platform.UIKit.UIAlertControllerStyleAlert
-import platform.UIKit.UIApplication
 import platform.UIKit.UIPasteboard
-import platform.UIKit.UIViewController
-import platform.UIKit.UIWindow
-import platform.UIKit.UIWindowScene
-import platform.UIKit.popoverPresentationController
 
 actual fun copyToClipboard(text: String, label: String) {
     UIPasteboard.generalPasteboard.string = text
@@ -34,11 +29,7 @@ actual fun showToast(message: String) {
     // iOS doesn't have native Toast — show a brief alert-style overlay.
     Logger.i("Toast") { message }
     // Use UIAlertController as a lightweight toast replacement
-    val scene = UIApplication.sharedApplication.connectedScenes
-        .firstOrNull() as? UIWindowScene
-    val rootVc = scene?.windows?.firstOrNull {
-        (it as? UIWindow)?.isKeyWindow() == true
-    }?.let { (it as UIWindow).rootViewController } ?: return
+    val rootVc = currentTopmostViewController() ?: return
     val alert = UIAlertController.alertControllerWithTitle(
         title = null,
         message = message,
@@ -62,8 +53,7 @@ actual fun showToast(message: String) {
  * cinterop notes (see project iOS gotchas + `core:logging` LogFile.ios.kt):
  * - `NSData` is built from a Kotlin `String` via `ByteArray.usePinned { NSData.create(...) }`.
  * - No `String as NSString` casts.
- * - iPad requires a popover anchor or `UIActivityViewController` crashes; we anchor to the
- *   root view's center.
+ * - Presentation + iPad popover anchoring go through the shared [presentSheet] helper.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Composable
@@ -78,7 +68,7 @@ actual fun FileSaver(
         val text = content
         if (fileName == null || text == null) return@LaunchedEffect
 
-        val rootVc = getRootViewController()
+        val rootVc = currentTopmostViewController()
         if (rootVc == null) {
             onComplete(false, "Could not present share sheet")
             onReset()
@@ -109,27 +99,8 @@ actual fun FileSaver(
             onReset()
         }
 
-        // iPad: anchor the popover to the root view to avoid an unanchored-popover crash.
-        activityVc.popoverPresentationController?.let { popover ->
-            val view = rootVc.view
-            popover.sourceView = view
-            view?.bounds?.useContents {
-                popover.sourceRect = CGRectMake(
-                    x = size.width / 2.0,
-                    y = size.height / 2.0,
-                    width = 0.0,
-                    height = 0.0,
-                )
-            }
-        }
-
-        rootVc.presentViewController(activityVc, animated = true, completion = null)
+        presentSheet(activityVc, from = rootVc)
     }
-}
-
-private fun getRootViewController(): UIViewController? {
-    val scene = UIApplication.sharedApplication.connectedScenes.firstOrNull() as? UIWindowScene
-    return scene?.keyWindow?.rootViewController
 }
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)

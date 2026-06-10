@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.ui.platform.currentTopmostViewController
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -12,11 +13,8 @@ import platform.Foundation.NSData
 import platform.Foundation.NSURL
 import platform.Foundation.dataWithContentsOfURL
 import platform.Foundation.lastPathComponent
-import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerViewController
-import platform.UIKit.UIViewController
-import platform.UIKit.UIWindowScene
 import platform.UniformTypeIdentifiers.UTTypeContent
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
@@ -48,7 +46,7 @@ actual class SkillFilePicker {
 
     actual fun launch(mimeTypes: List<String>) {
         dispatch_async(dispatch_get_main_queue()) {
-            val viewController = topViewController() ?: run {
+            val viewController = currentTopmostViewController() ?: run {
                 Logger.w { "SkillFilePicker: no root view controller" }
                 return@dispatch_async
             }
@@ -97,16 +95,6 @@ private class Delegate(
     override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) {
         activeSkillPickerDelegates.remove(this)
     }
-}
-
-private fun topViewController(): UIViewController? {
-    val scene = UIApplication.sharedApplication.connectedScenes.firstOrNull() as? UIWindowScene
-    val root = scene?.keyWindow?.rootViewController ?: return null
-    var top: UIViewController = root
-    while (top.presentedViewController != null) {
-        top = top.presentedViewController!!
-    }
-    return top
 }
 
 @OptIn(ExperimentalForeignApi::class)

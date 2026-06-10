@@ -71,6 +71,7 @@ import com.garfiec.librechat.feature.chat.components.artifact.selectInlineArtifa
 import com.garfiec.librechat.feature.chat.components.artifact.shouldRenderInline
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.resolveImageFilePartUrl
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -136,16 +137,7 @@ internal fun ContentPartDispatcher(
             )
         }
         ContentType.IMAGE_FILE -> {
-            val imageUrl = part.imageFile?.filepath?.let { filepath ->
-                when {
-                    filepath.startsWith("http") -> filepath
-                    filepath.startsWith("/images/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
-                    baseUrl.isNotBlank() -> "$baseUrl/api/files/$filepath"
-                    else -> filepath
-                }
-            } ?: part.imageFile?.fileId?.let { fileId ->
-                if (baseUrl.isNotBlank()) "$baseUrl/api/files/$fileId" else null
-            }
+            val imageUrl = resolveImageFilePartUrl(part, baseUrl)
             ImageContentPart(imageUrl = imageUrl, modifier = mod)
         }
         ContentType.IMAGE_URL -> {
@@ -657,7 +649,7 @@ internal fun ImageContentPart(
 ) {
     if (imageUrl == null) return
 
-    var showFullscreen by remember { mutableStateOf(false) }
+    val openMedia = LocalChatMediaViewer.current
 
     SubcomposeAsyncImage(
         model = imageUrl,
@@ -667,7 +659,7 @@ internal fun ImageContentPart(
             .fillMaxWidth()
             .heightIn(max = 300.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable { showFullscreen = true }
+            .clickable { openMedia(imageUrl) }
             .semantics { role = Role.Image },
         loading = {
             Box(
@@ -697,10 +689,6 @@ internal fun ImageContentPart(
             }
         },
     )
-
-    if (showFullscreen) {
-        FullscreenImageViewer(imageUrl = imageUrl, onDismiss = { showFullscreen = false })
-    }
 }
 
 // ─── ErrorContentPart ───────────────────────────────────────────────

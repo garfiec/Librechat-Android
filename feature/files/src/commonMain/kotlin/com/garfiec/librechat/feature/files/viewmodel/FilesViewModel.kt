@@ -9,12 +9,15 @@ import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
+import com.garfiec.librechat.core.ui.media.MediaItem
+import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.files.FileDisplayData
 import com.garfiec.librechat.feature.files.FilePreviewDisplayData
 import com.garfiec.librechat.feature.files.platform.FileReader
 import com.garfiec.librechat.feature.files.platform.formatFileSize
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +68,7 @@ data class FilesUiState(
     val sortField: FileSortField = FileSortField.DATE,
     val sortOrder: FileSortOrder = FileSortOrder.DESCENDING,
     val previewFile: FilePreviewDisplayData? = null,
+    val mediaPreview: MediaPreviewState? = null,
     val hasFiles: Boolean = false,
     val viewMode: FileViewMode = FileViewMode.LIST,
 )
@@ -86,34 +90,48 @@ class FilesViewModel(
     /** Cache display data by fileId to avoid re-running formatFileSize on every emission. */
     private val displayDataCache = mutableMapOf<String, FileDisplayData>()
 
-    val uiState: StateFlow<FilesUiState> = combine(
+    /**
+     * The filtered + sorted display list, derived only from the inputs that affect it. Kept
+     * separate from [_transientState] so that purely-overlay changes (opening/closing the image
+     * viewer, upload progress, selection) don't re-run filter+sort over the whole file list.
+     */
+    private val displayList: Flow<DisplayList> = combine(
         _files,
         _selectedFilter,
         _sortField,
         _sortOrder,
-        _transientState,
-    ) { files, filter, sortField, sortOrder, transient ->
+    ) { files, filter, sortField, sortOrder ->
         val filtered = filterFiles(files, filter)
         val sorted = sortFiles(filtered, sortField, sortOrder)
-        val displayFiles = sorted.map { file ->
-            displayDataCache.getOrPut(file.fileId) { file.toDisplayData() }
-        }
+        DisplayList(
+            files = sorted.map { file -> displayDataCache.getOrPut(file.fileId) { file.toDisplayData() } },
+            hasFiles = files.isNotEmpty(),
+            filter = filter,
+            sortField = sortField,
+            sortOrder = sortOrder,
+        )
+    }
 
+    val uiState: StateFlow<FilesUiState> = combine(
+        displayList,
+        _transientState,
+    ) { list, transient ->
         FilesUiState(
-            displayFiles = displayFiles,
+            displayFiles = list.files,
             isLoading = transient.isLoading,
             isRefreshing = transient.isRefreshing,
             isUploading = transient.isUploading,
             uploadFilename = transient.uploadFilename,
             uploadProgress = transient.uploadProgress,
             error = transient.error,
-            selectedFilter = filter,
+            selectedFilter = list.filter,
             isSelectionMode = transient.isSelectionMode,
             selectedFileIds = transient.selectedFileIds,
-            sortField = sortField,
-            sortOrder = sortOrder,
+            sortField = list.sortField,
+            sortOrder = list.sortOrder,
             previewFile = transient.previewFile,
-            hasFiles = files.isNotEmpty(),
+            mediaPreview = transient.mediaPreview,
+            hasFiles = list.hasFiles,
             viewMode = transient.viewMode,
         )
     }.stateIn(
@@ -311,6 +329,36 @@ class FilesViewModel(
         updateTransient { copy(previewFile = null) }
     }
 
+    /**
+     * Opens the full-screen zoomable image viewer for [fileId]. The swipeable list is the image
+     * subset of the grid as it's currently filtered and sorted, in grid order, so paging matches
+     * what the user sees behind the viewer.
+     */
+    fun openImagePreview(fileId: String) {
+        // Reuse the already filtered + sorted display list (URLs resolved once in `previewUrl`)
+        // instead of re-running filter+sort and re-resolving every URL on the tap.
+        val images = uiState.value.displayFiles.filter { it.previewUrl != null }
+        if (images.isEmpty()) return
+        // Dedup by URL: the pager keys pages on url, so duplicate URLs would crash it.
+        val items = images
+            .map { file ->
+                MediaItem(
+                    url = file.previewUrl!!,
+                    contentDescription = file.filename,
+                    filename = file.filename,
+                )
+            }
+            .distinctBy { it.url }
+        // Locate the tapped file by its resolved URL within the deduped list.
+        val tappedUrl = images.firstOrNull { it.fileId == fileId }?.previewUrl
+        val index = items.indexOfFirst { it.url == tappedUrl }.coerceAtLeast(0)
+        updateTransient { copy(mediaPreview = MediaPreviewState(items, index)) }
+    }
+
+    fun closeMediaPreview() {
+        updateTransient { copy(mediaPreview = null) }
+    }
+
     suspend fun downloadFileBytes(fileId: String, userId: String?): ByteArray? {
         if (userId.isNullOrBlank()) {
             Logger.w { "downloadFileBytes: userId is null/blank for fileId=$fileId" }
@@ -487,6 +535,19 @@ class FilesViewModel(
     }
 }
 
+/**
+ * Precomputed filtered + sorted display list, recomputed only when files/filter/sort change.
+ * Carries the filter/sort inputs it was built from so the UI-state combine doesn't have to
+ * re-subscribe to those flows just to echo them back.
+ */
+private data class DisplayList(
+    val files: List<FileDisplayData>,
+    val hasFiles: Boolean,
+    val filter: FileTypeFilter,
+    val sortField: FileSortField,
+    val sortOrder: FileSortOrder,
+)
+
 private data class TransientState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -497,5 +558,6 @@ private data class TransientState(
     val isSelectionMode: Boolean = false,
     val selectedFileIds: Set<String> = emptySet(),
     val previewFile: FilePreviewDisplayData? = null,
+    val mediaPreview: MediaPreviewState? = null,
     val viewMode: FileViewMode = FileViewMode.LIST,
 )

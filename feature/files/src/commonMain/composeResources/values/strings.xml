@@ -19,6 +19,9 @@
     <string name="cd_delete_file">Delete %1$s</string>
     <string name="cd_thumbnail">Thumbnail of %1$s</string>
     <string name="cd_close_preview">Close preview</string>
+    <string name="cd_image">Image</string>
+    <string name="cd_save_image">Save to device</string>
+    <string name="cd_share_image">Share image</string>
     <string name="cd_cancel_upload">Cancel upload</string>
     <string name="cd_ascending">Ascending</string>
     <string name="cd_descending">Descending</string>
@@ -42,8 +45,6 @@
     <string name="this_file">this file</string>
 
     <!-- File preview -->
-    <string name="image_preview_unavailable">Image preview unavailable</string>
-    <string name="preview_of">Preview of %1$s</string>
     <string name="loading_pdf">Loading PDF…</string>
     <string name="page_of">Page %1$d of %2$d</string>
     <string name="page_cd">Page %1$d of %2$s</string>

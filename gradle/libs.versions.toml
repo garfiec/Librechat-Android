@@ -45,6 +45,9 @@ media3 = "1.10.1"
 # Image Loading
 coil3 = "3.4.0"
 
+# Zoomable media viewer (KMP: Android + iOS)
+zoomimage = "1.4.0"
+
 # Color theming (seed -> Material 3 ColorScheme, KMP)
 material-kolor = "4.1.1"
 
@@ -158,6 +161,9 @@ media3-datasource = { group = "androidx.media3", name = "media3-datasource", ver
 coil3-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil3" }
 coil3-network-ktor = { group = "io.coil-kt.coil3", name = "coil-network-ktor3", version.ref = "coil3" }
 coil3-svg = { group = "io.coil-kt.coil3", name = "coil-svg", version.ref = "coil3" }
+
+# Zoomable media viewer
+zoomimage-compose-coil3-core = { group = "io.github.panpf.zoomimage", name = "zoomimage-compose-coil3-core", version.ref = "zoomimage" }
 
 # Color theming
 material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "material-kolor" }

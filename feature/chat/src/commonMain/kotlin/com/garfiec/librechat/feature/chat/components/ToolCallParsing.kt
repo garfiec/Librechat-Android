@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.components
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.content.AgentToolCall
+import com.garfiec.librechat.feature.chat.util.resolveAttachmentUrl
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -298,25 +299,6 @@ private fun parseImageGenArgs(argsJson: String?): Pair<String?, String?> {
         log.d(e) { "Failed to parse streaming image gen args" }
         null to null
     }
-}
-
-/** Resolves an attachment's `filepath`/`fileId` to a fully-qualified image URL. */
-private fun resolveAttachmentUrl(attachment: Attachment?, baseUrl: String): String? {
-    if (attachment == null) return null
-    val filepath = attachment.filepath
-    if (filepath != null) {
-        return when {
-            filepath.startsWith("http") -> filepath
-            filepath.startsWith("/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
-            baseUrl.isNotBlank() -> "$baseUrl/$filepath"
-            else -> filepath
-        }
-    }
-    val fileId = attachment.fileId
-    if (fileId != null && baseUrl.isNotBlank()) {
-        return "$baseUrl/api/files/$fileId"
-    }
-    return null
 }
 
 internal fun parseLogContent(toolCall: AgentToolCall?): LogContent {

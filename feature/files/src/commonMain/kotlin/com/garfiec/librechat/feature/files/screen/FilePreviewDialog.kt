@@ -1,7 +1,5 @@
 package com.garfiec.librechat.feature.files.screen
 
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,16 +35,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import co.touchlab.kermit.Logger
-import coil3.compose.AsyncImage
 import com.garfiec.librechat.feature.files.FilePreviewDisplayData
 import com.garfiec.librechat.feature.files.platform.PdfPreview
 import com.garfiec.librechat.feature.files.resources.*
@@ -96,15 +89,6 @@ fun FilePreviewDialog(
             },
         ) { padding ->
             when {
-                file.type.startsWith("image/") -> {
-                    ImagePreview(
-                        url = file.previewUrl,
-                        filename = file.filename,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                    )
-                }
                 file.type == "application/pdf" -> {
                     PdfPreview(
                         file = file,
@@ -132,64 +116,6 @@ fun FilePreviewDialog(
                             .padding(padding),
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ImagePreview(
-    url: String?,
-    filename: String,
-    modifier: Modifier = Modifier,
-) {
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-
-    val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
-        scale = (scale * zoomChange).coerceIn(0.5f, 5f)
-        offset = Offset(
-            x = offset.x + panChange.x,
-            y = offset.y + panChange.y,
-        )
-    }
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        if (url != null) {
-            Logger.d { "ImagePreview loading URL: $url" }
-            AsyncImage(
-                model = url,
-                contentDescription = stringResource(Res.string.preview_of, filename),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offset.x
-                        translationY = offset.y
-                    }
-                    .transformable(state = transformableState),
-                contentScale = ContentScale.Fit,
-            )
-        } else {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Image,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(Res.string.image_preview_unavailable),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

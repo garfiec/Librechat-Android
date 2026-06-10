@@ -1,15 +1,13 @@
 package com.garfiec.librechat.feature.auth.oauth
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.ui.platform.currentKeyWindow
 import platform.AuthenticationServices.ASPresentationAnchor
 import platform.AuthenticationServices.ASWebAuthenticationPresentationContextProvidingProtocol
 import platform.AuthenticationServices.ASWebAuthenticationSession
 import platform.Foundation.NSHTTPCookie
 import platform.Foundation.NSHTTPCookieStorage
 import platform.Foundation.NSURL
-import platform.UIKit.UIApplication
-import platform.UIKit.UIWindow
-import platform.UIKit.UIWindowScene
 import platform.darwin.NSObject
 
 class IosOAuthLauncher : OAuthLauncher {
@@ -37,7 +35,7 @@ class IosOAuthLauncher : OAuthLauncher {
 
         session.prefersEphemeralWebBrowserSession = false
 
-        val window = getKeyWindow()
+        val window = currentKeyWindow()
         if (window != null) {
             val contextProvider = object : NSObject(), ASWebAuthenticationPresentationContextProvidingProtocol {
                 override fun presentationAnchorForWebAuthenticationSession(
@@ -71,13 +69,5 @@ class IosOAuthLauncher : OAuthLauncher {
         cookieList.filter { it.name == "refreshToken" }.forEach {
             NSHTTPCookieStorage.sharedHTTPCookieStorage.deleteCookie(it)
         }
-    }
-
-    private fun getKeyWindow(): UIWindow? {
-        val scene = UIApplication.sharedApplication.connectedScenes
-            .firstOrNull() as? UIWindowScene
-        return scene?.windows?.firstOrNull {
-            (it as? UIWindow)?.isKeyWindow() == true
-        } as? UIWindow
     }
 }

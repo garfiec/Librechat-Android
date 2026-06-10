@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.FileProvider
+import com.garfiec.librechat.core.ui.media.sweepStaleFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -66,9 +67,7 @@ object ArtifactDownloadHelper {
     private fun scheduleCleanup(file: File, dir: File) {
         Handler(Looper.getMainLooper()).postDelayed({
             file.delete()
-            // Clean up any other stale artifacts while we're at it
-            val staleThreshold = System.currentTimeMillis() - STALE_THRESHOLD_MS
-            dir.listFiles()?.filter { it.lastModified() < staleThreshold }?.forEach { it.delete() }
+            sweepStaleFiles(dir, STALE_THRESHOLD_MS)
         }, CLEANUP_DELAY_MS)
     }
 

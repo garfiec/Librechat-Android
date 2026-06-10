@@ -41,6 +41,8 @@ import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.ui.components.ModelParameters
+import com.garfiec.librechat.core.ui.media.MediaItem
+import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
@@ -48,6 +50,7 @@ import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
+import com.garfiec.librechat.feature.chat.util.extractBranchMedia
 import com.garfiec.librechat.feature.chat.util.mergeFinalMessagesInMemory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.EndpointKeyStatusDelegate
@@ -1934,6 +1937,35 @@ class ChatViewModel(
 
     fun dismissSendBlockReason() {
         _uiState.update { it.copy(sendBlockReason = null) }
+    }
+
+    /**
+     * Opens the full-screen media viewer at [url]. The swipeable list is the image set of the
+     * current branch, computed once here from a state snapshot (never on the streaming hot path).
+     * If [url] isn't in the derived list (an edge case), it opens as a single item rather than
+     * silently jumping to index 0. Reads only state — no Room write, no `activeBranches` mutation —
+     * so it never trips the streaming invariant.
+     */
+    fun openMedia(url: String) {
+        if (url.isBlank()) return
+        val state = uiState.value
+        val items = extractBranchMedia(
+            displayMessages = state.displayMessages,
+            activeToolCalls = state.activeToolCalls,
+            streamingAttachments = state.streamingAttachments,
+            baseUrl = state.serverUrl,
+        )
+        val index = items.indexOfFirst { it.url == url }
+        val preview = if (index >= 0) {
+            MediaPreviewState(items = items, initialIndex = index)
+        } else {
+            MediaPreviewState(items = listOf(MediaItem(url = url, contentDescription = "")), initialIndex = 0)
+        }
+        _uiState.update { it.copy(mediaPreview = preview) }
+    }
+
+    fun closeMedia() {
+        _uiState.update { it.copy(mediaPreview = null) }
     }
 
     override fun onCleared() {

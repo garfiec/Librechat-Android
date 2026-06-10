@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,7 +62,7 @@ fun ImageGenCard(
     modifier: Modifier = Modifier,
     showDescription: Boolean = true,
 ) {
-    var showFullscreen by remember { mutableStateOf(false) }
+    val openMedia = LocalChatMediaViewer.current
 
     // Faux progress, ported from web's OpenAIImageGen (the server sends no real
     // progress). Ticks 0.1 → 0.9 over a quality-tuned duration with jitter, then
@@ -144,7 +143,7 @@ fun ImageGenCard(
                         .fillMaxWidth()
                         .heightIn(max = 300.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable { showFullscreen = true }
+                        .clickable { openMedia(imageUrl) }
                         .semantics { role = Role.Image },
                     loading = {
                         Box(
@@ -210,12 +209,5 @@ fun ImageGenCard(
                 )
             }
         }
-    }
-
-    if (showFullscreen && result.imageUrl != null) {
-        FullscreenImageViewer(
-            imageUrl = result.imageUrl,
-            onDismiss = { showFullscreen = false },
-        )
     }
 }

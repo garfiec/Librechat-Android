@@ -173,6 +173,9 @@ actual fun ChatScreen(
         mermaidRenderCache = viewModel.mermaidRenderCache,
         parsedMarkdownCache = viewModel.parsedMarkdownCache,
         subagentProgress = uiState.subagentProgress,
+        mediaPreview = uiState.mediaPreview,
+        onOpenMedia = viewModel::openMedia,
+        onCloseMedia = viewModel::closeMedia,
     ) {
     Scaffold(
         modifier = modifier.imePadding(),

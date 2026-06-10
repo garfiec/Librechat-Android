@@ -7,6 +7,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.media.detectImageMimeType
+import com.garfiec.librechat.core.common.media.imageExtensionForMimeType
 import java.io.ByteArrayOutputStream
 
 /**
@@ -46,101 +48,16 @@ internal fun guessMimeType(filename: String): String {
  * Returns the detected MIME type for known image formats, or null if the bytes don't
  * match any recognized image signature.
  *
- * Supported formats: JPEG, PNG, GIF, WebP, BMP, TIFF, HEIF/HEIC, AVIF, ICO, SVG.
+ * Delegates to the canonical [detectImageMimeType] in `core:common` (shared with the media
+ * viewer's save/share path) so both surfaces recognize the same format set.
  */
-internal fun detectMimeTypeFromBytes(bytes: ByteArray): String? {
-    if (bytes.size < 12) return null
-
-    // JPEG: FF D8 FF
-    if (bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() && bytes[2] == 0xFF.toByte()) {
-        return "image/jpeg"
-    }
-
-    // PNG: 89 50 4E 47 0D 0A 1A 0A
-    if (bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() &&
-        bytes[2] == 0x4E.toByte() && bytes[3] == 0x47.toByte() &&
-        bytes[4] == 0x0D.toByte() && bytes[5] == 0x0A.toByte() &&
-        bytes[6] == 0x1A.toByte() && bytes[7] == 0x0A.toByte()
-    ) {
-        return "image/png"
-    }
-
-    // GIF: "GIF87a" or "GIF89a"
-    if (bytes[0] == 0x47.toByte() && bytes[1] == 0x49.toByte() &&
-        bytes[2] == 0x46.toByte() && bytes[3] == 0x38.toByte() &&
-        (bytes[4] == 0x37.toByte() || bytes[4] == 0x39.toByte()) &&
-        bytes[5] == 0x61.toByte()
-    ) {
-        return "image/gif"
-    }
-
-    // WebP: "RIFF" at offset 0 and "WEBP" at offset 8
-    if (bytes[0] == 0x52.toByte() && bytes[1] == 0x49.toByte() &&
-        bytes[2] == 0x46.toByte() && bytes[3] == 0x46.toByte() &&
-        bytes[8] == 0x57.toByte() && bytes[9] == 0x45.toByte() &&
-        bytes[10] == 0x42.toByte() && bytes[11] == 0x50.toByte()
-    ) {
-        return "image/webp"
-    }
-
-    // BMP: "BM"
-    if (bytes[0] == 0x42.toByte() && bytes[1] == 0x4D.toByte()) {
-        return "image/bmp"
-    }
-
-    // TIFF: "II" (little-endian) or "MM" (big-endian) followed by 42
-    if ((bytes[0] == 0x49.toByte() && bytes[1] == 0x49.toByte() &&
-            bytes[2] == 0x2A.toByte() && bytes[3] == 0x00.toByte()) ||
-        (bytes[0] == 0x4D.toByte() && bytes[1] == 0x4D.toByte() &&
-            bytes[2] == 0x00.toByte() && bytes[3] == 0x2A.toByte())
-    ) {
-        return "image/tiff"
-    }
-
-    // HEIF/HEIC and AVIF: ftyp box at offset 4
-    if (bytes.size >= 12 &&
-        bytes[4] == 0x66.toByte() && bytes[5] == 0x74.toByte() &&
-        bytes[6] == 0x79.toByte() && bytes[7] == 0x70.toByte()
-    ) {
-        // Read the brand (4 bytes at offset 8)
-        val brand = String(bytes, 8, 4, Charsets.US_ASCII)
-        return when {
-            brand.startsWith("heic") || brand.startsWith("heix") ||
-                brand.startsWith("heim") || brand.startsWith("heis") ||
-                brand.startsWith("mif1") -> "image/heic"
-            brand.startsWith("avif") || brand.startsWith("avis") -> "image/avif"
-            else -> null // Unknown ftyp brand
-        }
-    }
-
-    // ICO: 00 00 01 00
-    if (bytes[0] == 0x00.toByte() && bytes[1] == 0x00.toByte() &&
-        bytes[2] == 0x01.toByte() && bytes[3] == 0x00.toByte()
-    ) {
-        return "image/x-icon"
-    }
-
-    return null
-}
+internal fun detectMimeTypeFromBytes(bytes: ByteArray): String? = detectImageMimeType(bytes)
 
 /**
  * Returns the canonical file extension for a given MIME type.
  * Used to ensure the filename extension matches the actual content type.
  */
-internal fun extensionForMimeType(mimeType: String): String? = when (mimeType) {
-    "image/jpeg" -> "jpg"
-    "image/png" -> "png"
-    "image/gif" -> "gif"
-    "image/webp" -> "webp"
-    "image/bmp" -> "bmp"
-    "image/tiff" -> "tiff"
-    "image/heic" -> "heic"
-    "image/heif" -> "heif"
-    "image/avif" -> "avif"
-    "image/x-icon" -> "ico"
-    "image/svg+xml" -> "svg"
-    else -> null
-}
+internal fun extensionForMimeType(mimeType: String): String? = imageExtensionForMimeType(mimeType)
 
 /**
  * Fixes the filename extension to match the detected MIME type.

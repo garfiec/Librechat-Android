@@ -14,7 +14,12 @@ kotlin {
             implementation(project(":core:common"))
             implementation(libs.coil3.compose)
             implementation(libs.coil3.network.ktor)
+            implementation(libs.zoomimage.compose.coil3.core)
             implementation(libs.material.kolor)
+        }
+        androidMain.dependencies {
+            // Runtime-permission launcher for saving images to the gallery (API < 29).
+            implementation(libs.activity.compose)
         }
     }
 }

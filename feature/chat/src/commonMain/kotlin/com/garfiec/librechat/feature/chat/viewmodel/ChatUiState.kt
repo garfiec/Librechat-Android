@@ -17,6 +17,7 @@ import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.response.FileUploadConfig
 import com.garfiec.librechat.core.ui.components.ModelParameters
+import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
@@ -269,6 +270,12 @@ data class ChatUiState(
      * Null before fetch or on fetch failure; treated as no constraint (controls fail open).
      */
     val fileUploadConfig: FileUploadConfig? = null,
+    /**
+     * Open-state for the full-screen zoomable media viewer (null = closed). Computed once on
+     * tap by [ChatViewModel.openMedia] from a state snapshot, so the branch-media walk never
+     * runs on the per-token streaming hot path.
+     */
+    val mediaPreview: MediaPreviewState? = null,
 ) {
     /**
      * Whether the chat attach controls (Camera / Photos / Files) should be offered for
