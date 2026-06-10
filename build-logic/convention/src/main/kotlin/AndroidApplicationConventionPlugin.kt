@@ -81,15 +81,17 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 private data class AppVersion(val name: String, val code: Int)
 
 /**
- * Reads `versionName` from version.properties and derives a monotonic `versionCode`
- * from it as `MAJOR * 10_000 + MINOR * 100 + PATCH` (i.e. the digits XXYYZZ), so the
+ * Reads `versionName` (calver `YYYY.MM.PATCH`) from version.properties and derives a
+ * monotonic `versionCode` from it as `YEAR * 10_000 + MONTH * 100 + PATCH`, so the
  * code is a deterministic function of the name with nothing to track separately:
- * `0.1.0` -> 100, `1.2.3` -> 10203. MINOR and PATCH must each be <= 99 to stay
- * monotonic; the build fails fast if either overflows.
+ * `2026.06.0` -> 20260600, `2026.06.1` -> 20260601. MONTH and PATCH must each be
+ * <= 99 to stay monotonic; the build fails fast if either overflows. Pre-calver
+ * semver releases used the same packing (`0.1.3` -> 103), so codes stayed monotonic
+ * across the cutover.
  *
- * Pre-release suffixes (`-rc1`) are stripped, so `0.8.6-rc1` and `0.8.6` map to the
- * same code — fine for tagged stable releases; bump the patch if you ship an RC users
- * actually update from.
+ * Pre-release suffixes (`-rc1`) are stripped, so `2026.06.1-rc1` and `2026.06.1` map
+ * to the same code — fine for tagged stable releases; bump the patch if you ship an
+ * RC users actually update from.
  */
 private fun readAppVersion(target: Project): AppVersion {
     val props = Properties().apply {
@@ -97,19 +99,20 @@ private fun readAppVersion(target: Project): AppVersion {
         if (file.exists()) file.inputStream().use { load(it) }
     }
     val name = props.getProperty("versionName") ?: "0.0.0"
-    val (major, minor, patch) = name.substringBefore('-')
+    val (year, month, patch) = name.substringBefore('-')
         .split('.')
         .map { it.toIntOrNull() ?: 0 }
         .plus(listOf(0, 0, 0))
         .take(3)
-    // The XXYYZZ packing only stays monotonic while MINOR and PATCH each fit in two
-    // digits; e.g. 0.1.100 would collide with 0.2.0 (both -> 200). Fail the build
-    // (and therefore CI) rather than silently ship a non-monotonic versionCode.
-    check(minor in 0..99 && patch in 0..99) {
-        "versionName '$name' exceeds the XXYYZZ versionCode scheme: MINOR and PATCH " +
-            "must each be <= 99 (got minor=$minor, patch=$patch). Bump MAJOR/MINOR instead."
+    // The packing only stays monotonic while MONTH and PATCH each fit in two digits;
+    // e.g. 2026.06.100 would collide with 2026.07.0 (both -> 20260700). MONTH never
+    // exceeds 12, so in practice only PATCH can overflow. Fail the build (and
+    // therefore CI) rather than silently ship a non-monotonic versionCode.
+    check(month in 0..99 && patch in 0..99) {
+        "versionName '$name' exceeds the YYYYMMPP versionCode scheme: MONTH and PATCH " +
+            "must each be <= 99 (got month=$month, patch=$patch)."
     }
-    return AppVersion(name = name, code = major * 10_000 + minor * 100 + patch)
+    return AppVersion(name = name, code = year * 10_000 + month * 100 + patch)
 }
 
 private data class ReleaseSigning(

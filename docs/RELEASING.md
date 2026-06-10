@@ -4,16 +4,20 @@ How releases are versioned, signed, and published for LibreChat Mobile (Android)
 
 ## Versioning
 
-The app version lives in **one place**: `version.properties` at the repo root.
+The app version is calendar-based — **`YYYY.MM.PATCH`** (zero-padded month, e.g.
+`2026.06.0`) — and lives in **one place**: `version.properties` at the repo root.
 
 ```properties
-versionName=0.1.0          # human-facing semver — the only thing you bump
-backendTargetVersion=0.8.5 # LibreChat backend this build targets (best-tested)
+versionName=2026.06.0      # calver YYYY.MM.PATCH — bumped by the release workflow
+backendTargetVersion=0.8.6 # LibreChat backend this build targets (best-tested)
 ```
 
+- Year and month come from the current **UTC** date automatically when bumping; the only
+  thing a release decides is patch-level vs release-candidate. PATCH resets to 0 when the
+  month rolls over and increments for further releases within the same month.
 - `AndroidApplicationConventionPlugin` reads `versionName` and **derives** `versionCode` as
-  `MAJOR*10000 + MINOR*100 + PATCH` (digits XXYYZZ): `0.1.0` → `100`, `1.2.3` → `10203`.
-  Monotonic as long as semver increases; limits are MINOR ≤ 99, PATCH ≤ 99.
+  `YEAR*10000 + MONTH*100 + PATCH`: `2026.06.0` → `20260600`, `2026.06.1` → `20260601`.
+  Monotonic as the date advances; limits are MONTH ≤ 99 (trivially true), PATCH ≤ 99.
 - The About screen reads the *installed* version via `AppInfo` (package metadata), so it can never drift.
 - This is the **app's** version and is intentionally independent of `backendTargetVersion`.
 - `backendTargetVersion` is the **single source of truth** for the LibreChat backend the app
@@ -26,8 +30,8 @@ Both platforms derive from the same `versionName`, so they stay in lockstep:
 
 | Platform | versionName | versionCode | Where |
 |---|---|---|---|
-| Android | `versionName` verbatim | derived XXYYZZ | `AndroidApplicationConventionPlugin` reads `version.properties` at build |
-| iOS | `CFBundleShortVersionString` | `CFBundleVersion` (same XXYYZZ) | *Stamp Version* Xcode build phase reads `version.properties` at build |
+| Android | `versionName` verbatim | derived YYYYMMPP | `AndroidApplicationConventionPlugin` reads `version.properties` at build |
+| iOS | `CFBundleShortVersionString` | `CFBundleVersion` (same YYYYMMPP) | *Stamp Version* Xcode build phase reads `version.properties` at build |
 
 > iOS isn't published on GitHub Releases — the stamp exists only to keep the two platforms'
 > reported versions identical. The "Stamp Version from version.properties" run-script phase
@@ -35,12 +39,12 @@ Both platforms derive from the same `versionName`, so they stay in lockstep:
 > literals (and the unused `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` build settings) are
 > just a fallback snapshot — the build always reflects `version.properties`.
 
-Bump it with the script (also run by the release workflow):
+Bump it with the script (also run by the release workflow). For example, running in
+June 2026 with stored version `2026.05.2`:
 
 ```bash
-scripts/bump-version.sh patch   # 0.1.0 -> 0.1.1  (versionCode 100 -> 101)
-scripts/bump-version.sh minor   # 0.1.0 -> 0.2.0  (versionCode 100 -> 200)
-scripts/bump-version.sh major   # 0.1.0 -> 1.0.0  (versionCode 100 -> 10000)
+scripts/bump-version.sh patch   # 2026.05.2 -> 2026.06.0  (new month: PATCH resets)
+scripts/bump-version.sh patch   # 2026.06.0 -> 2026.06.1  (same month: PATCH+1)
 ```
 
 ### Release candidates
@@ -48,20 +52,29 @@ scripts/bump-version.sh major   # 0.1.0 -> 1.0.0  (versionCode 100 -> 10000)
 To ship a candidate before a stable release, use the pre-release bumps:
 
 ```bash
-scripts/bump-version.sh preminor  # 0.1.0    -> 0.2.0-rc1   (next minor, candidate 1)
-scripts/bump-version.sh rc        # 0.2.0-rc1 -> 0.2.0-rc2  (next candidate)
-scripts/bump-version.sh finalize  # 0.2.0-rc2 -> 0.2.0      (promote to stable)
+scripts/bump-version.sh prepatch  # 2026.06.1     -> 2026.06.2-rc1  (start a candidate)
+scripts/bump-version.sh rc        # 2026.06.2-rc1 -> 2026.06.2-rc2  (next candidate)
+scripts/bump-version.sh finalize  # 2026.06.2-rc2 -> 2026.06.2      (promote to stable)
 ```
 
-`prepatch`/`preminor`/`premajor` start a candidate for the bumped version; `rc` advances
-the candidate number; `finalize` drops the suffix to promote the current candidate. A
-hyphenated version is published as a GitHub **pre-release**, which Obtainium skips unless
-the user enables *Include prereleases*.
+`prepatch` starts a candidate for the next patch version; `rc` advances the candidate
+number; `finalize` drops the suffix to promote the current candidate. `rc` and `finalize`
+never touch the version core: a candidate started in June and finalized in July still
+ships as `2026.06.x` — the date reflects when the release train started. A hyphenated
+version is published as a GitHub **pre-release**, which Obtainium skips unless the user
+enables *Include prereleases*.
 
-> The `-rcN` suffix is stripped when deriving the versionCode, so `0.2.0-rc1`, `0.2.0-rc2`,
-> and the final `0.2.0` all share one versionCode. Candidates install over each other fine,
-> but if users update *from* a candidate *to* the final build, bump the patch instead of
-> finalizing so the version visibly advances.
+> The `-rcN` suffix is stripped when deriving the versionCode, so `2026.06.2-rc1`,
+> `2026.06.2-rc2`, and the final `2026.06.2` all share one versionCode. Candidates install
+> over each other fine, but if users update *from* a candidate *to* the final build, bump
+> the patch instead of finalizing so the version visibly advances.
+
+### Calver cutover
+
+Versions before the calver switch were semver (`0.1.0` – `0.1.3`) under the same
+versionCode packing (`0.1.3` → `103`), so codes stayed monotonic across the cutover
+(`103` → first calver release's `YYYYMM00`). The jump is intentionally one-way: calver
+codes are ~20M, so there is no path back to small semver codes without an epoch scheme.
 
 ## One-time signing key setup
 
@@ -115,10 +128,11 @@ release builds fall back to the debug key so local builds and CI checks still wo
 
 ## Cutting a release
 
-1. Actions → **Release** → *Run workflow* → choose the bump (`patch`/`minor`/`major`, or a
-   `prepatch`/`preminor`/`premajor`/`rc`/`finalize` candidate).
+1. Actions → **Release** → *Run workflow* → choose the bump (`patch` for a stable
+   release, or `prepatch`/`rc`/`finalize` for the candidate flow). Year/month are
+   derived from the current UTC date automatically.
 2. The job bumps `version.properties`, builds a signed universal APK, signs a SLSA
-   build-provenance attestation for it, and **only then** commits + tags `vX.Y.Z` and creates
+   build-provenance attestation for it, and **only then** commits + tags `vYYYY.MM.P` and creates
    a **draft** GitHub Release with auto-generated notes and a `.sha256` checksum. Candidate
    versions are flagged as pre-releases automatically. If the build fails, nothing is committed
    or tagged — just re-run after fixing it.

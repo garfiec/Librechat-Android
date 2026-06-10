@@ -1,25 +1,22 @@
 name: Release
 
-# Manual, one-button release. Pick a semver bump; the job bumps version.properties,
-# builds a signed universal APK, and ONLY THEN commits + tags it and publishes a draft
-# GitHub Release with auto-generated notes — so a failed build never leaves an orphaned
-# tag or a burned version on the branch. Review the draft, then publish it;
-# Obtainium/IzzyOnDroid pick up published releases.
+# Manual, one-button release. Versions are calver (YYYY.MM.PATCH); year/month come
+# from the current UTC date automatically, so the only choice is stable vs candidate.
+# The job bumps version.properties, builds a signed universal APK, and ONLY THEN
+# commits + tags it and publishes a draft GitHub Release with auto-generated notes —
+# so a failed build never leaves an orphaned tag or a burned version on the branch.
+# Review the draft, then publish it; Obtainium/IzzyOnDroid pick up published releases.
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Version bump (pre* starts an -rc, rc advances it, finalize promotes to stable)"
+        description: "Release type (patch ships YYYY.MM.PATCH from today's UTC date; prepatch starts an -rc, rc advances it, finalize promotes to stable)"
         required: true
         type: choice
         default: patch
         options:
           - patch
-          - minor
-          - major
           - prepatch
-          - preminor
-          - premajor
           - rc
           - finalize
 
@@ -158,7 +155,7 @@ jobs:
           tag_name: ${{ steps.bump.outputs.tag }}
           name: ${{ steps.bump.outputs.tag }}
           draft: true
-          # A hyphenated version (e.g. 0.2.0-rc1) is a pre-release; Obtainium then
+          # A hyphenated version (e.g. 2026.07.1-rc1) is a pre-release; Obtainium then
           # ignores it unless the user opts into "Include prereleases".
           prerelease: ${{ contains(steps.bump.outputs.tag, '-') }}
           generate_release_notes: true

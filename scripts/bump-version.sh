@@ -2,26 +2,33 @@
 #
 # Bump the app version in version.properties (the single source of truth).
 #
+# Versions are calendar-based: YYYY.MM.PATCH (month zero-padded, PATCH 0-99).
+# Year and month come from the current UTC date — CI runners are UTC — so the
+# only choice a release makes is patch-level vs release-candidate.
+#
 # Usage:
 #   scripts/bump-version.sh <bump>
 #
 # Stable bumps (clear any pre-release suffix):
-#   major     X.y.z       -> (X+1).0.0
-#   minor     x.Y.z       -> x.(Y+1).0
-#   patch     x.y.Z       -> x.y.(Z+1)
+#   patch     new month        -> YYYY.MM.0
+#             same month       -> YYYY.MM.(PATCH+1)
 #
 # Pre-release bumps (append/advance an -rcN suffix):
-#   premajor  X.y.z       -> (X+1).0.0-rc1
-#   preminor  x.Y.z       -> x.(Y+1).0-rc1
-#   prepatch  x.y.Z       -> x.y.(Z+1)-rc1
-#   rc        x.y.z-rcN   -> x.y.z-rc(N+1)   (requires an existing -rcN)
-#   finalize  x.y.z-rcN   -> x.y.z           (promote a candidate to stable)
+#   prepatch  like patch, but emits YYYY.MM.P-rc1
+#   rc        x.y.z-rcN        -> x.y.z-rc(N+1)   (requires an existing -rcN)
+#   finalize  x.y.z-rcN        -> x.y.z           (promote a candidate to stable)
+#
+# rc/finalize never touch the version core: a candidate started in June and
+# finalized in July still ships as 2026.06.x — the date reflects when the
+# release train started.
 #
 # A version with an -rcN suffix is treated as a pre-release: the release workflow
 # marks the GitHub Release as a pre-release so Obtainium ignores it unless the user
 # opts in. versionCode is NOT stored here — it is derived from versionName at build
-# time by the Android convention plugin (MAJOR*10000 + MINOR*100 + PATCH), which
+# time by the Android convention plugin (YEAR*10000 + MONTH*100 + PATCH), which
 # strips the suffix, so an -rcN and its final release share a versionCode.
+#
+# Set BUMP_DATE=YYYY-MM to override the current date (for testing).
 #
 # Output:
 #   - prints the new version name to stdout
@@ -31,9 +38,9 @@ set -euo pipefail
 
 BUMP="${1:-}"
 case "$BUMP" in
-  major|minor|patch|premajor|preminor|prepatch|rc|finalize) ;;
+  patch|prepatch|rc|finalize) ;;
   *)
-    echo "Usage: $0 <major|minor|patch|premajor|preminor|prepatch|rc|finalize>" >&2
+    echo "Usage: $0 <patch|prepatch|rc|finalize>" >&2
     exit 1
     ;;
 esac
@@ -46,17 +53,30 @@ if [[ ! -f "$PROPS" ]]; then
   exit 1
 fi
 
-current_name="$(grep -E '^versionName=' "$PROPS" | cut -d'=' -f2 | tr -d '[:space:]')"
+current_name="$( (grep -m1 -E '^versionName=' "$PROPS" || true) | cut -d'=' -f2 | tr -d '[:space:]')"
 
 if [[ -z "$current_name" ]]; then
   echo "versionName missing or malformed in $PROPS" >&2
   exit 1
 fi
 
-# Parse the semver core (everything before the first '-') and the current rc number.
+# Current UTC year/month, overridable for tests via BUMP_DATE=YYYY-MM.
+if [[ -n "${BUMP_DATE:-}" ]]; then
+  if [[ ! "$BUMP_DATE" =~ ^[0-9]{4}-[0-9]{2}$ ]]; then
+    echo "BUMP_DATE must be YYYY-MM (got '$BUMP_DATE')" >&2
+    exit 1
+  fi
+  now_year="${BUMP_DATE%-*}"
+  now_month="${BUMP_DATE#*-}"
+else
+  now_year="$(date -u +%Y)"
+  now_month="$(date -u +%m)"
+fi
+
+# Parse the version core (everything before the first '-').
 core_name="${current_name%%-*}"
-IFS='.' read -r major minor patch <<< "$core_name"
-major="${major:-0}"; minor="${minor:-0}"; patch="${patch:-0}"
+IFS='.' read -r cur_year cur_month cur_patch <<< "$core_name"
+cur_year="${cur_year:-0}"; cur_month="${cur_month:-0}"; cur_patch="${cur_patch:-0}"
 
 # Extract N from a current -rcN suffix, if any (else empty -> not a pre-release).
 rc=""
@@ -64,43 +84,73 @@ if [[ "$current_name" == *-rc* ]]; then
   rc="${current_name##*-rc}"
 fi
 
-pre=""   # set to "-rcN" to emit a pre-release version
+# Compare numerically (10# guards against zero-padded months being read as octal).
+same_month=false
+if [[ "$cur_year" =~ ^[0-9]+$ && "$cur_month" =~ ^[0-9]+$ ]]; then
+  if (( 10#$cur_year == 10#$now_year && 10#$cur_month == 10#$now_month )); then
+    same_month=true
+  elif (( 10#$cur_year * 100 + 10#$cur_month > 10#$now_year * 100 + 10#$now_month )); then
+    # A stored version ahead of today (clock skew, BUMP_DATE typo, bad hand edit)
+    # would regress the derived versionCode and break updates — refuse.
+    echo "stored version '$current_name' is ahead of the current date ${now_year}-${now_month}; fix the clock (or BUMP_DATE) or version.properties" >&2
+    exit 1
+  fi
+fi
+
+new_core=""  # set by patch/prepatch; rc/finalize keep the current core
+pre=""       # set to "-rcN" to emit a pre-release version
 case "$BUMP" in
-  major)    major=$((major + 1)); minor=0; patch=0 ;;
-  minor)    minor=$((minor + 1)); patch=0 ;;
-  patch)    patch=$((patch + 1)) ;;
-  premajor) major=$((major + 1)); minor=0; patch=0; pre="-rc1" ;;
-  preminor) minor=$((minor + 1)); patch=0; pre="-rc1" ;;
-  prepatch) patch=$((patch + 1)); pre="-rc1" ;;
+  patch|prepatch)
+    if $same_month; then
+      if [[ ! "$cur_patch" =~ ^[0-9]+$ ]]; then
+        echo "current patch component '$cur_patch' is not numeric in '$current_name'" >&2
+        exit 1
+      fi
+      new_patch=$((10#$cur_patch + 1))
+      if (( new_patch > 99 )); then
+        echo "patch component would exceed 99 ('$current_name'); the YYYYMMPP versionCode scheme caps PATCH at 99" >&2
+        exit 1
+      fi
+      new_core="${now_year}.${now_month}.${new_patch}"
+    else
+      new_core="${now_year}.${now_month}.0"
+    fi
+    if [[ "$BUMP" == "prepatch" ]]; then
+      pre="-rc1"
+    fi
+    ;;
   rc)
     if [[ -z "$rc" || ! "$rc" =~ ^[0-9]+$ ]]; then
-      echo "'rc' requires a current -rcN pre-release (got '$current_name'); start one with prepatch/preminor/premajor" >&2
+      echo "'rc' requires a current -rcN pre-release (got '$current_name'); start one with prepatch" >&2
       exit 1
     fi
-    pre="-rc$((rc + 1))"   # core stays put; only the candidate number advances
+    new_core="$core_name"
+    pre="-rc$((10#$rc + 1))"   # core stays put; only the candidate number advances
     ;;
   finalize)
     if [[ -z "$rc" || ! "$rc" =~ ^[0-9]+$ ]]; then
       echo "'finalize' requires a current -rcN pre-release to promote (got '$current_name')" >&2
       exit 1
     fi
-    # core stays put; pre cleared -> stable release
+    new_core="$core_name"   # core stays put; pre cleared -> stable release
     ;;
 esac
 
-new_name="${major}.${minor}.${patch}${pre}"
+new_name="${new_core}${pre}"
 tag="v${new_name}"
 
-# Rewrite version.properties, preserving the header comments.
+# Rewrite version.properties, preserving the header comments (and, by writing
+# through the original file rather than mv-ing a mktemp over it, its file mode).
 tmp="$(mktemp)"
 while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" == versionName=* ]]; then
-    echo "versionName=${new_name}"
+    printf '%s\n' "versionName=${new_name}"
   else
-    echo "$line"
+    printf '%s\n' "$line"
   fi
 done < "$PROPS" > "$tmp"
-mv "$tmp" "$PROPS"
+cat "$tmp" > "$PROPS"
+rm -f "$tmp"
 
 echo "$new_name"
 
