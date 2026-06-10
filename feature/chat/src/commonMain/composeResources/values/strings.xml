@@ -366,4 +366,18 @@
     <string name="send_block_agent_not_available">The selected agent isn\'t available on this server. Please pick a different agent.</string>
     <string name="send_block_model_not_available">The selected model isn\'t available on this server. Please pick a different model.</string>
     <string name="send_block_model_load_failed">Couldn\'t load the selected model yet. Please try again or pick a different model.</string>
+
+    <!-- Conversation media gallery ("Show all media") -->
+    <string name="action_show_all_media">Show all media</string>
+    <string name="media_gallery_title">Media</string>
+    <string name="media_tab_media">Media</string>
+    <string name="media_tab_files">Files</string>
+    <string name="media_tab_links">Links</string>
+    <string name="media_tab_artifacts">Artifacts</string>
+    <string name="media_scope_whole_chat">Whole chat</string>
+    <string name="media_scope_this_branch">This branch</string>
+    <string name="media_empty_media">No media in this conversation</string>
+    <string name="media_empty_files">No files in this conversation</string>
+    <string name="media_empty_links">No links in this conversation</string>
+    <string name="media_empty_artifacts">No artifacts in this conversation</string>
 </resources>

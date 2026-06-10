@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileOpen
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.SaveAs
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
@@ -113,6 +114,7 @@ actual fun ChatScreen(
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
     onNavigateBack: (() -> Unit)?,
+    onShowAllMedia: (() -> Unit)?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
     val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
@@ -340,6 +342,7 @@ actual fun ChatScreen(
                     onOpenDrawer = onOpenDrawer,
                     onOpenSearch = viewModel::openSearch,
                     onOpenPromptsLibrary = onNavigateToPromptsLibrary,
+                    onShowAllMedia = onShowAllMedia,
                     promptsEnabled = uiState.promptsEnabled,
                     presetsEnabled = uiState.presetsEnabled,
                     multiConvoEnabled = uiState.multiConvoEnabled,
@@ -850,6 +853,7 @@ private fun ChatTopBar(
     modifier: Modifier = Modifier,
     onOpenSearch: () -> Unit = {},
     onOpenPromptsLibrary: (() -> Unit)? = null,
+    onShowAllMedia: (() -> Unit)? = null,
     promptsEnabled: Boolean = true,
     presetsEnabled: Boolean = true,
     multiConvoEnabled: Boolean = true,
@@ -932,6 +936,18 @@ private fun ChatTopBar(
                         },
                         leadingIcon = {
                             Icon(Icons.Default.Search, contentDescription = null)
+                        },
+                    )
+                }
+                if (onShowAllMedia != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.action_show_all_media)) },
+                        onClick = {
+                            showOverflowMenu = false
+                            onShowAllMedia()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
                         },
                     )
                 }

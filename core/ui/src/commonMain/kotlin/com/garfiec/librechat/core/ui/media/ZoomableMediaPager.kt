@@ -1,5 +1,7 @@
 package com.garfiec.librechat.core.ui.media
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Close
@@ -21,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,17 +32,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.backhandler.PredictiveBackHandler
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
 import com.github.panpf.zoomimage.CoilZoomAsyncImage
 import com.github.panpf.zoomimage.rememberCoilZoomState
+import kotlinx.coroutines.CancellationException
 
 /**
  * A single zoomable/pannable media item displayed by [ZoomableMediaPager].
@@ -46,6 +52,7 @@ import com.github.panpf.zoomimage.rememberCoilZoomState
  * [url] is the resolved, ready-to-load image URL and doubles as the stable pager key,
  * so callers must dedupe by URL before passing the list in.
  */
+@Immutable
 data class MediaItem(
     val url: String,
     val contentDescription: String,
@@ -56,6 +63,7 @@ data class MediaItem(
  * Open-state for the media viewer, held in a ViewModel's UI state so it survives rotation.
  * `null` (the absence of this object) means the viewer is closed.
  */
+@Immutable
 data class MediaPreviewState(
     val items: List<MediaItem>,
     val initialIndex: Int,
@@ -75,7 +83,16 @@ data class MediaPreviewState(
  *
  * Each surface supplies its own toolbar buttons (save / share / download) via [actions];
  * core/ui owns only the close button + page counter.
+ *
+ * Rendered as an in-composition full-screen overlay (not a `Dialog`) so it can drive a
+ * predictive-back dismiss: a back-gesture shrinks the viewer and fades the scrim to reveal the
+ * screen behind, committing on release and springing back if cancelled. Callers therefore host
+ * it as the last child of a stacking layout (it overlays whatever it's emitted alongside).
  */
+// PredictiveBackHandler is deprecated in favour of NavigationEventHandler, which only lands in a
+// later Compose; this stays on the working API until the Compose version is bumped.
+@Suppress("DEPRECATION")
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ZoomableMediaPager(
     items: List<MediaItem>,
@@ -92,17 +109,42 @@ fun ZoomableMediaPager(
         return
     }
     val startIndex = initialIndex.coerceIn(0, items.size - 1)
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+
+    // Drives the predictive-back animation: 0 = at rest, 1 = gesture fully committed. Snapped to
+    // the live gesture progress while dragging; commit dismisses, cancel springs back to 0.
+    val backProgress = remember { Animatable(0f) }
+    PredictiveBackHandler { progress ->
+        try {
+            progress.collect { event -> backProgress.snapTo(event.progress) }
+            currentOnDismiss()
+        } catch (cancellation: CancellationException) {
+            backProgress.animateTo(0f, animationSpec = spring())
+            throw cancellation
+        }
+    }
+
+    val pagerState = rememberPagerState(initialPage = startIndex) { items.size }
+    val platformContext = LocalPlatformContext.current
+    val imageLoader = remember(platformContext) { SingletonImageLoader.get(platformContext) }
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            // Scrim dims with the gesture so the underlying screen shows through as the viewer
+            // shrinks, but only down to MIN_SCRIM_ALPHA — it never goes fully transparent, so the
+            // viewer stays visually distinct from the screen behind until it commits.
+            .background(Color.Black.copy(alpha = 1f - (1f - MIN_SCRIM_ALPHA) * backProgress.value)),
     ) {
-        val pagerState = rememberPagerState(initialPage = startIndex) { items.size }
-        val platformContext = LocalPlatformContext.current
-        val imageLoader = remember(platformContext) { SingletonImageLoader.get(platformContext) }
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black),
+                .graphicsLayer {
+                    val progress = backProgress.value
+                    val scale = 1f - 0.15f * progress
+                    scaleX = scale
+                    scaleY = scale
+                    clip = progress > 0f
+                    shape = RoundedCornerShape((28f * progress).dp)
+                },
         ) {
             HorizontalPager(
                 state = pagerState,
@@ -153,6 +195,11 @@ fun ZoomableMediaPager(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
+                    // Fade the toolbar out faster than the image so it's already gone by the time
+                    // the back gesture is partway through (TOOLBAR_FADE_END), leaving a clean image.
+                    .graphicsLayer {
+                        alpha = (1f - backProgress.value / TOOLBAR_FADE_END).coerceIn(0f, 1f)
+                    }
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -183,6 +230,12 @@ fun ZoomableMediaPager(
         }
     }
 }
+
+/** Scrim opacity at full back-gesture progress — the viewer dims but never goes fully transparent. */
+private const val MIN_SCRIM_ALPHA = 0.6f
+
+/** Back-gesture progress at which the top toolbar has fully faded out (halfway through the swipe). */
+private const val TOOLBAR_FADE_END = 0.5f
 
 private enum class MediaLoadState { LOADING, SUCCESS, ERROR }
 

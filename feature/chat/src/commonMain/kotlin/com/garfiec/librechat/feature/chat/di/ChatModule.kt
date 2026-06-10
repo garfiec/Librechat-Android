@@ -1,7 +1,9 @@
 package com.garfiec.librechat.feature.chat.di
 
+import com.garfiec.librechat.core.common.di.KoinQualifiers
 import com.garfiec.librechat.feature.chat.prompts.PromptEditorViewModel
 import com.garfiec.librechat.feature.chat.prompts.PromptsViewModel
+import com.garfiec.librechat.feature.chat.viewmodel.ConversationMediaViewModel
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -20,6 +22,18 @@ val chatModule = module {
         PromptEditorViewModel(
             promptRepository = get(),
             initialGroupId = params.getOrNull(),
+        )
+    }
+    // conversationId arrives from the navigation layer via parametersOf — same reason as above.
+    @Suppress("DeprecatedKoinApi")
+    viewModel { params ->
+        ConversationMediaViewModel(
+            conversationId = params.get(),
+            messageRepository = get(),
+            fileRepository = get(),
+            userRepository = get(),
+            serverDataStore = get(),
+            defaultDispatcher = get(KoinQualifiers.Default),
         )
     }
 }

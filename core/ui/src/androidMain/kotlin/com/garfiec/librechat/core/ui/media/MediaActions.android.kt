@@ -121,6 +121,46 @@ actual fun rememberShareImage(): (url: String) -> Unit {
     }
 }
 
+@Composable
+actual fun rememberShareFile(): (bytes: ByteArray, filename: String, mime: String?) -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    return remember(context, scope) {
+        { bytes, filename, mime ->
+            scope.launch {
+                try {
+                    val file = withContext(Dispatchers.IO) {
+                        val dir = File(context.cacheDir, "shared_files")
+                        dir.mkdirs()
+                        // Sweep prior shares safely past any in-flight read (mirrors the image path).
+                        sweepStaleFiles(dir, STALE_THRESHOLD_MS)
+                        val f = File(dir, sanitizeFilename(filename))
+                        f.writeBytes(bytes)
+                        f
+                    }
+                    val contentUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        file,
+                    )
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        putExtra(Intent.EXTRA_STREAM, contentUri)
+                        type = mime?.takeIf { it.isNotBlank() } ?: "application/octet-stream"
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, null))
+                } catch (e: Exception) {
+                    toast(context, "Failed to share file: ${e.localizedMessage ?: ""}")
+                }
+            }
+        }
+    }
+}
+
+/** Strips path separators so a server-supplied filename can't escape the cache dir. */
+private fun sanitizeFilename(filename: String): String =
+    filename.substringAfterLast('/').substringAfterLast('\\').ifBlank { "file" }
+
 private suspend fun saveUrlToGallery(context: Context, url: String) {
     try {
         val image = loadEncodedImage(context, url)

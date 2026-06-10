@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavKey
 import com.garfiec.librechat.feature.chat.prompts.PromptEditorScreen
 import com.garfiec.librechat.feature.chat.prompts.PromptsLibraryScreen
 import com.garfiec.librechat.feature.chat.screen.ChatScreen
+import com.garfiec.librechat.feature.chat.screen.ConversationMediaScreen
 import com.garfiec.librechat.feature.chat.screen.NewChatScreen
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
@@ -23,6 +24,9 @@ import kotlinx.serialization.modules.subclass
 @Serializable data object PromptsLibrary : ChatRoute
 
 @Serializable data class PromptEditor(val groupId: String? = null) : ChatRoute
+
+/** Telegram-style "Show all media" gallery for a single conversation. */
+@Serializable data class ConversationMedia(val conversationId: String) : ChatRoute
 
 fun EntryProviderScope<NavKey>.chatEntries(
     onNavigate: (NavKey) -> Unit,
@@ -55,7 +59,15 @@ fun EntryProviderScope<NavKey>.chatEntries(
             onNavigateToPromptsLibrary = { onNavigate(PromptsLibrary) },
             onNavigateBack = onBack,
             onNavigateToConversation = { conversationId -> onNavigateToChat(conversationId) },
+            // Null on a new chat with no id yet, which hides the overflow menu item.
+            onShowAllMedia = key.conversationId?.let { id -> { onNavigate(ConversationMedia(id)) } },
             onNavigateToProviderKeys = onNavigateToProviderKeys,
+        )
+    }
+    entry<ConversationMedia> { key ->
+        ConversationMediaScreen(
+            conversationId = key.conversationId,
+            onNavigateBack = onBack,
         )
     }
     entry<PromptsLibrary> {
@@ -81,5 +93,6 @@ val chatSerializersModule = SerializersModule {
         subclass(Chat::class, Chat.serializer())
         subclass(PromptsLibrary::class, PromptsLibrary.serializer())
         subclass(PromptEditor::class, PromptEditor.serializer())
+        subclass(ConversationMedia::class, ConversationMedia.serializer())
     }
 }

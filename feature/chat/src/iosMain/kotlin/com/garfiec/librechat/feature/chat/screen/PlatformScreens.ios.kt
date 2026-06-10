@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileOpen
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.SaveAs
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
@@ -96,6 +97,7 @@ actual fun ChatScreen(
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
     onNavigateBack: (() -> Unit)?,
+    onShowAllMedia: (() -> Unit)?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
     val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
@@ -241,6 +243,18 @@ actual fun ChatScreen(
                                         },
                                         leadingIcon = {
                                             Icon(Icons.Default.Search, contentDescription = null)
+                                        },
+                                    )
+                                }
+                                if (onShowAllMedia != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(Res.string.action_show_all_media)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            onShowAllMedia()
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
                                         },
                                     )
                                 }

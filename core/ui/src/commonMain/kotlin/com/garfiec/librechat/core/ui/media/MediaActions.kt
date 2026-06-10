@@ -21,3 +21,15 @@ expect fun rememberSaveImageToGallery(): ((url: String) -> Unit)?
  */
 @Composable
 expect fun rememberShareImage(): (url: String) -> Unit
+
+/**
+ * Returns a handler that shares an arbitrary file (the already-downloaded [bytes]) via the platform
+ * share sheet, letting the user open it in another app, save to Files, AirDrop, etc. Unlike
+ * [rememberShareImage] this takes raw bytes because non-image files aren't in Coil's cache — the
+ * caller downloads them (authenticated) first. [filename] names the temp file (so the chooser shows
+ * the real name + extension) and [mime] hints the content type when known.
+ *
+ * Composable so the Android implementation can resolve a `Context` from composition.
+ */
+@Composable
+expect fun rememberShareFile(): (bytes: ByteArray, filename: String, mime: String?) -> Unit

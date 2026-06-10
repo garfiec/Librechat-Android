@@ -14,6 +14,9 @@ expect fun ChatScreen(
     onOpenDrawer: (() -> Unit)? = null,
     onNavigateToPromptsLibrary: (() -> Unit)? = null,
     onNavigateBack: (() -> Unit)? = null,
+    /** Opens the "Show all media" gallery for the current conversation. Null (and the menu item
+     *  hidden) on a brand-new chat that has no conversation id yet. */
+    onShowAllMedia: (() -> Unit)? = null,
     /**
      * Deep-link CTA from the user-provided-key error snackbar and the
      * model-selector "Set API Key" CTA on greyed endpoint groups. Tap navigates to
