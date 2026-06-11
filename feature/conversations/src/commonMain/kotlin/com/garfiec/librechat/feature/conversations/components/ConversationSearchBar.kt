@@ -21,6 +21,9 @@ import com.garfiec.librechat.feature.conversations.resources.*
 import com.garfiec.librechat.feature.conversations.resources.Res
 import org.jetbrains.compose.resources.stringResource
 
+// Hoisted so the shape isn't reallocated on every keystroke recomposition.
+private val SearchBarShape = RoundedCornerShape(28.dp)
+
 @Composable
 fun ConversationSearchBar(
     query: String,
@@ -57,7 +60,7 @@ fun ConversationSearchBar(
         },
         textStyle = MaterialTheme.typography.bodyMedium,
         singleLine = true,
-        shape = RoundedCornerShape(28.dp),
+        shape = SearchBarShape,
         colors = TextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

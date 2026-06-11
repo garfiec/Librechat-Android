@@ -61,6 +61,9 @@ import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListVie
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
+// Hoisted: compiled once instead of per export event.
+private val ExportFileNameSanitizer = Regex("[^a-zA-Z0-9._-]")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationListScreen(
@@ -128,7 +131,7 @@ fun ConversationListScreen(
                         ExportFormat.JSON -> "json"
                         ExportFormat.MARKDOWN -> "md"
                     }
-                    val safeTitle = event.title.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                    val safeTitle = event.title.replace(ExportFileNameSanitizer, "_")
                     pendingExportFileName = "$safeTitle.$ext"
                 }
                 is ConversationListEvent.ImportSuccess -> {

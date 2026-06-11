@@ -25,6 +25,10 @@ private val HueSpectrumBrush = Brush.horizontalGradient(
 )
 private val ValueOverlayBrush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black))
 
+// Static clip shapes hoisted out of the Canvas modifier chains (core/ui rule 13).
+private val PanelShape = RoundedCornerShape(12.dp)
+private val SliderShape = RoundedCornerShape(14.dp)
+
 /**
  * Stateless saturation/value selection panel. Renders a white -> hue horizontal
  * gradient overlaid with a transparent -> black vertical gradient, plus a thumb at
@@ -57,7 +61,7 @@ fun SaturationValuePanel(
         modifier = modifier
             .fillMaxWidth()
             .height(200.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(PanelShape)
             .pointerInput(Unit) {
                 detectTapGestures { offset -> report(offset, size.width, size.height) }
             }
@@ -98,7 +102,7 @@ fun HueSlider(
         modifier = modifier
             .fillMaxWidth()
             .height(28.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(SliderShape)
             .pointerInput(Unit) {
                 detectTapGestures { offset -> report(offset, size.width) }
             }
