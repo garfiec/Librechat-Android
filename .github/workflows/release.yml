@@ -146,6 +146,39 @@ jobs:
           git tag -a "$TAG" -m "Release $TAG"
           git push --atomic origin "HEAD:${{ github.ref_name }}" "refs/tags/$TAG"
 
+      # Assemble the full release body ourselves so we can put shields.io badges at the
+      # very TOP — above GitHub's auto-changelog. The action's append_body can only append
+      # AFTER the generated notes, never prepend, so we generate the notes via the API and
+      # stitch the final body in order: badges → changelog → provenance footer.
+      - name: Build release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.bump.outputs.tag }}
+          BACKEND: ${{ steps.backend.outputs.target }}
+          APK: ${{ steps.artifacts.outputs.apk }}
+        run: |
+          # Generate the same changelog GitHub would auto-produce. Omitting previous_tag_name
+          # lets the API auto-detect the prior tag, matching the old generate_release_notes.
+          gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name="$TAG" --jq .body > "$RUNNER_TEMP/changelog.md"
+
+          # Badge row (rendered side-by-side). The Target Backend badge replaces the old
+          # plain-text "Target backend: LibreChat v…" line. The APK Downloads badge tracks
+          # download counts for this release's APK asset.
+          {
+            printf '![Target Backend](https://img.shields.io/badge/Target_Backend-LibreChat_v%s-orange)' "$BACKEND"
+            printf ' '
+            printf '![APK Downloads](https://img.shields.io/github/downloads/garfiec/Librechat-Mobile/%s/%s?displayAssetName=false&logo=android&label=APK%%20Downloads&color=blue)\n' "$TAG" "$APK"
+            printf '\n'
+            cat "$RUNNER_TEMP/changelog.md"
+            # Slim provenance footer: discoverability links, not proof. Canonical "how to
+            # verify a download" instructions live in docs/RELEASING.md + README.
+            printf '\n\n---\n'
+            printf '[Build provenance attestation](%s) · [CI workflow run](%s/%s/actions/runs/%s)\n' \
+              "${{ steps.attest.outputs.attestation-url }}" \
+              "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}"
+          } > "$RUNNER_TEMP/body.md"
+
       - name: Create draft release
         # Pinned to a commit SHA (not a moving tag): this step runs with a
         # contents:write token, so a hijacked tag could push tags/releases on our
@@ -158,17 +191,11 @@ jobs:
           # A hyphenated version (e.g. 2026.07.1-rc1) is a pre-release; Obtainium then
           # ignores it unless the user opts into "Include prereleases".
           prerelease: ${{ contains(steps.bump.outputs.tag, '-') }}
-          generate_release_notes: true
-          # Append a slim provenance footer to the auto-generated changelog (don't replace it).
-          # These links are for discoverability, not proof; the canonical "how to verify a
-          # download" instructions live in docs/RELEASING.md + README, not in every release.
-          append_body: true
-          body: |
-
-            ---
-            **Target backend:** LibreChat v${{ steps.backend.outputs.target }}
-
-            [Build provenance attestation](${{ steps.attest.outputs.attestation-url }}) · [CI workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          # We pre-assemble the full body (badges → changelog → footer) in the previous
+          # step, so disable the action's own note generation/append.
+          generate_release_notes: false
+          append_body: false
+          body_path: ${{ runner.temp }}/body.md
           files: |
             ${{ steps.artifacts.outputs.apk }}
             ${{ steps.artifacts.outputs.apk }}.sha256
