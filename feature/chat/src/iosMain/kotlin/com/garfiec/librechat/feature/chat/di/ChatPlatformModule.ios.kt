@@ -46,6 +46,7 @@ actual val chatPlatformModule: Module = module {
             platformDelegateFactory = get(),
             json = get(),
             defaultDispatcher = get(KoinQualifiers.Default),
+            selectionHandoff = get(),
         )
     }
 }

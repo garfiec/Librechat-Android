@@ -29,7 +29,10 @@ import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
+import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.Attachment
+import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.StreamEvent
@@ -112,6 +115,7 @@ class ChatViewModel(
     platformDelegateFactory: PlatformDelegateFactory,
     private val json: Json,
     private val defaultDispatcher: CoroutineDispatcher,
+    private val selectionHandoff: NewChatSelectionHandoff,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -279,6 +283,19 @@ class ChatViewModel(
                     screenState = ChatScreenState.LOADING,
                 )
             }
+            // If we arrived here straight from the NewChat landing (the common case for a
+            // just-created chat), the landing VM staged the exact (endpoint, model) it sent.
+            // Apply it up front so the header/selection is correct immediately and the
+            // racy loadConversationModel GET below can't clobber it with a fallback guess
+            // when the server hasn't persisted the conversation yet (the created-before-save
+            // race). See NewChatSelectionHandoff.
+            selectionHandoff.take(conversationId)?.let { handoff ->
+                Diag.d(
+                    tag = "ModelSel",
+                    attrs = mapOf("endpoint" to handoff.endpoint, "model" to (handoff.model ?: "null")),
+                ) { "handoff applied for $conversationId" }
+                modelDelegate.applyResolvedConversationModel(handoff.endpoint, handoff.model)
+            }
             loadConversation(conversationId)
             loadConversationModel(conversationId)
             restoreDraft(conversationId)
@@ -403,7 +420,7 @@ class ChatViewModel(
             // flips its agentsLoaded flag on every path (including denial). Skipping it
             // here would leave the flag false and park the seeder on the agents tier
             // forever (no model on the landing) for agents-denied users.
-            modelDelegate.loadAgents()
+            modelDelegate.loadAgents(isNewConversation)
         }
     }
 
@@ -475,33 +492,53 @@ class ChatViewModel(
             val result = conversationRepository.getConversation(conversationId)
             val conversation = result.getOrNull()
             if (conversation != null) {
-                val endpoint = conversation.endpoint
-                val model = conversation.model
-                val isAgentConversation = endpoint == EndpointConstants.AGENTS
-                val resolvedModel = if (isAgentConversation) {
-                    conversation.agentId ?: model
-                } else {
-                    model
-                }
-                _uiState.update {
-                    it.copy(
-                        selectedEndpoint = if (endpoint != null && (resolvedModel != null || isAgentConversation)) {
-                            endpoint
-                        } else {
-                            it.selectedEndpoint
-                        },
-                        selectedModel = if (endpoint != null && resolvedModel != null) {
-                            resolvedModel
-                        } else {
-                            it.selectedModel
-                        },
-                        conversationTitle = conversation.title,
-                    )
-                }
+                _uiState.update { it.copy(conversationTitle = conversation.title) }
+                val applied = applyConversationModel(conversation)
+                Diag.d(
+                    tag = "ModelSel",
+                    attrs = mapOf(
+                        "found" to "true",
+                        "applied" to applied.toString(),
+                        "endpoint" to (conversation.endpoint ?: "null"),
+                    ),
+                ) { "loadConversationModel resolved for $conversationId" }
+            } else {
+                // The just-created conversation isn't readable yet: the server emits the
+                // `created` SSE event before the unawaited save persists it, so this GET can
+                // race that save and 404. The in-process handoff already seeded the correct
+                // selection in init, so we deliberately leave it untouched here. Only mark
+                // "load attempted" — never "resolved" — so handleFinal can re-derive later.
+                Diag.w(
+                    tag = "ModelSel",
+                    origin = LogOrigin.SERVER,
+                    attrs = mapOf("found" to "false"),
+                ) { "loadConversationModel: conversation not readable for $conversationId" }
             }
             modelDelegate.conversationModelLoaded = true
             modelDelegate.refilterModels(isNewConversation)
         }
+    }
+
+    /**
+     * Resolves a loaded [conversation]'s authoritative (endpoint, model) and applies it as
+     * the active selection via [ModelSelectionDelegate.applyResolvedConversationModel].
+     * Agents conversations carry the agent in `agentId`, so prefer that over `model` for the
+     * AGENTS endpoint. Returns true when a concrete selection was applied (i.e. the
+     * conversation model is now resolved), false when the conversation lacked enough info.
+     */
+    private fun applyConversationModel(conversation: Conversation): Boolean {
+        val endpoint = conversation.endpoint
+        val isAgentConversation = endpoint == EndpointConstants.AGENTS
+        val resolvedModel = if (isAgentConversation) {
+            conversation.agentId ?: conversation.model
+        } else {
+            conversation.model
+        }
+        if (endpoint != null && resolvedModel != null) {
+            modelDelegate.applyResolvedConversationModel(endpoint, resolvedModel)
+            return true
+        }
+        return false
     }
 
     private fun refreshConversationTitle(conversationId: String) {
@@ -1309,6 +1346,12 @@ class ChatViewModel(
             }
         }
         if (isNewConversation) {
+            // Stage the selection we actually sent so the about-to-be-created Chat(id) VM can
+            // apply it directly instead of re-deriving it from a GET that races the server's
+            // unawaited conversation save. Keyed by id, so a deferred nav (comparison-mode
+            // branch) still picks it up. See NewChatSelectionHandoff.
+            val sent = _uiState.value
+            selectionHandoff.put(event.conversationId, sent.selectedEndpoint, sent.selectedModel)
             _uiState.update {
                 if (it.pendingNavigationConversationId == null && !it.comparisonState.isEnabled) {
                     it.copy(pendingNavigationConversationId = event.conversationId)
@@ -1375,6 +1418,17 @@ class ChatViewModel(
             }
         }
         val finalConversation = event.conversation
+        // Belt-and-braces: if no handoff seeded the selection and the initial GET 404'd
+        // against the created-before-save race, the conversation model is still unresolved.
+        // The Final event carries the authoritative conversation, so re-derive from it here
+        // rather than leaving a fallback guess on screen.
+        if (!modelDelegate.conversationModelResolved && finalConversation != null) {
+            val applied = applyConversationModel(finalConversation)
+            Diag.i(
+                tag = "ModelSel",
+                attrs = mapOf("applied" to applied.toString()),
+            ) { "handleFinal re-derived conversation model" }
+        }
         // SECURITY: do not remove — temp-chat data-at-rest guard.
         // Temporary chats (v0.8.6) are kept out of normal history — the server excludes
         // them from the conversation list, so don't cache them to Room either (it would

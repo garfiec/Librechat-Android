@@ -1,0 +1,45 @@
+package com.garfiec.librechat.feature.chat.viewmodel
+
+/**
+ * In-process, single-slot handoff of the model selection from the NewChat landing
+ * ViewModel to the freshly-created Chat(id) ViewModel.
+ *
+ * Why this exists: navigation to `Chat(id)` fires at the `created` SSE event, but the
+ * server emits `created` BEFORE it has persisted the conversation (the save is
+ * unawaited). The new VM's `loadConversationModel` GET therefore races that save and
+ * can 404, leaving the selection to be re-derived from a fallback guess — which is how
+ * the wrong model ends up displayed (and, worse, used on a follow-up send). The landing
+ * VM already knows exactly what it sent, so it hands that off here instead of forcing
+ * the new VM to re-read it from a racy server endpoint.
+ *
+ * Single-slot by design: only one new-chat → Chat(id) transition can be in flight at a
+ * time. [take] returns the entry only when the conversationId matches, so a stale entry
+ * (e.g. the transition never completed) can never be mis-applied to a different chat.
+ *
+ * Threading: both the [put] (in `handleCreated`) and [take] (in `ChatViewModel.init`)
+ * call sites run on the ViewModel's main-dispatcher scope, so no locking is needed.
+ * It also self-expires across process death — the slot is empty on restart, and by then
+ * the conversation GET succeeds anyway (the race window is milliseconds).
+ */
+class NewChatSelectionHandoff {
+
+    data class Selection(
+        val conversationId: String,
+        val endpoint: String,
+        val model: String?,
+    )
+
+    private var pending: Selection? = null
+
+    fun put(conversationId: String, endpoint: String, model: String?) {
+        pending = Selection(conversationId, endpoint, model)
+    }
+
+    /** Returns and clears the pending selection only when it was staged for [conversationId]. */
+    fun take(conversationId: String): Selection? {
+        val current = pending ?: return null
+        if (current.conversationId != conversationId) return null
+        pending = null
+        return current
+    }
+}

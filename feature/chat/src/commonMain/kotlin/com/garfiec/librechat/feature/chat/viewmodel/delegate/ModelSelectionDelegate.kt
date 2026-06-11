@@ -9,6 +9,7 @@ import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
+import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.mcp.McpServer
@@ -61,12 +62,37 @@ class ModelSelectionDelegate(
     var cachedLastUsedModel: String? = null
 
     /**
-     * True once the conversation's model has been loaded from the server.
-     * Used to prevent [refilterModels] from overwriting the conversation
-     * model with a fallback before loadConversationModel has had a chance
-     * to set it.
+     * True once a conversation-model LOAD has been attempted (success, 404, or new-chat
+     * short-circuit). Used to prevent [refilterModels] from overwriting the conversation
+     * model with a fallback before loadConversationModel has had a chance to set it.
+     *
+     * NOTE: "attempted", not "succeeded" — a 404 (the created-before-save race) still flips
+     * this. To tell "we actually have the conversation's real model" use
+     * [conversationModelResolved].
      */
     var conversationModelLoaded = false
+
+    /**
+     * True once the conversation's authoritative (endpoint, model) has actually been applied
+     * — either from the in-process new-chat handoff or from a successful conversation read.
+     * Distinct from [conversationModelLoaded], which only records that a load was attempted
+     * (and is set even on a 404). [ChatViewModel.handleFinal] re-derives the selection from
+     * the Final event only while this is still false, so a racy 404 can't strand a fallback
+     * guess on screen.
+     */
+    var conversationModelResolved = false
+
+    /**
+     * Applies an authoritative conversation (endpoint, model) as the active selection and
+     * marks the conversation model both loaded and resolved. The single write point for a
+     * resolved existing/just-created conversation's selection — used by the new-chat handoff
+     * and by [ChatViewModel]'s conversation reads — so the flags can't drift from the value.
+     */
+    fun applyResolvedConversationModel(endpoint: String, model: String?) {
+        applySelection(endpoint, model, reason = "conversationResolved")
+        conversationModelLoaded = true
+        conversationModelResolved = true
+    }
 
     /**
      * True once [loadAgents] has finished on ANY path (success, error, or
@@ -153,8 +179,31 @@ class ModelSelectionDelegate(
         val lastEndpoint = cachedLastUsedEndpoint
         val lastModel = cachedLastUsedModel
         if (lastEndpoint != null && lastModel != null) {
-            val lastModelsForEndpoint = filtered[lastEndpoint]
-            if (lastModelsForEndpoint != null && lastModel in lastModelsForEndpoint) {
+            val lastUsedRestorable = if (lastEndpoint == EndpointConstants.AGENTS) {
+                // Agents never appear in `filtered` (/api/models has no "agents" key), so the
+                // old `filtered[lastEndpoint]` check always failed and a valid agents last-used
+                // was silently skipped to a config model. Validate the agent id against the
+                // authoritative agents list instead (mirroring selectability()). Hold — don't
+                // fall through to a config-model guess — until that list has loaded; loadAgents
+                // re-runs refilterModels on success to un-stick this.
+                when {
+                    !agentsLoaded.value -> return
+                    stateHandle.state.agents.any { it.id == lastModel } -> true
+                    else -> false
+                }
+            } else {
+                val lastModelsForEndpoint = filtered[lastEndpoint]
+                lastModelsForEndpoint != null && lastModel in lastModelsForEndpoint
+            }
+            if (lastUsedRestorable) {
+                Diag.w(
+                    tag = "ModelSel",
+                    attrs = mapOf(
+                        "branch" to "lastUsed",
+                        "from" to (currentModel ?: "null"),
+                        "endpoint" to lastEndpoint,
+                    ),
+                ) { "refilterModels corrective fallback → last-used" }
                 stateHandle.update {
                     copy(
                         selectedEndpoint = lastEndpoint,
@@ -167,6 +216,14 @@ class ModelSelectionDelegate(
 
         val firstEndpoint = filtered.entries.firstOrNull()
         if (firstEndpoint != null) {
+            Diag.w(
+                tag = "ModelSel",
+                attrs = mapOf(
+                    "branch" to "firstModel",
+                    "from" to (currentModel ?: "null"),
+                    "endpoint" to firstEndpoint.key,
+                ),
+            ) { "refilterModels corrective fallback → first model" }
             stateHandle.update {
                 copy(
                     selectedEndpoint = firstEndpoint.key,
@@ -275,7 +332,7 @@ class ModelSelectionDelegate(
             // (agentsLoaded=true, agents=[]) emission would score the agent INVALID/PENDING
             // and clobber it to a config model.
             holdAgentForPopulate = true
-            applySelection(EndpointConstants.AGENTS, agentId)
+            applySelection(EndpointConstants.AGENTS, agentId, reason = "tier0-agentOverride")
             return
         }
         val lastUsedSelectability = lastUsed?.let {
@@ -283,7 +340,7 @@ class ModelSelectionDelegate(
         }
         fun applyLastUsed(): Boolean {
             if (lastUsed != null && lastUsedSelectability == Selectability.VALID) {
-                applySelection(lastUsed.first, lastUsed.second)
+                applySelection(lastUsed.first, lastUsed.second, reason = "tier1-lastUsed")
                 lastAppliedLastUsed = lastUsed
                 return true
             }
@@ -372,7 +429,7 @@ class ModelSelectionDelegate(
             if (!input.agentsLoaded) return // WAIT for the agent list
             val firstAgent = input.agents.firstOrNull()
             if (firstAgent != null) {
-                applySelection(EndpointConstants.AGENTS, firstAgent.id)
+                applySelection(EndpointConstants.AGENTS, firstAgent.id, reason = "tier2-firstAgent")
                 return
             }
             // Agents loaded and genuinely empty — fall through.
@@ -381,12 +438,24 @@ class ModelSelectionDelegate(
         // Tier 3: first available config model.
         if (filtered.isEmpty()) return // WAIT for models
         val firstEntry = filtered.entries.firstOrNull() ?: return
-        applySelection(firstEntry.key, firstEntry.value.firstOrNull())
+        applySelection(firstEntry.key, firstEntry.value.firstOrNull(), reason = "tier3-firstModel")
     }
 
-    private fun applySelection(endpoint: String, model: String?) {
+    private fun applySelection(endpoint: String, model: String?, reason: String) {
+        val previous = stateHandle.state
+        val changed = previous.selectedEndpoint != endpoint || previous.selectedModel != model
         stateHandle.update {
             copy(selectedEndpoint = endpoint, selectedModel = model)
+        }
+        if (changed) {
+            Diag.d(
+                tag = "ModelSel",
+                attrs = mapOf(
+                    "reason" to reason,
+                    "endpoint" to endpoint,
+                    "model" to (model ?: "null"),
+                ),
+            ) { "applySelection" }
         }
     }
 
@@ -584,13 +653,15 @@ class ModelSelectionDelegate(
      * [agentsLoaded] on every exit path so the seeder can distinguish "agents
      * still loading" (wait) from "agents loaded and empty" (fall through).
      */
-    fun loadAgents() {
+    fun loadAgents(isNewConversation: Boolean) {
         stateHandle.scope.launch {
             // Skip the fetch entirely when the role denies AGENTS.USE; otherwise
             // the server would return 403 and we'd have to decide whether it's a
             // genuine 403 (rate limit, tenancy) vs. permission denial.
             if (permissionGate.awaitRole()?.hasAccess(PermissionType.AGENTS, Permission.USE) == false) {
                 agentsLoaded.value = true
+                // Un-stick the corrective-fallback hold (see below) even on this path.
+                refilterModels(isNewConversation)
                 return@launch
             }
             when (val result = agentRepository.getAgents()) {
@@ -607,8 +678,14 @@ class ModelSelectionDelegate(
                     stateHandle.update { copy(error = "Could not load available agents") }
                     agentsLoaded.value = true
                 }
-                is Result.Loading -> { /* no-op */ }
+                is Result.Loading -> return@launch
             }
+            // The existing-conversation corrective fallback in [refilterModels] HOLDS
+            // (returns early) for an agents last-used while the agents list is unloaded.
+            // Re-run on EVERY terminal path that flips [agentsLoaded] — success, error,
+            // AND denial — so the hold is always released; an error/denied load (empty
+            // list) correctly falls through to a config model instead of staying stuck.
+            refilterModels(isNewConversation)
         }
     }
 

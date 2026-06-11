@@ -10,6 +10,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:network"))
+            implementation(project(":core:logging"))
             implementation(libs.atomicfu)
             implementation(libs.kermit)
             implementation(libs.kotlinx.serialization.json)

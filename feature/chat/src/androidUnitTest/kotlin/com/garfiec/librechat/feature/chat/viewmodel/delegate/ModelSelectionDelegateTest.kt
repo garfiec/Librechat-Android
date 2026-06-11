@@ -291,7 +291,7 @@ class ModelSelectionDelegateTest {
         coEvery { agentRepository.getAgents() } returns
             Result.Success(listOf(Agent(id = "agent_1"), Agent(id = "agent_2")))
 
-        delegate.loadAgents()
+        delegate.loadAgents(isNewConversation = false)
         advanceUntilIdle()
 
         assertThat(handle.state.agents).hasSize(2)
@@ -308,7 +308,7 @@ class ModelSelectionDelegateTest {
         val delegate = newDelegate(handle)
         denyAgents()
 
-        delegate.loadAgents()
+        delegate.loadAgents(isNewConversation = false)
         advanceUntilIdle()
 
         coVerify(exactly = 0) { agentRepository.getAgents() }
@@ -327,7 +327,7 @@ class ModelSelectionDelegateTest {
         allowAgents()
         coEvery { agentRepository.getAgents() } returns Result.Error(RuntimeException("boom"))
 
-        delegate.loadAgents()
+        delegate.loadAgents(isNewConversation = false)
         advanceUntilIdle()
 
         assertThat(handle.state.error).isEqualTo("Could not load available agents")
@@ -540,7 +540,7 @@ class ModelSelectionDelegateTest {
         availableModels.value = mapOf("openAI" to listOf("gpt-4o"))
 
         delegate.seedInitialSelection(isNewConversation = true)
-        delegate.loadAgents()
+        delegate.loadAgents(isNewConversation = true)
         advanceUntilIdle()
 
         assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
@@ -561,7 +561,7 @@ class ModelSelectionDelegateTest {
         availableModels.value = mapOf("openAI" to listOf("gpt-4o"))
 
         delegate.seedInitialSelection(isNewConversation = true)
-        delegate.loadAgents()
+        delegate.loadAgents(isNewConversation = true)
         advanceUntilIdle()
 
         assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
@@ -761,5 +761,118 @@ class ModelSelectionDelegateTest {
         // Must NOT be stranded on the (nonexistent) agent — resolve to a config model.
         assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
         assertThat(handle.state.selectedModel).isEqualTo("gpt-4o")
+    }
+
+    // ── Group E: conversation-model resolution + agents corrective fallback ───
+    // Covers the new-chat-display-race fix (the handoff applies via
+    // applyResolvedConversationModel) and the agents hole in the existing-
+    // conversation corrective fallback.
+
+    @Test
+    fun applyResolvedConversationModelSetsSelectionAndFlagsAndRefilterDoesNotClobber() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, ChatUiState(conversationId = "c1"))
+        val delegate = newDelegate(handle)
+
+        delegate.applyResolvedConversationModel("anthropic", "claude-3")
+
+        assertThat(handle.state.selectedEndpoint).isEqualTo("anthropic")
+        assertThat(handle.state.selectedModel).isEqualTo("claude-3")
+        assertThat(delegate.conversationModelLoaded).isTrue()
+        assertThat(delegate.conversationModelResolved).isTrue()
+
+        // A subsequent existing-conversation refilter must leave the resolved selection alone.
+        availableModels.value = mapOf("anthropic" to listOf("claude-3"), "openAI" to listOf("gpt-4o"))
+        delegate.refilterModels(isNewConversation = false)
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedEndpoint).isEqualTo("anthropic")
+        assertThat(handle.state.selectedModel).isEqualTo("claude-3")
+        coVerify(exactly = 0) { settingsDataStore.setLastUsedModel(any(), any()) }
+    }
+
+    @Test
+    fun refilterCorrectiveFallbackRestoresAgentsLastUsedWhenPresent() = runTest {
+        // Regression for the dead agents branch: an agents last-used was validated against
+        // filtered["agents"] (always null) and silently skipped to a config model. It must
+        // now validate against the loaded agents list and be restored.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(
+            scope,
+            ChatUiState(
+                conversationId = "c1",
+                selectedEndpoint = "openAI",
+                selectedModel = "ghost",
+                agents = listOf(Agent(id = "agent_1")),
+            ),
+        )
+        val delegate = newDelegate(handle)
+        delegate.conversationModelLoaded = true
+        delegate.agentsLoaded.value = true
+        delegate.cachedLastUsedEndpoint = EndpointConstants.AGENTS
+        delegate.cachedLastUsedModel = "agent_1"
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o"))
+
+        delegate.refilterModels(isNewConversation = false)
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
+        assertThat(handle.state.selectedModel).isEqualTo("agent_1")
+    }
+
+    @Test
+    fun refilterCorrectiveFallbackAgentsLastUsedAbsentPicksFirstConfigModel() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(
+            scope,
+            ChatUiState(
+                conversationId = "c1",
+                selectedEndpoint = "openAI",
+                selectedModel = "ghost",
+                agents = listOf(Agent(id = "agent_1")),
+            ),
+        )
+        val delegate = newDelegate(handle)
+        delegate.conversationModelLoaded = true
+        delegate.agentsLoaded.value = true
+        delegate.cachedLastUsedEndpoint = EndpointConstants.AGENTS
+        delegate.cachedLastUsedModel = "agent_missing" // not in the loaded list
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o"))
+
+        delegate.refilterModels(isNewConversation = false)
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
+        assertThat(handle.state.selectedModel).isEqualTo("gpt-4o")
+    }
+
+    @Test
+    fun refilterCorrectiveFallbackHoldsUntilAgentsLoadedThenRestores() = runTest {
+        // Agents not loaded → the corrective fallback must HOLD (not pick a config model),
+        // then loadAgents' re-run of refilter restores the agents last-used.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(
+            scope,
+            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
+        )
+        val delegate = newDelegate(handle)
+        delegate.conversationModelLoaded = true
+        delegate.cachedLastUsedEndpoint = EndpointConstants.AGENTS
+        delegate.cachedLastUsedModel = "agent_1"
+        availableModels.value = mapOf("openAI" to listOf("gpt-4o"))
+        allowAgents()
+        coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
+
+        delegate.refilterModels(isNewConversation = false)
+        advanceUntilIdle()
+        // Held: agents unloaded, so neither last-used nor first-model was applied.
+        assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
+        assertThat(handle.state.selectedModel).isEqualTo("ghost")
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
+        assertThat(handle.state.selectedModel).isEqualTo("agent_1")
     }
 }
