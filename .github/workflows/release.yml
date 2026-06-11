@@ -36,6 +36,11 @@ jobs:
     # Gate signing secrets behind a protected environment (add required reviewers in repo
     # settings). Secrets are unavailable to fork PRs, so this stays off the PR path.
     environment: release
+    # Surface the bumped version + tag so the secondary `ios` job can check out the tagged
+    # commit and name/upload its IPA against the same draft release.
+    outputs:
+      version_name: ${{ steps.bump.outputs.version_name }}
+      tag: ${{ steps.bump.outputs.tag }}
 
     steps:
       - name: Checkout
@@ -156,19 +161,32 @@ jobs:
           TAG: ${{ steps.bump.outputs.tag }}
           BACKEND: ${{ steps.backend.outputs.target }}
           APK: ${{ steps.artifacts.outputs.apk }}
+          VERSION: ${{ steps.bump.outputs.version_name }}
         run: |
           # Generate the same changelog GitHub would auto-produce. Omitting previous_tag_name
           # lets the API auto-detect the prior tag, matching the old generate_release_notes.
           gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" \
             -f tag_name="$TAG" --jq .body > "$RUNNER_TEMP/changelog.md"
 
+          # The iOS job uploads this deterministic asset name to the same draft; reference it
+          # statically here even though this step runs before that job finishes.
+          IPA="librechat-v${VERSION}.ipa"
+
           # Badge row (rendered side-by-side). The Target Backend badge replaces the old
-          # plain-text "Target backend: LibreChat v…" line. The APK Downloads badge tracks
-          # download counts for this release's APK asset.
+          # plain-text "Target backend: LibreChat v…" line. The Downloads badges track
+          # download counts for this release's APK / IPA assets.
           {
             printf '![Target Backend](https://img.shields.io/badge/Target_Backend-LibreChat_v%s-orange)' "$BACKEND"
             printf ' '
-            printf '![APK Downloads](https://img.shields.io/github/downloads/garfiec/Librechat-Mobile/%s/%s?displayAssetName=false&logo=android&label=APK%%20Downloads&color=blue)\n' "$TAG" "$APK"
+            printf '![APK Downloads](https://img.shields.io/github/downloads/garfiec/Librechat-Mobile/%s/%s?displayAssetName=false&logo=android&label=APK%%20Downloads&color=blue)' "$TAG" "$APK"
+            printf ' '
+            printf '![IPA Downloads](https://img.shields.io/github/downloads/garfiec/Librechat-Mobile/%s/%s?displayAssetName=false&logo=apple&label=IPA%%20Downloads&color=blue)\n' "$TAG" "$IPA"
+            printf '\n'
+            # iOS is distributed as an UNSIGNED IPA for sideloading — install via
+            # AltStore / SideStore / Sideloadly (re-signs with a free Apple ID) or TrollStore.
+            # See docs/RELEASING.md for details. The asset is attached by the secondary iOS
+            # job and may appear a few minutes after the Android assets.
+            printf '**iOS (sideload):** download `%s` and install via AltStore / SideStore / Sideloadly (free Apple ID) or TrollStore — see [install notes](https://github.com/%s/blob/%s/docs/RELEASING.md#installing-the-ios-ipa).\n' "$IPA" "${{ github.repository }}" "$TAG"
             printf '\n'
             cat "$RUNNER_TEMP/changelog.md"
             # Slim provenance footer: discoverability links, not proof. Canonical "how to
@@ -205,3 +223,97 @@ jobs:
       - name: Remind to publish the draft
         run: |
           echo "::warning title=Release is a DRAFT::${{ steps.bump.outputs.tag }} was created as a DRAFT. Obtainium and direct downloads will NOT see it until you open it in the GitHub Releases UI and click Publish."
+
+  # Secondary, NON-BLOCKING iOS job: builds an UNSIGNED, device-arch IPA from the just-tagged
+  # commit and attaches it to the same draft release. It needs no secrets and no Apple account
+  # — sideload installers (AltStore/SideStore/Sideloadly) re-sign with the user's free Apple ID,
+  # and TrollStore/jailbreak installers accept unsigned IPAs directly. If this macOS job fails,
+  # the Android release (tag + APK + draft) already stands; just re-run it or upload manually.
+  ios:
+    name: Build & attach unsigned IPA
+    needs: release
+    runs-on: macos-latest
+    # No `environment: release` — this job uses no signing secrets. It inherits the
+    # workflow-level permissions (contents: write to upload the asset; id-token/attestations
+    # for provenance parity with the APK).
+    steps:
+      - name: Checkout (tagged commit)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}   # the bump commit the release job just pushed
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        # SHA-pinned to match the release job's supply-chain policy (Dependabot bumps it).
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v5
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: ${{ runner.os }}-konan-
+
+      # The device framework must exist before xcodebuild — the Xcode project's framework
+      # search path points at shared/build/bin/iosArm64/releaseFramework.
+      - name: Build shared KMP framework (device, release)
+        run: ./gradlew :shared:linkReleaseFrameworkIosArm64
+
+      - name: Archive & package unsigned IPA
+        id: ipa
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+          VERSION: ${{ needs.release.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          # Unsigned device archive. Signing is fully disabled: the project's Release config
+          # carries an sdk-scoped `CODE_SIGN_IDENTITY[sdk=iphoneos*] = "Apple Development"` +
+          # `CODE_SIGN_STYLE = Automatic`, which on a device archive would otherwise demand a
+          # provisioning profile on this account-less runner — so we override the sdk-scoped
+          # key, force Manual style, and blank the profile, not just the unscoped identity.
+          # The "Copy Compose Resources" build phase shells out to ./gradlew itself, which is
+          # why JDK + Gradle are set up above.
+          xcodebuild archive \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/iosApp.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" "CODE_SIGN_IDENTITY[sdk=iphoneos*]=" \
+            CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" ONLY_ACTIVE_ARCH=NO
+
+          # Repackage the archived .app into an unsigned IPA (Payload/ + zip).
+          cd "$RUNNER_TEMP/iosApp.xcarchive/Products/Applications"
+          mkdir -p Payload && mv iosApp.app Payload/
+          OUT="$RUNNER_TEMP/librechat-v${VERSION}.ipa"
+          zip -qry "$OUT" Payload
+          ( cd "$RUNNER_TEMP" && shasum -a 256 "librechat-v${VERSION}.ipa" > "librechat-v${VERSION}.ipa.sha256" )
+          echo "ipa=$OUT" >> "$GITHUB_OUTPUT"
+          echo "sha=$OUT.sha256" >> "$GITHUB_OUTPUT"
+
+      # Provenance parity with the APK: a keyless SLSA attestation for the IPA bytes.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ steps.ipa.outputs.ipa }}
+
+      - name: Upload IPA to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          gh release upload "$TAG" \
+            "${{ steps.ipa.outputs.ipa }}" \
+            "${{ steps.ipa.outputs.sha }}" --clobber

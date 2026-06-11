@@ -13,24 +13,24 @@
 		AAA0000B /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB0000B; };
 		AAA0000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BBB0000C; };
 		AAA00010 /* Shared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BBB00010; };
-		AAA00011 /* Shared.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = BBB00010; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		CCC00001 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				AAA00011 /* Shared.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXShellScriptBuildPhase section */
+		SSS00004 /* Embed Shared Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Shared Framework";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Embed the Kotlin/Native Shared.framework matching the active SDK + configuration.\n# FRAMEWORK_SEARCH_PATHS already resolve the framework for *linking*; this phase copies\n# that same framework into the app bundle's Frameworks/ dir. Keyed on PLATFORM_NAME +\n# CONFIGURATION to mirror the search paths, so simulator-debug and device-release both\n# embed the correct slice.\nset -eu\nif [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ]; then\n    ARCH_DIR=\"iosSimulatorArm64\"\nelse\n    ARCH_DIR=\"iosArm64\"\nfi\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n    FW_DIR=\"releaseFramework\"\nelse\n    FW_DIR=\"debugFramework\"\nfi\nSRC=\"$SRCROOT/../shared/build/bin/$ARCH_DIR/$FW_DIR/Shared.framework\"\nif [ ! -d \"$SRC\" ]; then\n    echo \"error: Shared.framework not found at $SRC -- build the matching :shared:link${CONFIGURATION}Framework task first\"\n    exit 1\nfi\nDST=\"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app/Frameworks\"\nrm -rf \"$DST/Shared.framework\"\nmkdir -p \"$DST\"\ncp -R \"$SRC\" \"$DST/\"\n# Mirror the old RemoveHeadersOnCopy attribute.\nrm -rf \"$DST/Shared.framework/Headers\" \"$DST/Shared.framework/PrivateHeaders\"\n# Code-sign on copy only when signing is enabled (skipped for unsigned sideload/CI builds).\nif [ \"${CODE_SIGNING_ALLOWED:-YES}\" != \"NO\" ] && [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]; then\n    codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$DST/Shared.framework\"\nfi\necho \"Embedded Shared.framework from $SRC\"\n";
+		};
 		SSS00001 /* Copy Compose Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -160,7 +160,7 @@
 				III00001 /* Sources */,
 				RRR00001 /* Resources */,
 				EEE00001 /* Frameworks */,
-				CCC00001 /* Embed Frameworks */,
+				SSS00004 /* Embed Shared Framework */,
 				SSS00001 /* Copy Compose Resources */,
 				SSS00002 /* Stamp Version from version.properties */,
 				SSS00003 /* Stamp Git SHA */,

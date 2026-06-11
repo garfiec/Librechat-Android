@@ -1,6 +1,6 @@
 # Releasing
 
-How releases are versioned, signed, and published for LibreChat Mobile (Android).
+How releases are versioned, signed, and published for LibreChat Mobile (Android & iOS).
 
 ## Versioning
 
@@ -33,11 +33,11 @@ Both platforms derive from the same `versionName`, so they stay in lockstep:
 | Android | `versionName` verbatim | derived YYYYMMPP | `AndroidApplicationConventionPlugin` reads `version.properties` at build |
 | iOS | `CFBundleShortVersionString` | `CFBundleVersion` (same YYYYMMPP) | *Stamp Version* Xcode build phase reads `version.properties` at build |
 
-> iOS isn't published on GitHub Releases — the stamp exists only to keep the two platforms'
-> reported versions identical. The "Stamp Version from version.properties" run-script phase
-> runs after Info.plist is in the bundle and before codesign, so the committed `Info.plist`
-> literals (and the unused `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` build settings) are
-> just a fallback snapshot — the build always reflects `version.properties`.
+> The "Stamp Version from version.properties" run-script phase runs after Info.plist is in
+> the bundle and before codesign, so the committed `Info.plist` literals (and the unused
+> `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` build settings) are just a fallback snapshot —
+> the build always reflects `version.properties`. The same stamp drives the published iOS IPA
+> (see *Cutting a release* below), so both platforms' assets carry the identical calver.
 
 Bump it with the script (also run by the release workflow). For example, running in
 June 2026 with stored version `2026.05.2`:
@@ -136,8 +136,15 @@ release builds fall back to the debug key so local builds and CI checks still wo
    a **draft** GitHub Release with auto-generated notes and a `.sha256` checksum. Candidate
    versions are flagged as pre-releases automatically. If the build fails, nothing is committed
    or tagged — just re-run after fixing it.
-3. Review the draft, edit the notes for users, then **publish**.
-4. Obtainium / IzzyOnDroid pick up the published release automatically.
+3. A **secondary `ios` job** (macOS runner) then checks out the freshly tagged commit, builds
+   an **unsigned device IPA**, attests it, and attaches `librechat-vX.ipa` + `.sha256` to the
+   same draft. It uses **no secrets and no Apple account** (sideload installers re-sign on the
+   user's device), so it needs nothing beyond the standard CI setup. It is **non-blocking**: if
+   the macOS build fails the Android tag + APK + draft already stand — re-run just the `ios` job
+   or attach the IPA by hand. The IPA may land a few minutes after the APK.
+4. Review the draft, edit the notes for users, then **publish**.
+5. Obtainium / IzzyOnDroid pick up the published release automatically (Android); iOS users
+   sideload the IPA manually (see *Installing the iOS IPA* below).
 
 > **Drafts are invisible to Obtainium.** A release stays hidden from every user until you
 > click **Publish** — Obtainium's GitHub source skips drafts. The workflow ends with a
@@ -151,17 +158,42 @@ release builds fall back to the debug key so local builds and CI checks still wo
 > as the repo owner (already a bypass actor); without it the run fails fast at the
 > *Verify signing secrets* step.
 
+## Installing the iOS IPA
+
+The iOS asset (`librechat-vX.ipa`) is **unsigned** — there is no Apple Developer account or
+App Store path. iOS refuses to run unsigned code, so every install route below re-signs the
+app on (or for) your device. Pick whichever your device supports:
+
+- **AltStore / SideStore / Sideloadly** (any non-jailbroken iPhone). These re-sign the IPA
+  with your **free Apple ID** on install. The free tier means a **7-day** signature that the
+  app auto-refreshes while it can reach a desktop/Wi-Fi pairing (SideStore/AltStore do this in
+  the background), and a limit of **3 sideloaded apps** at a time. No paid account needed.
+- **TrollStore** (devices vulnerable to the CoreTrust bug — broadly iOS 14.0–16.6.1 and some
+  17.0). Installs the unsigned IPA **permanently** (no 7-day refresh, no app limit) by
+  fakesigning it on-device. The most convenient route if your device/iOS is in range.
+- **Jailbroken devices** can install the IPA directly (e.g. `appinst`).
+
+Because the IPA ships unsigned, the bundled signature is irrelevant — these tools all apply
+their own. The build is provenance-attested all the same; verify the **download** the same way
+as the APK (next section, swapping `.apk` for the `.ipa`).
+
+> The app is a plain network client (no push, app groups, or associated domains), so it stays
+> within free-Apple-ID entitlement limits — nothing extra to configure when sideloading.
+
 ## Verifying a release
 
-Three checks are available to anyone who downloads an APK, in descending order of strength:
+Three checks are available to anyone who downloads an APK (or IPA), in descending order of strength:
 
 1. **Build provenance (strongest)** — `gh attestation verify <apk> --repo garfiec/Librechat-Mobile
    --signer-workflow garfiec/Librechat-Mobile/.github/workflows/release.yml`. This is the only
    check that resists a *tampered upload*: it's signed by GitHub's CI via Sigstore and can't be
    forged outside the runner. Each release's notes link the run + attestation, but a link is not
-   proof — only this command verifies the downloaded bytes. See the README install section.
+   proof — only this command verifies the downloaded bytes. See the README install section. The
+   **IPA is attested too** — run the same command with the `.ipa` in place of `<apk>`.
 2. **Signing certificate** — `apksigner verify --print-certs <apk>`, compared against the
-   published cert SHA-256. Catches a build signed with a different key.
+   published cert SHA-256. Catches a build signed with a different key. **APK only** — the IPA
+   ships unsigned (the sideload installer applies its own signature), so there is no fixed iOS
+   cert to pin; rely on provenance + checksum for the IPA.
 3. **Checksum** — `sha256sum -c <apk>.sha256`. Catches accidental corruption or a download MITM
    only; it does *not* defend against a malicious release (the attacker would control both files).
 
@@ -171,3 +203,7 @@ Three checks are available to anyone who downloads an APK, in descending order o
   releases are full releases; `-rcN` candidate tags are marked pre-release.
 - **IzzyOnDroid** (future) — ingests the developer-signed APK and pins the signing key via
   `AllowedAPKSigningKeys`. Use the *same* key. Reproducible builds earn a verification badge.
+- **iOS sideloading** — the unsigned `.ipa` is attached to every GitHub Release for
+  AltStore / SideStore / Sideloadly / TrollStore installs (see *Installing the iOS IPA*). There
+  is no App Store or Obtainium-equivalent auto-update channel; users re-download on each release
+  (a SideStore/AltStore source manifest is a possible future follow-up).
