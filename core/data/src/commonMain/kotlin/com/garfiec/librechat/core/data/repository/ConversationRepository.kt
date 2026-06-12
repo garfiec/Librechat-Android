@@ -15,6 +15,13 @@ interface ConversationRepository {
         isArchived: Boolean = false,
     ): Result<String?>
     suspend fun getConversation(id: String): Result<Conversation>
+
+    /**
+     * Fetches [id] from the server and upserts it into the cache, bypassing
+     * [getConversation]'s cache-first read. Use when the local row is known to be
+     * stale (e.g. picking up a server-generated title).
+     */
+    suspend fun refreshConversation(id: String): Result<Conversation>
     suspend fun updateTitle(id: String, title: String): Result<Conversation>
     suspend fun generateTitle(conversationId: String): Result<String>
     suspend fun archive(id: String, isArchived: Boolean): Result<Conversation>

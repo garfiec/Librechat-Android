@@ -270,6 +270,15 @@ class ChatViewModel(
     /** True when this ViewModel was opened for a brand-new chat (no conversationId from navigation). */
     private val isNewConversation: Boolean
 
+    /**
+     * True when this ViewModel took the [NewChatSelectionHandoff] for a conversation just
+     * created from the NewChat landing. Navigation to Chat(id) fires at the `created` SSE
+     * event and resets the landing VM, so THIS VM is the one whose resumed stream sees the
+     * first Final — with [isNewConversation] false. This flag keeps new-chat-only work
+     * (title generation) running for the handed-off chat.
+     */
+    private val isHandedOffNewChat: Boolean
+
     /** Guard to ensure we only attempt title generation once per conversation. */
     private var titleGenerationRequested = false
 
@@ -289,7 +298,9 @@ class ChatViewModel(
             // racy loadConversationModel GET below can't clobber it with a fallback guess
             // when the server hasn't persisted the conversation yet (the created-before-save
             // race). See NewChatSelectionHandoff.
-            selectionHandoff.take(conversationId)?.let { handoff ->
+            val handoff = selectionHandoff.take(conversationId)
+            isHandedOffNewChat = handoff != null
+            if (handoff != null) {
                 Diag.d(
                     tag = "ModelSel",
                     attrs = mapOf("endpoint" to handoff.endpoint, "model" to (handoff.model ?: "null")),
@@ -304,6 +315,7 @@ class ChatViewModel(
             // resume it so the user sees streaming content on this screen.
             resumeActiveStreamIfNeeded(conversationId)
         } else {
+            isHandedOffNewChat = false
             // For new chats, mark conversationModelLoaded so refilterModels
             // doesn't wait for a conversation model that will never arrive.
             modelDelegate.conversationModelLoaded = true
@@ -557,7 +569,15 @@ class ChatViewModel(
                 }
                 is Result.Error -> {
                     Logger.d { "Title generation failed for $conversationId: ${result.message}" }
-                    refreshConversationTitle(conversationId)
+                    // The gen_title long-poll can miss even though the server generated and
+                    // persisted a title (404 after its backoff window, or another client
+                    // consumed the one-shot cache). Fetch network-first: the cached row
+                    // still holds the "New Chat" placeholder, so cache-first getConversation
+                    // could never observe the title, and refreshConversation's upsert also
+                    // propagates it to the Room-observing conversation list.
+                    conversationRepository.refreshConversation(conversationId).getOrNull()?.let { conversation ->
+                        _uiState.update { it.copy(conversationTitle = conversation.title) }
+                    }
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -1449,9 +1469,13 @@ class ChatViewModel(
                 finalizeTemporaryChatDisplay(event)
             } else {
                 loadConversation(conversationId)
-                val currentTitle = _uiState.value.conversationTitle
-                val needsTitle = currentTitle.isNullOrBlank() || currentTitle == "New Chat"
-                if (isNewConversation && needsTitle && !titleGenerationRequested) {
+                val shouldGenerate = shouldRequestTitleGeneration(
+                    isNewConversation = isNewConversation,
+                    isHandedOffNewChat = isHandedOffNewChat,
+                    currentTitle = _uiState.value.conversationTitle,
+                    alreadyRequested = titleGenerationRequested,
+                )
+                if (shouldGenerate) {
                     titleGenerationRequested = true
                     generateAndSetTitle(conversationId)
                 } else {

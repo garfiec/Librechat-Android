@@ -10,7 +10,7 @@
 - Sealed interface: `ChatRoute : NavKey` with typed route classes
 - Routes: `NewChat` (landing), `Chat(conversationId: String? = null)`, `PromptsLibrary`, `PromptEditor(groupId: String? = null)` (all `@Serializable`)
 - Feature entries registered via `EntryProviderScope<NavKey>.chatEntries()`
-- When a new conversation starts from the landing page, `pendingNavigationConversationId` triggers navigation to `Chat(id)` after the first stream completes (data persisted to Room), keeping `NewChat` in the back stack
+- When a new conversation starts from the landing page, `pendingNavigationConversationId` triggers navigation to `Chat(id)` at `StreamEvent.Created`, keeping `NewChat` in the back stack. The landing VM is reset (`onPendingNavigationHandled`) and the new Chat(id) VM resumes the active stream — so the Chat(id) VM (with `isNewConversation = false`) is the one that handles the first stream's Final. New-chat-only work there (title generation) is gated on `isHandedOffNewChat`, derived from consuming `NewChatSelectionHandoff`
 - `navigateToChat()` replaces the current chat entry on the `NavBackStack` when switching between chats so back returns to `NewChat`
 
 ## Message Tree

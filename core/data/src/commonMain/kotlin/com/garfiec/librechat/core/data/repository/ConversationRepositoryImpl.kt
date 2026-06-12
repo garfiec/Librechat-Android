@@ -57,10 +57,13 @@ class ConversationRepositoryImpl(
     override suspend fun getConversation(id: String): Result<Conversation> {
         val cached = conversationDao.getById(id)
         if (cached != null) return Result.Success(cached.toModel())
+        return refreshConversation(id)
+    }
 
+    override suspend fun refreshConversation(id: String): Result<Conversation> {
         return safeApiCall {
             val conversation = conversationsApi.getConversation(id)
-            conversationDao.upsert(conversation.toEntity())
+            conversationDao.upsertPreservingTags(conversation.toEntity())
             conversation
         }
     }

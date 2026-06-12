@@ -16,10 +16,18 @@ package com.garfiec.librechat.feature.chat.viewmodel
  * time. [take] returns the entry only when the conversationId matches, so a stale entry
  * (e.g. the transition never completed) can never be mis-applied to a different chat.
  *
+ * A successful [take] also tells the new VM its conversation was just created in this
+ * session (`isHandedOffNewChat`): the landing VM is reset at navigation, so the Chat(id)
+ * VM is the one that sees the first stream's Final and must run new-chat-only work like
+ * title generation, even though its `isNewConversation` is false.
+ *
  * Threading: both the [put] (in `handleCreated`) and [take] (in `ChatViewModel.init`)
  * call sites run on the ViewModel's main-dispatcher scope, so no locking is needed.
  * It also self-expires across process death — the slot is empty on restart, and by then
- * the conversation GET succeeds anyway (the race window is milliseconds).
+ * the conversation GET succeeds anyway (the race window is milliseconds). Losing the
+ * just-created signal that way is accepted: the server generates and persists the title
+ * on its own regardless of the client's gen_title long-poll, so the next conversation
+ * list sync (loadNextPage) picks it up — the title is briefly stale, not lost.
  */
 class NewChatSelectionHandoff {
 
