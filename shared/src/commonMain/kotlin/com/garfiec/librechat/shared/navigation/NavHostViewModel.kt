@@ -10,20 +10,27 @@ import com.garfiec.librechat.core.data.repository.BannerRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
+import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.model.Banner
 import com.garfiec.librechat.core.model.Conversation
+import com.garfiec.librechat.core.model.ConversationTag
 import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.TokenManager
+import com.garfiec.librechat.feature.conversations.export.ConversationExporter
+import com.garfiec.librechat.feature.conversations.export.ExportFormat
+import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListEvent
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -41,6 +48,8 @@ class NavHostViewModel(
     private val tokenManager: TokenManager,
     private val settingsDataStore: SettingsDataStore,
     private val serverUrlProvider: ServerUrlProvider,
+    private val shareRepository: ShareRepository,
+    private val conversationExporter: ConversationExporter,
 ) : ViewModel() {
 
     private val bannerStateHolder = BannerStateHolder(bannerRepository, viewModelScope)
@@ -51,6 +60,25 @@ class NavHostViewModel(
         conversationListStateHolder.recentConversations
             .map { list -> list.filter { SAVED_TAG in it.tags } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Inputs for the drawer long-press action menu: the user-defined tags (excluding favorites,
+    // same filter as ConversationListViewModel.observeTags) for the tag picker, plus the
+    // config-driven shared-links flag that gates the Share action.
+    private val drawerActionMenuState: StateFlow<DrawerActionMenuState> =
+        combine(
+            tagRepository.observeTags()
+                .map { tags -> tags.filter { it.count > 0 && it.tag != SAVED_TAG } },
+            configRepository.startupConfig,
+        ) { tags, config ->
+            DrawerActionMenuState(tags, config?.sharedLinksEnabled ?: false)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DrawerActionMenuState())
+
+    // One-shot events for the drawer action menu (share-link copied, export-ready,
+    // navigate-to-duplicate, errors). Reuses the conversation-list event type. extraBufferCapacity
+    // lets emit() return immediately instead of suspending if the collector (ConversationActionEffects)
+    // is momentarily absent — e.g. an action's result arriving as the drawer leaves composition.
+    private val _events = MutableSharedFlow<ConversationListEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<ConversationListEvent> = _events.asSharedFlow()
 
     // Seeded synchronously so first-frame routing (LibreChatNavHost reads isLoggedIn.value
     // once in a LaunchedEffect to redirect to auth) gets the correct value with no flash.
@@ -136,7 +164,8 @@ class NavHostViewModel(
         },
         drawerPermissionFlags,
         configRepository.endpointConfigs,
-    ) { data, refreshState, perms, endpointConfigs ->
+        drawerActionMenuState,
+    ) { data, refreshState, perms, endpointConfigs, actionMenu ->
         val (refreshing, loadingMore, hasMore) = refreshState
         DrawerUiState(
             groupedConversations = data.grouped.map { (group, convos) ->
@@ -152,6 +181,8 @@ class NavHostViewModel(
             agentsEnabled = perms.agentsEnabled,
             bookmarksEnabled = perms.bookmarksEnabled,
             skillsEnabled = perms.skillsEnabled,
+            availableTags = actionMenu.availableTags,
+            sharedLinksEnabled = actionMenu.sharedLinksEnabled,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, DrawerUiState())
 
@@ -159,6 +190,11 @@ class NavHostViewModel(
         val agentsEnabled: Boolean = true,
         val bookmarksEnabled: Boolean = true,
         val skillsEnabled: Boolean = true,
+    )
+
+    private data class DrawerActionMenuState(
+        val availableTags: List<ConversationTag> = emptyList(),
+        val sharedLinksEnabled: Boolean = false,
     )
 
     init {
@@ -216,6 +252,122 @@ class NavHostViewModel(
             val result = tagRepository.toggleFavorite(conversationId, currentTags)
             if (result is Result.Error) {
                 Logger.w(result.exception) { "Failed to toggle favorite for $conversationId" }
+            }
+        }
+    }
+
+    // --- Drawer conversation action menu (long-press). Bodies mirror ConversationListViewModel. ---
+
+    fun renameConversation(id: String, newTitle: String) {
+        viewModelScope.launch {
+            try {
+                conversationRepository.updateTitle(id, newTitle)
+            } catch (e: Exception) {
+                Logger.e(e) { "Failed to rename conversation" }
+                _events.emit(ConversationListEvent.ShowError("Failed to rename conversation"))
+            }
+        }
+    }
+
+    fun archiveConversation(id: String) {
+        viewModelScope.launch {
+            try {
+                conversationRepository.archive(id, true)
+            } catch (e: Exception) {
+                Logger.e(e) { "Failed to archive conversation" }
+                _events.emit(ConversationListEvent.ShowError("Failed to archive conversation"))
+            }
+        }
+    }
+
+    fun deleteConversation(id: String) {
+        viewModelScope.launch {
+            try {
+                conversationRepository.delete(id)
+            } catch (e: Exception) {
+                Logger.e(e) { "Failed to delete conversation" }
+                _events.emit(ConversationListEvent.ShowError("Failed to delete conversation"))
+            }
+        }
+    }
+
+    fun shareConversation(conversationId: String) {
+        viewModelScope.launch {
+            when (val result = shareRepository.createShareLink(conversationId)) {
+                is Result.Success -> {
+                    _events.emit(ConversationListEvent.ShareLinkCopied(result.data))
+                }
+                is Result.Error -> {
+                    _events.emit(
+                        ConversationListEvent.ShowError(result.message ?: "Failed to create share link"),
+                    )
+                }
+                is Result.Loading -> { /* no-op */ }
+            }
+        }
+    }
+
+    fun duplicateConversation(conversationId: String, title: String?) {
+        viewModelScope.launch {
+            when (val result = conversationRepository.duplicateConversation(conversationId, title)) {
+                is Result.Success -> {
+                    result.data.conversationId?.let { newId ->
+                        _events.emit(ConversationListEvent.NavigateToConversation(newId))
+                    }
+                }
+                is Result.Error -> {
+                    _events.emit(
+                        ConversationListEvent.ShowError(result.message ?: "Failed to duplicate conversation"),
+                    )
+                }
+                is Result.Loading -> { /* no-op */ }
+            }
+        }
+    }
+
+    fun exportConversation(conversationId: String, title: String?, format: ExportFormat) {
+        viewModelScope.launch {
+            val result = when (format) {
+                ExportFormat.JSON -> conversationExporter.exportAsJson(conversationId)
+                ExportFormat.MARKDOWN -> conversationExporter.exportAsMarkdown(conversationId)
+            }
+            when (result) {
+                is Result.Success -> {
+                    _events.emit(
+                        ConversationListEvent.ExportReady(
+                            content = result.data,
+                            format = format,
+                            title = title ?: "conversation",
+                        ),
+                    )
+                }
+                is Result.Error -> {
+                    _events.emit(
+                        ConversationListEvent.ShowError(result.message ?: "Failed to export conversation"),
+                    )
+                }
+                is Result.Loading -> { /* no-op */ }
+            }
+        }
+    }
+
+    /**
+     * Persists the user-chosen tags for [conversationId], preserving favorite status.
+     * [currentTags] is the conversation's existing tag list (to detect the SAVED_TAG).
+     */
+    fun updateConversationTags(conversationId: String, currentTags: List<String>, userTags: List<String>) {
+        val wasFavorited = SAVED_TAG in currentTags
+        val cleaned = userTags.filterNot { it == SAVED_TAG }
+        val finalTags = if (wasFavorited) cleaned + SAVED_TAG else cleaned
+        viewModelScope.launch {
+            when (tagRepository.setConversationTags(conversationId, finalTags)) {
+                is Result.Success -> {
+                    tagRepository.refreshTags()
+                }
+                is Result.Error -> {
+                    _events.emit(ConversationListEvent.ShowError("Failed to update tags"))
+                }
+                is Result.Loading -> { /* no-op */ }
             }
         }
     }

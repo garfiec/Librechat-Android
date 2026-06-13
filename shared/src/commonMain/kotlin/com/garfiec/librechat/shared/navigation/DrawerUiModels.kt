@@ -1,6 +1,7 @@
 package com.garfiec.librechat.shared.navigation
 
 import androidx.compose.runtime.Immutable
+import com.garfiec.librechat.core.model.ConversationTag
 
 /**
  * Lightweight snapshot of fields DrawerConversationItem actually renders.
@@ -34,4 +35,8 @@ data class DrawerUiState(
     val agentsEnabled: Boolean = true,
     val bookmarksEnabled: Boolean = true,
     val skillsEnabled: Boolean = true,
+    // User-defined tags (excluding the favorites tag) for the action menu's tag picker.
+    val availableTags: List<ConversationTag> = emptyList(),
+    // Config-driven: whether server-side shared links are enabled (gates the menu's Share action).
+    val sharedLinksEnabled: Boolean = false,
 )

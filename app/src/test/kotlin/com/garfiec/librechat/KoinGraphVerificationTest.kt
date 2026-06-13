@@ -76,6 +76,7 @@ import com.garfiec.librechat.feature.auth.di.authModule
 import com.garfiec.librechat.feature.auth.oauth.OAuthLauncher
 import com.garfiec.librechat.feature.chat.di.chatModule
 import com.garfiec.librechat.feature.conversations.di.conversationsModule
+import com.garfiec.librechat.feature.conversations.export.ConversationExporter
 import com.garfiec.librechat.feature.files.di.filesModule
 import com.garfiec.librechat.feature.files.platform.FileReader
 import com.garfiec.librechat.feature.settings.di.settingsModule
@@ -197,6 +198,8 @@ class KoinGraphVerificationTest {
             OAuthLauncher::class,
             // feature:files platform provides
             FileReader::class,
+            // feature:conversations provides (consumed cross-module by shared NavHostViewModel)
+            ConversationExporter::class,
             // Wrappers/DSL types that verify can't resolve via constructor
             Lazy::class,
             File::class,

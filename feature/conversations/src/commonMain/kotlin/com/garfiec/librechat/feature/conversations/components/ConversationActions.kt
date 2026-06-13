@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
@@ -102,7 +103,7 @@ fun ConversationActions(
             }
 
             ActionRow(
-                icon = Icons.Default.BookmarkBorder,
+                icon = Icons.AutoMirrored.Filled.Label,
                 label = stringResource(Res.string.tags),
                 onClick = {
                     onDismiss()
@@ -214,7 +215,7 @@ private fun ActionRow(
 }
 
 @Composable
-private fun RenameDialog(
+internal fun RenameDialog(
     currentTitle: String,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
@@ -258,7 +259,7 @@ private fun RenameDialog(
 }
 
 @Composable
-private fun DeleteConfirmationDialog(
+internal fun DeleteConfirmationDialog(
     conversationTitle: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,

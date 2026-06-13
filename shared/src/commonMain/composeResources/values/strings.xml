@@ -18,6 +18,7 @@
     <string name="cd_search">Search</string>
     <string name="cd_clear_search">Clear search</string>
     <string name="cd_back_to_conversations">Back to conversations</string>
+    <string name="cd_conversation_actions">Show conversation actions</string>
 
     <!-- Search -->
     <string name="search_conversations_placeholder">Search conversations\u2026</string>
