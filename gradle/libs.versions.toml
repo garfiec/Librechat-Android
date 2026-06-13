@@ -60,7 +60,7 @@ skie = "0.10.11"
 # Testing
 junit = "4.13.2"
 turbine = "1.2.1"
-mockk = "1.14.9"
+mockk = "1.14.11"
 truth = "1.4.5"
 espresso = "3.6.1"
 android-test-runner = "1.7.0"
