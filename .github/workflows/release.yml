@@ -182,12 +182,6 @@ jobs:
             printf ' '
             printf '![IPA Downloads](https://img.shields.io/github/downloads/garfiec/Librechat-Mobile/%s/%s?displayAssetName=false&logo=apple&label=IPA%%20Downloads&color=blue)\n' "$TAG" "$IPA"
             printf '\n'
-            # iOS is distributed as an UNSIGNED IPA for sideloading — install via
-            # AltStore / SideStore / Sideloadly (re-signs with a free Apple ID) or TrollStore.
-            # See docs/RELEASING.md for details. The asset is attached by the secondary iOS
-            # job and may appear a few minutes after the Android assets.
-            printf '**iOS (sideload):** download `%s` and install via AltStore / SideStore / Sideloadly (free Apple ID) or TrollStore — see [install notes](https://github.com/%s/blob/%s/docs/RELEASING.md#installing-the-ios-ipa).\n' "$IPA" "${{ github.repository }}" "$TAG"
-            printf '\n'
             cat "$RUNNER_TEMP/changelog.md"
             # Slim provenance footer: discoverability links, not proof. Canonical "how to
             # verify a download" instructions live in docs/RELEASING.md + README.
@@ -304,7 +298,12 @@ jobs:
           echo "sha=$OUT.sha256" >> "$GITHUB_OUTPUT"
 
       # Provenance parity with the APK: a keyless SLSA attestation for the IPA bytes.
+      # Non-fatal: this needs the runner's OIDC token endpoint, which occasionally
+      # fails to resolve (transient getaddrinfo ENOTFOUND). Attestation is a nice-to-have
+      # for the sideload IPA — it must not skip the upload step that follows and cost us
+      # the actual deliverable. The APK remains the primary attested artifact.
       - name: Attest build provenance
+        continue-on-error: true
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: ${{ steps.ipa.outputs.ipa }}
