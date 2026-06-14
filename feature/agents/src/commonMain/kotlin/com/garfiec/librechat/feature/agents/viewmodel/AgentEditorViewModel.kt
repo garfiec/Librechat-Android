@@ -43,6 +43,7 @@ import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.util.ContentReader
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentFilesDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentLoaderDelegate
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.CodeToolAuthDelegate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -263,6 +264,11 @@ class AgentEditorViewModel(
         editAgentId = editAgentId,
     )
 
+    private val codeAuthDelegate = CodeToolAuthDelegate(
+        stateHandle = stateHandle,
+        agentToolsRepository = agentToolsRepository,
+    )
+
     init {
         loaderDelegate.loadReferenceData()
         loadCodeInterpreterAvailability()
@@ -270,7 +276,7 @@ class AgentEditorViewModel(
         observeSkillsAvailability()
         observeSubagentsAvailability()
         observeServerVersion()
-        verifyCodeToolAuth()
+        codeAuthDelegate.verifyCodeToolAuth()
         if (editAgentId != null) {
             loaderDelegate.loadAgent(editAgentId)
             loadActions()
@@ -649,104 +655,15 @@ class AgentEditorViewModel(
 
     // --- Capability toggles ---
 
-    fun onCodeInterpreterToggled(enabled: Boolean) {
-        if (!enabled) {
-            // Turning OFF never needs auth.
-            _uiState.value = _uiState.value.copy(codeInterpreterEnabled = false)
-            return
-        }
-        // Turning ON: gate on the latest verify result. If the tool is
-        // unauthenticated, surface the key dialog instead of flipping the
-        // toggle -- the toggle flips on after a successful key install.
-        when (_uiState.value.codeToolAuthState) {
-            ToolAuthState.Unauthenticated -> {
-                _uiState.value = _uiState.value.copy(showCodeAuthDialog = true)
-            }
-            ToolAuthState.Unknown -> {
-                // Race: verify hasn't returned yet. Re-verify and bail; user
-                // can retap once the result lands.
-                verifyCodeToolAuth()
-            }
-            ToolAuthState.SystemDefined, ToolAuthState.UserProvided -> {
-                _uiState.value = _uiState.value.copy(codeInterpreterEnabled = true)
-            }
-        }
-    }
+    fun onCodeInterpreterToggled(enabled: Boolean) = codeAuthDelegate.onCodeInterpreterToggled(enabled)
 
-    fun showCodeToolAuthDialog() {
-        _uiState.value = _uiState.value.copy(showCodeAuthDialog = true)
-    }
+    fun showCodeToolAuthDialog() = codeAuthDelegate.showCodeToolAuthDialog()
 
-    fun dismissCodeToolAuthDialog() {
-        _uiState.value = _uiState.value.copy(showCodeAuthDialog = false)
-    }
+    fun dismissCodeToolAuthDialog() = codeAuthDelegate.dismissCodeToolAuthDialog()
 
-    fun submitCodeToolApiKey(apiKey: String) {
-        if (apiKey.isBlank()) return
-        viewModelScope.launch {
-            val result = agentToolsRepository.installToolKey(
-                toolId = TOOL_EXECUTE_CODE,
-                authFields = mapOf(CODE_AUTH_FIELD to apiKey),
-            )
-            when (result) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        codeToolAuthState = ToolAuthState.UserProvided,
-                        codeInterpreterEnabled = true,
-                        showCodeAuthDialog = false,
-                    )
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message ?: "Failed to save API key",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun submitCodeToolApiKey(apiKey: String) = codeAuthDelegate.submitCodeToolApiKey(apiKey)
 
-    fun revokeCodeToolApiKey() {
-        viewModelScope.launch {
-            val result = agentToolsRepository.removeToolKey(
-                toolId = TOOL_EXECUTE_CODE,
-                authFieldNames = listOf(CODE_AUTH_FIELD),
-            )
-            when (result) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        codeToolAuthState = ToolAuthState.Unauthenticated,
-                        codeInterpreterEnabled = false,
-                        showCodeAuthDialog = false,
-                    )
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message ?: "Failed to revoke API key",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    private fun verifyCodeToolAuth() {
-        viewModelScope.launch {
-            val result = agentToolsRepository.verifyToolAuth(TOOL_EXECUTE_CODE)
-            if (result is Result.Success) {
-                val data = result.data
-                val next = when {
-                    data.authenticated != true -> ToolAuthState.Unauthenticated
-                    data.isSystemDefined -> ToolAuthState.SystemDefined
-                    data.isUserProvided -> ToolAuthState.UserProvided
-                    // authenticated = true with an unknown message; treat as configured.
-                    else -> ToolAuthState.SystemDefined
-                }
-                _uiState.value = _uiState.value.copy(codeToolAuthState = next)
-            }
-            // On error, leave state at Unknown -- user can retap and we'll retry.
-        }
-    }
+    fun revokeCodeToolApiKey() = codeAuthDelegate.revokeCodeToolApiKey()
 
     fun onFileSearchToggled(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(fileSearchEnabled = enabled)
@@ -1165,12 +1082,6 @@ class AgentEditorViewModel(
 
         /** Upstream `MAX_SUBAGENTS` (config.ts) — subagent agent_ids cap. */
         const val MAX_SUBAGENTS = 10
-
-        /** Tool ids used with `GET /agents/tools/:id/auth`. */
-        private const val TOOL_EXECUTE_CODE = "execute_code"
-
-        /** Upstream auth-field name for Code Interpreter (hooks/Plugins/useAuthCodeTool.ts). */
-        private const val CODE_AUTH_FIELD = "LIBRECHAT_CODE_API_KEY"
 
         /** Validation limits mirrored from upstream agentSchema. */
         const val NAME_MAX = 256
