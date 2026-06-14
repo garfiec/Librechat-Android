@@ -1,0 +1,174 @@
+package com.garfiec.librechat.feature.chat.viewmodel.delegate
+
+import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.getOrNull
+import com.garfiec.librechat.core.data.repository.ConversationRepository
+import com.garfiec.librechat.core.data.repository.DraftRepository
+import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
+import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
+import com.garfiec.librechat.feature.chat.viewmodel.shouldRequestTitleGeneration
+import kotlinx.coroutines.launch
+
+/**
+ * Owns what happens when a chat send reaches the server: the `created` and `final`
+ * SSE milestones and everything they trigger that is NOT raw stream plumbing —
+ * draft migration onto the new conversation id, the new-chat selection handoff +
+ * deferred navigation, persisting the final conversation (with the temp-chat
+ * data-at-rest guard), title generation, and conversation-model re-derivation.
+ *
+ * `ChatViewModel`'s stream handler invokes [onConversationCreated] / [onFinal] with the
+ * streaming-derived inputs (the new id, the completed text); the streaming-internal
+ * cleanup (buffer flush, connectivity reset) stays on the caller's side.
+ */
+class SendCompletionDelegate(
+    private val stateHandle: ChatStateHandle,
+    private val conversationRepository: ConversationRepository,
+    private val draftRepository: DraftRepository,
+    private val modelDelegate: ModelSelectionDelegate,
+    private val treeDelegate: MessageTreeDelegate,
+    private val tts: PlatformTts,
+    private val selectionHandoff: NewChatSelectionHandoff,
+    /** Reloads the conversation from the server (VM-owned Room observer). */
+    private val reloadConversation: (String) -> Unit,
+) {
+
+    private var titleGenerationRequested = false
+
+    /**
+     * Handles the `created` milestone: migrates the new-chat draft onto the real
+     * conversation id, stages the sent selection for the about-to-be-created Chat(id) VM,
+     * arms deferred navigation, and eagerly caches the conversation so it lands in the
+     * list even if the stream later fails.
+     */
+    fun onConversationCreated(conversationId: String, isNewConversation: Boolean) {
+        if (isNewConversation) {
+            stateHandle.scope.launch {
+                val existingDraft = draftRepository.getDraft(NEW_CHAT_DRAFT_KEY)
+                if (existingDraft != null) {
+                    draftRepository.saveDraft(conversationId, existingDraft)
+                    draftRepository.deleteDraft(NEW_CHAT_DRAFT_KEY)
+                }
+            }
+            // Stage the selection we actually sent so the about-to-be-created Chat(id) VM can
+            // apply it directly instead of re-deriving it from a GET that races the server's
+            // unawaited conversation save. Keyed by id, so a deferred nav (comparison-mode
+            // branch) still picks it up. See NewChatSelectionHandoff.
+            val sent = stateHandle.state
+            selectionHandoff.put(conversationId, sent.selectedEndpoint, sent.selectedModel)
+            stateHandle.update {
+                if (pendingNavigationConversationId == null && !comparisonState.isEnabled) {
+                    copy(pendingNavigationConversationId = conversationId)
+                } else {
+                    this
+                }
+            }
+        }
+        // Eagerly fetch and cache the conversation the server just created,
+        // so it appears in the conversation list even if the stream fails later
+        stateHandle.scope.launch {
+            conversationRepository.getConversation(conversationId)
+        }
+    }
+
+    /**
+     * Handles the `final` milestone (single-stream and comparison alike): re-derives the
+     * conversation model if it never resolved, persists the final conversation (unless
+     * temporary), drives the display (Room reload for normal chats, in-memory finalize for
+     * temp chats), kicks off title generation, and auto-reads the response.
+     *
+     * @param completedResponseText the streamed response text, for auto-read.
+     * @param shouldAutoRead false for edit/regenerate/continue (no auto-TTS).
+     */
+    fun onFinal(
+        event: StreamEvent.Final,
+        conversationId: String?,
+        completedResponseText: String,
+        shouldAutoRead: Boolean,
+        isNewConversation: Boolean,
+        isHandedOffNewChat: Boolean,
+    ) {
+        val finalConversation = event.conversation
+        // Belt-and-braces: if no handoff seeded the selection and the initial GET 404'd
+        // against the created-before-save race, the conversation model is still unresolved.
+        // The Final event carries the authoritative conversation, so re-derive from it here
+        // rather than leaving a fallback guess on screen.
+        if (!modelDelegate.conversationModelResolved && finalConversation != null) {
+            val applied = modelDelegate.applyConversationModel(finalConversation)
+            Diag.i(
+                tag = "ModelSel",
+                attrs = mapOf("applied" to applied.toString()),
+            ) { "handleFinal re-derived conversation model" }
+        }
+        // SECURITY: do not remove — temp-chat data-at-rest guard.
+        // Temporary chats (v0.8.6) are kept out of normal history — the server excludes
+        // them from the conversation list, so don't cache them to Room either (it would
+        // leak a temp chat into the local list the server hides).
+        val isTemporary = stateHandle.state.isTemporaryChat || finalConversation?.isTemporary == true
+        if (finalConversation?.conversationId != null && !isTemporary) {
+            stateHandle.scope.launch {
+                conversationRepository.saveConversation(finalConversation)
+            }
+        }
+        if (conversationId != null) {
+            if (isTemporary) {
+                // SECURITY: do not remove — temp-chat data-at-rest guard.
+                // Temp chats are never persisted: don't round-trip through the Room
+                // read-through (which would upsert the message rows to disk). Drive the
+                // display from the final event in memory instead. Title generation is
+                // also skipped server-side for temp chats, so there's nothing to refresh.
+                treeDelegate.finalizeTemporaryChatDisplay(event)
+            } else {
+                reloadConversation(conversationId)
+                val shouldGenerate = shouldRequestTitleGeneration(
+                    isNewConversation = isNewConversation,
+                    isHandedOffNewChat = isHandedOffNewChat,
+                    currentTitle = stateHandle.state.conversationTitle,
+                    alreadyRequested = titleGenerationRequested,
+                )
+                if (shouldGenerate) {
+                    titleGenerationRequested = true
+                    generateAndSetTitle(conversationId)
+                } else {
+                    refreshConversationTitle(conversationId)
+                }
+            }
+        }
+        if (shouldAutoRead && completedResponseText.isNotBlank()) {
+            tts.maybeAutoReadResponse(completedResponseText)
+        }
+    }
+
+    private fun refreshConversationTitle(conversationId: String) {
+        stateHandle.scope.launch {
+            val conversation = conversationRepository.getConversation(conversationId).getOrNull() ?: return@launch
+            stateHandle.update { copy(conversationTitle = conversation.title) }
+        }
+    }
+
+    private fun generateAndSetTitle(conversationId: String) {
+        stateHandle.scope.launch {
+            when (val result = conversationRepository.generateTitle(conversationId)) {
+                is Result.Success -> {
+                    stateHandle.update { copy(conversationTitle = result.data) }
+                }
+                is Result.Error -> {
+                    Logger.d { "Title generation failed for $conversationId: ${result.message}" }
+                    // The gen_title long-poll can miss even though the server generated and
+                    // persisted a title (404 after its backoff window, or another client
+                    // consumed the one-shot cache). Fetch network-first: the cached row
+                    // still holds the "New Chat" placeholder, so cache-first getConversation
+                    // could never observe the title, and refreshConversation's upsert also
+                    // propagates it to the Room-observing conversation list.
+                    conversationRepository.refreshConversation(conversationId).getOrNull()?.let { conversation ->
+                        stateHandle.update { copy(conversationTitle = conversation.title) }
+                    }
+                }
+                is Result.Loading -> { /* no-op */ }
+            }
+        }
+    }
+}

@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Agent
+import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.mcp.McpServer
 import com.garfiec.librechat.core.model.permissions.Permission
@@ -84,6 +85,28 @@ class ModelSelectionDelegate(
         applySelection(endpoint, model, reason = "conversationResolved")
         conversationModelLoaded = true
         conversationModelResolved = true
+    }
+
+    /**
+     * Resolves a loaded [conversation]'s authoritative (endpoint, model) and applies it as
+     * the active selection via [applyResolvedConversationModel]. Agents conversations carry
+     * the agent in `agentId`, so prefer that over `model` for the AGENTS endpoint. Returns
+     * true when a concrete selection was applied (i.e. the conversation model is now
+     * resolved), false when the conversation lacked enough info.
+     */
+    fun applyConversationModel(conversation: Conversation): Boolean {
+        val endpoint = conversation.endpoint
+        val isAgentConversation = endpoint == EndpointConstants.AGENTS
+        val resolvedModel = if (isAgentConversation) {
+            conversation.agentId ?: conversation.model
+        } else {
+            conversation.model
+        }
+        if (endpoint != null && resolvedModel != null) {
+            applyResolvedConversationModel(endpoint, resolvedModel)
+            return true
+        }
+        return false
     }
 
     /**

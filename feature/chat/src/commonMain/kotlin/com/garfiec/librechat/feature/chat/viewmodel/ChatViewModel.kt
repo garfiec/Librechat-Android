@@ -32,7 +32,6 @@ import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.Attachment
-import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.StreamEvent
@@ -64,6 +63,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDeleg
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.OfficePreviewDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendCompletionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SubagentTraceDelegate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -169,6 +169,16 @@ class ChatViewModel(
     )
     private val subagentTraceDelegate = SubagentTraceDelegate(stateHandle, json)
     private val officePreviewDelegate = OfficePreviewDelegate(stateHandle, fileRepository)
+    private val completionDelegate = SendCompletionDelegate(
+        stateHandle = stateHandle,
+        conversationRepository = conversationRepository,
+        draftRepository = draftRepository,
+        modelDelegate = modelDelegate,
+        treeDelegate = treeDelegate,
+        tts = ttsDelegate,
+        selectionHandoff = selectionHandoff,
+        reloadConversation = ::loadConversation,
+    )
 
     // --- Delegate-owned flows exposed to the UI ---
     val attachedFiles: StateFlow<List<AttachedFile>> get() = fileDelegate.attachedFiles
@@ -285,9 +295,6 @@ class ChatViewModel(
      * (title generation) running for the handed-off chat.
      */
     private val isHandedOffNewChat: Boolean
-
-    /** Guard to ensure we only attempt title generation once per conversation. */
-    private var titleGenerationRequested = false
 
     init {
         val conversationId = initialConversationId
@@ -512,7 +519,7 @@ class ChatViewModel(
             val conversation = result.getOrNull()
             if (conversation != null) {
                 _uiState.update { it.copy(conversationTitle = conversation.title) }
-                val applied = applyConversationModel(conversation)
+                val applied = modelDelegate.applyConversationModel(conversation)
                 Diag.d(
                     tag = "ModelSel",
                     attrs = mapOf(
@@ -535,59 +542,6 @@ class ChatViewModel(
             }
             modelDelegate.conversationModelLoaded = true
             modelDelegate.refilterModels(isNewConversation)
-        }
-    }
-
-    /**
-     * Resolves a loaded [conversation]'s authoritative (endpoint, model) and applies it as
-     * the active selection via [ModelSelectionDelegate.applyResolvedConversationModel].
-     * Agents conversations carry the agent in `agentId`, so prefer that over `model` for the
-     * AGENTS endpoint. Returns true when a concrete selection was applied (i.e. the
-     * conversation model is now resolved), false when the conversation lacked enough info.
-     */
-    private fun applyConversationModel(conversation: Conversation): Boolean {
-        val endpoint = conversation.endpoint
-        val isAgentConversation = endpoint == EndpointConstants.AGENTS
-        val resolvedModel = if (isAgentConversation) {
-            conversation.agentId ?: conversation.model
-        } else {
-            conversation.model
-        }
-        if (endpoint != null && resolvedModel != null) {
-            modelDelegate.applyResolvedConversationModel(endpoint, resolvedModel)
-            return true
-        }
-        return false
-    }
-
-    private fun refreshConversationTitle(conversationId: String) {
-        viewModelScope.launch {
-            val result = conversationRepository.getConversation(conversationId)
-            val conversation = result.getOrNull() ?: return@launch
-            _uiState.update { it.copy(conversationTitle = conversation.title) }
-        }
-    }
-
-    private fun generateAndSetTitle(conversationId: String) {
-        viewModelScope.launch {
-            when (val result = conversationRepository.generateTitle(conversationId)) {
-                is Result.Success -> {
-                    _uiState.update { it.copy(conversationTitle = result.data) }
-                }
-                is Result.Error -> {
-                    Logger.d { "Title generation failed for $conversationId: ${result.message}" }
-                    // The gen_title long-poll can miss even though the server generated and
-                    // persisted a title (404 after its backoff window, or another client
-                    // consumed the one-shot cache). Fetch network-first: the cached row
-                    // still holds the "New Chat" placeholder, so cache-first getConversation
-                    // could never observe the title, and refreshConversation's upsert also
-                    // propagates it to the Room-observing conversation list.
-                    conversationRepository.refreshConversation(conversationId).getOrNull()?.let { conversation ->
-                        _uiState.update { it.copy(conversationTitle = conversation.title) }
-                    }
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
         }
     }
 
@@ -1204,15 +1158,6 @@ class ChatViewModel(
     }
 
     private fun handleCreated(event: StreamEvent.Created) {
-        if (isNewConversation) {
-            viewModelScope.launch {
-                val existingDraft = draftRepository.getDraft(NEW_CHAT_DRAFT_KEY)
-                if (existingDraft != null) {
-                    draftRepository.saveDraft(event.conversationId, existingDraft)
-                    draftRepository.deleteDraft(NEW_CHAT_DRAFT_KEY)
-                }
-            }
-        }
         if (lastErrorWasNetwork) {
             lastErrorWasNetwork = false
             cancelConnectivityObserver()
@@ -1224,26 +1169,7 @@ class ChatViewModel(
                 it.copy(conversationId = event.conversationId)
             }
         }
-        if (isNewConversation) {
-            // Stage the selection we actually sent so the about-to-be-created Chat(id) VM can
-            // apply it directly instead of re-deriving it from a GET that races the server's
-            // unawaited conversation save. Keyed by id, so a deferred nav (comparison-mode
-            // branch) still picks it up. See NewChatSelectionHandoff.
-            val sent = _uiState.value
-            selectionHandoff.put(event.conversationId, sent.selectedEndpoint, sent.selectedModel)
-            _uiState.update {
-                if (it.pendingNavigationConversationId == null && !it.comparisonState.isEnabled) {
-                    it.copy(pendingNavigationConversationId = event.conversationId)
-                } else {
-                    it
-                }
-            }
-        }
-        // Eagerly fetch and cache the conversation the server just created,
-        // so it appears in the conversation list even if the stream fails later
-        viewModelScope.launch {
-            conversationRepository.getConversation(event.conversationId)
-        }
+        completionDelegate.onConversationCreated(event.conversationId, isNewConversation)
     }
 
     private fun handleFinal(event: StreamEvent.Final) {
@@ -1274,55 +1200,14 @@ class ChatViewModel(
         if (isComparison) {
             comparisonDelegate.onFinal((event.responseMessage ?: event.message)?.messageId)
         }
-        val finalConversation = event.conversation
-        // Belt-and-braces: if no handoff seeded the selection and the initial GET 404'd
-        // against the created-before-save race, the conversation model is still unresolved.
-        // The Final event carries the authoritative conversation, so re-derive from it here
-        // rather than leaving a fallback guess on screen.
-        if (!modelDelegate.conversationModelResolved && finalConversation != null) {
-            val applied = applyConversationModel(finalConversation)
-            Diag.i(
-                tag = "ModelSel",
-                attrs = mapOf("applied" to applied.toString()),
-            ) { "handleFinal re-derived conversation model" }
-        }
-        // SECURITY: do not remove — temp-chat data-at-rest guard.
-        // Temporary chats (v0.8.6) are kept out of normal history — the server excludes
-        // them from the conversation list, so don't cache them to Room either (it would
-        // leak a temp chat into the local list the server hides).
-        val isTemporary = _uiState.value.isTemporaryChat || finalConversation?.isTemporary == true
-        if (finalConversation?.conversationId != null && !isTemporary) {
-            viewModelScope.launch {
-                conversationRepository.saveConversation(finalConversation)
-            }
-        }
-        if (conversationId != null) {
-            if (isTemporary) {
-                // SECURITY: do not remove — temp-chat data-at-rest guard.
-                // Temp chats are never persisted: don't round-trip through the Room
-                // read-through (which would upsert the message rows to disk). Drive the
-                // display from the final event in memory instead. Title generation is
-                // also skipped server-side for temp chats, so there's nothing to refresh.
-                treeDelegate.finalizeTemporaryChatDisplay(event)
-            } else {
-                loadConversation(conversationId)
-                val shouldGenerate = shouldRequestTitleGeneration(
-                    isNewConversation = isNewConversation,
-                    isHandedOffNewChat = isHandedOffNewChat,
-                    currentTitle = _uiState.value.conversationTitle,
-                    alreadyRequested = titleGenerationRequested,
-                )
-                if (shouldGenerate) {
-                    titleGenerationRequested = true
-                    generateAndSetTitle(conversationId)
-                } else {
-                    refreshConversationTitle(conversationId)
-                }
-            }
-        }
-        if (shouldAutoRead && completedResponseText.isNotBlank()) {
-            ttsDelegate.maybeAutoReadResponse(completedResponseText)
-        }
+        completionDelegate.onFinal(
+            event = event,
+            conversationId = conversationId,
+            completedResponseText = completedResponseText,
+            shouldAutoRead = shouldAutoRead,
+            isNewConversation = isNewConversation,
+            isHandedOffNewChat = isHandedOffNewChat,
+        )
     }
 
     fun stopGeneration() {
