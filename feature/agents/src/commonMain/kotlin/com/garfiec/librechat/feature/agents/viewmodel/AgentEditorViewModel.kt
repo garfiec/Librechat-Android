@@ -3,7 +3,6 @@ package com.garfiec.librechat.feature.agents.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.AgentToolsRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -15,15 +14,10 @@ import com.garfiec.librechat.core.model.ActionMetadata
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentCategory
 import com.garfiec.librechat.core.model.AgentFile
-import com.garfiec.librechat.core.model.AgentSubagentsConfig
 import com.garfiec.librechat.core.model.HandoffEdge
 import com.garfiec.librechat.core.model.SkillSummary
-import com.garfiec.librechat.core.model.SupportContact
 import com.garfiec.librechat.core.model.mcp.McpTool
-import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.FunctionTool
-import com.garfiec.librechat.core.model.request.RevertAgentRequest
-import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 import com.garfiec.librechat.feature.agents.AgentActionDisplayData
 import com.garfiec.librechat.feature.agents.AgentHandoffDisplayData
 import com.garfiec.librechat.feature.agents.AgentToolDisplayData
@@ -32,13 +26,13 @@ import com.garfiec.librechat.feature.agents.components.model.AgentAdvancedSettin
 import com.garfiec.librechat.feature.agents.components.model.AgentCapabilities
 import com.garfiec.librechat.feature.agents.components.model.AgentSharingState
 import com.garfiec.librechat.feature.agents.components.model.AgentVersion
-import com.garfiec.librechat.feature.agents.components.model.AgentVisibility
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.util.ContentReader
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentActionsDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentCapabilitiesDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentFilesDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentLoaderDelegate
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentSaveDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.CodeToolAuthDelegate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -47,7 +41,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
@@ -277,6 +270,13 @@ class AgentEditorViewModel(
         editAgentId = editAgentId,
     )
 
+    private val saveDelegate = AgentSaveDelegate(
+        stateHandle = stateHandle,
+        agentRepository = agentRepository,
+        filesDelegate = filesDelegate,
+        events = _events,
+    )
+
     init {
         loaderDelegate.loadReferenceData()
         capabilitiesDelegate.observeAvailability()
@@ -498,313 +498,15 @@ class AgentEditorViewModel(
 
     // --- Duplicate / Delete / Revert ---
 
-    fun duplicate() {
-        val agentId = _uiState.value.agentId ?: return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isDuplicating = true,
-                showDuplicateConfirm = false,
-            )
-            when (val result = agentRepository.duplicateAgent(agentId)) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(isDuplicating = false)
-                    _events.emit(AgentEditorEvent.DuplicateSuccess(result.data.id))
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isDuplicating = false,
-                        error = result.message ?: "Failed to duplicate agent",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun duplicate() = saveDelegate.duplicate()
 
-    fun delete() {
-        val agentId = _uiState.value.agentId ?: return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isDeleting = true,
-                showDeleteConfirm = false,
-            )
-            when (val result = agentRepository.deleteAgent(agentId)) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(isDeleting = false)
-                    _events.emit(AgentEditorEvent.DeleteSuccess)
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isDeleting = false,
-                        error = result.message ?: "Failed to delete agent",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun delete() = saveDelegate.delete()
 
-    fun revertToVersion(version: Int) {
-        val agentId = _uiState.value.agentId ?: return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(showVersionHistory = false, isLoading = true)
-            when (val result = agentRepository.revertAgent(agentId, RevertAgentRequest(version))) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value
-                        .applyAgentData(result.data)
-                        .copy(isLoading = false)
-                    // A reverted version often has a different file set (different
-                    // execute_code / file_search / context attachments). Clear the
-                    // stale enrichment cache and re-fetch /api/files/agent/:id so
-                    // the new file_ids resolve to filename/bytes/type instead of
-                    // showing bare IDs in the chips.
-                    filesDelegate.resetFileCache()
-                    filesDelegate.loadAgentFiles(agentId)
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message ?: "Failed to revert agent",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun revertToVersion(version: Int) = saveDelegate.revertToVersion(version)
 
     // --- Save ---
 
-    fun save() {
-        val state = _uiState.value
-
-        // Validate -- mirror upstream zod schema constraints from
-        // packages/data-provider/src/schemas.ts agentSchema.
-        val nameError = when {
-            state.name.isBlank() -> "Name is required"
-            state.name.length > NAME_MAX -> "Name must be at most $NAME_MAX characters"
-            else -> null
-        }
-        val descriptionError = when {
-            state.description.length > DESCRIPTION_MAX ->
-                "Description must be at most $DESCRIPTION_MAX characters"
-            else -> null
-        }
-        val contactName = state.supportContact.name
-        val contactEmail = state.supportContact.email
-        val supportContactNameError = when {
-            contactName.isNotBlank() && contactName.length < SUPPORT_NAME_MIN ->
-                "Support contact name must be at least $SUPPORT_NAME_MIN characters"
-            else -> null
-        }
-        val supportContactEmailError = when {
-            contactEmail.isNotBlank() && !EMAIL_REGEX.matches(contactEmail) ->
-                "Enter a valid email address"
-            else -> null
-        }
-        val hasErrors = nameError != null || descriptionError != null ||
-            supportContactNameError != null || supportContactEmailError != null
-        if (hasErrors) {
-            _uiState.value = state.copy(
-                nameError = nameError,
-                descriptionError = descriptionError,
-                supportContactNameError = supportContactNameError,
-                supportContactEmailError = supportContactEmailError,
-            )
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, error = null)
-
-            val isPublic = state.sharingState.visibility == AgentVisibility.PUBLIC
-            // On v0.8.5+ the server dropped `isCollaborative` / `projectIds` in favor
-            // of ACL permissions. When the toggle is hidden we omit the field so the
-            // server doesn't silently ignore it. See VERSION_GATES.md.
-            val isCollaborative = if (state.showCollaborativeToggle) {
-                state.sharingState.isCollaborative
-            } else {
-                null
-            }
-
-            val supportContact = if (state.supportContact.name.isNotBlank() ||
-                state.supportContact.email.isNotBlank()
-            ) {
-                SupportContact(
-                    name = state.supportContact.name.ifBlank { null },
-                    email = state.supportContact.email.ifBlank { null },
-                )
-            } else {
-                null
-            }
-
-            // Build the full tools list: user-selected tools + capability tools + MCP server markers
-            val allTools = buildToolsList(state)
-
-            // Prune `tool_options` to the keys still present in the agent's
-            // current tool selection. Upstream keys this map by tool name
-            // (MCP tool names appear without the `_mcp_serverName` suffix —
-            // see `client/src/components/SidePanel/Agents/MCPToolItem.tsx`),
-            // so we match against the bare names: `selectedMcpTools` for MCP
-            // and `selectedTools` for regular tools. Without this prune, a
-            // user who deselects an MCP tool whose options were configured
-            // via the web client would still ship those tool_options on
-            // save, producing zombie config that re-appears the next time
-            // the tool is re-added.
-            val keepableToolOptionKeys = state.selectedMcpTools.toSet() + state.selectedTools.toSet()
-            val prunedToolOptions = state.toolOptions?.let { options ->
-                val filtered = options.filterKeys { it in keepableToolOptionKeys }
-                if (filtered.isEmpty()) null else JsonObject(filtered)
-            }
-
-            // Build model_parameters from advanced settings
-            val modelParameters = buildModelParameters(state.advancedSettings)
-
-            // Artifacts: upstream `ArtifactModes` enum serialized as its wire string.
-            // null means "off" (omitted from the request body via encodeDefaults=false).
-            val artifacts = state.capabilities.artifactsMode?.wire
-
-            // Chain (sequential agents) + handoffs (graph edges). For CREATE,
-            // omit when empty (no prior state to clear). For UPDATE, always
-            // send the current value — including empty lists — so removing
-            // every chain target or every handoff edge actually clears the
-            // server-side list. Coercing empty → null on update would let the
-            // server's "missing field = no change" rule swallow the deletion.
-            val isUpdate = state.isEditMode && state.agentId != null
-            val chainAgentIds = if (isUpdate) state.chainAgentIds else state.chainAgentIds.ifEmpty { null }
-            // Append any raw edges that failed to deserialize on load (forward-
-            // compatibility for new upstream edge fields the mobile model
-            // doesn't model yet). Without re-emitting these, a single decoder
-            // mismatch would silently clear all server-side edges on save.
-            val handoffEdges = if (isUpdate) {
-                encodeHandoffEdgesAlways(state.handoffEdges) + state.unparsedHandoffEdges
-            } else {
-                val encoded = encodeHandoffEdges(state.handoffEdges).orEmpty() + state.unparsedHandoffEdges
-                encoded.ifEmpty { null }
-            }
-
-            // Skills (v0.8.6). Write shape per the zod agentBaseSchema
-            // (skills/skills_enabled both optional) + the server's $set merge:
-            // when the toggle is off, send skills_enabled=false and drop the
-            // allowlist. When on, send the toggle plus the current allowlist
-            // (empty = "full catalog"; the server stores skills_enabled=true
-            // and omits the allowlist). On UPDATE always send both fields so
-            // turning skills off, or clearing the allowlist, is honored via the
-            // $set merge; on CREATE omit when off (nothing to clear). On read
-            // the server scrubs the allowlist to ids the caller can access, so
-            // [applyAgentData] re-hydrates from the saved agent rather than
-            // trusting this list.
-            val skillsEnabled: Boolean?
-            val skills: List<String>?
-            when {
-                !state.skillsEnabled -> {
-                    skillsEnabled = if (isUpdate) false else null
-                    skills = if (isUpdate) emptyList() else null
-                }
-                else -> {
-                    skillsEnabled = true
-                    skills = state.selectedSkillIds
-                }
-            }
-
-            // Subagents config (v0.8.6). Same persist semantics as skills: when
-            // off, send an explicit `{ enabled: false, ... }` on UPDATE (not
-            // null) so the server's removeNullishValues doesn't strip it and the
-            // $set merge actually clears it; omit on CREATE. When on, send
-            // enabled + allowSelf + the agent_ids allowlist (self never included).
-            val subagents: AgentSubagentsConfig? = when {
-                !state.subagentsEnabled ->
-                    if (isUpdate) {
-                        AgentSubagentsConfig(
-                            enabled = false,
-                            allowSelf = state.subagentAllowSelf,
-                            agentIds = state.selectedSubagentIds,
-                        )
-                    } else {
-                        null
-                    }
-                else -> AgentSubagentsConfig(
-                    enabled = true,
-                    allowSelf = state.subagentAllowSelf,
-                    agentIds = state.selectedSubagentIds,
-                )
-            }
-
-            val result = if (state.isEditMode && state.agentId != null) {
-                agentRepository.updateAgent(
-                    id = state.agentId,
-                    request = UpdateAgentRequest(
-                        name = state.name,
-                        description = state.description.ifBlank { null },
-                        instructions = state.instructions.ifBlank { null },
-                        model = state.model.ifBlank { null },
-                        provider = state.provider.ifBlank { null },
-                        modelParameters = modelParameters,
-                        artifacts = artifacts,
-                        recursionLimit = state.capabilities.recursionLimit,
-                        hideSequentialOutputs = state.capabilities.hideSequentialOutputs,
-                        endAfterTools = state.capabilities.endAfterTools,
-                        category = state.category.ifBlank { null },
-                        tools = allTools.ifEmpty { null },
-                        conversationStarters = state.conversationStarters.ifEmpty { null },
-                        isPublic = isPublic,
-                        isCollaborative = isCollaborative,
-                        supportContact = supportContact,
-                        agentIds = chainAgentIds,
-                        edges = handoffEdges,
-                        toolOptions = prunedToolOptions,
-                        additionalInstructions = state.additionalInstructions,
-                        toolKwargs = state.toolKwargs,
-                        skills = skills,
-                        skillsEnabled = skillsEnabled,
-                        subagents = subagents,
-                    ),
-                )
-            } else {
-                agentRepository.createAgent(
-                    request = CreateAgentRequest(
-                        name = state.name,
-                        description = state.description.ifBlank { null },
-                        instructions = state.instructions.ifBlank { null },
-                        model = state.model.ifBlank { null },
-                        provider = state.provider.ifBlank { null },
-                        modelParameters = modelParameters,
-                        artifacts = artifacts,
-                        recursionLimit = state.capabilities.recursionLimit,
-                        hideSequentialOutputs = state.capabilities.hideSequentialOutputs,
-                        endAfterTools = state.capabilities.endAfterTools,
-                        category = state.category.ifBlank { null },
-                        tools = allTools.ifEmpty { null },
-                        conversationStarters = state.conversationStarters.ifEmpty { null },
-                        isPublic = isPublic,
-                        isCollaborative = isCollaborative,
-                        supportContact = supportContact,
-                        agentIds = chainAgentIds,
-                        edges = handoffEdges,
-                        toolOptions = prunedToolOptions,
-                        additionalInstructions = state.additionalInstructions,
-                        toolKwargs = state.toolKwargs,
-                        skills = skills,
-                        skillsEnabled = skillsEnabled,
-                        subagents = subagents,
-                    ),
-                )
-            }
-
-            when (result) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(isSaving = false)
-                    _events.emit(AgentEditorEvent.SaveSuccess(result.data.id))
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isSaving = false,
-                        error = result.message ?: "Failed to save agent",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun save() = saveDelegate.save()
 
     companion object {
 
@@ -813,11 +515,6 @@ class AgentEditorViewModel(
 
         /** Upstream `MAX_SUBAGENTS` (config.ts) — subagent agent_ids cap. */
         const val MAX_SUBAGENTS = 10
-
-        /** Validation limits mirrored from upstream agentSchema. */
-        const val NAME_MAX = 256
-        const val DESCRIPTION_MAX = 512
-        const val SUPPORT_NAME_MIN = 3
 
         /**
          * Avatar size cap. Upstream default in fileConfig.avatarSizeLimit is 2MB
@@ -839,9 +536,5 @@ class AgentEditorViewModel(
         const val AGENT_FILES_TOO_LARGE_MARKER = "agent_file_too_large:"
         const val AGENT_FILE_UPLOAD_FAILED_MARKER = "agent_file_upload_failed"
         const val AGENT_FILE_REMOVE_FAILED_MARKER = "agent_file_remove_failed"
-
-        // Pragmatic email regex matching upstream client-side validateEmail.
-        // Server still runs its own check, so this only catches obvious typos.
-        private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
     }
 }
