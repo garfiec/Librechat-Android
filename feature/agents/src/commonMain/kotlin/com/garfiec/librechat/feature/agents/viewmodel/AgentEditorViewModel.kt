@@ -42,6 +42,7 @@ import com.garfiec.librechat.feature.agents.components.model.AgentVisibility
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.util.ContentReader
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentFilesDelegate
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentLoaderDelegate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -253,12 +254,17 @@ class AgentEditorViewModel(
         ioDispatcher = ioDispatcher,
     )
 
+    private val loaderDelegate = AgentLoaderDelegate(
+        stateHandle = stateHandle,
+        agentRepository = agentRepository,
+        configRepository = configRepository,
+        mcpRepository = mcpRepository,
+        filesDelegate = filesDelegate,
+        editAgentId = editAgentId,
+    )
+
     init {
-        loadAvailableTools()
-        loadCategories()
-        loadModels()
-        loadMcpTools()
-        loadAllAgents()
+        loaderDelegate.loadReferenceData()
         loadCodeInterpreterAvailability()
         observeWebSearchAvailability()
         observeSkillsAvailability()
@@ -266,7 +272,7 @@ class AgentEditorViewModel(
         observeServerVersion()
         verifyCodeToolAuth()
         if (editAgentId != null) {
-            loadAgent(editAgentId)
+            loaderDelegate.loadAgent(editAgentId)
             loadActions()
             filesDelegate.loadAgentFiles(editAgentId)
         }
@@ -470,127 +476,6 @@ class AgentEditorViewModel(
         )
     }
 
-    private fun loadAgent(agentId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            Logger.d { "AgentEditor: Loading agent for editing: $agentId" }
-            // Use getAgentForEditing which calls the /expanded endpoint.
-            // The standard getAgent endpoint (GET /api/agents/:id) only returns
-            // basic view-only fields (id, name, description, avatar, model, provider).
-            // It does NOT return instructions, tools, category, conversation_starters,
-            // model_parameters, or other configuration needed for the editor.
-            when (val result = agentRepository.getAgentForEditing(agentId)) {
-                is Result.Success -> {
-                    val agent = result.data
-                    Logger.d {
-                        "AgentEditor: Loaded agent fields BEFORE mapping - " +
-                            "name=${agent.name}, description=${agent.description}, " +
-                            "instructions=${agent.instructions}, model=${agent.model}, " +
-                            "provider=${agent.provider}, category=${agent.category}, tools=${agent.tools}, " +
-                            "conversationStarters=${agent.conversationStarters}, avatarUrl=${agent.avatarUrl}, " +
-                            "artifacts=${agent.artifacts}, recursionLimit=${agent.recursionLimit}, " +
-                            "hideSequentialOutputs=${agent.hideSequentialOutputs}, endAfterTools=${agent.endAfterTools}, " +
-                            "isPublic=${agent.isPublic}, isCollaborative=${agent.isCollaborative}, " +
-                            "agentIds=${agent.agentIds}, supportContact=${agent.supportContact}, " +
-                            "modelParameters=${agent.modelParameters}"
-                    }
-                    val newState = _uiState.value
-                        .applyAgentData(agent)
-                        .copy(isLoading = false)
-                    _uiState.value = newState
-                    // If loadAgentFiles already returned, re-merge now that
-                    // the per-capability slot lists are populated. Without
-                    // this, an earlier-finishing files request would have
-                    // merged against empty lists and produced no enrichment.
-                    filesDelegate.remergeLoadedFiles()
-                    Logger.d {
-                        "AgentEditor: UI state AFTER mapping - " +
-                            "name=${newState.name}, description=${newState.description}, " +
-                            "instructions=${newState.instructions}, model=${newState.model}, " +
-                            "provider=${newState.provider}, category=${newState.category}, selectedTools=${newState.selectedTools}, " +
-                            "conversationStarters=${newState.conversationStarters}, avatarUrl=${newState.avatarUrl}, " +
-                            "codeInterpreterEnabled=${newState.codeInterpreterEnabled}, fileSearchEnabled=${newState.fileSearchEnabled}, " +
-                            "capabilities=${newState.capabilities}, advancedSettings=${newState.advancedSettings}, " +
-                            "sharingState=${newState.sharingState}, chainAgentIds=${newState.chainAgentIds}, " +
-                            "handoffEdges=${newState.handoffEdges.size} edges, " +
-                            "supportContact=${newState.supportContact}"
-                    }
-                }
-                is Result.Error -> {
-                    Logger.e { "AgentEditor: Failed to load agent $agentId: ${result.message}" }
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message ?: "Failed to load agent",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    private fun loadAvailableTools() {
-        viewModelScope.launch {
-            when (val result = agentRepository.getAvailableTools()) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        availableTools = result.data.map { it.toDisplayData() },
-                    )
-                }
-                is Result.Error -> { /* Tools are optional, ignore errors */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    private fun loadCategories() {
-        viewModelScope.launch {
-            when (val result = agentRepository.getAgentCategories()) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        categories = result.data,
-                    )
-                }
-                is Result.Error -> { /* Categories are optional */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    private fun loadModels() {
-        viewModelScope.launch {
-            when (val result = configRepository.fetchModels()) {
-                is Result.Success -> {
-                    val modelOptions = result.data.flatMap { (endpoint, models) ->
-                        models.map { modelName ->
-                            ModelOption(
-                                id = modelName,
-                                name = modelName,
-                                endpoint = endpoint,
-                            )
-                        }
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        availableModels = modelOptions,
-                    )
-                }
-                is Result.Error -> { /* Models loading failed, user can retry */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    private fun loadMcpTools() {
-        viewModelScope.launch {
-            when (val result = mcpRepository.getTools()) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(mcpTools = result.data)
-                }
-                is Result.Error -> { /* MCP tools are optional */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
     private fun loadActions() {
         viewModelScope.launch {
             when (val result = agentRepository.getAgentActions()) {
@@ -602,22 +487,6 @@ class AgentEditorViewModel(
                     _uiState.value = _uiState.value.copy(actions = agentActions)
                 }
                 is Result.Error -> { /* Actions are optional */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    private fun loadAllAgents() {
-        viewModelScope.launch {
-            when (val result = agentRepository.getAgents()) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        allAgents = result.data
-                            .filter { it.id != editAgentId }
-                            .map { it.toHandoffDisplayData() },
-                    )
-                }
-                is Result.Error -> { /* Agents list is optional for handoff */ }
                 is Result.Loading -> { /* no-op */ }
             }
         }
