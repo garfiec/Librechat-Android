@@ -3,8 +3,6 @@ package com.garfiec.librechat.feature.agents.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import co.touchlab.kermit.Logger
-import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.AgentToolsRepository
@@ -22,9 +20,6 @@ import com.garfiec.librechat.core.model.HandoffEdge
 import com.garfiec.librechat.core.model.SkillSummary
 import com.garfiec.librechat.core.model.SupportContact
 import com.garfiec.librechat.core.model.mcp.McpTool
-import com.garfiec.librechat.core.model.permissions.Permission
-import com.garfiec.librechat.core.model.permissions.PermissionType
-import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.FunctionTool
@@ -41,6 +36,7 @@ import com.garfiec.librechat.feature.agents.components.model.AgentVersion
 import com.garfiec.librechat.feature.agents.components.model.AgentVisibility
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.util.ContentReader
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentCapabilitiesDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentFilesDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentLoaderDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.CodeToolAuthDelegate
@@ -51,7 +47,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -269,217 +264,22 @@ class AgentEditorViewModel(
         agentToolsRepository = agentToolsRepository,
     )
 
+    private val capabilitiesDelegate = AgentCapabilitiesDelegate(
+        stateHandle = stateHandle,
+        configRepository = configRepository,
+        roleRepository = roleRepository,
+        skillsRepository = skillsRepository,
+    )
+
     init {
         loaderDelegate.loadReferenceData()
-        loadCodeInterpreterAvailability()
-        observeWebSearchAvailability()
-        observeSkillsAvailability()
-        observeSubagentsAvailability()
-        observeServerVersion()
+        capabilitiesDelegate.observeAvailability()
         codeAuthDelegate.verifyCodeToolAuth()
         if (editAgentId != null) {
             loaderDelegate.loadAgent(editAgentId)
             loadActions()
             filesDelegate.loadAgentFiles(editAgentId)
         }
-    }
-
-    /**
-     * Observes the detected backend version and hides the Collaborative toggle
-     * on v0.8.5+ where the server no longer honors `isCollaborative`/`projectIds`.
-     * See VERSION_GATES.md at the repo root.
-     */
-    private fun observeServerVersion() {
-        viewModelScope.launch {
-            configRepository.detectedBackendVersion.collect { version ->
-                val show = version == null ||
-                    !BackendVersion.isCompatibleOrNewer(version, "0.8.5")
-                // Handoffs (graph edges) require v0.8.5+; on older servers the field is ignored.
-                val handoffsAvailable = version != null &&
-                    BackendVersion.isCompatibleOrNewer(version, "0.8.5")
-                _uiState.value = _uiState.value.copy(
-                    showCollaborativeToggle = show,
-                    isHandoffsAvailable = handoffsAvailable,
-                    isAclAvailable = handoffsAvailable,
-                )
-            }
-        }
-    }
-
-    /**
-     * Observes the agents endpoint config capabilities to determine
-     * whether code interpreter (execute_code) is available on this server.
-     */
-    private fun loadCodeInterpreterAvailability() {
-        viewModelScope.launch {
-            configRepository.endpointConfigs.collect { configs ->
-                val agentsCapabilities = configs["agents"]?.capabilities ?: emptyList()
-                // If capabilities list is non-empty, check for the capability.
-                // If empty (no config loaded yet), default to available for known-default
-                // capabilities (execute_code) and unavailable for opt-in ones (chain).
-                val codeAvailable = agentsCapabilities.isEmpty() || "execute_code" in agentsCapabilities
-                val chainAvailable = "chain" in agentsCapabilities
-                _uiState.value = _uiState.value.copy(
-                    isCodeInterpreterAvailable = codeAvailable,
-                    isChainAvailable = chainAvailable,
-                )
-                // NOTE: do NOT auto-disable [codeInterpreterEnabled] here.
-                // endpointConfigs is a StateFlow that re-emits whenever any
-                // config changes (e.g., a sibling VM calls fetchEndpoints
-                // after a provider-key edit). If applyAgentData ran before
-                // the second emission and set codeInterpreterEnabled=true,
-                // an unrelated config refresh would silently stomp the
-                // user's just-loaded capability. Availability gating is
-                // applied at save time in [buildToolsList] instead, so
-                // the in-memory toggle survives transient mismatches.
-            }
-        }
-    }
-
-    /**
-     * Observes the agents endpoint capabilities to determine whether web
-     * search is available. Inspired by upstream `useAgentCapabilities`
-     * (client/src/hooks/Agents/useAgentCapabilities.ts), but with a
-     * deliberate divergence in fail-open semantics.
-     *
-     * Upstream is FAIL-CLOSED: `capabilities?.includes(web_search) ?? false`
-     * — an empty/undefined capabilities array hides the toggle. Mobile is
-     * FAIL-OPEN: an empty list (or older backends that don't ship the
-     * capabilities array at all) treats the feature as available. This
-     * matches the heuristic [loadCodeInterpreterAvailability] uses for
-     * `execute_code` and avoids hiding the toggle on legacy servers that
-     * never enumerated capabilities. Admins who intentionally ship an empty
-     * `agents.capabilities` to disable agent tooling will see the mobile
-     * toggle remain visible — save-time tools-list filtering still applies
-     * if the field is present-but-excluded.
-     */
-    private fun observeWebSearchAvailability() {
-        viewModelScope.launch {
-            configRepository.endpointConfigs.collect { configs ->
-                val agentsCapabilities = configs["agents"]?.capabilities ?: emptyList()
-                val available = agentsCapabilities.isEmpty() ||
-                    "web_search" in agentsCapabilities
-                _uiState.value = _uiState.value.copy(isWebSearchAvailable = available)
-                // NOTE: do NOT auto-disable [webSearchEnabled] here. See the
-                // matching note in [loadCodeInterpreterAvailability] — a
-                // late-arriving endpointConfigs emission can race past
-                // applyAgentData and silently strip the capability from a
-                // freshly-loaded agent. Availability gating is applied at
-                // save time in [buildToolsList].
-            }
-        }
-    }
-
-    /**
-     * Observes the agents endpoint `capabilities` array and the user's SKILLS
-     * permission to gate the Skills section (upstream `showSkills =
-     * hasSkillsAccess && skillsEnabled`, where `skillsEnabled =
-     * capabilities.includes('skills')`). Both checks are FAIL-OPEN to match
-     * the sibling capability gates ([observeWebSearchAvailability]): an empty
-     * capabilities list or an unknown role (timeout / not yet loaded) treats
-     * the feature as available. When the section first becomes visible we
-     * fetch the skill catalog (for `_id → name` resolution and the picker).
-     */
-    private fun observeSkillsAvailability() {
-        viewModelScope.launch {
-            combine(
-                configRepository.endpointConfigs,
-                roleRepository.userPermissions,
-            ) { configs, role ->
-                val agentsCapabilities = configs["agents"]?.capabilities ?: emptyList()
-                val capabilityAvailable = agentsCapabilities.isEmpty() ||
-                    "skills" in agentsCapabilities
-                val permissionAvailable =
-                    role.hasAccessOrPermissive(PermissionType.SKILLS, Permission.USE)
-                capabilityAvailable && permissionAvailable
-            }.collect { available ->
-                val wasAvailable = _uiState.value.isSkillsAvailable
-                _uiState.value = _uiState.value.copy(isSkillsAvailable = available)
-                // Lazily load the catalog the first time the section is shown.
-                if (available && !wasAvailable && _uiState.value.availableSkills.isEmpty()) {
-                    loadSkills()
-                }
-            }
-        }
-    }
-
-    /** Fetches the skill catalog for the picker + chip-name resolution. Best
-     *  effort — a denied/empty list leaves saved ids rendering as raw chips. */
-    private fun loadSkills() {
-        viewModelScope.launch {
-            when (val result = skillsRepository.listSkills()) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(availableSkills = result.data.skills)
-                }
-                is Result.Error -> {
-                    Logger.d { "AgentEditor: skills list failed: ${result.message}" }
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    /** Master `skills_enabled` toggle. Turning off keeps [selectedSkillIds] so
-     *  re-enabling restores the prior allowlist; the save path drops the
-     *  allowlist from the payload when disabled. */
-    fun onSkillsToggled(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(skillsEnabled = enabled)
-    }
-
-    fun onSkillSelectionToggled(skillId: String) {
-        val current = _uiState.value.selectedSkillIds
-        val next = if (skillId in current) current - skillId else current + skillId
-        _uiState.value = _uiState.value.copy(selectedSkillIds = next)
-    }
-
-    fun onSkillRemoved(skillId: String) {
-        _uiState.value = _uiState.value.copy(
-            selectedSkillIds = _uiState.value.selectedSkillIds - skillId,
-        )
-    }
-
-    /**
-     * Gates the Subagents section on the agents endpoint `capabilities`
-     * containing "subagents" (upstream `AgentCapabilities.subagents`, same
-     * source the skills/web-search gates read). Capability-only — subagents has
-     * no PermissionType. Fail-open like the sibling gates (empty caps ⇒ shown).
-     */
-    private fun observeSubagentsAvailability() {
-        viewModelScope.launch {
-            configRepository.endpointConfigs.collect { configs ->
-                val agentsCapabilities = configs["agents"]?.capabilities ?: emptyList()
-                val available = agentsCapabilities.isEmpty() || "subagents" in agentsCapabilities
-                _uiState.value = _uiState.value.copy(isSubagentsAvailable = available)
-            }
-        }
-    }
-
-    /** Master `subagents.enabled` toggle. Keeps [selectedSubagentIds] /
-     *  [subagentAllowSelf] so re-enabling restores them; the save path sends an
-     *  explicit `enabled:false` config when off. */
-    fun onSubagentsToggled(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(subagentsEnabled = enabled)
-    }
-
-    fun onSubagentAllowSelfToggled(allow: Boolean) {
-        _uiState.value = _uiState.value.copy(subagentAllowSelf = allow)
-    }
-
-    fun addSubagent(agentId: String) {
-        val current = _uiState.value.selectedSubagentIds
-        // Upstream caps subagents at MAX_SUBAGENTS; never list the agent itself.
-        if (agentId != _uiState.value.agentId &&
-            agentId !in current &&
-            current.size < MAX_SUBAGENTS
-        ) {
-            _uiState.value = _uiState.value.copy(selectedSubagentIds = current + agentId)
-        }
-    }
-
-    fun removeSubagent(agentId: String) {
-        _uiState.value = _uiState.value.copy(
-            selectedSubagentIds = _uiState.value.selectedSubagentIds - agentId,
-        )
     }
 
     private fun loadActions() {
@@ -689,45 +489,37 @@ class AgentEditorViewModel(
         _uiState.value = _uiState.value.copy(sharingState = sharingState)
     }
 
+    // --- Skills (v0.8.6) ---
+
+    fun onSkillsToggled(enabled: Boolean) = capabilitiesDelegate.onSkillsToggled(enabled)
+
+    fun onSkillSelectionToggled(skillId: String) = capabilitiesDelegate.onSkillSelectionToggled(skillId)
+
+    fun onSkillRemoved(skillId: String) = capabilitiesDelegate.onSkillRemoved(skillId)
+
+    // --- Subagents (v0.8.6) ---
+
+    fun onSubagentsToggled(enabled: Boolean) = capabilitiesDelegate.onSubagentsToggled(enabled)
+
+    fun onSubagentAllowSelfToggled(allow: Boolean) = capabilitiesDelegate.onSubagentAllowSelfToggled(allow)
+
+    fun addSubagent(agentId: String) = capabilitiesDelegate.addSubagent(agentId)
+
+    fun removeSubagent(agentId: String) = capabilitiesDelegate.removeSubagent(agentId)
+
     // --- Chain (sequential multi-agent) ---
 
-    fun addChainAgent(agentId: String) {
-        val current = _uiState.value.chainAgentIds
-        // Upstream caps the chain at 10 agents.
-        if (agentId !in current && current.size < CHAIN_MAX) {
-            _uiState.value = _uiState.value.copy(chainAgentIds = current + agentId)
-        }
-    }
+    fun addChainAgent(agentId: String) = capabilitiesDelegate.addChainAgent(agentId)
 
-    fun removeChainAgent(agentId: String) {
-        _uiState.value = _uiState.value.copy(
-            chainAgentIds = _uiState.value.chainAgentIds - agentId,
-        )
-    }
+    fun removeChainAgent(agentId: String) = capabilitiesDelegate.removeChainAgent(agentId)
 
     // --- Handoffs (graph edges) ---
 
-    fun addHandoffEdge(edge: HandoffEdge) {
-        _uiState.value = _uiState.value.copy(
-            handoffEdges = _uiState.value.handoffEdges + edge,
-        )
-    }
+    fun addHandoffEdge(edge: HandoffEdge) = capabilitiesDelegate.addHandoffEdge(edge)
 
-    fun updateHandoffEdge(index: Int, edge: HandoffEdge) {
-        val list = _uiState.value.handoffEdges.toMutableList()
-        if (index in list.indices) {
-            list[index] = edge
-            _uiState.value = _uiState.value.copy(handoffEdges = list)
-        }
-    }
+    fun updateHandoffEdge(index: Int, edge: HandoffEdge) = capabilitiesDelegate.updateHandoffEdge(index, edge)
 
-    fun removeHandoffEdge(index: Int) {
-        val list = _uiState.value.handoffEdges.toMutableList()
-        if (index in list.indices) {
-            list.removeAt(index)
-            _uiState.value = _uiState.value.copy(handoffEdges = list)
-        }
-    }
+    fun removeHandoffEdge(index: Int) = capabilitiesDelegate.removeHandoffEdge(index)
 
     // --- Dialog state ---
 
