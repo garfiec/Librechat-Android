@@ -54,11 +54,11 @@ import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
-import com.garfiec.librechat.feature.chat.util.mergeFinalMessagesInMemory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.EndpointKeyStatusDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.FavoritesDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.InConversationSearchDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.MessageTreeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.OfficePreviewDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
@@ -142,6 +142,7 @@ class ChatViewModel(
     private val shareConsumer = platformDelegateFactory.createShareConsumer()
 
     // --- Delegates ---
+    private val treeDelegate = MessageTreeDelegate(stateHandle)
     private val searchDelegate = InConversationSearchDelegate(stateHandle)
     private val conversationActionsDelegate =
         ConversationActionsDelegate(stateHandle, conversationRepository, shareRepository)
@@ -584,23 +585,8 @@ class ChatViewModel(
         }
     }
 
-    fun switchBranch(parentMessageId: String, siblingIndex: Int) {
-        // Ignore branch switches mid-stream: the in-flight reply's path is truncated at
-        // its parent (see anchorStreamTo / buildActiveMessagePath's streamingLeafId), and
-        // mutating activeBranches re-triggers loadConversation's combine, which rebuilds
-        // displayMessages WITHOUT the leaf — un-truncating the path and dropping the
-        // streaming reply back to the end. editMessage/regenerateMessage are likewise
-        // gated on isStreaming; this closes the same gap for sibling navigation.
-        if (_uiState.value.isStreaming) return
-        // Only mutate the branch selection; the observeMessages/activeBranches combine in
-        // loadConversation recomputes displayMessages off the Main thread in response, so the
-        // tree walk no longer runs synchronously on this UI click path.
-        _uiState.update {
-            val newBranches = it.activeBranches.toMutableMap()
-            newBranches[parentMessageId] = siblingIndex
-            it.copy(activeBranches = newBranches)
-        }
-    }
+    fun switchBranch(parentMessageId: String, siblingIndex: Int) =
+        treeDelegate.switchBranch(parentMessageId, siblingIndex)
 
     fun onInputChanged(text: String) {
         _uiState.update { it.copy(inputText = text) }
@@ -835,29 +821,6 @@ class ChatViewModel(
     }
 
     /**
-     * Rebuilds the active path truncated at [parentMessageId] — the message the
-     * in-flight reply attaches to — so the streaming bubble renders in place
-     * (replacing the stale branch for edit/regenerate) rather than being appended
-     * after it. Used by the paths that reuse an existing message as the parent
-     * (regenerate, edit-AI); the optimistic-message paths (send, edit-user) pass the
-     * same leaf to [buildActiveMessagePath] inline alongside their message insert.
-     *
-     * The full tree stays in `messages` and the DB, so the old branch remains
-     * reachable via sibling navigation, and loadConversation() rebuilds the real
-     * path on Final. This truncated displayMessages then simply persists in state
-     * for the duration of the stream: safe because no streaming entry point writes
-     * to Room mid-stream and none mutate activeBranches, so the Room observer never
-     * re-emits to rebuild (and un-truncate) the path before the stream completes.
-     */
-    private fun anchorStreamTo(parentMessageId: String) {
-        _uiState.update {
-            it.copy(
-                displayMessages = buildActiveMessagePath(it.messages, it.activeBranches, parentMessageId),
-            )
-        }
-    }
-
-    /**
      * Launches a periodic coroutine that flushes the [streamingBuffer] to UI state
      * at most every [STREAMING_UI_UPDATE_INTERVAL_MS] ms. This avoids recomposition spam
      * from high-frequency SSE chunks (each chunk would otherwise trigger a full state copy).
@@ -982,7 +945,7 @@ class ChatViewModel(
         // the old one. The web client seeds the placeholder with the edited content
         // for a transient preview; we don't (the regenerated server response is
         // authoritative on Final either way).
-        anchorStreamTo(parentUserMessage.messageId)
+        treeDelegate.anchorStreamTo(parentUserMessage.messageId)
         prepareForStreaming()
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
@@ -1029,7 +992,7 @@ class ChatViewModel(
 
     private fun regenerateMessageNow(parentUserMessage: Message) {
         isEditOrRegenerate = true
-        anchorStreamTo(parentUserMessage.messageId)
+        treeDelegate.anchorStreamTo(parentUserMessage.messageId)
         prepareForStreaming()
 
         val isAgentRegen = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
@@ -1466,7 +1429,7 @@ class ChatViewModel(
                 // read-through (which would upsert the message rows to disk). Drive the
                 // display from the final event in memory instead. Title generation is
                 // also skipped server-side for temp chats, so there's nothing to refresh.
-                finalizeTemporaryChatDisplay(event)
+                treeDelegate.finalizeTemporaryChatDisplay(event)
             } else {
                 loadConversation(conversationId)
                 val shouldGenerate = shouldRequestTitleGeneration(
@@ -1485,29 +1448,6 @@ class ChatViewModel(
         }
         if (shouldAutoRead && completedResponseText.isNotBlank()) {
             ttsDelegate.maybeAutoReadResponse(completedResponseText)
-        }
-    }
-
-    /**
-     * Finalizes a temporary chat's display purely in memory, WITHOUT persisting to
-     * Room. For a normal chat, [handleFinal] calls [loadConversation], which routes
-     * through [MessageRepository.getMessages]'s read-through cache and upserts the
-     * message rows to disk — for a temp chat that would leave the message content on
-     * disk forever even though the conversation never appears in history. Instead we
-     * merge the final request/response messages from the SSE event into the existing
-     * in-memory list (replacing the optimistic user message by id) and recompute the
-     * display path. Nothing touches the DB.
-     */
-    private fun finalizeTemporaryChatDisplay(event: StreamEvent.Final) {
-        val finalMessages = listOfNotNull(event.requestMessage, event.responseMessage ?: event.message)
-        if (finalMessages.isEmpty()) return
-        _uiState.update { state ->
-            val mergedMessages = mergeFinalMessagesInMemory(state.messages, finalMessages)
-            state.copy(
-                messages = mergedMessages,
-                displayMessages = buildActiveMessagePath(mergedMessages, state.activeBranches),
-                screenState = ChatScreenState.ACTIVE,
-            )
         }
     }
 
@@ -1802,13 +1742,7 @@ class ChatViewModel(
         streamingBuffer.clear()
     }
 
-    fun toggleTemporaryChat() {
-        // Only togglable before the conversation exists. Once a temporary chat is
-        // active the toggle is a read-only indicator — the server already created
-        // it temporary, so flipping it off here would be misleading.
-        if (_uiState.value.conversationId != null) return
-        _uiState.update { it.copy(isTemporaryChat = !it.isTemporaryChat) }
-    }
+    fun toggleTemporaryChat() = treeDelegate.toggleTemporaryChat()
 
     fun refreshMessages() {
         val conversationId = _uiState.value.conversationId ?: return
