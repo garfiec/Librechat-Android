@@ -20,7 +20,6 @@ import com.garfiec.librechat.core.model.HandoffEdge
 import com.garfiec.librechat.core.model.SkillSummary
 import com.garfiec.librechat.core.model.SupportContact
 import com.garfiec.librechat.core.model.mcp.McpTool
-import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.FunctionTool
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
@@ -36,6 +35,7 @@ import com.garfiec.librechat.feature.agents.components.model.AgentVersion
 import com.garfiec.librechat.feature.agents.components.model.AgentVisibility
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.util.ContentReader
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentActionsDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentCapabilitiesDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentFilesDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentLoaderDelegate
@@ -271,30 +271,20 @@ class AgentEditorViewModel(
         skillsRepository = skillsRepository,
     )
 
+    private val actionsDelegate = AgentActionsDelegate(
+        stateHandle = stateHandle,
+        agentRepository = agentRepository,
+        editAgentId = editAgentId,
+    )
+
     init {
         loaderDelegate.loadReferenceData()
         capabilitiesDelegate.observeAvailability()
         codeAuthDelegate.verifyCodeToolAuth()
         if (editAgentId != null) {
             loaderDelegate.loadAgent(editAgentId)
-            loadActions()
+            actionsDelegate.loadActions()
             filesDelegate.loadAgentFiles(editAgentId)
-        }
-    }
-
-    private fun loadActions() {
-        viewModelScope.launch {
-            when (val result = agentRepository.getAgentActions()) {
-                is Result.Success -> {
-                    val agentId = editAgentId ?: return@launch
-                    val agentActions = result.data
-                        .filter { it.agentId == agentId }
-                        .map { it.toDisplayData() }
-                    _uiState.value = _uiState.value.copy(actions = agentActions)
-                }
-                is Result.Error -> { /* Actions are optional */ }
-                is Result.Loading -> { /* no-op */ }
-            }
         }
     }
 
@@ -386,60 +376,9 @@ class AgentEditorViewModel(
         actionId: String?,
         metadata: ActionMetadata,
         functions: List<FunctionTool>,
-    ) {
-        val agentId = _uiState.value.agentId ?: return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, error = null)
-            val request = CreateActionRequest(
-                actionId = actionId,
-                metadata = metadata,
-                functions = functions,
-            )
-            when (val result = agentRepository.addOrUpdateAction(agentId, request)) {
-                is Result.Success -> {
-                    val (_, action) = result.data
-                    val existing = _uiState.value.actions.toMutableList()
-                    val idx = existing.indexOfFirst { it.actionId == action.actionId }
-                    if (idx >= 0) {
-                        existing[idx] = action.toDisplayData()
-                    } else {
-                        existing.add(action.toDisplayData())
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        actions = existing,
-                        isSaving = false,
-                    )
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message ?: "Failed to save action",
-                        isSaving = false,
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    ) = actionsDelegate.saveAction(actionId, metadata, functions)
 
-    fun deleteAction(actionId: String) {
-        val agentId = _uiState.value.agentId ?: return
-        viewModelScope.launch {
-            when (val result = agentRepository.deleteAction(agentId, actionId)) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        actions = _uiState.value.actions.filter { it.actionId != actionId },
-                    )
-                }
-
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message ?: "Failed to delete action",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun deleteAction(actionId: String) = actionsDelegate.deleteAction(actionId)
 
     // --- MCP Tools ---
 
