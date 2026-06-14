@@ -54,6 +54,7 @@ import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.EndpointKeyStatusDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.FavoritesDelegate
@@ -143,6 +144,11 @@ class ChatViewModel(
 
     // --- Delegates ---
     private val treeDelegate = MessageTreeDelegate(stateHandle)
+    private val comparisonDelegate = ComparisonModeDelegate(
+        stateHandle = stateHandle,
+        messageRepository = messageRepository,
+        reloadConversation = ::loadConversation,
+    )
     private val searchDelegate = InConversationSearchDelegate(stateHandle)
     private val conversationActionsDelegate =
         ConversationActionsDelegate(stateHandle, conversationRepository, shareRepository)
@@ -739,34 +745,11 @@ class ChatViewModel(
         // swapping is needed. Just keep the primary's original endpoint.
         val effectiveEndpoint = _uiState.value.selectedEndpoint
         val effectiveAgentId = if (isAgent) _uiState.value.selectedModel else null
-        val isComparisonEnabled = _uiState.value.comparisonState.isEnabled
-        if (isComparisonEnabled) {
-            modelDelegate.primaryComparisonBuffer.clear()
-            modelDelegate.secondaryComparisonBuffer.clear()
-            _uiState.update {
-                it.copy(comparisonState = it.comparisonState.copy(
-                    primaryIsStreaming = true,
-                    secondaryIsStreaming = true,
-                    primaryStreamingContent = "",
-                    secondaryStreamingContent = "",
-                    primaryActiveToolCalls = emptyList(),
-                    secondaryActiveToolCalls = emptyList(),
-                    primaryAgentId = null,
-                    secondaryAgentId = null,
-                    parallelMessageId = null,
-                    primaryFinalContent = null,
-                    secondaryFinalContent = null,
-                ))
-            }
-        }
+        comparisonDelegate.onSendStart()
 
         streamJob?.cancel()
         streamJob = viewModelScope.launch {
-            val effectiveAddedConvo = if (isComparisonEnabled) {
-                modelDelegate.buildAddedConvo(parentMessageId = lastMessageId)
-            } else {
-                null
-            }
+            val effectiveAddedConvo = comparisonDelegate.buildAddedConvo(parentMessageId = lastMessageId)
             val dispatch = currentDispatch()
             collectStreamSafely(
                 chatRepository.startChat(
@@ -1051,14 +1034,9 @@ class ChatViewModel(
                     activeToolCalls = emptyList(),
                     streamingAttachments = emptyList(),
                     error = e.message ?: "Chat request failed",
-                    comparisonState = it.comparisonState.copy(
-                        primaryIsStreaming = false,
-                        secondaryIsStreaming = false,
-                        primaryActiveToolCalls = emptyList(),
-                        secondaryActiveToolCalls = emptyList(),
-                    ),
                 )
             }
+            comparisonDelegate.endStreaming()
             // If the server already created a conversation, fetch whatever it persisted
             val conversationId = _uiState.value.conversationId
             if (conversationId != null) {
@@ -1068,63 +1046,18 @@ class ChatViewModel(
     }
 
     private fun handleStreamEvent(event: StreamEvent) {
+        // In comparison mode the delegate fans streaming deltas/tool-calls into the dual
+        // panes; if it consumed the event, skip the single-stream handling below.
+        if (comparisonDelegate.routeEvent(event)) return
         when (event) {
             is StreamEvent.Created -> handleCreated(event)
             is StreamEvent.ContentDelta -> {
-                val isComparison = _uiState.value.comparisonState.isEnabled
-                if (isComparison && modelDelegate.isSecondaryEvent(event.agentId)) {
-                    modelDelegate.secondaryComparisonBuffer.append(event.chunk)
-                    _uiState.update {
-                        it.copy(comparisonState = it.comparisonState.copy(
-                            secondaryStreamingContent = modelDelegate.secondaryComparisonBuffer.toString(),
-                            secondaryIsStreaming = true,
-                            secondaryAgentId = it.comparisonState.secondaryAgentId ?: event.agentId,
-                        ))
-                    }
-                } else if (isComparison) {
-                    modelDelegate.primaryComparisonBuffer.append(event.chunk)
-                    _uiState.update {
-                        it.copy(
-                            comparisonState = it.comparisonState.copy(
-                                primaryStreamingContent = modelDelegate.primaryComparisonBuffer.toString(),
-                                primaryIsStreaming = true,
-                                primaryAgentId = it.comparisonState.primaryAgentId ?: event.agentId,
-                            ),
-                            streamingContent = modelDelegate.primaryComparisonBuffer.toString(),
-                        )
-                    }
-                } else {
-                    streamingBuffer.append(event.chunk)
-                    streamingBufferDirty = true
-                }
+                streamingBuffer.append(event.chunk)
+                streamingBufferDirty = true
             }
             is StreamEvent.ThinkingDelta -> {
-                val isComparison = _uiState.value.comparisonState.isEnabled
-                if (isComparison && modelDelegate.isSecondaryEvent(event.agentId)) {
-                    modelDelegate.secondaryComparisonBuffer.append(event.chunk)
-                    _uiState.update {
-                        it.copy(comparisonState = it.comparisonState.copy(
-                            secondaryStreamingContent = modelDelegate.secondaryComparisonBuffer.toString(),
-                            secondaryIsStreaming = true,
-                            secondaryAgentId = it.comparisonState.secondaryAgentId ?: event.agentId,
-                        ))
-                    }
-                } else if (isComparison) {
-                    modelDelegate.primaryComparisonBuffer.append(event.chunk)
-                    _uiState.update {
-                        it.copy(
-                            comparisonState = it.comparisonState.copy(
-                                primaryStreamingContent = modelDelegate.primaryComparisonBuffer.toString(),
-                                primaryIsStreaming = true,
-                                primaryAgentId = it.comparisonState.primaryAgentId ?: event.agentId,
-                            ),
-                            streamingContent = modelDelegate.primaryComparisonBuffer.toString(),
-                        )
-                    }
-                } else {
-                    streamingBuffer.append(event.chunk)
-                    streamingBufferDirty = true
-                }
+                streamingBuffer.append(event.chunk)
+                streamingBufferDirty = true
             }
             is StreamEvent.Final -> handleFinal(event)
             is StreamEvent.Error -> {
@@ -1149,14 +1082,9 @@ class ChatViewModel(
                         retryInfo = null,
                         activeToolCalls = emptyList(),
                         streamingAttachments = emptyList(),
-                        comparisonState = it.comparisonState.copy(
-                            primaryIsStreaming = false,
-                            secondaryIsStreaming = false,
-                            primaryActiveToolCalls = emptyList(),
-                            secondaryActiveToolCalls = emptyList(),
-                        ),
                     )
                 }
+                comparisonDelegate.endStreaming()
                 if (keyError != null) {
                     _userKeyErrors.trySend(keyError)
                 }
@@ -1182,56 +1110,24 @@ class ChatViewModel(
                     name = event.toolName,
                     input = event.input,
                 )
-                val isComparison = _uiState.value.comparisonState.isEnabled
-                if (isComparison && modelDelegate.isSecondaryEvent(event.agentId)) {
-                    _uiState.update {
-                        it.copy(comparisonState = it.comparisonState.copy(
-                            secondaryActiveToolCalls = it.comparisonState.secondaryActiveToolCalls + newToolCall,
-                        ))
-                    }
-                } else if (isComparison) {
-                    _uiState.update {
-                        it.copy(comparisonState = it.comparisonState.copy(
-                            primaryActiveToolCalls = it.comparisonState.primaryActiveToolCalls + newToolCall,
-                        ))
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(activeToolCalls = it.activeToolCalls + newToolCall)
-                    }
+                _uiState.update {
+                    it.copy(activeToolCalls = it.activeToolCalls + newToolCall)
                 }
             }
             is StreamEvent.ToolCallComplete -> {
-                val isComparison = _uiState.value.comparisonState.isEnabled
-                if (isComparison && modelDelegate.isSecondaryEvent(event.agentId)) {
-                    _uiState.update { state ->
-                        val updated = state.comparisonState.secondaryActiveToolCalls.map { tc ->
-                            if (tc.id == event.toolCallId) tc.copy(isComplete = true, output = event.output) else tc
+                _uiState.update { state ->
+                    val updated = state.activeToolCalls.map { tc ->
+                        if (tc.id == event.toolCallId) {
+                            tc.copy(isComplete = true, output = event.output)
+                        } else {
+                            tc
                         }
-                        state.copy(comparisonState = state.comparisonState.copy(secondaryActiveToolCalls = updated))
                     }
-                } else if (isComparison) {
-                    _uiState.update { state ->
-                        val updated = state.comparisonState.primaryActiveToolCalls.map { tc ->
-                            if (tc.id == event.toolCallId) tc.copy(isComplete = true, output = event.output) else tc
-                        }
-                        state.copy(comparisonState = state.comparisonState.copy(primaryActiveToolCalls = updated))
-                    }
-                } else {
-                    _uiState.update { state ->
-                        val updated = state.activeToolCalls.map { tc ->
-                            if (tc.id == event.toolCallId) {
-                                tc.copy(isComplete = true, output = event.output)
-                            } else {
-                                tc
-                            }
-                        }
-                        state.copy(activeToolCalls = updated)
-                    }
-                    // If this was a `subagent` tool_call, freeze its live trace —
-                    // the child run is done; stop accumulating for that key.
-                    subagentTraceDelegate.onParentToolCallResolved(event.toolCallId)
+                    state.copy(activeToolCalls = updated)
                 }
+                // If this was a `subagent` tool_call, freeze its live trace —
+                // the child run is done; stop accumulating for that key.
+                subagentTraceDelegate.onParentToolCallResolved(event.toolCallId)
             }
             is StreamEvent.AttachmentCreated -> {
                 val attachment = Attachment(
@@ -1360,45 +1256,23 @@ class ChatViewModel(
         val conversationId = _uiState.value.conversationId
             ?: event.conversation?.conversationId
         val completedResponseText = if (isComparison) {
-            modelDelegate.primaryComparisonBuffer.toString()
+            comparisonDelegate.primaryContent()
         } else {
             streamingBuffer.toString()
         }
         val shouldAutoRead = !isEditOrRegenerate
+        // Clear the single-stream UI fields; comparison panes are finalized via the delegate.
+        _uiState.update {
+            it.copy(
+                isStreaming = false,
+                streamingContent = "",
+                activeToolCalls = emptyList(),
+                streamingAttachments = emptyList(),
+                conversationId = conversationId ?: it.conversationId,
+            )
+        }
         if (isComparison) {
-            val responseMessage = event.responseMessage ?: event.message
-            val primaryContent = modelDelegate.primaryComparisonBuffer.toString()
-            val secondaryContent = modelDelegate.secondaryComparisonBuffer.toString()
-            _uiState.update {
-                it.copy(
-                    isStreaming = false,
-                    streamingContent = "",
-                    activeToolCalls = emptyList(),
-                    streamingAttachments = emptyList(),
-                    conversationId = conversationId ?: it.conversationId,
-                    comparisonState = it.comparisonState.copy(
-                        primaryIsStreaming = false,
-                        secondaryIsStreaming = false,
-                        primaryStreamingContent = "",
-                        secondaryStreamingContent = "",
-                        primaryActiveToolCalls = emptyList(),
-                        secondaryActiveToolCalls = emptyList(),
-                        parallelMessageId = responseMessage?.messageId,
-                        primaryFinalContent = primaryContent,
-                        secondaryFinalContent = secondaryContent,
-                    ),
-                )
-            }
-        } else {
-            _uiState.update {
-                it.copy(
-                    isStreaming = false,
-                    streamingContent = "",
-                    activeToolCalls = emptyList(),
-                    streamingAttachments = emptyList(),
-                    conversationId = conversationId ?: it.conversationId,
-                )
-            }
+            comparisonDelegate.onFinal((event.responseMessage ?: event.message)?.messageId)
         }
         val finalConversation = event.conversation
         // Belt-and-braces: if no handoff seeded the selection and the initial GET 404'd
@@ -1462,27 +1336,15 @@ class ChatViewModel(
             if (abortResult is Result.Error) {
                 Logger.w(abortResult.exception) { "Failed to abort chat: ${abortResult.message}" }
             }
-            // Clean up comparison state if active
             _uiState.update {
                 it.copy(
                     isStreaming = false,
                     streamingContent = "",
                     activeToolCalls = emptyList(),
                     streamingAttachments = emptyList(),
-                    comparisonState = if (it.comparisonState.isEnabled) {
-                        it.comparisonState.copy(
-                            primaryIsStreaming = false,
-                            secondaryIsStreaming = false,
-                            primaryStreamingContent = "",
-                            secondaryStreamingContent = "",
-                            primaryActiveToolCalls = emptyList(),
-                            secondaryActiveToolCalls = emptyList(),
-                        )
-                    } else {
-                        it.comparisonState
-                    },
                 )
             }
+            comparisonDelegate.endStreaming(clearContent = true)
             // Refresh messages from server so the message tree reflects
             // the partially-streamed response that was aborted.
             loadConversation(conversationId)
@@ -2044,42 +1906,14 @@ class ChatViewModel(
 
     // Model selection and comparison
     fun onModelSelected(endpoint: String, model: String) = modelDelegate.onModelSelected(endpoint, model)
-    fun toggleComparison() = modelDelegate.toggleComparison()
-    fun setSecondaryModel(endpoint: String, model: String) = modelDelegate.setSecondaryModel(endpoint, model)
-    fun getSecondaryModelDisplayName(): String? = modelDelegate.getSecondaryModelDisplayName()
+    fun toggleComparison() = comparisonDelegate.toggleComparison()
+    fun setSecondaryModel(endpoint: String, model: String) = comparisonDelegate.setSecondaryModel(endpoint, model)
+    fun getSecondaryModelDisplayName(): String? = comparisonDelegate.getSecondaryModelDisplayName()
     fun toggleMcpServer(serverName: String) = modelDelegate.toggleMcpServer(serverName)
     fun toggleTool(toolName: String) = modelDelegate.toggleTool(toolName)
     fun showModelParameters() = modelDelegate.showModelParameters()
     fun hideModelParameters() = modelDelegate.hideModelParameters()
     fun updateModelParameters(parameters: ModelParameters) = modelDelegate.updateModelParameters(parameters)
 
-    fun branchFromComparison(agentId: String) {
-        val messageId = _uiState.value.comparisonState.parallelMessageId ?: return
-        val conversationId = _uiState.value.conversationId ?: return
-        viewModelScope.launch {
-            try {
-                messageRepository.branchMessage(
-                    conversationId = conversationId,
-                    messageId = messageId,
-                    agentId = agentId,
-                )
-                // Disable comparison and continue with the branched response
-                _uiState.update {
-                    it.copy(comparisonState = ComparisonState())
-                }
-                // Trigger deferred navigation for new chats that skipped navigation during comparison
-                val cid = _uiState.value.conversationId
-                if (cid != null && _uiState.value.pendingNavigationConversationId == null) {
-                    _uiState.update { it.copy(pendingNavigationConversationId = cid) }
-                }
-                // Refresh messages to show the branched message
-                loadConversation(conversationId)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to branch comparison message" }
-                _uiState.update {
-                    it.copy(error = "Failed to continue with selected response")
-                }
-            }
-        }
-    }
+    fun branchFromComparison(agentId: String) = comparisonDelegate.branchFromComparison(agentId)
 }

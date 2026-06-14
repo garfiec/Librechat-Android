@@ -15,13 +15,9 @@ import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.mcp.McpServer
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
-import com.garfiec.librechat.core.model.request.AddedConversation
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
-import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
-import com.garfiec.librechat.feature.chat.viewmodel.ComparisonState
-import com.garfiec.librechat.feature.chat.viewmodel.resolveEndpointDispatch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -48,10 +44,6 @@ class ModelSelectionDelegate(
      * clobber-guard in [refilterModels] never sees it).
      */
     private var pendingAgentOverride: String? = initialAgentId?.takeIf { it.isNotBlank() }
-
-    // --- Model Comparison ---
-    val primaryComparisonBuffer = StringBuilder()
-    val secondaryComparisonBuffer = StringBuilder()
 
     /**
      * Cached last-used endpoint/model from DataStore, kept in sync by
@@ -535,116 +527,6 @@ class ModelSelectionDelegate(
         stateHandle.scope.launch {
             settingsDataStore.setLastUsedModel(endpoint, model)
         }
-    }
-
-    // ── Model Comparison ─────────────────────────────────────────────
-
-    /**
-     * Toggles comparison mode on/off.
-     */
-    fun toggleComparison() {
-        val currentComparison = stateHandle.state.comparisonState
-        if (currentComparison.isEnabled) {
-            // Disable: clear all comparison state
-            primaryComparisonBuffer.clear()
-            secondaryComparisonBuffer.clear()
-            stateHandle.update { copy(comparisonState = ComparisonState()) }
-        } else {
-            // Enable: inherit primary endpoint/model
-            stateHandle.update {
-                copy(
-                    comparisonState = ComparisonState(
-                        isEnabled = true,
-                        secondaryEndpoint = selectedEndpoint,
-                        secondaryModel = selectedModel,
-                    ),
-                    // When enabling on LANDING, switch to ACTIVE so comparison tabs render
-                    screenState = if (screenState == ChatScreenState.LANDING) ChatScreenState.ACTIVE else screenState,
-                )
-            }
-        }
-    }
-
-    /**
-     * Updates the secondary model selection for comparison mode.
-     */
-    fun setSecondaryModel(endpoint: String, model: String) {
-        val comparison = stateHandle.state.comparisonState
-        if (!comparison.isEnabled) return
-        stateHandle.update {
-            copy(
-                comparisonState = comparison.copy(
-                    secondaryEndpoint = endpoint,
-                    secondaryModel = model,
-                ),
-            )
-        }
-    }
-
-    /**
-     * Resolves a display-friendly name for the secondary model.
-     */
-    fun getSecondaryModelDisplayName(): String? {
-        val comparison = stateHandle.state.comparisonState
-        val endpoint = comparison.secondaryEndpoint ?: return null
-        val model = comparison.secondaryModel ?: return null
-        return if (endpoint == EndpointConstants.AGENTS) {
-            stateHandle.state.agents.find { it.id == model }?.name ?: model
-        } else {
-            model
-        }
-    }
-
-    /**
-     * Builds an [AddedConversation] for the secondary agent/model in comparison mode.
-     * Returns null if comparison is not enabled or secondary selection is incomplete.
-     *
-     * Reads the per-endpoint user-provided-key state out of `ChatUiState.endpointKeyStates`
-     * (populated by `EndpointKeyStatusDelegate`) instead of issuing a per-call
-     * `getKeyExpiry` GET — keeps the chat-send hot path off the network.
-     */
-    fun buildAddedConvo(parentMessageId: String? = null): AddedConversation? {
-        val state = stateHandle.state
-        val comparison = state.comparisonState
-        if (!comparison.isEnabled) return null
-        val endpoint = comparison.secondaryEndpoint ?: return null
-        val model = comparison.secondaryModel ?: return null
-        val isAgent = endpoint == EndpointConstants.AGENTS
-        val dispatch = resolveEndpointDispatch(
-            endpointName = endpoint,
-            endpointConfigs = state.endpointConfigs,
-            endpointKeyStates = state.endpointKeyStates,
-        )
-        val added = AddedConversation(
-            conversationId = stateHandle.state.conversationId,
-            parentMessageId = parentMessageId,
-            endpoint = endpoint,
-            endpointType = dispatch.endpointType,
-            modelDisplayLabel = dispatch.modelDisplayLabel,
-            key = dispatch.key,
-            agentId = if (isAgent) model else null,
-            model = if (isAgent) null else model,
-        )
-        return added
-    }
-
-    /**
-     * Determines whether a stream event belongs to the secondary (added) agent.
-     *
-     * The server gives both agents the same `groupId` (they share a parallel
-     * execution group), so groupId alone cannot distinguish them. Instead, the
-     * server suffixes added-agent IDs with `"____N"` (e.g. `openAI__gpt-5.2____1`).
-     * The primary never has this suffix.
-     */
-    fun isSecondaryEvent(agentId: String?): Boolean {
-        if (agentId == null) return false
-        val comparison = stateHandle.state.comparisonState
-        // If we've already resolved the secondary agentId from earlier SSE events, use that
-        if (comparison.secondaryAgentId != null) {
-            return agentId == comparison.secondaryAgentId
-        }
-        // The "____N" suffix identifies the addedConvo (added/secondary) agent.
-        return agentId.contains("____")
     }
 
     /**
