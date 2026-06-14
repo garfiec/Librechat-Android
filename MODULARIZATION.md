@@ -20,7 +20,7 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 
 | # | File | Lines | Type | Status |
 |---|------|-------|------|--------|
-| 1 | `feature/chat/.../viewmodel/ChatViewModel.kt` | 2151 | VM god-class | **in progress** |
+| 1 | `feature/chat/.../viewmodel/ChatViewModel.kt` | 2151→1068 | VM god-class | **done (awaiting device test)** |
 | 2 | `feature/agents/.../viewmodel/AgentEditorViewModel.kt` | 1938 | VM god-class (no delegates yet) | planned |
 | 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232 | Composable + leaked logic | planned |
 | 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882 | Two 240+ line dialogs | planned |
@@ -40,6 +40,8 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 
 **Shape:** one PR, one commit per delegate, single device-test pass at the end.
 **Decision:** extract the deeply-coupled completion logic too (5 delegates, not 4).
+**Result:** ChatViewModel 2151 → 1068 lines (−50%). Android + iOS compile, detekt, and the
+chat unit-test suite all green. Awaiting device test before push.
 
 The send/stream code is a layered pipeline, so extraction order is dependency-driven
 (leaves first, the high-coupling streaming/completion core last):
