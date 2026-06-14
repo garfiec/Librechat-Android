@@ -31,13 +31,10 @@ import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
-import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.Preset
-import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.config.InterfaceConfig
 import com.garfiec.librechat.core.model.error.UserKeyError
-import com.garfiec.librechat.core.model.error.parseUserKeyError
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
@@ -47,7 +44,6 @@ import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
-import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
@@ -64,12 +60,11 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.OfficePreviewDelega
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendCompletionDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.StreamingManagerDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SubagentTraceDelegate
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -82,7 +77,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
@@ -258,31 +252,28 @@ class ChatViewModel(
     private val _userKeyErrors = Channel<UserKeyError>(Channel.BUFFERED)
     val userKeyErrors: Flow<UserKeyError> = _userKeyErrors.receiveAsFlow()
 
-    private var streamJob: Job? = null
     private var roomObserverJob: Job? = null
-    private var streamingUpdateJob: Job? = null
-    private val streamingBuffer = StringBuilder()
-    private var streamingBufferDirty = false
-    private var wasStreaming = false
 
-    /** Tracks whether the last stream failure was a network error, to enable auto-reconnect. */
-    private var lastErrorWasNetwork = false
-
-    /** Job for the connectivity observer; started lazily only when a network error occurs. */
-    private var connectivityJob: Job? = null
+    private val streamingManager = StreamingManagerDelegate(
+        stateHandle = stateHandle,
+        chatRepository = chatRepository,
+        connectivityObserver = connectivityObserver,
+        comparisonDelegate = comparisonDelegate,
+        subagentTraceDelegate = subagentTraceDelegate,
+        officePreviewDelegate = officePreviewDelegate,
+        completionDelegate = completionDelegate,
+        emitUserKeyError = { _userKeyErrors.trySend(it) },
+        reloadConversation = ::loadConversation,
+        isNewConversation = { isNewConversation },
+        isHandedOffNewChat = { isHandedOffNewChat },
+    )
 
     companion object {
-        /** Minimum interval between streaming UI state updates to avoid recomposition spam. */
-        private const val STREAMING_UI_UPDATE_INTERVAL_MS = 50L
-
         /** Timeout for the pre-send "is the endpoint/config ready" await. Snappier than the
          *  5 s role-load timeout because this only needs one of role OR availableModels to
          *  satisfy the check. */
         private const val SEND_READY_TIMEOUT_MS = 3_000L
     }
-
-    /** True when the current stream is from an edit, regenerate, or continue operation. */
-    private var isEditOrRegenerate = false
 
     /** True when this ViewModel was opened for a brand-new chat (no conversationId from navigation). */
     private val isNewConversation: Boolean
@@ -327,7 +318,7 @@ class ChatViewModel(
             // Check if there's an active stream for this conversation (e.g. when
             // navigating here from NewChat immediately after sending). If so,
             // resume it so the user sees streaming content on this screen.
-            resumeActiveStreamIfNeeded(conversationId)
+            streamingManager.resumeActiveStreamIfNeeded(conversationId)
         } else {
             isHandedOffNewChat = false
             // For new chats, mark conversationModelLoaded so refilterModels
@@ -653,8 +644,6 @@ class ChatViewModel(
             createdAt = Clock.System.now().toString(),
             files = fileRefs.takeIf { it.isNotEmpty() },
         )
-        isEditOrRegenerate = false
-
         val isNewChat = conversationId == null
         _uiState.update {
             val updatedMessages = it.messages + optimisticMessage
@@ -676,11 +665,7 @@ class ChatViewModel(
         viewModelScope.launch { draftRepository.deleteDraft(draftKey) }
         // Clear attached files
         fileDelegate.clearAttachedFiles()
-        streamingBuffer.clear()
-        streamingBufferDirty = false
-        subagentTraceDelegate.reset()
-        officePreviewDelegate.reset()
-        startStreamingUpdater()
+        streamingManager.beginStreaming(isEdit = false)
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
         val webSearchEnabled = _uiState.value.modelParameters.webSearch
@@ -701,29 +686,26 @@ class ChatViewModel(
         val effectiveAgentId = if (isAgent) _uiState.value.selectedModel else null
         comparisonDelegate.onSendStart()
 
-        streamJob?.cancel()
-        streamJob = viewModelScope.launch {
-            val effectiveAddedConvo = comparisonDelegate.buildAddedConvo(parentMessageId = lastMessageId)
-            val dispatch = currentDispatch()
-            collectStreamSafely(
-                chatRepository.startChat(
-                    text = messageText,
-                    conversationId = conversationId,
-                    endpoint = effectiveEndpoint,
-                    endpointType = dispatch.endpointType,
-                    key = dispatch.key,
-                    modelDisplayLabel = dispatch.modelDisplayLabel,
-                    model = _uiState.value.selectedModel,
-                    userMessageId = optimisticMessage.messageId,
-                    parentMessageId = lastMessageId,
-                    agentId = effectiveAgentId,
-                    webSearch = webSearchEnabled,
-                    files = fileRefs.takeIf { it.isNotEmpty() },
-                    addedConvo = effectiveAddedConvo,
-                    ephemeralAgent = ephemeralAgent,
-                    isTemporary = _uiState.value.isTemporaryChat,
-                ),
-            )
+        val effectiveAddedConvo = comparisonDelegate.buildAddedConvo(parentMessageId = lastMessageId)
+        val dispatch = currentDispatch()
+        val stream = chatRepository.startChat(
+            text = messageText,
+            conversationId = conversationId,
+            endpoint = effectiveEndpoint,
+            endpointType = dispatch.endpointType,
+            key = dispatch.key,
+            modelDisplayLabel = dispatch.modelDisplayLabel,
+            model = _uiState.value.selectedModel,
+            userMessageId = optimisticMessage.messageId,
+            parentMessageId = lastMessageId,
+            agentId = effectiveAgentId,
+            webSearch = webSearchEnabled,
+            files = fileRefs.takeIf { it.isNotEmpty() },
+            addedConvo = effectiveAddedConvo,
+            ephemeralAgent = ephemeralAgent,
+            isTemporary = _uiState.value.isTemporaryChat,
+        )
+        streamingManager.launchStream(stream) {
             // Safety net: if the flow ends without Final or Error, clear streaming
             if (_uiState.value.isStreaming) {
                 val cid = _uiState.value.conversationId
@@ -734,62 +716,6 @@ class ChatViewModel(
                 }
             }
         }
-    }
-
-    /**
-     * Resets streaming-related UI state and clears the buffer in preparation
-     * for a new stream (edit, regenerate, or continue).
-     */
-    private fun prepareForStreaming() {
-        _uiState.update {
-            it.copy(
-                isStreaming = true,
-                streamingContent = "",
-                activeToolCalls = emptyList(),
-                streamingAttachments = emptyList(),
-                error = null,
-            )
-        }
-        streamingBuffer.clear()
-        streamingBufferDirty = false
-        subagentTraceDelegate.reset()
-        officePreviewDelegate.reset()
-        startStreamingUpdater()
-    }
-
-    /**
-     * Launches a periodic coroutine that flushes the [streamingBuffer] to UI state
-     * at most every [STREAMING_UI_UPDATE_INTERVAL_MS] ms. This avoids recomposition spam
-     * from high-frequency SSE chunks (each chunk would otherwise trigger a full state copy).
-     */
-    private fun startStreamingUpdater() {
-        streamingUpdateJob?.cancel()
-        streamingUpdateJob = viewModelScope.launch {
-            while (isActive) {
-                delay(STREAMING_UI_UPDATE_INTERVAL_MS)
-                flushStreamingBuffer()
-            }
-        }
-    }
-
-    /**
-     * Flushes the streaming buffer to UI state if it has been modified since the last flush.
-     * Called both periodically (by the updater) and immediately on stream completion/error.
-     */
-    private fun flushStreamingBuffer() {
-        if (!streamingBufferDirty) return
-        streamingBufferDirty = false
-        _uiState.update { it.copy(streamingContent = streamingBuffer.toString()) }
-    }
-
-    /**
-     * Stops the periodic streaming updater and performs a final flush so the last
-     * chunk is never lost.
-     */
-    private fun stopStreamingUpdater() {
-        streamingUpdateJob?.cancel()
-        streamingUpdateJob = null
-        flushStreamingBuffer()
     }
 
     fun editMessage(messageId: String, newText: String) {
@@ -809,8 +735,6 @@ class ChatViewModel(
     @OptIn(ExperimentalUuidApi::class)
     private fun editUserMessage(originalMessage: Message, newText: String) {
         val parentMessageId = originalMessage.parentMessageId
-
-        isEditOrRegenerate = true
 
         // Optimistically insert the edited text as a new sibling of the original user
         // message and anchor the stream to it, so the new message — with the response
@@ -838,34 +762,31 @@ class ChatViewModel(
             )
         }
 
-        prepareForStreaming()
+        streamingManager.prepareForStreaming(isEdit = true)
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
         val webSearchEnabled = _uiState.value.modelParameters.webSearch
         val ephemeralAgent = buildEphemeralAgent()
         Logger.d { "editUserMessage: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        streamJob?.cancel()
-        streamJob = viewModelScope.launch {
-            val dispatch = currentDispatch()
-            collectStreamSafely(
-                chatRepository.startChat(
-                    text = newText,
-                    conversationId = _uiState.value.conversationId,
-                    endpoint = _uiState.value.selectedEndpoint,
-                    endpointType = dispatch.endpointType,
-                    key = dispatch.key,
-                    modelDisplayLabel = dispatch.modelDisplayLabel,
-                    model = _uiState.value.selectedModel,
-                    userMessageId = optimisticMessage.messageId,
-                    parentMessageId = parentMessageId,
-                    agentId = if (isAgent) _uiState.value.selectedModel else null,
-                    isEdited = true,
-                    webSearch = webSearchEnabled,
-                    ephemeralAgent = ephemeralAgent,
-                    isTemporary = _uiState.value.isTemporaryChat,
-                ),
-            )
-        }
+        val dispatch = currentDispatch()
+        streamingManager.launchStream(
+            chatRepository.startChat(
+                text = newText,
+                conversationId = _uiState.value.conversationId,
+                endpoint = _uiState.value.selectedEndpoint,
+                endpointType = dispatch.endpointType,
+                key = dispatch.key,
+                modelDisplayLabel = dispatch.modelDisplayLabel,
+                model = _uiState.value.selectedModel,
+                userMessageId = optimisticMessage.messageId,
+                parentMessageId = parentMessageId,
+                agentId = if (isAgent) _uiState.value.selectedModel else null,
+                isEdited = true,
+                webSearch = webSearchEnabled,
+                ephemeralAgent = ephemeralAgent,
+                isTemporary = _uiState.value.isTemporaryChat,
+            ),
+        )
     }
 
     private fun editAiMessage(aiMessage: Message) {
@@ -875,7 +796,6 @@ class ChatViewModel(
 
         val conversationId = _uiState.value.conversationId ?: return
 
-        isEditOrRegenerate = true
         // Editing an assistant message resubmits its parent user turn (isEdited +
         // isRegenerate) — the same shape as regenerate, so anchor the stream to the
         // parent user message and let the new response stream in below it, replacing
@@ -883,35 +803,32 @@ class ChatViewModel(
         // for a transient preview; we don't (the regenerated server response is
         // authoritative on Final either way).
         treeDelegate.anchorStreamTo(parentUserMessage.messageId)
-        prepareForStreaming()
+        streamingManager.prepareForStreaming(isEdit = true)
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
         val webSearchEnabled = _uiState.value.modelParameters.webSearch
         val ephemeralAgent = buildEphemeralAgent()
         Logger.d { "editAiMessage: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        streamJob?.cancel()
-        streamJob = viewModelScope.launch {
-            val dispatch = currentDispatch()
-            collectStreamSafely(
-                chatRepository.startChat(
-                    text = parentUserMessage.text,
-                    conversationId = conversationId,
-                    endpoint = _uiState.value.selectedEndpoint,
-                    endpointType = dispatch.endpointType,
-                    key = dispatch.key,
-                    modelDisplayLabel = dispatch.modelDisplayLabel,
-                    model = _uiState.value.selectedModel,
-                    parentMessageId = parentUserMessage.parentMessageId,
-                    agentId = if (isAgent) _uiState.value.selectedModel else null,
-                    overrideParentMessageId = parentUserMessage.messageId,
-                    isEdited = true,
-                    isRegenerate = true,
-                    webSearch = webSearchEnabled,
-                    ephemeralAgent = ephemeralAgent,
-                    isTemporary = _uiState.value.isTemporaryChat,
-                ),
-            )
-        }
+        val dispatch = currentDispatch()
+        streamingManager.launchStream(
+            chatRepository.startChat(
+                text = parentUserMessage.text,
+                conversationId = conversationId,
+                endpoint = _uiState.value.selectedEndpoint,
+                endpointType = dispatch.endpointType,
+                key = dispatch.key,
+                modelDisplayLabel = dispatch.modelDisplayLabel,
+                model = _uiState.value.selectedModel,
+                parentMessageId = parentUserMessage.parentMessageId,
+                agentId = if (isAgent) _uiState.value.selectedModel else null,
+                overrideParentMessageId = parentUserMessage.messageId,
+                isEdited = true,
+                isRegenerate = true,
+                webSearch = webSearchEnabled,
+                ephemeralAgent = ephemeralAgent,
+                isTemporary = _uiState.value.isTemporaryChat,
+            ),
+        )
     }
 
     fun regenerateMessage(messageId: String) {
@@ -928,36 +845,32 @@ class ChatViewModel(
     }
 
     private fun regenerateMessageNow(parentUserMessage: Message) {
-        isEditOrRegenerate = true
         treeDelegate.anchorStreamTo(parentUserMessage.messageId)
-        prepareForStreaming()
+        streamingManager.prepareForStreaming(isEdit = true)
 
         val isAgentRegen = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
         val webSearchEnabled = _uiState.value.modelParameters.webSearch
         val ephemeralAgent = buildEphemeralAgent()
         Logger.d { "regenerateMessage: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        streamJob?.cancel()
-        streamJob = viewModelScope.launch {
-            val dispatch = currentDispatch()
-            collectStreamSafely(
-                chatRepository.startChat(
-                    text = parentUserMessage.text,
-                    conversationId = _uiState.value.conversationId,
-                    endpoint = _uiState.value.selectedEndpoint,
-                    endpointType = dispatch.endpointType,
-                    key = dispatch.key,
-                    modelDisplayLabel = dispatch.modelDisplayLabel,
-                    model = _uiState.value.selectedModel,
-                    parentMessageId = parentUserMessage.parentMessageId,
-                    agentId = if (isAgentRegen) _uiState.value.selectedModel else null,
-                    overrideParentMessageId = parentUserMessage.messageId,
-                    isRegenerate = true,
-                    webSearch = webSearchEnabled,
-                    ephemeralAgent = ephemeralAgent,
-                    isTemporary = _uiState.value.isTemporaryChat,
-                ),
-            )
-        }
+        val dispatch = currentDispatch()
+        streamingManager.launchStream(
+            chatRepository.startChat(
+                text = parentUserMessage.text,
+                conversationId = _uiState.value.conversationId,
+                endpoint = _uiState.value.selectedEndpoint,
+                endpointType = dispatch.endpointType,
+                key = dispatch.key,
+                modelDisplayLabel = dispatch.modelDisplayLabel,
+                model = _uiState.value.selectedModel,
+                parentMessageId = parentUserMessage.parentMessageId,
+                agentId = if (isAgentRegen) _uiState.value.selectedModel else null,
+                overrideParentMessageId = parentUserMessage.messageId,
+                isRegenerate = true,
+                webSearch = webSearchEnabled,
+                ephemeralAgent = ephemeralAgent,
+                isTemporary = _uiState.value.isTemporaryChat,
+            ),
+        )
     }
 
     fun getMessageText(messageId: String): String {
@@ -971,270 +884,7 @@ class ChatViewModel(
         return message.text
     }
 
-    private suspend fun collectStreamSafely(stream: Flow<StreamEvent>) {
-        try {
-            stream.collect { event -> handleStreamEvent(event) }
-        } catch (e: CancellationException) {
-            throw e // Never swallow cancellation
-        } catch (e: Exception) {
-            Logger.e(e) { "Stream collection failed" }
-            stopStreamingUpdater()
-            // Preserve partial content so users can read/copy what was received
-            val partialContent = streamingBuffer.toString()
-            _uiState.update {
-                it.copy(
-                    isStreaming = false,
-                    streamingContent = partialContent,
-                    activeToolCalls = emptyList(),
-                    streamingAttachments = emptyList(),
-                    error = e.message ?: "Chat request failed",
-                )
-            }
-            comparisonDelegate.endStreaming()
-            // If the server already created a conversation, fetch whatever it persisted
-            val conversationId = _uiState.value.conversationId
-            if (conversationId != null) {
-                loadConversation(conversationId)
-            }
-        }
-    }
-
-    private fun handleStreamEvent(event: StreamEvent) {
-        // In comparison mode the delegate fans streaming deltas/tool-calls into the dual
-        // panes; if it consumed the event, skip the single-stream handling below.
-        if (comparisonDelegate.routeEvent(event)) return
-        when (event) {
-            is StreamEvent.Created -> handleCreated(event)
-            is StreamEvent.ContentDelta -> {
-                streamingBuffer.append(event.chunk)
-                streamingBufferDirty = true
-            }
-            is StreamEvent.ThinkingDelta -> {
-                streamingBuffer.append(event.chunk)
-                streamingBufferDirty = true
-            }
-            is StreamEvent.Final -> handleFinal(event)
-            is StreamEvent.Error -> {
-                stopStreamingUpdater()
-                // Track network errors so auto-reconnect can kick in when connectivity returns
-                lastErrorWasNetwork = event.isNetworkError
-                if (event.isNetworkError) {
-                    startConnectivityObserver()
-                }
-                // Try to parse the message as a typed user-provided-key error envelope.
-                // If recognized, emit a one-shot effect so the UI can surface a snackbar
-                // with a deep-link CTA to Settings → Provider Keys, and skip the generic
-                // `error = event.message` fallback to avoid double-surfacing.
-                val keyError = parseUserKeyError(event.message)
-                // Preserve partial content so users can read/copy what was received
-                val partialContent = streamingBuffer.toString()
-                _uiState.update {
-                    it.copy(
-                        isStreaming = false,
-                        streamingContent = partialContent,
-                        error = if (keyError != null) null else event.message,
-                        retryInfo = null,
-                        activeToolCalls = emptyList(),
-                        streamingAttachments = emptyList(),
-                    )
-                }
-                comparisonDelegate.endStreaming()
-                if (keyError != null) {
-                    _userKeyErrors.trySend(keyError)
-                }
-                // If the server already created a conversation, fetch whatever it persisted
-                val conversationId = _uiState.value.conversationId
-                if (conversationId != null) {
-                    loadConversation(conversationId)
-                }
-            }
-            is StreamEvent.Retrying -> {
-                _uiState.update {
-                    it.copy(
-                        retryInfo = RetryInfo(
-                            attempt = event.attempt,
-                            maxAttempts = event.maxAttempts,
-                        ),
-                    )
-                }
-            }
-            is StreamEvent.ToolCallStart -> {
-                val newToolCall = ActiveToolCall(
-                    id = event.toolCallId,
-                    name = event.toolName,
-                    input = event.input,
-                )
-                _uiState.update {
-                    it.copy(activeToolCalls = it.activeToolCalls + newToolCall)
-                }
-            }
-            is StreamEvent.ToolCallComplete -> {
-                _uiState.update { state ->
-                    val updated = state.activeToolCalls.map { tc ->
-                        if (tc.id == event.toolCallId) {
-                            tc.copy(isComplete = true, output = event.output)
-                        } else {
-                            tc
-                        }
-                    }
-                    state.copy(activeToolCalls = updated)
-                }
-                // If this was a `subagent` tool_call, freeze its live trace —
-                // the child run is done; stop accumulating for that key.
-                subagentTraceDelegate.onParentToolCallResolved(event.toolCallId)
-            }
-            is StreamEvent.AttachmentCreated -> {
-                val attachment = Attachment(
-                    fileId = event.fileId,
-                    filename = event.filename,
-                    filepath = event.filepath,
-                    type = event.type,
-                    toolCallId = event.toolCallId,
-                    width = event.width,
-                    height = event.height,
-                    status = event.status,
-                    text = event.text,
-                    textFormat = event.textFormat,
-                    previewError = event.previewError,
-                )
-                // Office-doc previews (v0.8.6) arrive twice per file_id (pending →
-                // ready/failed) — route through the delegate for upsert-by-file_id +
-                // poll-while-pending. Ordinary attachments keep the simple append path.
-                if (ArtifactType.isOfficePreviewMime(event.type)) {
-                    officePreviewDelegate.onAttachment(attachment)
-                } else {
-                    _uiState.update {
-                        it.copy(streamingAttachments = it.streamingAttachments + attachment)
-                    }
-                }
-            }
-            is StreamEvent.Sync -> {
-                // Resume snapshot: `aggregatedContent` is the authoritative state of
-                // the response so far, so we REPLACE (not append) the streaming
-                // pipeline's fields from it — both the text buffer and the tool-call
-                // list. Any pendingEvents in the same frame arrive as their own
-                // StreamEvents after this and fold on top via the normal handlers.
-                if (lastErrorWasNetwork) {
-                    lastErrorWasNetwork = false
-                    cancelConnectivityObserver()
-                }
-                _uiState.update {
-                    if (it.retryInfo != null) it.copy(retryInfo = null) else it
-                }
-                val textContent = event.aggregatedContent
-                    .mapNotNull { it.text }
-                    .joinToString("")
-                streamingBuffer.clear()
-                streamingBuffer.append(textContent)
-                streamingBufferDirty = true
-
-                // Rebuild active tool calls from the snapshot's tool_call parts so an
-                // in-progress image gen (or any tool call) started before we resumed
-                // still renders its live card. The same ActiveToolCall the live path
-                // produces, so the existing StreamingToolCallCard / ImageGenCard render
-                // it identically. A part with a non-blank output is already complete.
-                val syncedToolCalls = event.aggregatedContent
-                    .mapNotNull { part -> part.toolCall?.takeIf { !it.id.isNullOrBlank() } }
-                    .map { tc ->
-                        ActiveToolCall(
-                            id = tc.id.orEmpty(),
-                            name = tc.name.orEmpty(),
-                            input = tc.args?.toString(),
-                            isComplete = !tc.output.isNullOrBlank(),
-                            output = tc.output,
-                        )
-                    }
-                _uiState.update { it.copy(activeToolCalls = syncedToolCalls) }
-                flushStreamingBuffer()
-            }
-            is StreamEvent.Step -> { /* no-op */ }
-            is StreamEvent.ContextSummary -> {
-                // Server compacted earlier turns into a summary. The compacted text is
-                // persisted to the final message as a SUMMARY content part and rendered
-                // there; nothing extra to do during streaming.
-            }
-            is StreamEvent.SubagentUpdate -> subagentTraceDelegate.onUpdate(event)
-        }
-    }
-
-    private fun handleCreated(event: StreamEvent.Created) {
-        if (lastErrorWasNetwork) {
-            lastErrorWasNetwork = false
-            cancelConnectivityObserver()
-        }
-        _uiState.update {
-            if (it.retryInfo != null) {
-                it.copy(conversationId = event.conversationId, retryInfo = null)
-            } else {
-                it.copy(conversationId = event.conversationId)
-            }
-        }
-        completionDelegate.onConversationCreated(event.conversationId, isNewConversation)
-    }
-
-    private fun handleFinal(event: StreamEvent.Final) {
-        stopStreamingUpdater()
-        // The stream has ended: any office-doc attachment still `pending` (its
-        // `ready` SSE update may never arrive once the run closes) now falls back
-        // to polling GET /api/files/:id/preview. De-duped + bounded in the delegate.
-        officePreviewDelegate.onStreamEnded()
-        val isComparison = _uiState.value.comparisonState.isEnabled
-        val conversationId = _uiState.value.conversationId
-            ?: event.conversation?.conversationId
-        val completedResponseText = if (isComparison) {
-            comparisonDelegate.primaryContent()
-        } else {
-            streamingBuffer.toString()
-        }
-        val shouldAutoRead = !isEditOrRegenerate
-        // Clear the single-stream UI fields; comparison panes are finalized via the delegate.
-        _uiState.update {
-            it.copy(
-                isStreaming = false,
-                streamingContent = "",
-                activeToolCalls = emptyList(),
-                streamingAttachments = emptyList(),
-                conversationId = conversationId ?: it.conversationId,
-            )
-        }
-        if (isComparison) {
-            comparisonDelegate.onFinal((event.responseMessage ?: event.message)?.messageId)
-        }
-        completionDelegate.onFinal(
-            event = event,
-            conversationId = conversationId,
-            completedResponseText = completedResponseText,
-            shouldAutoRead = shouldAutoRead,
-            isNewConversation = isNewConversation,
-            isHandedOffNewChat = isHandedOffNewChat,
-        )
-    }
-
-    fun stopGeneration() {
-        val conversationId = _uiState.value.conversationId ?: return
-        streamJob?.cancel()
-        stopStreamingUpdater()
-        streamingBuffer.clear()
-        streamingBufferDirty = false
-        viewModelScope.launch {
-            val abortResult = chatRepository.abortChat(conversationId)
-            if (abortResult is Result.Error) {
-                Logger.w(abortResult.exception) { "Failed to abort chat: ${abortResult.message}" }
-            }
-            _uiState.update {
-                it.copy(
-                    isStreaming = false,
-                    streamingContent = "",
-                    activeToolCalls = emptyList(),
-                    streamingAttachments = emptyList(),
-                )
-            }
-            comparisonDelegate.endStreaming(clearContent = true)
-            // Refresh messages from server so the message tree reflects
-            // the partially-streamed response that was aborted.
-            loadConversation(conversationId)
-        }
-    }
+    fun stopGeneration() = streamingManager.stopGeneration()
 
     fun continueGeneration() {
         if (_uiState.value.isStreaming) return
@@ -1250,174 +900,39 @@ class ChatViewModel(
     }
 
     private fun continueGenerationNow(lastAiMessage: Message, parentUserMessage: Message) {
-        isEditOrRegenerate = true
-        prepareForStreaming()
+        streamingManager.prepareForStreaming(isEdit = true)
 
         val isAgentContinue = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
         val webSearchEnabled = _uiState.value.modelParameters.webSearch
         val ephemeralAgent = buildEphemeralAgent()
         Logger.d { "continueGeneration: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        streamJob?.cancel()
-        streamJob = viewModelScope.launch {
-            val dispatch = currentDispatch()
-            collectStreamSafely(
-                chatRepository.startChat(
-                    text = parentUserMessage.text,
-                    conversationId = _uiState.value.conversationId,
-                    endpoint = _uiState.value.selectedEndpoint,
-                    endpointType = dispatch.endpointType,
-                    key = dispatch.key,
-                    modelDisplayLabel = dispatch.modelDisplayLabel,
-                    model = _uiState.value.selectedModel,
-                    parentMessageId = parentUserMessage.parentMessageId,
-                    agentId = if (isAgentContinue) _uiState.value.selectedModel else null,
-                    overrideParentMessageId = parentUserMessage.messageId,
-                    responseMessageId = lastAiMessage.messageId,
-                    isEdited = true,
-                    isRegenerate = true,
-                    isContinued = true,
-                    webSearch = webSearchEnabled,
-                    ephemeralAgent = ephemeralAgent,
-                    isTemporary = _uiState.value.isTemporaryChat,
-                ),
-            )
-        }
+        val dispatch = currentDispatch()
+        streamingManager.launchStream(
+            chatRepository.startChat(
+                text = parentUserMessage.text,
+                conversationId = _uiState.value.conversationId,
+                endpoint = _uiState.value.selectedEndpoint,
+                endpointType = dispatch.endpointType,
+                key = dispatch.key,
+                modelDisplayLabel = dispatch.modelDisplayLabel,
+                model = _uiState.value.selectedModel,
+                parentMessageId = parentUserMessage.parentMessageId,
+                agentId = if (isAgentContinue) _uiState.value.selectedModel else null,
+                overrideParentMessageId = parentUserMessage.messageId,
+                responseMessageId = lastAiMessage.messageId,
+                isEdited = true,
+                isRegenerate = true,
+                isContinued = true,
+                webSearch = webSearchEnabled,
+                ephemeralAgent = ephemeralAgent,
+                isTemporary = _uiState.value.isTemporaryChat,
+            ),
+        )
     }
 
-    fun onPause() {
-        wasStreaming = _uiState.value.isStreaming
-        if (wasStreaming) {
-            streamJob?.cancel()
-            stopStreamingUpdater()
-        }
-    }
+    fun onPause() = streamingManager.onPause()
 
-    fun onResume() {
-        if (!wasStreaming) return
-        wasStreaming = false
-
-        val conversationId = _uiState.value.conversationId ?: return
-
-        viewModelScope.launch {
-            try {
-                val status = chatRepository.checkStreamStatus(conversationId)
-                if (status.active) {
-                    _uiState.update { it.copy(isStreaming = true) }
-                    resumeStream(conversationId)
-                } else {
-                    _uiState.update {
-                        it.copy(isStreaming = false, streamingContent = "")
-                    }
-                    loadConversation(conversationId)
-                }
-            } catch (e: Exception) {
-                Logger.e(e) { "Could not resume stream" }
-                _uiState.update {
-                    it.copy(
-                        isStreaming = false,
-                        streamingContent = "",
-                        error = "Could not resume stream",
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * Shared resume logic: clears the buffer, starts the updater, and launches
-     * stream collection. Caller is responsible for setting any UI state fields
-     * (e.g. isStreaming, error) before calling this.
-     */
-    private fun resumeStream(conversationId: String) {
-        streamingBuffer.clear()
-        streamingBufferDirty = false
-        startStreamingUpdater()
-        streamJob?.cancel()
-        streamJob = viewModelScope.launch {
-            collectStreamSafely(chatRepository.resumeStream(conversationId))
-        }
-    }
-
-    private fun resumeActiveStreamIfNeeded(conversationId: String) {
-        viewModelScope.launch {
-            try {
-                val status = chatRepository.checkStreamStatus(conversationId)
-                if (status.active) {
-                    _uiState.update {
-                        it.copy(
-                            isStreaming = true,
-                            screenState = ChatScreenState.ACTIVE,
-                        )
-                    }
-                    resumeStream(conversationId)
-                }
-            } catch (e: Exception) {
-                Logger.d(e) { "No active stream to resume for $conversationId" }
-            }
-        }
-    }
-
-    /**
-     * Starts observing connectivity for auto-reconnect after a network error.
-     * Cancels any existing observer first. The observer self-cancels after recovery fires.
-     */
-    private fun startConnectivityObserver() {
-        connectivityJob?.cancel()
-        connectivityJob = viewModelScope.launch {
-            var wasConnected = true
-            connectivityObserver.isConnected.collect { connected ->
-                val recovered = !wasConnected && connected
-                wasConnected = connected
-                if (recovered) {
-                    attemptNetworkRecovery()
-                }
-            }
-        }
-    }
-
-    /** Cancels the connectivity observer and clears the network-error flag. */
-    private fun cancelConnectivityObserver() {
-        connectivityJob?.cancel()
-        connectivityJob = null
-    }
-
-    /**
-     * Called when network connectivity transitions from offline to online.
-     * If the last stream ended due to a network error, attempts to resume it
-     * or falls back to reloading the conversation from the server.
-     */
-    private fun attemptNetworkRecovery() {
-        if (!lastErrorWasNetwork) return
-        val state = _uiState.value
-        val conversationId = state.conversationId ?: return
-        if (state.isStreaming) return
-
-        lastErrorWasNetwork = false
-        cancelConnectivityObserver()
-        Logger.d { "Network recovered, attempting to resume conversation $conversationId" }
-
-        viewModelScope.launch {
-            try {
-                val status = chatRepository.checkStreamStatus(conversationId)
-                if (status.active) {
-                    _uiState.update {
-                        it.copy(
-                            isStreaming = true,
-                            error = null,
-                            retryInfo = null,
-                        )
-                    }
-                    resumeStream(conversationId)
-                } else {
-                    // Stream expired while offline — reload conversation from server
-                    _uiState.update { it.copy(error = null, retryInfo = null) }
-                    loadConversation(conversationId)
-                }
-            } catch (e: Exception) {
-                Logger.w(e) { "Network recovery: could not check stream status" }
-            }
-        }
-    }
+    fun onResume() = streamingManager.onResume()
 
     fun submitFeedback(messageId: String, rating: String?) {
         val conversationId = _uiState.value.conversationId ?: return
@@ -1463,9 +978,7 @@ class ChatViewModel(
     }
 
     fun onPendingNavigationHandled() {
-        streamJob?.cancel()
-        streamJob = null
-        stopStreamingUpdater()
+        streamingManager.reset()
         roomObserverJob?.cancel()
         roomObserverJob = null
         _uiState.update { current ->
@@ -1486,7 +999,6 @@ class ChatViewModel(
                 sharedLinksEnabled = current.sharedLinksEnabled,
             )
         }
-        streamingBuffer.clear()
     }
 
     fun toggleTemporaryChat() = treeDelegate.toggleTemporaryChat()
