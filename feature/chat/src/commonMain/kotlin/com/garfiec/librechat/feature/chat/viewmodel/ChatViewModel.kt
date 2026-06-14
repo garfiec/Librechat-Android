@@ -12,7 +12,6 @@ import com.garfiec.librechat.core.common.result.getOrNull
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
-import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -38,7 +37,6 @@ import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
-import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
@@ -54,6 +52,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActions
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.EndpointKeyStatusDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.FavoritesDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.InConversationSearchDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.MessageEditingDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.MessageTreeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.OfficePreviewDelegate
@@ -137,6 +136,7 @@ class ChatViewModel(
     private val shareConsumer = platformDelegateFactory.createShareConsumer()
 
     // --- Delegates ---
+    private val requestBuilder = ChatRequestBuilder(stateHandle)
     private val treeDelegate = MessageTreeDelegate(stateHandle)
     private val comparisonDelegate = ComparisonModeDelegate(
         stateHandle = stateHandle,
@@ -266,6 +266,17 @@ class ChatViewModel(
         reloadConversation = ::loadConversation,
         isNewConversation = { isNewConversation },
         isHandedOffNewChat = { isHandedOffNewChat },
+    )
+
+    private val editingDelegate = MessageEditingDelegate(
+        stateHandle = stateHandle,
+        chatRepository = chatRepository,
+        messageRepository = messageRepository,
+        treeDelegate = treeDelegate,
+        streamingManager = streamingManager,
+        requestBuilder = requestBuilder,
+        getMessageText = ::getMessageText,
+        runWhenSendReady = ::runWhenSendReady,
     )
 
     companion object {
@@ -581,46 +592,6 @@ class ChatViewModel(
         runWhenSendReady { doSendMessage(text) }
     }
 
-    /**
-     * Builds an [EphemeralAgent] from the current UI state (selected MCP servers
-     * and enabled tools). Returns null when there is nothing to send.
-     */
-    private fun buildEphemeralAgent(): EphemeralAgent? {
-        val state = _uiState.value
-        // A saved agent uses its own configured tools; the backend ignores client-supplied
-        // ephemeral tools for agent runs. Mirror web's `showEphemeralBadges` (ChatForm.tsx)
-        // and never serialize leftover UI selections on the agents endpoint.
-        if (!state.showEphemeralTools) return null
-        val mcpServers = state.selectedMcpServerNames.toList().ifEmpty { null }
-        val enabledTools = state.enabledTools
-        val webSearchEnabled = state.modelParameters.webSearch
-
-        val hasAnything = mcpServers != null || enabledTools.isNotEmpty() || webSearchEnabled
-        if (!hasAnything) return null
-
-        return EphemeralAgent(
-            mcp = mcpServers,
-            webSearch = if (webSearchEnabled) true else null,
-            fileSearch = if (ToolConstants.FILE_SEARCH in enabledTools) true else null,
-            executeCode = if (ToolConstants.CODE_INTERPRETER in enabledTools || ToolConstants.EXECUTE_CODE in enabledTools) true else null,
-        )
-    }
-
-    /**
-     * Resolves the chat-send dispatch for the currently-selected endpoint by snapshotting
-     * `_uiState.value` once. Used by every chat-send code path (new message, edit, regenerate,
-     * continue) — callers that target a different endpoint (e.g. the comparison-mode
-     * secondary) must call [resolveEndpointDispatch] directly with that endpoint name.
-     */
-    private fun currentDispatch(): EndpointDispatch {
-        val state = _uiState.value
-        return resolveEndpointDispatch(
-            endpointName = state.selectedEndpoint,
-            endpointConfigs = state.endpointConfigs,
-            endpointKeyStates = state.endpointKeyStates,
-        )
-    }
-
     @OptIn(ExperimentalUuidApi::class)
     private fun doSendMessage(text: String) {
         val fileRefs = fileDelegate.buildFileReferences()
@@ -669,7 +640,7 @@ class ChatViewModel(
 
         val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
         val webSearchEnabled = _uiState.value.modelParameters.webSearch
-        val ephemeralAgent = buildEphemeralAgent()
+        val ephemeralAgent = requestBuilder.buildEphemeralAgent()
         Logger.d {
             "sendMessage: webSearch=$webSearchEnabled, " +
                 "endpoint=${_uiState.value.selectedEndpoint}, " +
@@ -687,7 +658,7 @@ class ChatViewModel(
         comparisonDelegate.onSendStart()
 
         val effectiveAddedConvo = comparisonDelegate.buildAddedConvo(parentMessageId = lastMessageId)
-        val dispatch = currentDispatch()
+        val dispatch = requestBuilder.currentDispatch()
         val stream = chatRepository.startChat(
             text = messageText,
             conversationId = conversationId,
@@ -718,160 +689,9 @@ class ChatViewModel(
         }
     }
 
-    fun editMessage(messageId: String, newText: String) {
-        if (newText.isBlank() || _uiState.value.isStreaming) return
+    fun editMessage(messageId: String, newText: String) = editingDelegate.editMessage(messageId, newText)
 
-        val originalMessage = _uiState.value.messages.find { it.messageId == messageId } ?: return
-
-        runWhenSendReady {
-            if (originalMessage.isCreatedByUser) {
-                editUserMessage(originalMessage, newText)
-            } else {
-                editAiMessage(originalMessage)
-            }
-        }
-    }
-
-    @OptIn(ExperimentalUuidApi::class)
-    private fun editUserMessage(originalMessage: Message, newText: String) {
-        val parentMessageId = originalMessage.parentMessageId
-
-        // Optimistically insert the edited text as a new sibling of the original user
-        // message and anchor the stream to it, so the new message — with the response
-        // streaming below it — replaces the old branch in place. The anchor truncates
-        // the active path here (see buildActiveMessagePath), mirroring the web client's
-        // `currentMsg + initialResponse` placeholder insert. The optimistic id is sent
-        // as `userMessageId` so the server adopts it; that lets the message reconcile by
-        // id on Final — via loadConversation() for normal chats, or in-memory via
-        // mergeFinalMessagesInMemory for temp chats (which never touch Room).
-        val optimisticMessage = Message(
-            messageId = Uuid.random().toString(),
-            conversationId = _uiState.value.conversationId ?: "",
-            parentMessageId = parentMessageId,
-            text = newText,
-            isCreatedByUser = true,
-            sender = "User",
-            createdAt = Clock.System.now().toString(),
-            files = originalMessage.files,
-        )
-        _uiState.update {
-            val updatedMessages = it.messages + optimisticMessage
-            it.copy(
-                messages = updatedMessages,
-                displayMessages = buildActiveMessagePath(updatedMessages, it.activeBranches, optimisticMessage.messageId),
-            )
-        }
-
-        streamingManager.prepareForStreaming(isEdit = true)
-
-        val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
-        val webSearchEnabled = _uiState.value.modelParameters.webSearch
-        val ephemeralAgent = buildEphemeralAgent()
-        Logger.d { "editUserMessage: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        val dispatch = currentDispatch()
-        streamingManager.launchStream(
-            chatRepository.startChat(
-                text = newText,
-                conversationId = _uiState.value.conversationId,
-                endpoint = _uiState.value.selectedEndpoint,
-                endpointType = dispatch.endpointType,
-                key = dispatch.key,
-                modelDisplayLabel = dispatch.modelDisplayLabel,
-                model = _uiState.value.selectedModel,
-                userMessageId = optimisticMessage.messageId,
-                parentMessageId = parentMessageId,
-                agentId = if (isAgent) _uiState.value.selectedModel else null,
-                isEdited = true,
-                webSearch = webSearchEnabled,
-                ephemeralAgent = ephemeralAgent,
-                isTemporary = _uiState.value.isTemporaryChat,
-            ),
-        )
-    }
-
-    private fun editAiMessage(aiMessage: Message) {
-        val parentUserMessage = _uiState.value.messages.find {
-            it.messageId == aiMessage.parentMessageId
-        } ?: return
-
-        val conversationId = _uiState.value.conversationId ?: return
-
-        // Editing an assistant message resubmits its parent user turn (isEdited +
-        // isRegenerate) — the same shape as regenerate, so anchor the stream to the
-        // parent user message and let the new response stream in below it, replacing
-        // the old one. The web client seeds the placeholder with the edited content
-        // for a transient preview; we don't (the regenerated server response is
-        // authoritative on Final either way).
-        treeDelegate.anchorStreamTo(parentUserMessage.messageId)
-        streamingManager.prepareForStreaming(isEdit = true)
-
-        val isAgent = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
-        val webSearchEnabled = _uiState.value.modelParameters.webSearch
-        val ephemeralAgent = buildEphemeralAgent()
-        Logger.d { "editAiMessage: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        val dispatch = currentDispatch()
-        streamingManager.launchStream(
-            chatRepository.startChat(
-                text = parentUserMessage.text,
-                conversationId = conversationId,
-                endpoint = _uiState.value.selectedEndpoint,
-                endpointType = dispatch.endpointType,
-                key = dispatch.key,
-                modelDisplayLabel = dispatch.modelDisplayLabel,
-                model = _uiState.value.selectedModel,
-                parentMessageId = parentUserMessage.parentMessageId,
-                agentId = if (isAgent) _uiState.value.selectedModel else null,
-                overrideParentMessageId = parentUserMessage.messageId,
-                isEdited = true,
-                isRegenerate = true,
-                webSearch = webSearchEnabled,
-                ephemeralAgent = ephemeralAgent,
-                isTemporary = _uiState.value.isTemporaryChat,
-            ),
-        )
-    }
-
-    fun regenerateMessage(messageId: String) {
-        if (_uiState.value.isStreaming) return
-
-        val aiMessage = _uiState.value.messages.find { it.messageId == messageId } ?: return
-        if (aiMessage.isCreatedByUser) return
-
-        val parentUserMessage = _uiState.value.messages.find {
-            it.messageId == aiMessage.parentMessageId
-        } ?: return
-
-        runWhenSendReady { regenerateMessageNow(parentUserMessage) }
-    }
-
-    private fun regenerateMessageNow(parentUserMessage: Message) {
-        treeDelegate.anchorStreamTo(parentUserMessage.messageId)
-        streamingManager.prepareForStreaming(isEdit = true)
-
-        val isAgentRegen = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
-        val webSearchEnabled = _uiState.value.modelParameters.webSearch
-        val ephemeralAgent = buildEphemeralAgent()
-        Logger.d { "regenerateMessage: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        val dispatch = currentDispatch()
-        streamingManager.launchStream(
-            chatRepository.startChat(
-                text = parentUserMessage.text,
-                conversationId = _uiState.value.conversationId,
-                endpoint = _uiState.value.selectedEndpoint,
-                endpointType = dispatch.endpointType,
-                key = dispatch.key,
-                modelDisplayLabel = dispatch.modelDisplayLabel,
-                model = _uiState.value.selectedModel,
-                parentMessageId = parentUserMessage.parentMessageId,
-                agentId = if (isAgentRegen) _uiState.value.selectedModel else null,
-                overrideParentMessageId = parentUserMessage.messageId,
-                isRegenerate = true,
-                webSearch = webSearchEnabled,
-                ephemeralAgent = ephemeralAgent,
-                isTemporary = _uiState.value.isTemporaryChat,
-            ),
-        )
-    }
+    fun regenerateMessage(messageId: String) = editingDelegate.regenerateMessage(messageId)
 
     fun getMessageText(messageId: String): String {
         val message = _uiState.value.messages.find { it.messageId == messageId } ?: return ""
@@ -886,49 +706,7 @@ class ChatViewModel(
 
     fun stopGeneration() = streamingManager.stopGeneration()
 
-    fun continueGeneration() {
-        if (_uiState.value.isStreaming) return
-        val lastAiMessage = _uiState.value.displayMessages.lastOrNull {
-            !it.message.isCreatedByUser
-        } ?: return
-
-        val parentUserMessage = _uiState.value.messages.find {
-            it.messageId == lastAiMessage.message.parentMessageId
-        } ?: return
-
-        runWhenSendReady { continueGenerationNow(lastAiMessage.message, parentUserMessage) }
-    }
-
-    private fun continueGenerationNow(lastAiMessage: Message, parentUserMessage: Message) {
-        streamingManager.prepareForStreaming(isEdit = true)
-
-        val isAgentContinue = _uiState.value.selectedEndpoint == EndpointConstants.AGENTS
-        val webSearchEnabled = _uiState.value.modelParameters.webSearch
-        val ephemeralAgent = buildEphemeralAgent()
-        Logger.d { "continueGeneration: webSearch=$webSearchEnabled, ephemeralAgent=$ephemeralAgent" }
-        val dispatch = currentDispatch()
-        streamingManager.launchStream(
-            chatRepository.startChat(
-                text = parentUserMessage.text,
-                conversationId = _uiState.value.conversationId,
-                endpoint = _uiState.value.selectedEndpoint,
-                endpointType = dispatch.endpointType,
-                key = dispatch.key,
-                modelDisplayLabel = dispatch.modelDisplayLabel,
-                model = _uiState.value.selectedModel,
-                parentMessageId = parentUserMessage.parentMessageId,
-                agentId = if (isAgentContinue) _uiState.value.selectedModel else null,
-                overrideParentMessageId = parentUserMessage.messageId,
-                responseMessageId = lastAiMessage.messageId,
-                isEdited = true,
-                isRegenerate = true,
-                isContinued = true,
-                webSearch = webSearchEnabled,
-                ephemeralAgent = ephemeralAgent,
-                isTemporary = _uiState.value.isTemporaryChat,
-            ),
-        )
-    }
+    fun continueGeneration() = editingDelegate.continueGeneration()
 
     fun onPause() = streamingManager.onPause()
 
@@ -941,41 +719,15 @@ class ChatViewModel(
         }
     }
 
-    fun startEditing(messageId: String) {
-        val text = getMessageText(messageId)
-        _uiState.update {
-            it.copy(editingMessageId = messageId, editingText = text)
-        }
-    }
+    fun startEditing(messageId: String) = editingDelegate.startEditing(messageId)
 
-    fun onEditTextChanged(text: String) {
-        _uiState.update { it.copy(editingText = text) }
-    }
+    fun onEditTextChanged(text: String) = editingDelegate.onEditTextChanged(text)
 
-    fun cancelEditing() {
-        _uiState.update { it.copy(editingMessageId = null, editingText = "") }
-    }
+    fun cancelEditing() = editingDelegate.cancelEditing()
 
-    fun submitEdit() {
-        val messageId = _uiState.value.editingMessageId ?: return
-        val newText = _uiState.value.editingText.trim()
-        if (newText.isBlank()) return
+    fun submitEdit() = editingDelegate.submitEdit()
 
-        _uiState.update { it.copy(editingMessageId = null, editingText = "") }
-        editMessage(messageId, newText)
-    }
-
-    fun saveEditOnly() {
-        val messageId = _uiState.value.editingMessageId ?: return
-        val conversationId = _uiState.value.conversationId ?: return
-        val newText = _uiState.value.editingText.trim()
-        if (newText.isBlank()) return
-
-        _uiState.update { it.copy(editingMessageId = null, editingText = "") }
-        viewModelScope.launch {
-            messageRepository.updateMessageText(conversationId, messageId, newText)
-        }
-    }
+    fun saveEditOnly() = editingDelegate.saveEditOnly()
 
     fun onPendingNavigationHandled() {
         streamingManager.reset()
