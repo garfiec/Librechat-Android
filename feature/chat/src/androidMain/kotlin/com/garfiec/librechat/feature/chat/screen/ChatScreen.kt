@@ -47,7 +47,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,42 +54,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
-import com.garfiec.librechat.core.model.ContentType
-import com.garfiec.librechat.core.model.content.MessageContentPart
-import com.garfiec.librechat.core.ui.components.LoadingIndicator
 import com.garfiec.librechat.core.ui.components.ModelParameterSheet
 import com.garfiec.librechat.feature.chat.components.ChatInput
 import com.garfiec.librechat.feature.chat.components.ChatRoot
-import com.garfiec.librechat.feature.chat.components.ComparisonDualPane
-import com.garfiec.librechat.feature.chat.components.ComparisonTabBar
 import com.garfiec.librechat.feature.chat.components.ForkOptionsBottomSheet
 import com.garfiec.librechat.feature.chat.components.InConvoSearchBar
-import com.garfiec.librechat.feature.chat.components.LandingContent
-import com.garfiec.librechat.feature.chat.components.MessageList
-import com.garfiec.librechat.feature.chat.components.ModelSelectorButton
 import com.garfiec.librechat.feature.chat.components.ModelSelectorSheet
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
-import com.garfiec.librechat.feature.chat.components.SecondaryMessageList
 import com.garfiec.librechat.feature.chat.components.TempChatToggle
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
-import com.garfiec.librechat.feature.chat.util.MessageNode
-import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.asString
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -154,86 +138,19 @@ actual fun ChatScreen(
         coroutineScope = coroutineScope,
     )
 
-    // When a new conversation starts, navigate to Chat(conversationId) immediately
-    // (at StreamEvent.Created) so the NewChat landing page stays clean in the back
-    // stack. The new ChatViewModel at Chat(id) will resume the active stream.
-    // onPendingNavigationHandled() resets this ViewModel to a fresh landing state.
-    LaunchedEffect(uiState.pendingNavigationConversationId) {
-        val pendingId = uiState.pendingNavigationConversationId
-        if (pendingId != null && onConversationStart != null) {
-            onConversationStart(pendingId)
-            viewModel.onPendingNavigationHandled()
-        }
-    }
-
-    // Show errors in snackbar
-    LaunchedEffect(uiState.error) {
-        val error = uiState.error
-        if (error != null) {
-            snackbarHostState.showSnackbar(
-                message = error,
-                actionLabel = "Dismiss",
-            )
-            viewModel.dismissError()
-        }
-    }
-
-    UserKeyErrorSnackbarEffect(
+    ChatScreenEffects(
+        uiState = uiState,
+        shareLinkUrl = shareLinkUrl,
         viewModel = viewModel,
         snackbarHostState = snackbarHostState,
+        clipboardManager = clipboardManager,
+        onConversationStart = onConversationStart,
+        onNavigateToConversation = onNavigateToConversation,
+        onNavigateBack = onNavigateBack,
         onNavigateToProviderKeys = onNavigateToProviderKeys,
     )
 
     val sendBlockMessage = uiState.sendBlockReason?.asString()
-
-    // Stream resume on foreground
-    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPause() }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
-
-    // Navigate to forked conversation
-    LaunchedEffect(uiState.forkedConversationId) {
-        val forkId = uiState.forkedConversationId
-        if (forkId != null) {
-            viewModel.onForkedConversationHandled()
-            if (onNavigateToConversation != null) {
-                onNavigateToConversation(forkId)
-            } else if (onConversationStart != null) {
-                onConversationStart(forkId)
-            }
-        }
-    }
-
-    // Navigate to duplicated conversation
-    LaunchedEffect(uiState.duplicatedConversationId) {
-        val dupId = uiState.duplicatedConversationId
-        if (dupId != null) {
-            viewModel.onDuplicatedConversationHandled()
-            if (onNavigateToConversation != null) {
-                onNavigateToConversation(dupId)
-            } else if (onConversationStart != null) {
-                onConversationStart(dupId)
-            }
-        }
-    }
-
-    // Copy share link to clipboard
-    LaunchedEffect(shareLinkUrl) {
-        val url = shareLinkUrl
-        if (url != null) {
-            clipboardManager.setPrimaryClip(ClipData.newPlainText("Share Link", url))
-            viewModel.onShareLinkHandled()
-            snackbarHostState.showSnackbar("Share link copied to clipboard")
-        }
-    }
-
-    // Navigate back after delete/archive (conversationId becomes null)
-    var hadConversation by remember { mutableStateOf(uiState.conversationId != null) }
-    LaunchedEffect(uiState.conversationId) {
-        if (hadConversation && uiState.conversationId == null) {
-            onNavigateBack?.invoke()
-        }
-        hadConversation = uiState.conversationId != null
-    }
 
     ChatRoot(
         inlineArtifactPrefs = prefs.inlineArtifactPrefs,
@@ -301,258 +218,21 @@ actual fun ChatScreen(
             Column(
                 modifier = Modifier.fillMaxSize(),
             ) {
-                when (uiState.screenState) {
-                    ChatScreenState.LANDING -> {
-                        LandingContent(
-                            selectedModel = uiState.selectedModel,
-                            selectedAgentName = agentName,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    ChatScreenState.LOADING -> {
-                        LoadingIndicator(
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    ChatScreenState.ACTIVE -> {
-                        val comparisonState = uiState.comparisonState
-                        if (comparisonState.isEnabled) {
-                            val screenWidthDp = LocalConfiguration.current.screenWidthDp
-                            val isWideScreen = screenWidthDp >= 600
-
-                            val canBranch = comparisonState.parallelMessageId != null &&
-                                !comparisonState.primaryIsStreaming &&
-                                !comparisonState.secondaryIsStreaming
-
-                            // Replace the parallel response message's content with
-                            // the captured streaming buffer for each agent's pane.
-                            // The server-loaded message may only contain the primary
-                            // agent's content, so we substitute from the buffers.
-                            val primarySenderName = run {
-                                val model = uiState.selectedModel
-                                if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
-                                    uiState.agents.find { it.id == model }?.name ?: model
-                                } else {
-                                    model ?: "Assistant"
-                                }
-                            }
-                            val primaryDisplayMessages = remember(
-                                uiState.displayMessages,
-                                comparisonState.parallelMessageId,
-                                comparisonState.primaryFinalContent,
-                            ) {
-                                buildComparisonDisplayMessages(
-                                    uiState.displayMessages,
-                                    comparisonState.parallelMessageId,
-                                    comparisonState.primaryFinalContent,
-                                    primarySenderName,
-                                )
-                            }
-                            val secondarySenderName = viewModel.getSecondaryModelDisplayName()
-                                ?: comparisonState.secondaryModel ?: "Assistant"
-                            val secondaryDisplayMessages = remember(
-                                uiState.displayMessages,
-                                comparisonState.parallelMessageId,
-                                comparisonState.secondaryFinalContent,
-                                secondarySenderName,
-                            ) {
-                                buildComparisonDisplayMessages(
-                                    uiState.displayMessages,
-                                    comparisonState.parallelMessageId,
-                                    comparisonState.secondaryFinalContent,
-                                    secondarySenderName,
-                                )
-                            }
-
-                            val primaryMessageList: @Composable () -> Unit = {
-                                MessageList(
-                                    displayMessages = primaryDisplayMessages,
-                                    isStreaming = comparisonState.primaryIsStreaming || uiState.isStreaming,
-                                    streamingContent = if (comparisonState.primaryIsStreaming) {
-                                        comparisonState.primaryStreamingContent
-                                    } else {
-                                        uiState.streamingContent
-                                    },
-                                    activeToolCalls = if (comparisonState.primaryIsStreaming) {
-                                        comparisonState.primaryActiveToolCalls
-                                    } else {
-                                        uiState.activeToolCalls
-                                    },
-                                    streamingAttachments = uiState.streamingAttachments,
-                                    onSiblingNavigation = viewModel::switchBranch,
-                                    onEditMessage = viewModel::startEditing,
-                                    onRegenerateMessage = viewModel::regenerateMessage,
-                                    onCopyMessage = { messageId ->
-                                        val text = viewModel.getMessageText(messageId)
-                                        if (text.isNotBlank()) {
-                                            clipboardManager.setPrimaryClip(
-                                                ClipData.newPlainText("Message", text),
-                                            )
-                                        }
-                                    },
-                                    onFeedback = viewModel::submitFeedback,
-                                    onContinue = { viewModel.continueGeneration() },
-                                    onReadAloud = viewModel::readAloud,
-                                    onFork = viewModel::showForkOptions,
-                                    currentlyReadingMessageId = uiState.currentlyReadingMessageId,
-                                    editingMessageId = uiState.editingMessageId,
-                                    editingText = uiState.editingText,
-                                    onEditTextChange = viewModel::onEditTextChanged,
-                                    onEditSaveAndSubmit = viewModel::submitEdit,
-                                    onEditSaveOnly = viewModel::saveEditOnly,
-                                    onEditCancel = viewModel::cancelEditing,
-                                    baseUrl = uiState.serverUrl,
-                                    fontSizeMultiplier = fontSizeMultiplier,
-                                    isRefreshing = uiState.isRefreshingMessages,
-                                    onRefresh = viewModel::refreshMessages,
-                                    userAvatarUrl = uiState.userAvatarUrl,
-                                    userName = uiState.userName,
-                                    selectedEndpoint = uiState.selectedEndpoint,
-                                    streamingSenderName = primarySenderName,
-                                    showImageDescriptions = showImageDescriptions,
-                                    chatLayoutStyle = chatLayoutStyle,
-                                    showAvatars = showAvatars,
-                                    showBubbles = showBubbles,
-                                    useKatex = useKatex,
-                                    searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
-                                    searchMatchIndices = uiState.searchMatchIndices,
-                                    currentSearchMatchIndex = uiState.currentSearchMatchIndex,
-                                    searchScrollToIndex = uiState.searchScrollToIndex,
-                                    onSearchScrollHandle = viewModel::onSearchScrollHandled,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-
-                            val secondaryEndpoint = comparisonState.secondaryEndpoint ?: "agents"
-                            val secondaryModelName = viewModel.getSecondaryModelDisplayName()
-                                ?: comparisonState.secondaryModel
-                                ?: stringResource(Res.string.select_model)
-
-                            val secondaryMessageList: @Composable () -> Unit = {
-                                SecondaryMessageList(
-                                    displayMessages = secondaryDisplayMessages,
-                                    isStreaming = comparisonState.secondaryIsStreaming,
-                                    streamingContent = comparisonState.secondaryStreamingContent,
-                                    activeToolCalls = comparisonState.secondaryActiveToolCalls,
-                                    streamingAttachments = uiState.streamingAttachments,
-                                    error = null,
-                                    baseUrl = uiState.serverUrl,
-                                    fontSizeMultiplier = fontSizeMultiplier,
-                                    selectedEndpoint = secondaryEndpoint,
-                                    streamingSenderName = secondaryModelName,
-                                    showImageDescriptions = showImageDescriptions,
-                                    chatLayoutStyle = chatLayoutStyle,
-                                    showAvatars = showAvatars,
-                                    showBubbles = showBubbles,
-                                    useKatex = useKatex,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-
-                            val onContinuePrimary = if (canBranch && comparisonState.primaryAgentId != null) {
-                                { viewModel.branchFromComparison(comparisonState.primaryAgentId) }
-                            } else {
-                                null
-                            }
-                            val onContinueSecondary = if (canBranch && comparisonState.secondaryAgentId != null) {
-                                { viewModel.branchFromComparison(comparisonState.secondaryAgentId) }
-                            } else {
-                                null
-                            }
-
-                            if (isWideScreen) {
-                                // Tablet: dual pane side-by-side
-                                ComparisonDualPane(
-                                    primaryModelSelector = {
-                                        ModelSelectorButton(
-                                            modelName = displayModel,
-                                            onClick = viewModel::openModelSheet,
-                                        )
-                                    },
-                                    secondaryModelSelector = {
-                                        ModelSelectorButton(
-                                            modelName = secondaryModelName,
-                                            onClick = { showSecondaryModelSheet = true },
-                                        )
-                                    },
-                                    primaryContent = primaryMessageList,
-                                    secondaryContent = secondaryMessageList,
-                                    onContinueWithPrimary = onContinuePrimary,
-                                    onContinueWithSecondary = onContinueSecondary,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            } else {
-                                // Phone: tab bar with pager
-                                ComparisonTabBar(
-                                    primaryModelName = displayModel ?: "Primary",
-                                    secondaryModelName = secondaryModelName,
-                                    primaryContent = primaryMessageList,
-                                    secondaryContent = secondaryMessageList,
-                                    onContinueWithPrimary = onContinuePrimary,
-                                    onContinueWithSecondary = onContinueSecondary,
-                                    onTabChange = { activeComparisonTab = it },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        } else {
-                            MessageList(
-                                displayMessages = uiState.displayMessages,
-                                isStreaming = uiState.isStreaming,
-                                streamingContent = uiState.streamingContent,
-                                activeToolCalls = uiState.activeToolCalls,
-                                streamingAttachments = uiState.streamingAttachments,
-                                onSiblingNavigation = viewModel::switchBranch,
-                                onEditMessage = viewModel::startEditing,
-                                onRegenerateMessage = viewModel::regenerateMessage,
-                                onCopyMessage = { messageId ->
-                                    val text = viewModel.getMessageText(messageId)
-                                    if (text.isNotBlank()) {
-                                        clipboardManager.setPrimaryClip(
-                                            ClipData.newPlainText("Message", text),
-                                        )
-                                    }
-                                },
-                                onFeedback = viewModel::submitFeedback,
-                                onContinue = { viewModel.continueGeneration() },
-                                onReadAloud = viewModel::readAloud,
-                                onFork = viewModel::showForkOptions,
-                                currentlyReadingMessageId = uiState.currentlyReadingMessageId,
-                                editingMessageId = uiState.editingMessageId,
-                                editingText = uiState.editingText,
-                                onEditTextChange = viewModel::onEditTextChanged,
-                                onEditSaveAndSubmit = viewModel::submitEdit,
-                                onEditSaveOnly = viewModel::saveEditOnly,
-                                onEditCancel = viewModel::cancelEditing,
-                                baseUrl = uiState.serverUrl,
-                                fontSizeMultiplier = fontSizeMultiplier,
-                                isRefreshing = uiState.isRefreshingMessages,
-                                onRefresh = viewModel::refreshMessages,
-                                userAvatarUrl = uiState.userAvatarUrl,
-                                userName = uiState.userName,
-                                selectedEndpoint = uiState.selectedEndpoint,
-                                streamingSenderName = run {
-                                    val model = uiState.selectedModel
-                                    if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
-                                        uiState.agents.find { it.id == model }?.name ?: model
-                                    } else {
-                                        model ?: "Assistant"
-                                    }
-                                },
-                                showImageDescriptions = showImageDescriptions,
-                                chatLayoutStyle = chatLayoutStyle,
-                                showAvatars = showAvatars,
-                                showBubbles = showBubbles,
-                                useKatex = useKatex,
-                                searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
-                                searchMatchIndices = uiState.searchMatchIndices,
-                                currentSearchMatchIndex = uiState.currentSearchMatchIndex,
-                                searchScrollToIndex = uiState.searchScrollToIndex,
-                                onSearchScrollHandle = viewModel::onSearchScrollHandled,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
+                ChatContent(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    clipboardManager = clipboardManager,
+                    agentName = agentName,
+                    displayModel = displayModel,
+                    fontSizeMultiplier = fontSizeMultiplier,
+                    showImageDescriptions = showImageDescriptions,
+                    chatLayoutStyle = chatLayoutStyle,
+                    showAvatars = showAvatars,
+                    showBubbles = showBubbles,
+                    useKatex = useKatex,
+                    onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
+                    onComparisonTabChange = { activeComparisonTab = it },
+                )
             }
 
             // ChatInput overlays at the bottom so gradient shows content behind
@@ -1080,34 +760,4 @@ private fun ChatDeleteConfirmationDialog(
             }
         },
     )
-}
-
-/**
- * Replaces the parallel response message's content with [finalContent] captured from
- * the streaming buffer. The server-loaded message may only contain the primary agent's
- * content, so for the secondary pane we substitute the captured text.
- * Also updates the sender name so the bubble shows the correct model.
- */
-private fun buildComparisonDisplayMessages(
-    displayMessages: List<MessageNode>,
-    parallelMessageId: String?,
-    finalContent: String?,
-    senderName: String?,
-): List<MessageNode> {
-    if (parallelMessageId == null || finalContent.isNullOrBlank()) return displayMessages
-    return displayMessages.map { node ->
-        if (node.message.messageId == parallelMessageId) {
-            // Substitute the parallel message content with the captured final content for this pane
-            node.copy(
-                message = node.message.copy(
-                    content = listOf(
-                        MessageContentPart(type = ContentType.TEXT, text = finalContent),
-                    ),
-                    sender = senderName ?: node.message.sender,
-                ),
-            )
-        } else {
-            node
-        }
-    }
 }
