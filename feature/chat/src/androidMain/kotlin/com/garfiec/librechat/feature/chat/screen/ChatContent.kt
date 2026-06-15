@@ -22,6 +22,7 @@ import com.garfiec.librechat.feature.chat.components.SecondaryMessageList
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.select_model
 import com.garfiec.librechat.feature.chat.util.MessageNode
+import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
@@ -67,6 +68,16 @@ internal fun ColumnScope.ChatContent(
         }
         ChatScreenState.ACTIVE -> {
             val comparisonState = uiState.comparisonState
+            // Streaming-bubble sender label for the active model: the agent's
+            // display name under the agents endpoint, else the raw model id.
+            val senderName = run {
+                val model = uiState.selectedModel
+                if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
+                    uiState.agents.find { it.id == model }?.name ?: model
+                } else {
+                    model ?: "Assistant"
+                }
+            }
             if (comparisonState.isEnabled) {
                 val screenWidthDp = LocalConfiguration.current.screenWidthDp
                 val isWideScreen = screenWidthDp >= 600
@@ -79,14 +90,6 @@ internal fun ColumnScope.ChatContent(
                 // the captured streaming buffer for each agent's pane.
                 // The server-loaded message may only contain the primary
                 // agent's content, so we substitute from the buffers.
-                val primarySenderName = run {
-                    val model = uiState.selectedModel
-                    if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
-                        uiState.agents.find { it.id == model }?.name ?: model
-                    } else {
-                        model ?: "Assistant"
-                    }
-                }
                 val primaryDisplayMessages = remember(
                     uiState.displayMessages,
                     comparisonState.parallelMessageId,
@@ -96,7 +99,7 @@ internal fun ColumnScope.ChatContent(
                         uiState.displayMessages,
                         comparisonState.parallelMessageId,
                         comparisonState.primaryFinalContent,
-                        primarySenderName,
+                        senderName,
                     )
                 }
                 val secondarySenderName = viewModel.getSecondaryModelDisplayName()
@@ -116,7 +119,16 @@ internal fun ColumnScope.ChatContent(
                 }
 
                 val primaryMessageList: @Composable () -> Unit = {
-                    MessageList(
+                    ChatMessageListPane(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        clipboardManager = clipboardManager,
+                        fontSizeMultiplier = fontSizeMultiplier,
+                        showImageDescriptions = showImageDescriptions,
+                        chatLayoutStyle = chatLayoutStyle,
+                        showAvatars = showAvatars,
+                        showBubbles = showBubbles,
+                        useKatex = useKatex,
                         displayMessages = primaryDisplayMessages,
                         isStreaming = comparisonState.primaryIsStreaming || uiState.isStreaming,
                         streamingContent = if (comparisonState.primaryIsStreaming) {
@@ -129,47 +141,7 @@ internal fun ColumnScope.ChatContent(
                         } else {
                             uiState.activeToolCalls
                         },
-                        streamingAttachments = uiState.streamingAttachments,
-                        onSiblingNavigation = viewModel::switchBranch,
-                        onEditMessage = viewModel::startEditing,
-                        onRegenerateMessage = viewModel::regenerateMessage,
-                        onCopyMessage = { messageId ->
-                            val text = viewModel.getMessageText(messageId)
-                            if (text.isNotBlank()) {
-                                clipboardManager.setPrimaryClip(
-                                    ClipData.newPlainText("Message", text),
-                                )
-                            }
-                        },
-                        onFeedback = viewModel::submitFeedback,
-                        onContinue = { viewModel.continueGeneration() },
-                        onReadAloud = viewModel::readAloud,
-                        onFork = viewModel::showForkOptions,
-                        currentlyReadingMessageId = uiState.currentlyReadingMessageId,
-                        editingMessageId = uiState.editingMessageId,
-                        editingText = uiState.editingText,
-                        onEditTextChange = viewModel::onEditTextChanged,
-                        onEditSaveAndSubmit = viewModel::submitEdit,
-                        onEditSaveOnly = viewModel::saveEditOnly,
-                        onEditCancel = viewModel::cancelEditing,
-                        baseUrl = uiState.serverUrl,
-                        fontSizeMultiplier = fontSizeMultiplier,
-                        isRefreshing = uiState.isRefreshingMessages,
-                        onRefresh = viewModel::refreshMessages,
-                        userAvatarUrl = uiState.userAvatarUrl,
-                        userName = uiState.userName,
-                        selectedEndpoint = uiState.selectedEndpoint,
-                        streamingSenderName = primarySenderName,
-                        showImageDescriptions = showImageDescriptions,
-                        chatLayoutStyle = chatLayoutStyle,
-                        showAvatars = showAvatars,
-                        showBubbles = showBubbles,
-                        useKatex = useKatex,
-                        searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
-                        searchMatchIndices = uiState.searchMatchIndices,
-                        currentSearchMatchIndex = uiState.currentSearchMatchIndex,
-                        searchScrollToIndex = uiState.searchScrollToIndex,
-                        onSearchScrollHandle = viewModel::onSearchScrollHandled,
+                        streamingSenderName = senderName,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -246,64 +218,100 @@ internal fun ColumnScope.ChatContent(
                     )
                 }
             } else {
-                MessageList(
-                    displayMessages = uiState.displayMessages,
-                    isStreaming = uiState.isStreaming,
-                    streamingContent = uiState.streamingContent,
-                    activeToolCalls = uiState.activeToolCalls,
-                    streamingAttachments = uiState.streamingAttachments,
-                    onSiblingNavigation = viewModel::switchBranch,
-                    onEditMessage = viewModel::startEditing,
-                    onRegenerateMessage = viewModel::regenerateMessage,
-                    onCopyMessage = { messageId ->
-                        val text = viewModel.getMessageText(messageId)
-                        if (text.isNotBlank()) {
-                            clipboardManager.setPrimaryClip(
-                                ClipData.newPlainText("Message", text),
-                            )
-                        }
-                    },
-                    onFeedback = viewModel::submitFeedback,
-                    onContinue = { viewModel.continueGeneration() },
-                    onReadAloud = viewModel::readAloud,
-                    onFork = viewModel::showForkOptions,
-                    currentlyReadingMessageId = uiState.currentlyReadingMessageId,
-                    editingMessageId = uiState.editingMessageId,
-                    editingText = uiState.editingText,
-                    onEditTextChange = viewModel::onEditTextChanged,
-                    onEditSaveAndSubmit = viewModel::submitEdit,
-                    onEditSaveOnly = viewModel::saveEditOnly,
-                    onEditCancel = viewModel::cancelEditing,
-                    baseUrl = uiState.serverUrl,
+                ChatMessageListPane(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    clipboardManager = clipboardManager,
                     fontSizeMultiplier = fontSizeMultiplier,
-                    isRefreshing = uiState.isRefreshingMessages,
-                    onRefresh = viewModel::refreshMessages,
-                    userAvatarUrl = uiState.userAvatarUrl,
-                    userName = uiState.userName,
-                    selectedEndpoint = uiState.selectedEndpoint,
-                    streamingSenderName = run {
-                        val model = uiState.selectedModel
-                        if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
-                            uiState.agents.find { it.id == model }?.name ?: model
-                        } else {
-                            model ?: "Assistant"
-                        }
-                    },
                     showImageDescriptions = showImageDescriptions,
                     chatLayoutStyle = chatLayoutStyle,
                     showAvatars = showAvatars,
                     showBubbles = showBubbles,
                     useKatex = useKatex,
-                    searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
-                    searchMatchIndices = uiState.searchMatchIndices,
-                    currentSearchMatchIndex = uiState.currentSearchMatchIndex,
-                    searchScrollToIndex = uiState.searchScrollToIndex,
-                    onSearchScrollHandle = viewModel::onSearchScrollHandled,
+                    displayMessages = uiState.displayMessages,
+                    isStreaming = uiState.isStreaming,
+                    streamingContent = uiState.streamingContent,
+                    activeToolCalls = uiState.activeToolCalls,
+                    streamingSenderName = senderName,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
     }
+}
+
+/**
+ * The single (non-comparison) and comparison-primary message lists differ only in
+ * their streaming source, sender label, and modifier; everything else — the action
+ * callbacks, editing state, search wiring, and display prefs — is identical. This
+ * wrapper holds that shared configuration so both call sites stay in sync.
+ */
+@Composable
+private fun ChatMessageListPane(
+    uiState: ChatUiState,
+    viewModel: ChatViewModel,
+    clipboardManager: ClipboardManager,
+    fontSizeMultiplier: Float,
+    showImageDescriptions: Boolean,
+    chatLayoutStyle: String,
+    showAvatars: Boolean,
+    showBubbles: Boolean,
+    useKatex: Boolean,
+    displayMessages: List<MessageNode>,
+    isStreaming: Boolean,
+    streamingContent: String,
+    activeToolCalls: List<ActiveToolCall>,
+    streamingSenderName: String,
+    modifier: Modifier,
+) {
+    MessageList(
+        displayMessages = displayMessages,
+        isStreaming = isStreaming,
+        streamingContent = streamingContent,
+        activeToolCalls = activeToolCalls,
+        streamingAttachments = uiState.streamingAttachments,
+        onSiblingNavigation = viewModel::switchBranch,
+        onEditMessage = viewModel::startEditing,
+        onRegenerateMessage = viewModel::regenerateMessage,
+        onCopyMessage = { messageId ->
+            val text = viewModel.getMessageText(messageId)
+            if (text.isNotBlank()) {
+                clipboardManager.setPrimaryClip(
+                    ClipData.newPlainText("Message", text),
+                )
+            }
+        },
+        onFeedback = viewModel::submitFeedback,
+        onContinue = { viewModel.continueGeneration() },
+        onReadAloud = viewModel::readAloud,
+        onFork = viewModel::showForkOptions,
+        currentlyReadingMessageId = uiState.currentlyReadingMessageId,
+        editingMessageId = uiState.editingMessageId,
+        editingText = uiState.editingText,
+        onEditTextChange = viewModel::onEditTextChanged,
+        onEditSaveAndSubmit = viewModel::submitEdit,
+        onEditSaveOnly = viewModel::saveEditOnly,
+        onEditCancel = viewModel::cancelEditing,
+        baseUrl = uiState.serverUrl,
+        fontSizeMultiplier = fontSizeMultiplier,
+        isRefreshing = uiState.isRefreshingMessages,
+        onRefresh = viewModel::refreshMessages,
+        userAvatarUrl = uiState.userAvatarUrl,
+        userName = uiState.userName,
+        selectedEndpoint = uiState.selectedEndpoint,
+        streamingSenderName = streamingSenderName,
+        showImageDescriptions = showImageDescriptions,
+        chatLayoutStyle = chatLayoutStyle,
+        showAvatars = showAvatars,
+        showBubbles = showBubbles,
+        useKatex = useKatex,
+        searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
+        searchMatchIndices = uiState.searchMatchIndices,
+        currentSearchMatchIndex = uiState.currentSearchMatchIndex,
+        searchScrollToIndex = uiState.searchScrollToIndex,
+        onSearchScrollHandle = viewModel::onSearchScrollHandled,
+        modifier = modifier,
+    )
 }
 
 /**
