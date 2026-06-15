@@ -22,7 +22,7 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 |---|------|-------|------|--------|
 | 1 | `feature/chat/.../viewmodel/ChatViewModel.kt` | 2151→1068 | VM god-class | **done — PR #157 (merged)** |
 | 2 | `feature/agents/.../viewmodel/AgentEditorViewModel.kt` | 1938→518 | VM god-class (no delegates yet) | **done — device-verified** |
-| 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232 | Composable + leaked logic | planned |
+| 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232→260 | Composable + leaked logic | **done — device-verified** |
 | 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882 | Two 240+ line dialogs | planned |
 | 5 | `feature/agents/.../screen/AgentEditorScreen.kt` | 926 | One 467-line Column | planned |
 | 6 | `feature/settings/.../viewmodel/SettingsViewModel.kt` | 966 | Partial delegation | planned |
@@ -33,6 +33,41 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 - `core/ui/.../EndpointParameterRegistry.kt` (913) — intentional 1:1 mirror of upstream
   `parameterSettings.ts`; extracting a base template adds indirection without cutting lines.
 - `core/network/.../SseEventMapper.kt` (560) — dense but one-task-per-function; cohesive.
+
+---
+
+## PR #3 — ChatScreen
+
+**Shape:** one PR, one commit per extraction, single device-test pass at the end.
+**Result:** ChatScreen.kt 1232 → 260 lines (−79%). Android + iOS compile, detekt +
+detektMetadataCommonMain + `:app:lint`, and the chat unit-test suite all green.
+Device-verified on the Pixel 10 Pro Fold emulator (landing, send + streamed reply,
+top-bar overflow menu, model selector — all render with no regression; the
+pre-existing cold-start ANR from issue #93 is unrelated to this UI-only split).
+
+This is an Android-only Compose decomposition (the iOS `ChatScreen` actual lives
+separately in `PlatformScreens.ios.kt` and is untouched). The public `ChatScreen`
+signature is unchanged, so `NewChatScreen` / `ChatNavigation` callers are unaffected.
+Five sibling files in the same `screen/` package, `private` → `internal` where a
+symbol crosses a file:
+
+1. **`ChatSpeechToText.kt`** — `rememberChatStartRecording()`: the device/server STT
+   launchers, the RECORD_AUDIO permission flow, and the engine/language mapping
+   helpers. Moves the leaked Android intent plumbing out of the view.
+2. **`ChatScreenEffects.kt`** — the screen's one-shot side effects (new-conversation
+   nav handoff, error/share-link snackbars, fork/duplicate nav, stream resume on
+   foreground, provider-key error snackbar, back-nav after delete/archive).
+3. **`ChatContent.kt`** — `ColumnScope.ChatContent`: the per-state content area
+   (landing / loading / active), including the comparison dual-pane (tablet) and
+   tab-pager (phone) layouts and `buildComparisonDisplayMessages`.
+4. **`ChatScreenDialogs.kt`** — the dialogs/sheets (preset load/save, fork options,
+   model parameters, rename/delete confirmations, primary + secondary model
+   selectors) plus the relocated `ChatRenameDialog` / `ChatDeleteConfirmationDialog`.
+5. **`ChatTopBar.kt`** — the existing `ChatTopBar` composable relocated unchanged.
+
+`ChatScreen.kt` is now a thin scaffold wiring the top bar, content, effects, dialogs,
+and composer. Local-only sheet visibility (preset picker, save-preset, secondary
+model sheet) is hoisted to the caller via boolean flags + setter lambdas.
 
 ---
 
