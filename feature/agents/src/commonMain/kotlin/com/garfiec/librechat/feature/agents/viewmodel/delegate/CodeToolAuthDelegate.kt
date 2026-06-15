@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.agents.viewmodel.delegate
 
+import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.AgentToolsRepository
 import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorStateHandle
@@ -119,7 +120,7 @@ class CodeToolAuthDelegate(
 
     private companion object {
         /** Tool id used with `GET /agents/tools/:id/auth`. */
-        const val TOOL_EXECUTE_CODE = "execute_code"
+        const val TOOL_EXECUTE_CODE = ToolConstants.EXECUTE_CODE
 
         /** Upstream auth-field name for Code Interpreter (hooks/Plugins/useAuthCodeTool.ts). */
         const val CODE_AUTH_FIELD = "LIBRECHAT_CODE_API_KEY"

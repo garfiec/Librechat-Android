@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.agents.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
@@ -78,7 +79,7 @@ class AgentCapabilitiesDelegate(
                 // If capabilities list is non-empty, check for the capability.
                 // If empty (no config loaded yet), default to available for known-default
                 // capabilities (execute_code) and unavailable for opt-in ones (chain).
-                val codeAvailable = agentsCapabilities.isEmpty() || "execute_code" in agentsCapabilities
+                val codeAvailable = agentsCapabilities.isEmpty() || ToolConstants.EXECUTE_CODE in agentsCapabilities
                 val chainAvailable = "chain" in agentsCapabilities
                 stateHandle.update {
                     copy(
@@ -121,7 +122,7 @@ class AgentCapabilitiesDelegate(
             configRepository.endpointConfigs.collect { configs ->
                 val agentsCapabilities = configs["agents"]?.capabilities ?: emptyList()
                 val available = agentsCapabilities.isEmpty() ||
-                    "web_search" in agentsCapabilities
+                    ToolConstants.WEB_SEARCH in agentsCapabilities
                 stateHandle.update { copy(isWebSearchAvailable = available) }
                 // NOTE: do NOT auto-disable [webSearchEnabled] here. See the
                 // matching note in [loadCodeInterpreterAvailability] — a

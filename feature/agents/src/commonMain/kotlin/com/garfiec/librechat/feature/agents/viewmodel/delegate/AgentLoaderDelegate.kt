@@ -97,78 +97,43 @@ class AgentLoaderDelegate(
         }
     }
 
-    private fun loadAvailableTools() {
+    /**
+     * Runs one best-effort reference-data fetch: applies [onSuccess] on success
+     * and silently ignores errors so a single failed section leaves the rest of
+     * the form usable. Each fetch launches independently, so the five reference
+     * loads run concurrently.
+     */
+    private fun <T> launchBestEffort(fetch: suspend () -> Result<T>, onSuccess: (T) -> Unit) {
         stateHandle.scope.launch {
-            when (val result = agentRepository.getAvailableTools()) {
-                is Result.Success -> {
-                    stateHandle.update { copy(availableTools = result.data.map { it.toDisplayData() }) }
-                }
-                is Result.Error -> { /* Tools are optional, ignore errors */ }
-                is Result.Loading -> { /* no-op */ }
-            }
+            val result = fetch()
+            if (result is Result.Success) onSuccess(result.data)
         }
     }
 
-    private fun loadCategories() {
-        stateHandle.scope.launch {
-            when (val result = agentRepository.getAgentCategories()) {
-                is Result.Success -> {
-                    stateHandle.update { copy(categories = result.data) }
-                }
-                is Result.Error -> { /* Categories are optional */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
+    private fun loadAvailableTools() = launchBestEffort(agentRepository::getAvailableTools) { tools ->
+        stateHandle.update { copy(availableTools = tools.map { it.toDisplayData() }) }
     }
 
-    private fun loadModels() {
-        stateHandle.scope.launch {
-            when (val result = configRepository.fetchModels()) {
-                is Result.Success -> {
-                    val modelOptions = result.data.flatMap { (endpoint, models) ->
-                        models.map { modelName ->
-                            ModelOption(
-                                id = modelName,
-                                name = modelName,
-                                endpoint = endpoint,
-                            )
-                        }
-                    }
-                    stateHandle.update { copy(availableModels = modelOptions) }
-                }
-                is Result.Error -> { /* Models loading failed, user can retry */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
+    private fun loadCategories() = launchBestEffort(agentRepository::getAgentCategories) { categories ->
+        stateHandle.update { copy(categories = categories) }
     }
 
-    private fun loadMcpTools() {
-        stateHandle.scope.launch {
-            when (val result = mcpRepository.getTools()) {
-                is Result.Success -> {
-                    stateHandle.update { copy(mcpTools = result.data) }
-                }
-                is Result.Error -> { /* MCP tools are optional */ }
-                is Result.Loading -> { /* no-op */ }
+    private fun loadModels() = launchBestEffort(configRepository::fetchModels) { models ->
+        val modelOptions = models.flatMap { (endpoint, modelNames) ->
+            modelNames.map { modelName ->
+                ModelOption(id = modelName, name = modelName, endpoint = endpoint)
             }
         }
+        stateHandle.update { copy(availableModels = modelOptions) }
     }
 
-    private fun loadAllAgents() {
-        stateHandle.scope.launch {
-            when (val result = agentRepository.getAgents()) {
-                is Result.Success -> {
-                    stateHandle.update {
-                        copy(
-                            allAgents = result.data
-                                .filter { it.id != editAgentId }
-                                .map { it.toHandoffDisplayData() },
-                        )
-                    }
-                }
-                is Result.Error -> { /* Agents list is optional for handoff */ }
-                is Result.Loading -> { /* no-op */ }
-            }
+    private fun loadMcpTools() = launchBestEffort(mcpRepository::getTools) { tools ->
+        stateHandle.update { copy(mcpTools = tools) }
+    }
+
+    private fun loadAllAgents() = launchBestEffort(agentRepository::getAgents) { agents ->
+        stateHandle.update {
+            copy(allAgents = agents.filter { it.id != editAgentId }.map { it.toHandoffDisplayData() })
         }
     }
 }

@@ -291,83 +291,78 @@ class AgentEditorViewModel(
     // --- Basic fields ---
 
     fun onNameChanged(name: String) {
-        _uiState.value = _uiState.value.copy(name = name, nameError = null)
+        stateHandle.update { copy(name = name, nameError = null) }
     }
 
     fun onDescriptionChanged(description: String) {
-        _uiState.value = _uiState.value.copy(description = description, descriptionError = null)
+        stateHandle.update { copy(description = description, descriptionError = null) }
     }
 
     fun onInstructionsChanged(instructions: String) {
-        _uiState.value = _uiState.value.copy(instructions = instructions)
+        stateHandle.update { copy(instructions = instructions) }
     }
 
     fun onModelChanged(model: String) {
-        _uiState.value = _uiState.value.copy(model = model)
+        stateHandle.update { copy(model = model) }
     }
 
     fun onModelSelected(modelId: String, provider: String) {
-        _uiState.value = _uiState.value.copy(model = modelId, provider = provider)
+        stateHandle.update { copy(model = modelId, provider = provider) }
     }
 
     fun onCategoryChanged(category: String) {
-        _uiState.value = _uiState.value.copy(category = category)
+        stateHandle.update { copy(category = category) }
     }
 
     fun onToolToggled(toolId: String) {
-        val current = _uiState.value.selectedTools
-        val updated = if (toolId in current) {
-            current - toolId
-        } else {
-            current + toolId
+        stateHandle.update {
+            copy(selectedTools = if (toolId in selectedTools) selectedTools - toolId else selectedTools + toolId)
         }
-        _uiState.value = _uiState.value.copy(selectedTools = updated)
     }
 
     fun onToolAdded(toolId: String) {
-        val current = _uiState.value.selectedTools
-        if (toolId !in current) {
-            _uiState.value = _uiState.value.copy(selectedTools = current + toolId)
+        stateHandle.update {
+            if (toolId in selectedTools) this else copy(selectedTools = selectedTools + toolId)
         }
     }
 
     fun onToolRemoved(toolId: String) {
-        _uiState.value = _uiState.value.copy(
-            selectedTools = _uiState.value.selectedTools - toolId,
-        )
+        stateHandle.update { copy(selectedTools = selectedTools - toolId) }
     }
 
     fun onConversationStarterAdded(starter: String) {
         if (starter.isBlank()) return
-        _uiState.value = _uiState.value.copy(
-            conversationStarters = _uiState.value.conversationStarters + starter.trim(),
-        )
+        stateHandle.update { copy(conversationStarters = conversationStarters + starter.trim()) }
     }
 
     fun onConversationStarterRemoved(index: Int) {
-        val updated = _uiState.value.conversationStarters.toMutableList()
-        if (index in updated.indices) {
-            updated.removeAt(index)
+        stateHandle.update {
+            if (index in conversationStarters.indices) {
+                copy(conversationStarters = conversationStarters.filterIndexed { i, _ -> i != index })
+            } else {
+                this
+            }
         }
-        _uiState.value = _uiState.value.copy(conversationStarters = updated)
     }
 
     fun onCapabilitiesChanged(capabilities: AgentCapabilities) {
-        _uiState.value = _uiState.value.copy(capabilities = capabilities)
+        stateHandle.update { copy(capabilities = capabilities) }
     }
 
     fun onAdvancedSettingsChanged(settings: AgentAdvancedSettings) {
-        _uiState.value = _uiState.value.copy(advancedSettings = settings)
+        stateHandle.update { copy(advancedSettings = settings) }
     }
 
     // --- Support Contact ---
 
     fun onSupportContactChanged(supportContact: SupportContactState) {
-        _uiState.value = _uiState.value.copy(
-            supportContact = supportContact,
-            supportContactNameError = null,
-            supportContactEmailError = null,
-        )
+        stateHandle.update {
+            copy(
+                supportContact = supportContact,
+                supportContactNameError = null,
+                supportContactEmailError = null,
+            )
+        }
     }
 
     // --- Actions ---
@@ -383,13 +378,9 @@ class AgentEditorViewModel(
     // --- MCP Tools ---
 
     fun onMcpToolToggled(toolName: String) {
-        val current = _uiState.value.selectedMcpTools
-        val updated = if (toolName in current) {
-            current - toolName
-        } else {
-            current + toolName
+        stateHandle.update {
+            copy(selectedMcpTools = if (toolName in selectedMcpTools) selectedMcpTools - toolName else selectedMcpTools + toolName)
         }
-        _uiState.value = _uiState.value.copy(selectedMcpTools = updated)
     }
 
     // --- Capability toggles ---
@@ -405,15 +396,15 @@ class AgentEditorViewModel(
     fun revokeCodeToolApiKey() = codeAuthDelegate.revokeCodeToolApiKey()
 
     fun onFileSearchToggled(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(fileSearchEnabled = enabled)
+        stateHandle.update { copy(fileSearchEnabled = enabled) }
     }
 
     fun onWebSearchToggled(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(webSearchEnabled = enabled)
+        stateHandle.update { copy(webSearchEnabled = enabled) }
     }
 
     fun onFileContextToggled(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(fileContextEnabled = enabled)
+        stateHandle.update { copy(fileContextEnabled = enabled) }
     }
 
     // --- Per-capability file attachments ---
@@ -425,7 +416,7 @@ class AgentEditorViewModel(
     // --- Sharing ---
 
     fun onSharingChanged(sharingState: AgentSharingState) {
-        _uiState.value = _uiState.value.copy(sharingState = sharingState)
+        stateHandle.update { copy(sharingState = sharingState) }
     }
 
     // --- Skills (v0.8.6) ---
@@ -463,31 +454,31 @@ class AgentEditorViewModel(
     // --- Dialog state ---
 
     fun dismissError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        stateHandle.update { copy(error = null) }
     }
 
     fun showDeleteConfirmation() {
-        _uiState.value = _uiState.value.copy(showDeleteConfirm = true)
+        stateHandle.update { copy(showDeleteConfirm = true) }
     }
 
     fun dismissDeleteConfirmation() {
-        _uiState.value = _uiState.value.copy(showDeleteConfirm = false)
+        stateHandle.update { copy(showDeleteConfirm = false) }
     }
 
     fun showDuplicateConfirmation() {
-        _uiState.value = _uiState.value.copy(showDuplicateConfirm = true)
+        stateHandle.update { copy(showDuplicateConfirm = true) }
     }
 
     fun dismissDuplicateConfirmation() {
-        _uiState.value = _uiState.value.copy(showDuplicateConfirm = false)
+        stateHandle.update { copy(showDuplicateConfirm = false) }
     }
 
     fun showVersionHistory() {
-        _uiState.value = _uiState.value.copy(showVersionHistory = true)
+        stateHandle.update { copy(showVersionHistory = true) }
     }
 
     fun dismissVersionHistory() {
-        _uiState.value = _uiState.value.copy(showVersionHistory = false)
+        stateHandle.update { copy(showVersionHistory = false) }
     }
 
     // --- Avatar ---
@@ -515,19 +506,6 @@ class AgentEditorViewModel(
 
         /** Upstream `MAX_SUBAGENTS` (config.ts) — subagent agent_ids cap. */
         const val MAX_SUBAGENTS = 10
-
-        /**
-         * Avatar size cap. Upstream default in fileConfig.avatarSizeLimit is 2MB
-         * (packages/data-provider/src/file-config.ts:430). Mobile StartupConfig
-         * doesn't surface fileConfig yet, so this hardcodes the default.
-         */
-        const val AVATAR_SIZE_LIMIT_BYTES = 2 * 1024 * 1024L
-
-        /**
-         * Per-file cap for agent attachments. Upstream's default for the agents
-         * endpoint is 512MB (packages/data-provider/src/file-config.ts:399).
-         */
-        const val AGENT_FILE_SIZE_LIMIT_BYTES = 512L * 1024 * 1024
 
         // Sentinel error strings the screen layer recognizes and substitutes with
         // localized resources. Routing errors as identifiable markers keeps the

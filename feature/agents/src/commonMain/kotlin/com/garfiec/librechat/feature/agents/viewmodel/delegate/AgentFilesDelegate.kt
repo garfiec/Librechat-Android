@@ -131,12 +131,15 @@ class AgentFilesDelegate(
         }
         stateHandle.scope.launch {
             try {
-                val bytes = contentReader.readBytes(fileRef) ?: run {
+                // Reading bytes off the URI is blocking I/O — keep it off the Main
+                // dispatcher (viewModelScope = Main.immediate) to avoid an ANR on
+                // large files. Mirrors [uploadAvatar].
+                val bytes = withContext(ioDispatcher) { contentReader.readBytes(fileRef) } ?: run {
                     stateHandle.update { copy(error = "Could not read file") }
                     return@launch
                 }
-                if (bytes.size > AgentEditorViewModel.AGENT_FILE_SIZE_LIMIT_BYTES) {
-                    val limitMb = (AgentEditorViewModel.AGENT_FILE_SIZE_LIMIT_BYTES / (1024 * 1024)).toInt()
+                if (bytes.size > AGENT_FILE_SIZE_LIMIT_BYTES) {
+                    val limitMb = (AGENT_FILE_SIZE_LIMIT_BYTES / (1024 * 1024)).toInt()
                     stateHandle.update {
                         copy(error = "${AgentEditorViewModel.AGENT_FILES_TOO_LARGE_MARKER}$limitMb")
                     }
@@ -230,8 +233,8 @@ class AgentFilesDelegate(
                 // dispatcher (viewModelScope = Main.immediate) to avoid an ANR on
                 // large images. Mirrors the FileAttachmentDelegate fix.
                 val bytes = withContext(ioDispatcher) { contentReader.readBytes(uri) } ?: return@launch
-                if (bytes.size > AgentEditorViewModel.AVATAR_SIZE_LIMIT_BYTES) {
-                    val limitMb = AgentEditorViewModel.AVATAR_SIZE_LIMIT_BYTES / (1024 * 1024)
+                if (bytes.size > AVATAR_SIZE_LIMIT_BYTES) {
+                    val limitMb = AVATAR_SIZE_LIMIT_BYTES / (1024 * 1024)
                     stateHandle.update { copy(error = "Avatar must be ${limitMb}MB or smaller") }
                     return@launch
                 }
@@ -268,5 +271,20 @@ class AgentFilesDelegate(
                 is Result.Loading -> { /* no-op */ }
             }
         }
+    }
+
+    private companion object {
+        /**
+         * Avatar size cap. Upstream default in fileConfig.avatarSizeLimit is 2MB
+         * (packages/data-provider/src/file-config.ts:430). Mobile StartupConfig
+         * doesn't surface fileConfig yet, so this hardcodes the default.
+         */
+        const val AVATAR_SIZE_LIMIT_BYTES = 2 * 1024 * 1024L
+
+        /**
+         * Per-file cap for agent attachments. Upstream's default for the agents
+         * endpoint is 512MB (packages/data-provider/src/file-config.ts:399).
+         */
+        const val AGENT_FILE_SIZE_LIMIT_BYTES = 512L * 1024 * 1024
     }
 }

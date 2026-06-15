@@ -21,7 +21,7 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 | # | File | Lines | Type | Status |
 |---|------|-------|------|--------|
 | 1 | `feature/chat/.../viewmodel/ChatViewModel.kt` | 2151→1068 | VM god-class | **done — PR #157 (merged)** |
-| 2 | `feature/agents/.../viewmodel/AgentEditorViewModel.kt` | 1938→540 | VM god-class (no delegates yet) | **done (awaiting device test)** |
+| 2 | `feature/agents/.../viewmodel/AgentEditorViewModel.kt` | 1938→518 | VM god-class (no delegates yet) | **done — device-verified** |
 | 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232 | Composable + leaked logic | planned |
 | 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882 | Two 240+ line dialogs | planned |
 | 5 | `feature/agents/.../screen/AgentEditorScreen.kt` | 926 | One 467-line Column | planned |
@@ -39,9 +39,10 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 ## PR #2 — AgentEditorViewModel
 
 **Shape:** one PR, one commit per extraction, single device-test pass at the end.
-**Result:** AgentEditorViewModel 1938 → 540 lines (−72%). Android + iOS compile, detekt +
-detektMetadataCommonMain + `:app:lint`, and the agents unit-test suite all green. Awaiting
-device test before push.
+**Result:** AgentEditorViewModel 1938 → 518 lines (−73%). Android + iOS compile, detekt +
+detektMetadataCommonMain + `:app:lint`, and the agents unit-test suite all green. Device-verified
+on the Pixel 10 Pro Fold emulator (full create/load/edit/save/delete lifecycle, all editor sections,
+conditional capability UI, model selector — all pass).
 
 The VM had no delegate structure yet, so the first step introduced the shared accessor and the
 extraction order is leaf-first (the loader depends on the files delegate's re-merge; save depends

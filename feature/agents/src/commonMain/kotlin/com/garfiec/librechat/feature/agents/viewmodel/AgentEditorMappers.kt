@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.agents.viewmodel
 
+import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentAction
 import com.garfiec.librechat.core.model.AgentFile
@@ -34,14 +35,14 @@ import kotlinx.serialization.json.jsonPrimitive
 // Tool identifiers that represent capabilities (not user-selectable tools).
 // These are stored in the agent's tools list but displayed as capability toggles in the UI.
 private val CAPABILITY_TOOLS = setOf(
-    "execute_code",
-    "file_search",
-    "web_search",
+    ToolConstants.EXECUTE_CODE,
+    ToolConstants.FILE_SEARCH,
+    ToolConstants.WEB_SEARCH,
     "context",
     "end_after_tools",
     "hide_sequential_outputs",
-    "programmatic_tools",
-    "deferred_tools",
+    ToolConstants.PROGRAMMATIC_TOOLS,
+    ToolConstants.DEFERRED_TOOLS,
 )
 
 // MCP server marker prefix: tools starting with "sys__server__sys" or containing "_mcp_"
@@ -119,9 +120,9 @@ internal fun AgentEditorUiState.applyAgentData(agent: Agent): AgentEditorUiState
         selectedTools = regularTools,
         conversationStarters = agent.conversationStarters,
         avatarUrl = agent.avatarUrl,
-        codeInterpreterEnabled = "execute_code" in capabilityTools,
-        fileSearchEnabled = "file_search" in capabilityTools,
-        webSearchEnabled = "web_search" in capabilityTools,
+        codeInterpreterEnabled = ToolConstants.EXECUTE_CODE in capabilityTools,
+        fileSearchEnabled = ToolConstants.FILE_SEARCH in capabilityTools,
+        webSearchEnabled = ToolConstants.WEB_SEARCH in capabilityTools,
         fileContextEnabled = "context" in capabilityTools,
         selectedMcpTools = mcpToolNames,
         capabilities = AgentCapabilities(
@@ -159,8 +160,8 @@ internal fun AgentEditorUiState.applyAgentData(agent: Agent): AgentEditorUiState
         toolOptions = agent.toolOptions,
         additionalInstructions = agent.additionalInstructions,
         toolKwargs = agent.toolKwargs,
-        codeFiles = parseToolResourceFiles(agent.toolResources, "execute_code"),
-        knowledgeFiles = parseToolResourceFiles(agent.toolResources, "file_search"),
+        codeFiles = parseToolResourceFiles(agent.toolResources, ToolConstants.EXECUTE_CODE),
+        knowledgeFiles = parseToolResourceFiles(agent.toolResources, ToolConstants.FILE_SEARCH),
         contextFiles = parseToolResourceFiles(agent.toolResources, "context") +
             // The OCR resource is merged into Context in the editor UI on web
             // (see upstream client/src/utils/forms.tsx). Mirror that.
@@ -326,9 +327,9 @@ internal fun buildToolsList(state: AgentEditorUiState): List<String> {
     // the in-memory toggle is on from a previously-loaded agent).
     // The observers intentionally don't reset the toggle on
     // availability transitions; the filter lives here instead.
-    if (state.codeInterpreterEnabled && state.isCodeInterpreterAvailable) tools.add("execute_code")
-    if (state.fileSearchEnabled) tools.add("file_search")
-    if (state.webSearchEnabled && state.isWebSearchAvailable) tools.add("web_search")
+    if (state.codeInterpreterEnabled && state.isCodeInterpreterAvailable) tools.add(ToolConstants.EXECUTE_CODE)
+    if (state.fileSearchEnabled) tools.add(ToolConstants.FILE_SEARCH)
+    if (state.webSearchEnabled && state.isWebSearchAvailable) tools.add(ToolConstants.WEB_SEARCH)
     if (state.fileContextEnabled) tools.add("context")
 
     // Add MCP server markers for each selected MCP tool
