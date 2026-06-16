@@ -22,8 +22,8 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 |---|------|-------|------|--------|
 | 1 | `feature/chat/.../viewmodel/ChatViewModel.kt` | 2151→1068 | VM god-class | **done — PR #157 (merged)** |
 | 2 | `feature/agents/.../viewmodel/AgentEditorViewModel.kt` | 1938→518 | VM god-class (no delegates yet) | **done — device-verified** |
-| 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232→260 | Composable + leaked logic | **done — device-verified** |
-| 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882 | Two 240+ line dialogs | planned |
+| 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232→260 | Composable + leaked logic | **done — PR #159 merged** |
+| 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882→185 | Two 240+ line dialogs | **done — local** |
 | 5 | `feature/agents/.../screen/AgentEditorScreen.kt` | 926 | One 467-line Column | planned |
 | 6 | `feature/settings/.../viewmodel/SettingsViewModel.kt` | 966 | Partial delegation | planned |
 | 7 | `feature/chat/.../components/SharedContentParts.kt` | 711 | Duplicate collapsible cards | planned |
@@ -33,6 +33,29 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 - `core/ui/.../EndpointParameterRegistry.kt` (913) — intentional 1:1 mirror of upstream
   `parameterSettings.ts`; extracting a base template adds indirection without cutting lines.
 - `core/network/.../SseEventMapper.kt` (560) — dense but one-task-per-function; cohesive.
+
+---
+
+## PR #4 — AgentActionsPanel
+
+**Shape:** one PR, one commit per extraction, single device-test pass at the end.
+**Result:** AgentActionsPanel.kt 882 → 185 lines (−79%). Android + iOS compile and
+detektMetadataCommonMain all green.
+
+A `commonMain` (shared Android + iOS) Compose decomposition. The public
+`AgentActionsPanel` signature is unchanged, so `AgentEditorScreen` is unaffected.
+Two sibling files in the same `components/` package, `private` → `internal` where a
+symbol crosses a file:
+
+1. **`ActionEditorDialog.kt`** — the full-screen OpenAPI action editor (`Dialog` +
+   `Scaffold`, debounced spec validation, save-metadata assembly) plus its
+   `AuthenticationSection` and `FunctionTable` helpers.
+2. **`ActionAuthConfigDialog.kt`** — the auth-configuration `AlertDialog`
+   (none / API-key / OAuth) plus its `AuthTypeRadioOption` helper and the shared
+   `HIDDEN_PLACEHOLDER` constant.
+
+`AgentActionsPanel.kt` now holds only the collapsible panel shell and its
+per-action `ActionCard`.
 
 ---
 
