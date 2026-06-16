@@ -23,8 +23,8 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 | 1 | `feature/chat/.../viewmodel/ChatViewModel.kt` | 2151→1068 | VM god-class | **done — PR #157 (merged)** |
 | 2 | `feature/agents/.../viewmodel/AgentEditorViewModel.kt` | 1938→518 | VM god-class (no delegates yet) | **done — device-verified** |
 | 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232→260 | Composable + leaked logic | **done — PR #159 merged** |
-| 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882→185 | Two 240+ line dialogs | **done — local** |
-| 5 | `feature/agents/.../screen/AgentEditorScreen.kt` | 926 | One 467-line Column | planned |
+| 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882→185 | Two 240+ line dialogs | **done — PR #160 merged** |
+| 5 | `feature/agents/.../screen/AgentEditorScreen.kt` | 926→141 | One 467-line Column | **done — local** |
 | 6 | `feature/settings/.../viewmodel/SettingsViewModel.kt` | 966 | Partial delegation | planned |
 | 7 | `feature/chat/.../components/SharedContentParts.kt` | 711 | Duplicate collapsible cards | planned |
 
@@ -33,6 +33,36 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 - `core/ui/.../EndpointParameterRegistry.kt` (913) — intentional 1:1 mirror of upstream
   `parameterSettings.ts`; extracting a base template adds indirection without cutting lines.
 - `core/network/.../SseEventMapper.kt` (560) — dense but one-task-per-function; cohesive.
+
+---
+
+## PR #5 — AgentEditorScreen
+
+**Shape:** one PR, one commit per extraction, single device-test pass at the end.
+**Result:** AgentEditorScreen.kt 926 → 141 lines (−85%). Android + iOS compile and
+detektMetadataCommonMain all green.
+
+A `commonMain` (shared Android + iOS) Compose decomposition. The public
+`AgentEditorScreen` signature is unchanged, so the `AgentsNavigation` create/edit
+call sites are unaffected. Four sibling files in the same `screen/` package,
+`private` → `internal` where a symbol crosses a file:
+
+1. **`AgentEditorTopBar.kt`** — the `TopAppBar` with the edit-mode overflow menu
+   (duplicate / version history / delete). Takes plain callbacks, not the ViewModel.
+2. **`AgentEditorDialogs.kt`** — the modal layer: delete/duplicate confirmations,
+   version history, tool selection, and the Code Interpreter API-key dialog, each
+   gated on its own state flag.
+3. **`AgentEditorComponents.kt`** — `InstructionsField` (insert-variable caret menu)
+   and `SelectedToolRow`, the two shared helper composables.
+4. **`AgentEditorForm.kt`** — the scrollable editor body (avatar → save), the bulk of
+   the file. Receives the editor ViewModel for its field callbacks plus file-add /
+   show-tool-dialog lambdas, so the file pickers stay in the screen shell.
+
+`AgentEditorScreen.kt` now holds only the shell: state, the three file pickers, the
+error-marker and event `LaunchedEffect`s, and the `Scaffold` wiring. The screen owns
+the editor ViewModel and forwards it to its own private children, so it carries a
+localized `@Suppress("ViewModelForwarding")` (these are screen-internal, not the
+reusable-component forwarding the rule targets).
 
 ---
 
