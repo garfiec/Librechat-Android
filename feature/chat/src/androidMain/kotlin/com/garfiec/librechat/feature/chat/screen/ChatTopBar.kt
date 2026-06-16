@@ -84,7 +84,6 @@ internal fun ChatTopBar(
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Hamburger menu button to open drawer
         if (onOpenDrawer != null) {
             IconButton(onClick = onOpenDrawer) {
                 Icon(

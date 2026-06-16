@@ -86,10 +86,6 @@ internal fun ColumnScope.ChatContent(
                     !comparisonState.primaryIsStreaming &&
                     !comparisonState.secondaryIsStreaming
 
-                // Replace the parallel response message's content with
-                // the captured streaming buffer for each agent's pane.
-                // The server-loaded message may only contain the primary
-                // agent's content, so we substitute from the buffers.
                 val primaryDisplayMessages = remember(
                     uiState.displayMessages,
                     comparisonState.parallelMessageId,
@@ -184,7 +180,6 @@ internal fun ColumnScope.ChatContent(
                 }
 
                 if (isWideScreen) {
-                    // Tablet: dual pane side-by-side
                     ComparisonDualPane(
                         primaryModelSelector = {
                             ModelSelectorButton(
@@ -205,7 +200,6 @@ internal fun ColumnScope.ChatContent(
                         modifier = Modifier.weight(1f),
                     )
                 } else {
-                    // Phone: tab bar with pager
                     ComparisonTabBar(
                         primaryModelName = displayModel ?: "Primary",
                         secondaryModelName = secondaryModelName,
@@ -329,7 +323,6 @@ private fun buildComparisonDisplayMessages(
     if (parallelMessageId == null || finalContent.isNullOrBlank()) return displayMessages
     return displayMessages.map { node ->
         if (node.message.messageId == parallelMessageId) {
-            // Substitute the parallel message content with the captured final content for this pane
             node.copy(
                 message = node.message.copy(
                     content = listOf(

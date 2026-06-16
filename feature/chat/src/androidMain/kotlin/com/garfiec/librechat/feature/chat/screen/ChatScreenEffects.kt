@@ -44,7 +44,6 @@ internal fun ChatScreenEffects(
         }
     }
 
-    // Show errors in snackbar
     LaunchedEffect(uiState.error) {
         val error = uiState.error
         if (error != null) {
@@ -62,11 +61,9 @@ internal fun ChatScreenEffects(
         onNavigateToProviderKeys = onNavigateToProviderKeys,
     )
 
-    // Stream resume on foreground
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPause() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
-    // Navigate to forked conversation
     LaunchedEffect(uiState.forkedConversationId) {
         val forkId = uiState.forkedConversationId
         if (forkId != null) {
@@ -79,7 +76,6 @@ internal fun ChatScreenEffects(
         }
     }
 
-    // Navigate to duplicated conversation
     LaunchedEffect(uiState.duplicatedConversationId) {
         val dupId = uiState.duplicatedConversationId
         if (dupId != null) {
@@ -92,7 +88,6 @@ internal fun ChatScreenEffects(
         }
     }
 
-    // Copy share link to clipboard
     LaunchedEffect(shareLinkUrl) {
         val url = shareLinkUrl
         if (url != null) {

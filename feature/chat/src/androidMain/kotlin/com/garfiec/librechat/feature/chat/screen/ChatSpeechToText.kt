@@ -95,14 +95,12 @@ internal fun rememberChatStartRecording(
                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
                 )
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now...")
-                // Apply user's STT language preference
                 val languageLocale = mapSttLanguageToLocale(sttLanguage)
                 if (languageLocale != null) {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageLocale)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, languageLocale)
                 }
             }
-            // Apply user's STT engine preference (set the recognizer package)
             val enginePackage = mapSttEngineToPackage(sttEngine)
             if (enginePackage != null) {
                 intent.setPackage(enginePackage)
