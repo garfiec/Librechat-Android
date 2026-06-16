@@ -340,11 +340,7 @@ private fun AuthenticationSection(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(
-                imageVector = when (authType) {
-                    "service_http" -> Icons.Default.Lock
-                    "oauth" -> Icons.Default.Security
-                    else -> Icons.Default.Lock
-                },
+                imageVector = if (authType == "oauth") Icons.Default.Security else Icons.Default.Lock,
                 contentDescription = null,
             )
             Spacer(modifier = Modifier.width(8.dp))
