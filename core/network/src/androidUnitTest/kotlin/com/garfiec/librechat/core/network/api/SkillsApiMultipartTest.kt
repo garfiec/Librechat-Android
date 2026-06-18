@@ -74,8 +74,9 @@ class SkillsApiMultipartTest {
         // The file part carries the filename + declared content type.
         assertThat(body).contains("filename=\"notes.md\"")
         assertThat(body).contains("text/markdown")
-        // The relativePath form field is present with its value.
-        assertThat(body).contains("name=relativePath")
+        // The relativePath form field is present with its value. Ktor may render the
+        // Content-Disposition param name with or without RFC-7578 quotes across versions.
+        assertThat(body).containsMatch("name=\"?relativePath\"?")
         assertThat(body).contains("notes.md")
         assertThat(result.relativePath).isEqualTo("notes.md")
     }
