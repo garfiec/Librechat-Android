@@ -24,8 +24,8 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 | 2 | `feature/agents/.../viewmodel/AgentEditorViewModel.kt` | 1938→518 | VM god-class (no delegates yet) | **done — device-verified** |
 | 3 | `feature/chat/androidMain/.../screen/ChatScreen.kt` | 1232→260 | Composable + leaked logic | **done — PR #159 merged** |
 | 4 | `feature/agents/.../components/AgentActionsPanel.kt` | 882→185 | Two 240+ line dialogs | **done — PR #160 merged** |
-| 5 | `feature/agents/.../screen/AgentEditorScreen.kt` | 926→141 | One 467-line Column | **done — local** |
-| 6 | `feature/settings/.../viewmodel/SettingsViewModel.kt` | 966 | Partial delegation | planned |
+| 5 | `feature/agents/.../screen/AgentEditorScreen.kt` | 926→141 | One 467-line Column | **done — PR #161 merged** |
+| 6 | `feature/settings/.../viewmodel/SettingsViewModel.kt` | 966→435 | Partial delegation | **done — device-verified** |
 | 7 | `feature/chat/.../components/SharedContentParts.kt` | 711 | Duplicate collapsible cards | planned |
 
 ## Explicitly NOT decomposing
@@ -33,6 +33,36 @@ and bring the code closer to idiomatic Compose / unidirectional-data-flow conven
 - `core/ui/.../EndpointParameterRegistry.kt` (913) — intentional 1:1 mirror of upstream
   `parameterSettings.ts`; extracting a base template adds indirection without cutting lines.
 - `core/network/.../SseEventMapper.kt` (560) — dense but one-task-per-function; cohesive.
+
+---
+
+## PR #6 — SettingsViewModel
+
+**Shape:** one PR, one commit per extraction, single device-test pass at the end.
+**Result:** SettingsViewModel.kt 966 → 435 lines (−55%). Android + iOS compile and
+detektMetadataCommonMain all green.
+
+A `commonMain` VM god-class with **partial** delegation: 5 delegates already existed
+on the write side, but the DataStore read flows and the account logic still lived in
+the ViewModel. This pass finishes the delegation. The public `SettingsViewModel`
+constructor and API are unchanged. Three commits:
+
+1. **`SettingsUiState.kt`** — moves the 160-line `SettingsUiState`, plus
+   `SettingsCommand`, `LogsExportPayload`, `DEFAULT_COMMANDS`, and the
+   `User.toDisplayData()` mapper (`private` → `internal`) into a sibling state file.
+2. **`SettingsPreferencesController.kt`** — extracts the entire DataStore layer: the
+   four intermediate preference holders, every `stateIn` flow, the multi-stage
+   `combine` that merges them with the imperative state into `uiState`, and the
+   matching write setters (theme / chat / tablet / inline-artifact / language). One
+   object now owns both the read flows and the writes; the ViewModel forwards.
+3. **`AccountDelegate.kt`** — extracts the account section (profile load with the
+   cancel-on-retry job, avatar upload, balance, sign-out, and account deletion with
+   the 403 → OTP step-up) into a `SettingsStateHandle`-based delegate matching the
+   existing delegate pattern.
+
+`SettingsViewModel.kt` now holds only delegate/controller construction, `init`, the
+role / permission / account-deletion observers, the small dialog-toggle state
+(language / fork / commands / personalization), and the thin delegate forwarders.
 
 ---
 
