@@ -31,6 +31,7 @@ import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_attach_file
 import com.garfiec.librechat.feature.chat.resources.cd_paste_image
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -41,6 +42,18 @@ fun IosChatInput(
     onSend: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    onQueue: () -> Unit = {},
+    canQueue: Boolean = false,
+    queuedPausedCount: Int = 0,
+    onSendQueuedMessages: () -> Unit = {},
+    isEditingQueued: Boolean = false,
+    onCommitEdit: () -> Unit = {},
+    onCancelEdit: () -> Unit = {},
+    queuedMessages: List<QueuedMessage> = emptyList(),
+    onEditQueuedMessage: (localId: String) -> Unit = {},
+    onCancelQueuedMessage: (localId: String) -> Unit = {},
+    onReorderQueuedMessages: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
+    fontSizeMultiplier: Float = 1f,
     enabledTools: Set<String> = emptySet(),
     onToggleTool: (String) -> Unit = {},
     mcpServers: List<McpServerDisplayData> = emptyList(),
@@ -82,12 +95,24 @@ fun IosChatInput(
         isCodeInterpreterAvailable = isCodeInterpreterAvailable,
         attachedFiles = attachedFiles,
         gates = gates,
+        canQueue = canQueue,
+        isEditingQueued = isEditingQueued,
     )
 
     CommonChatInputCore(
         state = state,
         onSend = onSend,
         onStop = onStop,
+        onQueue = onQueue,
+        queuedPausedCount = queuedPausedCount,
+        onSendQueuedMessages = onSendQueuedMessages,
+        onCommitEdit = onCommitEdit,
+        onCancelEdit = onCancelEdit,
+        queuedMessages = queuedMessages,
+        onEditQueuedMessage = onEditQueuedMessage,
+        onCancelQueuedMessage = onCancelQueuedMessage,
+        onReorderQueuedMessages = onReorderQueuedMessages,
+        fontSizeMultiplier = fontSizeMultiplier,
         onRemoveFile = onRemoveFile,
         modifier = modifier,
         leadingButtons = {

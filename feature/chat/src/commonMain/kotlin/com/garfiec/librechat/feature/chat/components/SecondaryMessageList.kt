@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
@@ -45,6 +46,7 @@ fun SecondaryMessageList(
     showAvatars: Boolean = true,
     showBubbles: Boolean = false,
     useKatex: Boolean = false,
+    bottomContentPadding: Dp = 160.dp,
 ) {
     val listState = rememberLazyListState()
     val totalItemCount = displayMessages.size +
@@ -81,7 +83,7 @@ fun SecondaryMessageList(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
-                contentPadding = PaddingValues(top = 8.dp, bottom = 160.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = bottomContentPadding),
             ) {
                 items(
                     items = displayMessages,

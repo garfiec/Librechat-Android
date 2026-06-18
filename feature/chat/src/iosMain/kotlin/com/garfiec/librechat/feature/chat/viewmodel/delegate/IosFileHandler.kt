@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.FileRepository
-import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.util.IosFileData
 import com.garfiec.librechat.feature.chat.util.IosImageData
@@ -218,21 +217,6 @@ class IosFileHandler(
         removeFile(file)
     }
 
-    override fun buildFileReferences(): List<FileReference> {
-        return _attachedFiles.value
-            .filter { it.fileId != null }
-            .map { file ->
-                FileReference(
-                    fileId = file.fileId,
-                    filename = file.name,
-                    filepath = file.filepath,
-                    type = file.type,
-                    width = file.width,
-                    height = file.height,
-                )
-            }
-    }
-
     override suspend fun waitForUploadsAndSend(text: String, doSend: (String) -> Unit) {
         val timeoutMs = 30_000L
         val pollIntervalMs = 200L
@@ -251,5 +235,9 @@ class IosFileHandler(
 
     override fun clearAttachedFiles() {
         _attachedFiles.update { emptyList() }
+    }
+
+    override fun restoreAttachedFiles(files: List<AttachedFile>) {
+        _attachedFiles.update { files }
     }
 }

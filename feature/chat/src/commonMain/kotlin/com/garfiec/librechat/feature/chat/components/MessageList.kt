@@ -35,6 +35,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
@@ -92,6 +93,12 @@ fun MessageList(
     currentSearchMatchIndex: Int = 0,
     searchScrollToIndex: Int? = null,
     onSearchScrollHandle: () -> Unit = {},
+    // Scrollable bottom inset that keeps the latest content clear of the overlaid input bar. The
+    // caller measures the actual bar height (which grows as queued ghost rows stack above the
+    // composer) so streaming text rests above the ghosts rather than behind them. It's a
+    // LazyColumn contentPadding, not a solid spacer: content still scrolls up *behind* the
+    // translucent ghosts. Defaults to the single-line bar's reserve.
+    bottomContentPadding: Dp = 160.dp,
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -314,7 +321,7 @@ fun MessageList(
                     }
                 },
             state = listState,
-            contentPadding = PaddingValues(top = 8.dp, bottom = 160.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = bottomContentPadding),
         ) {
             itemsIndexed(
                 items = displayMessages,
@@ -474,7 +481,8 @@ fun MessageList(
             visible = showScrollToBottom,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 130.dp),
+                // Float the FAB just above the input bar, tracking the same inset as the content.
+                .padding(bottom = (bottomContentPadding - 30.dp).coerceAtLeast(16.dp)),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {

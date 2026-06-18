@@ -50,6 +50,14 @@
     <string name="cd_start_voice_recording">Start voice recording</string>
     <string name="cd_stop_generation">Stop generation</string>
     <string name="cd_send_message">Send message</string>
+    <string name="cd_add_to_queue">Add message to queue</string>
+    <string name="cd_cancel_queued_message">Remove queued message</string>
+    <string name="cd_reorder_queued_message">Drag to reorder queued message</string>
+    <string name="send_queued_messages">Send queued (%1$d)</string>
+    <string name="queued_attachment_only">Attachment</string>
+    <string name="editing_queued_message">Editing queued message</string>
+    <string name="cd_cancel_edit">Cancel edit</string>
+    <string name="cd_update_queued_message">Update queued message</string>
     <string name="cd_open_drawer">Open navigation drawer</string>
     <string name="cd_more_options">More options</string>
     <string name="cd_more_tools">More tools</string>

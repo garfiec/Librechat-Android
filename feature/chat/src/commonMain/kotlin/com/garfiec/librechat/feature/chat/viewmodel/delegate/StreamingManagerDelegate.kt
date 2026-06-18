@@ -38,6 +38,7 @@ class StreamingManagerDelegate(
     private val subagentTraceDelegate: SubagentTraceDelegate,
     private val officePreviewDelegate: OfficePreviewDelegate,
     private val completionDelegate: SendCompletionDelegate,
+    private val queueDelegate: MessageQueueDelegate,
     /** Emits a typed user-provided-key error for one-shot UI surfacing (snackbar + CTA). */
     private val emitUserKeyError: (UserKeyError) -> Unit,
     /** Reloads the conversation from the server (VM-owned Room observer). */
@@ -138,6 +139,9 @@ class StreamingManagerDelegate(
                 )
             }
             comparisonDelegate.endStreaming()
+            // Don't auto-drain into a failed turn — hold the queue for the user (mirrors the
+            // StreamEvent.Error branch; a flow-level exception ends the stream the same way).
+            queueDelegate.pause()
             // If the server already created a conversation, fetch whatever it persisted
             val conversationId = stateHandle.state.conversationId
             if (conversationId != null) {
@@ -186,6 +190,8 @@ class StreamingManagerDelegate(
                     )
                 }
                 comparisonDelegate.endStreaming()
+                // Don't auto-drain into a failed turn — hold the queue for the user.
+                queueDelegate.pause()
                 if (keyError != null) {
                     emitUserKeyError(keyError)
                 }
@@ -355,6 +361,10 @@ class StreamingManagerDelegate(
             isNewConversation = isNewConversation(),
             isHandedOffNewChat = isHandedOffNewChat(),
         )
+        // Reply finished cleanly: fire the next queued follow-up (if any, and not paused).
+        // isStreaming is already false here, so the next send respects the no-Room-write-
+        // while-streaming invariant.
+        queueDelegate.drainNext()
     }
 
     /**
@@ -394,6 +404,8 @@ class StreamingManagerDelegate(
 
     fun stopGeneration() {
         val conversationId = stateHandle.state.conversationId ?: return
+        // A manual stop usually means "wait" — hold the queue instead of firing the next item.
+        queueDelegate.pause()
         streamJob?.cancel()
         stopStreamingUpdater()
         streamingBuffer.clear()

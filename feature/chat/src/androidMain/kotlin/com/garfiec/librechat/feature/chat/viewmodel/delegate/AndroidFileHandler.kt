@@ -1,7 +1,6 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import android.net.Uri
-import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
@@ -25,9 +24,9 @@ class AndroidFileHandler(
 
     override fun removeFile(file: AttachedFile) = delegate.removeFile(file)
     override fun retryUpload(file: AttachedFile) = delegate.retryUpload(file)
-    override fun buildFileReferences(): List<FileReference> = delegate.buildFileReferences()
     override suspend fun waitForUploadsAndSend(text: String, doSend: (String) -> Unit) =
         delegate.waitForUploadsAndSend(text, doSend)
     override fun hasPendingUploads(): Boolean = delegate.hasPendingUploads()
     override fun clearAttachedFiles() = delegate.clearAttachedFiles()
+    override fun restoreAttachedFiles(files: List<AttachedFile>) = delegate.restoreAttachedFiles(files)
 }
