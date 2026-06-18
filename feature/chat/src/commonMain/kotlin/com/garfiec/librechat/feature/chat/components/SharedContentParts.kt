@@ -1,12 +1,8 @@
 package com.garfiec.librechat.feature.chat.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,27 +14,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Notes
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -196,148 +183,6 @@ private fun extractSummaryText(part: MessageContentPart): String {
         return content.content
     }
     return part.text.orEmpty()
-}
-
-// ─── ThinkingContentPart ────────────────────────────────────────────
-
-@Composable
-private fun ThinkingContentPart(
-    thinkingText: String,
-    modifier: Modifier = Modifier,
-    fontSizeMultiplier: Float = 1.0f,
-    useKatex: Boolean = false,
-    searchQuery: String? = null,
-    searchFocusedOccurrence: Int = -1,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
-) {
-    var isExpanded by remember { mutableStateOf(false) }
-    val thinkingToggleCd =
-        stringResource(if (isExpanded) Res.string.cd_collapse_thinking else Res.string.cd_expand_thinking)
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clickable { isExpanded = !isExpanded }
-                .padding(12.dp)
-                .semantics {
-                    role = Role.Button
-                    contentDescription = thinkingToggleCd
-                },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.Psychology,
-                stringResource(Res.string.cd_thinking_indicator),
-                Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                stringResource(Res.string.label_thinking),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                stringResource(if (isExpanded) Res.string.cd_collapse else Res.string.cd_expand),
-                Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-            Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
-                Spacer(modifier = Modifier.height(8.dp))
-                MarkdownContent(
-                    thinkingText,
-                    fontSizeMultiplier = fontSizeMultiplier,
-                    useKatex = useKatex,
-                    searchQuery = searchQuery,
-                    searchFocusedOccurrence = searchFocusedOccurrence,
-                    onFocusedOccurrencePosition = onFocusedOccurrencePosition,
-                )
-            }
-        }
-    }
-}
-
-// ─── SummaryContentPart ─────────────────────────────────────────────
-
-/**
- * Collapsed "Summarized earlier messages" card rendered when the server
- * emits a SUMMARY content part. Content-compaction is triggered by long
- * agent chats (v0.8.5+); tap to expand and read the summary text.
- */
-@Composable
-private fun SummaryContentPart(
-    summaryText: String,
-    modifier: Modifier = Modifier,
-    fontSizeMultiplier: Float = 1.0f,
-    useKatex: Boolean = false,
-) {
-    if (summaryText.isBlank()) return
-
-    var isExpanded by remember { mutableStateOf(false) }
-    val summaryToggleCd =
-        stringResource(if (isExpanded) Res.string.cd_collapse_summary else Res.string.cd_expand_summary)
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clickable { isExpanded = !isExpanded }
-                .padding(12.dp)
-                .semantics {
-                    role = Role.Button
-                    contentDescription = summaryToggleCd
-                },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.Notes,
-                stringResource(Res.string.cd_summary_indicator),
-                Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                stringResource(Res.string.label_summary),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                stringResource(if (isExpanded) Res.string.cd_collapse else Res.string.cd_expand),
-                Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-            Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
-                Spacer(modifier = Modifier.height(8.dp))
-                MarkdownContent(
-                    summaryText,
-                    fontSizeMultiplier = fontSizeMultiplier,
-                    useKatex = useKatex,
-                )
-            }
-        }
-    }
 }
 
 // ─── ImageContentPart ───────────────────────────────────────────────
