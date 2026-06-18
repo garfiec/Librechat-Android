@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
+import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
@@ -81,6 +82,7 @@ class MessageEditingDelegate(
             text = newText,
             parentMessageId = parentMessageId,
             userMessageId = optimisticMessage.messageId,
+            files = originalMessage.files,
             isEdited = true,
             logLabel = "editUserMessage",
         )
@@ -103,6 +105,7 @@ class MessageEditingDelegate(
             text = parentUserMessage.text,
             parentMessageId = parentUserMessage.parentMessageId,
             overrideParentMessageId = parentUserMessage.messageId,
+            files = parentUserMessage.files,
             isEdited = true,
             isRegenerate = true,
             logLabel = "editAiMessage",
@@ -128,6 +131,7 @@ class MessageEditingDelegate(
             text = parentUserMessage.text,
             parentMessageId = parentUserMessage.parentMessageId,
             overrideParentMessageId = parentUserMessage.messageId,
+            files = parentUserMessage.files,
             isRegenerate = true,
             logLabel = "regenerateMessage",
         )
@@ -152,6 +156,7 @@ class MessageEditingDelegate(
             parentMessageId = parentUserMessage.parentMessageId,
             overrideParentMessageId = parentUserMessage.messageId,
             responseMessageId = lastAiMessage.messageId,
+            files = parentUserMessage.files,
             isEdited = true,
             isRegenerate = true,
             isContinued = true,
@@ -165,9 +170,10 @@ class MessageEditingDelegate(
      * the resubmit stream. Each caller first reshapes the tree (optimistic insert or
      * [MessageTreeDelegate.anchorStreamTo]) and then supplies only the args that differ.
      *
-     * The new-message send path (`doSendMessage`) stays in `ChatViewModel`: it additionally
-     * carries attached files, an added-conversation for comparison mode, and a bespoke
-     * stream-terminated callback this helper deliberately omits.
+     * Resubmits carry the original user turn's [files] so attachments survive an edit /
+     * regenerate / continue (the server otherwise loses them). The new-message send path
+     * (`doSendMessage`) stays in `ChatViewModel`: it additionally carries an added-conversation
+     * for comparison mode and a bespoke stream-terminated callback this helper deliberately omits.
      */
     @Suppress("LongParameterList")
     private fun launchSend(
@@ -177,6 +183,7 @@ class MessageEditingDelegate(
         userMessageId: String? = null,
         overrideParentMessageId: String? = null,
         responseMessageId: String? = null,
+        files: List<FileReference>? = null,
         isEdited: Boolean = false,
         isRegenerate: Boolean = false,
         isContinued: Boolean = false,
@@ -207,6 +214,7 @@ class MessageEditingDelegate(
                 isRegenerate = isRegenerate,
                 isContinued = isContinued,
                 webSearch = webSearchEnabled,
+                files = files,
                 ephemeralAgent = ephemeralAgent,
                 isTemporary = state.isTemporaryChat,
             ),

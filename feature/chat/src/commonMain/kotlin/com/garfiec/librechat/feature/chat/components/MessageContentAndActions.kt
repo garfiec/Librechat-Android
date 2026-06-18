@@ -196,6 +196,16 @@ internal fun MessageContentAndActions(
     onShowFeedbackDialog: () -> Unit,
 ) {
     if (isEditing && onEditTextChange != null && onEditSaveAndSubmit != null && onEditSaveOnly != null && onEditCancel != null) {
+        // Show the attached files above the edit field so it's clear they're
+        // retained on save & submit (the resubmit carries message.files).
+        val messageFiles = message.files
+        if (!messageFiles.isNullOrEmpty()) {
+            MessageFiles(
+                files = messageFiles,
+                baseUrl = baseUrl,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        }
         InlineEditInput(
             text = editText,
             onTextChange = onEditTextChange,
