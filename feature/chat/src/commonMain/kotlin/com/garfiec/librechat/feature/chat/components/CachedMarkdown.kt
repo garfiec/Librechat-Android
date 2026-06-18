@@ -59,6 +59,8 @@ fun CachedMarkdown(
 ) {
     val cache = LocalParsedMarkdownCache.current
     val key = parsedMarkdownCacheKey(content)
+    // The last message opts into synchronous first-parse; see [LocalImmediateMarkdown].
+    val immediate = immediate || LocalImmediateMarkdown.current
 
     if (!streaming) {
         // Fast path: stable content + a cache hit → render the cached AST with

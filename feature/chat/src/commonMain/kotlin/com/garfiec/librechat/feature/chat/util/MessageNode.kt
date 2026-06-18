@@ -130,3 +130,60 @@ fun buildActiveMessagePath(
 
     return result
 }
+
+/**
+ * Reconciles an [incoming] message list against the one currently displayed ([previous]),
+ * reusing the existing [Message] instance whenever the incoming one differs only in
+ * **volatile, non-rendered** fields (timestamps, token count, finish reason).
+ *
+ * Why: the completed-stream view is finalized in memory from the SSE Final event, then the
+ * same messages round-trip through Room (the mapper reformats/injects timestamps) and the
+ * server later backfills `tokenCount`/`finishReason`. Those reconcile emissions carry
+ * value-different `Message` instances for content that looks identical on screen, which
+ * defeats StateFlow conflation and re-renders the whole list — the completion "flash".
+ * Reusing the on-screen instance for render-equivalent messages keeps the rebuilt path
+ * value-equal, so the cosmetic reconcile is conflated away. A genuine content change still
+ * yields a new instance and recomposes, as it should.
+ */
+fun stabilizeMessageInstances(incoming: List<Message>, previous: List<Message>): List<Message> {
+    if (previous.isEmpty()) return incoming
+    val previousById = previous.associateBy { it.messageId }
+    return incoming.map { message ->
+        val existing = previousById[message.messageId] ?: return@map message
+        if (existing.isRenderEquivalentTo(message)) existing else message
+    }
+}
+
+/**
+ * True when [other] (an emission from the Room read-through) differs from this on-screen
+ * message only in fields a Room round-trip cannot faithfully carry — so reusing this
+ * (richer, in-memory) instance over [other] loses nothing the user can see. Two groups are
+ * neutralized via [Message.copy]:
+ *  - **Volatile, server-canonical fields** the backfill reformats/injects: `createdAt`,
+ *    `updatedAt`, `tokenCount`, `finishReason`.
+ *  - **Fields `MessageEntity` does not persist** (`responseMessageId`,
+ *    `overrideParentMessageId`, `user`, `threadId`, `contextMeta`, `title`, `manualSkills`,
+ *    `alwaysAppliedSkills`): the finalized SSE messages carry some of these, but Room nulls
+ *    them on round-trip, so an emission can only ever *drop* them — never introduce a new
+ *    value — making this neutralization one-directional-safe. Keep in sync with the columns
+ *    [com.garfiec.librechat.core.data.db.entity.MessageEntity] omits.
+ *
+ * Using [Message.copy] rather than listing rendered fields is deliberate: a newly added
+ * *persisted* field counts as rendered by default (the safe choice). The `this == other`
+ * fast path skips the copy on an exact match.
+ */
+private fun Message.isRenderEquivalentTo(other: Message): Boolean =
+    this == other || this == other.copy(
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        tokenCount = tokenCount,
+        finishReason = finishReason,
+        responseMessageId = responseMessageId,
+        overrideParentMessageId = overrideParentMessageId,
+        user = user,
+        threadId = threadId,
+        contextMeta = contextMeta,
+        title = title,
+        manualSkills = manualSkills,
+        alwaysAppliedSkills = alwaysAppliedSkills,
+    )

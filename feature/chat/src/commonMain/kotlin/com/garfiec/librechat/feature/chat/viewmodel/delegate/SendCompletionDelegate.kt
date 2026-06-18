@@ -5,7 +5,9 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.getOrNull
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.DraftRepository
+import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
@@ -27,6 +29,7 @@ import kotlinx.coroutines.launch
 class SendCompletionDelegate(
     private val stateHandle: ChatStateHandle,
     private val conversationRepository: ConversationRepository,
+    private val messageRepository: MessageRepository,
     private val draftRepository: DraftRepository,
     private val modelDelegate: ModelSelectionDelegate,
     private val treeDelegate: MessageTreeDelegate,
@@ -90,6 +93,7 @@ class SendCompletionDelegate(
         shouldAutoRead: Boolean,
         isNewConversation: Boolean,
         isHandedOffNewChat: Boolean,
+        isComparison: Boolean,
     ) {
         val finalConversation = event.conversation
         // Belt-and-braces: if no handoff seeded the selection and the initial GET 404'd
@@ -120,9 +124,22 @@ class SendCompletionDelegate(
                 // read-through (which would upsert the message rows to disk). Drive the
                 // display from the final event in memory instead. Title generation is
                 // also skipped server-side for temp chats, so there's nothing to refresh.
-                treeDelegate.finalizeTemporaryChatDisplay(event)
+                treeDelegate.finalizeChatDisplay(event)
             } else {
-                reloadConversation(conversationId)
+                if (isComparison) {
+                    // Comparison's two responses are sibling messages the Final event doesn't
+                    // fully model, so keep the server reconcile to materialize both into the
+                    // tree (the panes were already finalized by comparisonDelegate.onFinal).
+                    reloadConversation(conversationId)
+                } else {
+                    // The Final event is authoritative (it echoes the server-adopted ids, PR
+                    // #139), so finalize in memory for a gap-free completion and cache the turn
+                    // locally. No `GET /messages` round-trip: it only re-fetched invisible
+                    // canonical fields (refreshed anyway on the next open) while re-rendering
+                    // the list with value-different instances — the completion flash.
+                    val finalizedTurn = treeDelegate.finalizeChatDisplay(event)
+                    cacheTurn(finalizedTurn)
+                }
                 val shouldGenerate = shouldRequestTitleGeneration(
                     isNewConversation = isNewConversation,
                     isHandedOffNewChat = isHandedOffNewChat,
@@ -139,6 +156,20 @@ class SendCompletionDelegate(
         }
         if (shouldAutoRead && completedResponseText.isNotBlank()) {
             tts.maybeAutoReadResponse(completedResponseText)
+        }
+    }
+
+    /**
+     * Records the just-finalized [turn] to the local cache only — no network. The optimistic
+     * user message was never written to Room during streaming (the streaming-anchor invariant
+     * forbids mid-stream writes), so this is what keeps it from being lost on reopen. The
+     * resulting Room emission conflates away via instance-stabilization in loadConversation.
+     */
+    private fun cacheTurn(turn: List<Message>) {
+        if (turn.isEmpty()) return
+        stateHandle.scope.launch {
+            runCatching { messageRepository.cacheMessages(turn) }
+                .onFailure { Logger.e(it) { "Failed to cache final messages for the completed turn" } }
         }
     }
 

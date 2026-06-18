@@ -31,9 +31,7 @@ class MessageRepositoryImpl(
     override suspend fun getMessages(conversationId: String): Result<List<Message>> {
         val result = safeApiCall {
             val messages = messagesApi.getMessages(conversationId)
-            // Cache locally
-            val entities = messages.map { it.toEntity() }
-            messageDao.upsertAll(entities)
+            cacheMessages(messages)
             messages
         }
 
@@ -46,6 +44,11 @@ class MessageRepositoryImpl(
             }
         }
         return result
+    }
+
+    override suspend fun cacheMessages(messages: List<Message>) {
+        if (messages.isEmpty()) return
+        messageDao.upsertAll(messages.map { it.toEntity() })
     }
 
     override suspend fun refreshMessages(conversationId: String): Result<List<Message>> {

@@ -47,6 +47,7 @@ import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
+import com.garfiec.librechat.feature.chat.util.stabilizeMessageInstances
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.EndpointKeyStatusDelegate
@@ -168,6 +169,7 @@ class ChatViewModel(
     private val completionDelegate = SendCompletionDelegate(
         stateHandle = stateHandle,
         conversationRepository = conversationRepository,
+        messageRepository = messageRepository,
         draftRepository = draftRepository,
         modelDelegate = modelDelegate,
         treeDelegate = treeDelegate,
@@ -481,7 +483,7 @@ class ChatViewModel(
         // Defense-in-depth for temporary chats (v0.8.6): never route a temp conversation
         // through the Room read-through, which would upsert its message rows to disk (the
         // convo is hidden from history but the text would persist). The temp chat's
-        // display is finalized in memory by finalizeTemporaryChatDisplay; any stray
+        // display is finalized in memory by finalizeChatDisplay; any stray
         // loadConversation call (safety-net, error/abort paths) must not touch the DB.
         if (_uiState.value.isTemporaryChat) return
         // Cancel any previous Room observer to avoid duplicate collectors
@@ -508,7 +510,15 @@ class ChatViewModel(
                 messageRepository.observeMessages(conversationId),
                 _uiState.map { it.activeBranches }.distinctUntilChanged(),
             ) { messages, branches ->
-                messages to buildActiveMessagePath(messages, branches)
+                // Reuse on-screen Message instances that changed only in volatile fields, so
+                // the rebuilt path stays value-equal and the cosmetic Room reconcile conflates
+                // instead of re-rendering the list (see [stabilizeMessageInstances]). The
+                // baseline is read straight from _uiState.value, not a combine input: the
+                // completion path writes finalized messages into _uiState *outside* this flow
+                // (finalizeChatDisplay) and happens-before the cacheMessages write that
+                // triggers this emission, so _uiState.value reflects the true on-screen state.
+                val stabilized = stabilizeMessageInstances(messages, _uiState.value.messages)
+                stabilized to buildActiveMessagePath(stabilized, branches)
             }
                 .flowOn(defaultDispatcher)
                 .collect { (messages, displayMessages) ->

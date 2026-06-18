@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -251,13 +252,14 @@ fun MessageList(
                 }
             }
         } else if (wasStreaming) {
-            // Streaming just ended — wait for Room observer to emit the
-            // final messages (replacing the streaming bubble with the real
-            // AI message), then scroll to show the complete response.
+            // Streaming just ended. The final messages are now in displayMessages
+            // synchronously (finalizeChatDisplay swaps the streaming bubble for the real
+            // AI message in the same state update that clears isStreaming), so we only need
+            // a brief layout-settle before scrolling to show the complete response.
             // Only auto-scroll if user hasn't scrolled away.
             wasStreaming = false
             if (!userScrolledUp) {
-                delay(300)
+                delay(50)
                 val total = listState.layoutInfo.totalItemsCount
                 if (total > 0) {
                     listState.scrollToItem(total - 1, scrollOffset = Int.MAX_VALUE)
@@ -325,7 +327,12 @@ fun MessageList(
         ) {
             itemsIndexed(
                 items = displayMessages,
-                key = { _, node -> node.message.messageId },
+                // Key by the conversation SLOT (parent in the active path), not the message's
+                // own server-assigned id: the slot is stable across the streaming→final swap
+                // and regenerate siblings, so the trailing streaming reply (keyed to the same
+                // slot below) and its finalized message stay ONE in-place item and the list
+                // keeps its scroll anchor at completion. Unique within the path (one node/level).
+                key = { _, node -> node.treeParentKey },
                 contentType = { _, node ->
                     val role = if (node.message.isCreatedByUser) "user" else "assistant"
                     "${chatLayoutStyle}_$role"
@@ -347,6 +354,10 @@ fun MessageList(
                     -1
                 }
 
+                // Last message parses markdown synchronously; see [LocalImmediateMarkdown].
+                CompositionLocalProvider(
+                    LocalImmediateMarkdown provides (index == displayMessages.lastIndex),
+                ) {
                 MessageBubble(
                     message = node.message,
                     siblingIndex = node.siblingIndex,
@@ -423,10 +434,17 @@ fun MessageList(
                         null
                     },
                 )
+                }
             }
 
             if (isStreaming) {
-                item(key = "streaming_message") {
+                // Key the reply to the slot its finalized message will occupy: it attaches to
+                // the last message in the truncated path, whose id is the finalized node's
+                // treeParentKey (see itemsIndexed key above). Sharing that key makes the swap
+                // an in-place content update rather than a scroll-resetting remove+add.
+                val streamingSlotKey = displayMessages.lastOrNull()?.message?.messageId
+                    ?: "streaming_message"
+                item(key = streamingSlotKey) {
                     StreamingMessageBubble(
                         streamingContent = streamingContent,
                         senderName = streamingSenderName,

@@ -1,8 +1,11 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
+import com.garfiec.librechat.feature.chat.util.finalMessages
 import com.garfiec.librechat.feature.chat.util.mergeFinalMessagesInMemory
+import com.garfiec.librechat.feature.chat.util.resolvedResponseMessage
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 
@@ -10,8 +13,8 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
  * Owns the message-tree branch state and the in-place streaming anchor — the parts
  * of [com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel] that decide which
  * sibling is displayed per parent and where the in-flight reply attaches in the
- * display path. Also owns the temporary-chat toggle and the temp-chat in-memory
- * finalization (the one finalize path that must never touch Room).
+ * display path. Also owns the temporary-chat toggle and the in-memory finalize
+ * ([finalizeChatDisplay]) that drives the gap-free completion view.
  *
  * Pure state transforms over [ChatStateHandle] — no repositories, no coroutines.
  * The streaming-anchor invariant lives here (see [anchorStreamTo]); the send/edit
@@ -49,11 +52,13 @@ class MessageTreeDelegate(
      * same leaf to [buildActiveMessagePath] inline alongside their message insert.
      *
      * The full tree stays in `messages` and the DB, so the old branch remains
-     * reachable via sibling navigation, and loadConversation() rebuilds the real
-     * path on Final. This truncated displayMessages then simply persists in state
-     * for the duration of the stream: safe because no streaming entry point writes
-     * to Room mid-stream and none mutate activeBranches, so the Room observer never
-     * re-emits to rebuild (and un-truncate) the path before the stream completes.
+     * reachable via sibling navigation, and on Final the untruncated path is rebuilt
+     * in memory by [finalizeChatDisplay] (normal + temp chats) or by the background
+     * Room reconcile (comparison chats). This truncated displayMessages then simply
+     * persists in state for the duration of the stream: safe because no streaming
+     * entry point writes to Room mid-stream and none mutate activeBranches, so the
+     * Room observer never re-emits to rebuild (and un-truncate) the path before the
+     * stream completes.
      */
     fun anchorStreamTo(parentMessageId: String) {
         stateHandle.update {
@@ -72,25 +77,50 @@ class MessageTreeDelegate(
     }
 
     /**
-     * Finalizes a temporary chat's display purely in memory, WITHOUT persisting to
-     * Room. For a normal chat, handleFinal calls loadConversation, which routes
-     * through [com.garfiec.librechat.core.data.repository.MessageRepository.getMessages]'s
-     * read-through cache and upserts the message rows to disk — for a temp chat that
-     * would leave the message content on disk forever even though the conversation
-     * never appears in history. Instead we merge the final request/response messages
-     * from the SSE event into the existing in-memory list (replacing the optimistic
-     * user message by id) and recompute the display path. Nothing touches the DB.
+     * Finalizes a chat's display purely in memory by merging the SSE [event]'s
+     * request/response into the in-memory list (replacing the optimistic user message by id)
+     * and recomputing the display path — no Room access. This keeps the just-streamed reply
+     * on screen the instant `isStreaming` flips false, instead of round-tripping a network
+     * reload. Normal chats follow up with a background Room reconcile (server stays source of
+     * truth); temp chats deliberately skip it, since the read-through cache would upsert their
+     * rows to disk. Keeping that "never touch Room" decision in the caller lets both share
+     * this merge.
+     *
+     * Returns the completed turn (request then response) for the caller to persist, so the
+     * cached rows can't drift from the screen. The request is backfilled from its in-memory
+     * parent when the payload omits it — the server adopts the client-minted id (PR #139), so
+     * the response's parentMessageId matches the optimistic user message, which was never
+     * written to Room during streaming and would otherwise be lost on reopen. Temp chats
+     * ignore the return value.
      */
-    fun finalizeTemporaryChatDisplay(event: StreamEvent.Final) {
-        val finalMessages = listOfNotNull(event.requestMessage, event.responseMessage ?: event.message)
-        if (finalMessages.isEmpty()) return
+    fun finalizeChatDisplay(event: StreamEvent.Final): List<Message> {
+        val finalMessages = event.finalMessages()
+        // Retiring the streaming bubble (clearing the streaming fields) and swapping in the
+        // finalized message MUST be ONE update: with a Main.immediate StateFlow every write is
+        // observed, so two updates leave a frame where the bubble is gone but the reply isn't
+        // in displayMessages yet — the completion flash. (Comparison chats clear in handleFinal.)
         stateHandle.update {
-            val mergedMessages = mergeFinalMessagesInMemory(messages, finalMessages)
+            val mergedMessages = if (finalMessages.isEmpty()) {
+                messages
+            } else {
+                mergeFinalMessagesInMemory(messages, finalMessages)
+            }
             copy(
                 messages = mergedMessages,
                 displayMessages = buildActiveMessagePath(mergedMessages, activeBranches),
                 screenState = ChatScreenState.ACTIVE,
+                isStreaming = false,
+                streamingContent = "",
+                activeToolCalls = emptyList(),
+                streamingAttachments = emptyList(),
             )
         }
+        if (finalMessages.isEmpty()) return emptyList()
+        val response = event.resolvedResponseMessage()
+        val request = event.requestMessage
+            ?: response?.parentMessageId?.let { parentId ->
+                stateHandle.state.messages.firstOrNull { it.messageId == parentId }
+            }
+        return listOfNotNull(request, response)
     }
 }

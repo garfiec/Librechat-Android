@@ -340,19 +340,25 @@ class StreamingManagerDelegate(
             streamingBuffer.toString()
         }
         val shouldAutoRead = !isEditOrRegenerate
-        // Clear the single-stream UI fields; comparison panes are finalized via the delegate.
-        stateHandle.update {
-            copy(
-                isStreaming = false,
-                streamingContent = "",
-                activeToolCalls = emptyList(),
-                streamingAttachments = emptyList(),
-                conversationId = conversationId ?: this.conversationId,
-            )
+        // Make sure the resolved conversation id is in state for the completion handlers.
+        if (conversationId != null) {
+            stateHandle.update { copy(conversationId = conversationId) }
         }
         if (isComparison) {
+            // Comparison reconciles via background reload (no in-memory finalize to fold the
+            // streaming-clear into), so clear the single-stream UI fields now.
+            stateHandle.update {
+                copy(
+                    isStreaming = false,
+                    streamingContent = "",
+                    activeToolCalls = emptyList(),
+                    streamingAttachments = emptyList(),
+                )
+            }
             comparisonDelegate.onFinal((event.responseMessage ?: event.message)?.messageId)
         }
+        // Non-comparison chats fold the streaming-clear into finalizeChatDisplay (atomic
+        // bubble→message swap; see SendCompletionDelegate.onFinal).
         completionDelegate.onFinal(
             event = event,
             conversationId = conversationId,
@@ -360,7 +366,22 @@ class StreamingManagerDelegate(
             shouldAutoRead = shouldAutoRead,
             isNewConversation = isNewConversation(),
             isHandedOffNewChat = isHandedOffNewChat(),
+            isComparison = isComparison,
         )
+        // Fallback for degenerate finals: a non-comparison stream that ends with no
+        // conversation id (and thus nothing to finalize) never reaches finalizeChatDisplay,
+        // so its streaming fields would otherwise stay set. No-op once the in-memory
+        // finalize (normal/temp) or the comparison branch above has already cleared them.
+        if (stateHandle.state.isStreaming) {
+            stateHandle.update {
+                copy(
+                    isStreaming = false,
+                    streamingContent = "",
+                    activeToolCalls = emptyList(),
+                    streamingAttachments = emptyList(),
+                )
+            }
+        }
         // Reply finished cleanly: fire the next queued follow-up (if any, and not paused).
         // isStreaming is already false here, so the next send respects the no-Room-write-
         // while-streaming invariant.
