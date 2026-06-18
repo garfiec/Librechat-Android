@@ -17,13 +17,20 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,19 +45,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.resources.cd_add_to_queue
+import com.garfiec.librechat.feature.chat.resources.cd_cancel_edit
 import com.garfiec.librechat.feature.chat.resources.cd_send_message
 import com.garfiec.librechat.feature.chat.resources.cd_start_voice_recording
 import com.garfiec.librechat.feature.chat.resources.cd_stop_generation
+import com.garfiec.librechat.feature.chat.resources.cd_update_queued_message
+import com.garfiec.librechat.feature.chat.resources.editing_queued_message
 import com.garfiec.librechat.feature.chat.resources.hint_message
 import com.garfiec.librechat.feature.chat.resources.hint_message_model
 import com.garfiec.librechat.feature.chat.resources.recording
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import org.jetbrains.compose.resources.stringResource
 
 @Immutable
@@ -67,6 +80,12 @@ data class ChatInputState(
     val attachedFiles: List<AttachedFile>,
     /** Ephemeral-tools gate drives local chip display; remaining gates are threaded to the sheet. */
     val gates: ChatInputGates = ChatInputGates(),
+    /** Whether queueing a follow-up mid-stream is allowed (existing conversation only). When
+     *  false, the send button stays plain Stop while streaming. */
+    val canQueue: Boolean = false,
+    /** True while the composer is editing a queued item (queued-edit mode): the send button
+     *  becomes "Update" and an editing banner shows above the input. */
+    val isEditingQueued: Boolean = false,
 )
 
 /**
@@ -83,6 +102,24 @@ fun CommonChatInputCore(
     onStop: () -> Unit,
     onRemoveFile: (AttachedFile) -> Unit,
     modifier: Modifier = Modifier,
+    /** Queue a follow-up while streaming. Null (or [ChatInputState.canQueue] false) keeps the
+     *  button as plain Stop mid-stream (e.g. on a brand-new conversation). */
+    onQueue: (() -> Unit)? = null,
+    /** Number of queued messages held by a Stop/error pause. >0 shows the "Send queued" banner
+     *  above the input; 0 hides it (queue empty or draining normally). */
+    queuedPausedCount: Int = 0,
+    onSendQueuedMessages: () -> Unit = {},
+    /** Commit / cancel the in-progress queued edit (see [ChatInputState.isEditingQueued]). */
+    onCommitEdit: () -> Unit = {},
+    onCancelEdit: () -> Unit = {},
+    /** Queued follow-ups (ghost rows), pinned just above the composer. Hosted here — rather than
+     *  in the scrolling message list — so the list's auto-scroll-to-bottom can't make the ghosts
+     *  bounce as the reply streams. Empty list renders nothing. */
+    queuedMessages: List<QueuedMessage> = emptyList(),
+    onEditQueuedMessage: (localId: String) -> Unit = {},
+    onCancelQueuedMessage: (localId: String) -> Unit = {},
+    onReorderQueuedMessages: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
+    fontSizeMultiplier: Float = 1f,
     leadingButtons: @Composable RowScope.() -> Unit = {},
     trailingSpacer: @Composable RowScope.() -> Unit = {},
     bottomContent: @Composable BoxScope.() -> Unit = {},
@@ -108,6 +145,31 @@ fun CommonChatInputCore(
                 .navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
+            // Ghost queue, pinned directly above the composer. No scroll wrapper: the input bar is
+            // bottom-anchored so the queue grows upward (the text field stays put), and a nested
+            // vertical scroll here would fight the long-press drag-reorder. Self-hides when empty.
+            QueuedMessagesSection(
+                queuedMessages = queuedMessages,
+                onEdit = onEditQueuedMessage,
+                onCancel = onCancelQueuedMessage,
+                onReorder = onReorderQueuedMessages,
+                fontSizeMultiplier = fontSizeMultiplier,
+            )
+
+            // Edit-mode banner takes priority over the paused-queue banner.
+            if (state.isEditingQueued) {
+                EditingQueuedBanner(
+                    onCancel = onCancelEdit,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            } else if (queuedPausedCount > 0) {
+                SendQueuedBanner(
+                    count = queuedPausedCount,
+                    onClick = onSendQueuedMessages,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
+
             AttachmentChipsRow(
                 attachedFiles = state.attachedFiles,
                 enabledTools = state.enabledTools,
@@ -124,11 +186,18 @@ fun CommonChatInputCore(
                 leadingButtons()
                 textFieldContent()
                 trailingSpacer()
+                val hasComposerContent = state.inputText.isNotBlank() || state.attachedFiles.isNotEmpty()
                 SendStopButton(
                     isStreaming = state.isStreaming,
-                    canSend = state.inputText.isNotBlank() || state.attachedFiles.isNotEmpty(),
+                    canSend = hasComposerContent,
+                    // Mid-stream + typed content + queueing allowed → morph Stop into "add to queue".
+                    canQueue = state.canQueue && hasComposerContent && onQueue != null,
                     onSend = onSend,
                     onStop = onStop,
+                    onQueue = onQueue ?: {},
+                    // In queued-edit mode the button commits the edit instead of send/stop/queue.
+                    isEditingQueued = state.isEditingQueued,
+                    onUpdate = onCommitEdit,
                 )
             }
         }
@@ -136,8 +205,16 @@ fun CommonChatInputCore(
     }
 }
 
+/** Visual mode of the trailing composer button. */
+private enum class SendButtonMode { SEND, STOP, QUEUE, UPDATE }
+
 /**
- * Animated send/stop toggle button shared between platforms.
+ * Animated send / stop / add-to-queue / update button shared between platforms.
+ *
+ * In queued-edit mode ([isEditingQueued]) it is **Update** (commit the edit). Otherwise, while
+ * streaming it is **Stop** by default but morphs into **Add to queue** when the composer has
+ * content and queueing is allowed ([canQueue]) — the "clear the box to reveal Stop" rule. When not
+ * streaming it is the usual **Send** (enabled on [canSend]).
  */
 @Composable
 fun SendStopButton(
@@ -146,17 +223,52 @@ fun SendStopButton(
     onSend: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    canQueue: Boolean = false,
+    onQueue: () -> Unit = {},
+    isEditingQueued: Boolean = false,
+    onUpdate: () -> Unit = {},
 ) {
+    val mode = when {
+        isEditingQueued -> SendButtonMode.UPDATE
+        !isStreaming -> SendButtonMode.SEND
+        canQueue -> SendButtonMode.QUEUE
+        else -> SendButtonMode.STOP
+    }
     AnimatedContent(
-        targetState = isStreaming,
+        targetState = mode,
         transitionSpec = {
             (fadeIn() + scaleIn()).togetherWith(fadeOut() + scaleOut())
         },
         label = "send_stop_toggle",
         modifier = modifier,
-    ) { streaming ->
-        if (streaming) {
-            IconButton(
+    ) { buttonMode ->
+        when (buttonMode) {
+            SendButtonMode.UPDATE -> IconButton(
+                onClick = onUpdate,
+                modifier = Modifier.size(56.dp),
+                enabled = canSend,
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = if (canSend) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    },
+                    contentColor = if (canSend) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = stringResource(Res.string.cd_update_queued_message),
+                )
+            }
+
+            SendButtonMode.STOP -> IconButton(
                 onClick = onStop,
                 modifier = Modifier.size(56.dp),
                 colors = IconButtonDefaults.iconButtonColors(
@@ -175,8 +287,22 @@ fun SendStopButton(
                         ),
                 )
             }
-        } else {
-            IconButton(
+
+            SendButtonMode.QUEUE -> IconButton(
+                onClick = onQueue,
+                modifier = Modifier.size(56.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    contentDescription = stringResource(Res.string.cd_add_to_queue),
+                )
+            }
+
+            SendButtonMode.SEND -> IconButton(
                 onClick = onSend,
                 modifier = Modifier.size(56.dp),
                 enabled = canSend,
@@ -200,6 +326,47 @@ fun SendStopButton(
                     contentDescription = stringResource(Res.string.cd_send_message),
                 )
             }
+        }
+    }
+}
+
+/**
+ * Banner shown above the composer while editing a queued item, with a cancel affordance that
+ * discards the edit and restores the previous draft.
+ */
+@Composable
+private fun EditingQueuedBanner(
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(Res.string.editing_queued_message),
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onCancel) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = stringResource(Res.string.cd_cancel_edit),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }

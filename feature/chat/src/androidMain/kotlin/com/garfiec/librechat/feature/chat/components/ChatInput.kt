@@ -53,6 +53,7 @@ import androidx.core.content.FileProvider
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -66,6 +67,18 @@ fun ChatInput(
     onSend: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    onQueue: () -> Unit = {},
+    canQueue: Boolean = false,
+    queuedPausedCount: Int = 0,
+    onSendQueuedMessages: () -> Unit = {},
+    isEditingQueued: Boolean = false,
+    onCommitEdit: () -> Unit = {},
+    onCancelEdit: () -> Unit = {},
+    queuedMessages: List<QueuedMessage> = emptyList(),
+    onEditQueuedMessage: (localId: String) -> Unit = {},
+    onCancelQueuedMessage: (localId: String) -> Unit = {},
+    onReorderQueuedMessages: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
+    fontSizeMultiplier: Float = 1f,
     attachedFiles: List<AttachedFile> = emptyList(),
     onFilesSelected: (List<Uri>) -> Unit = {},
     onRemoveFile: (AttachedFile) -> Unit = {},
@@ -226,12 +239,24 @@ fun ChatInput(
         isCodeInterpreterAvailable = isCodeInterpreterAvailable,
         attachedFiles = attachedFiles,
         gates = gates,
+        canQueue = canQueue,
+        isEditingQueued = isEditingQueued,
     )
 
     CommonChatInputCore(
         state = state,
         onSend = onSend,
         onStop = onStop,
+        onQueue = onQueue,
+        queuedPausedCount = queuedPausedCount,
+        onSendQueuedMessages = onSendQueuedMessages,
+        onCommitEdit = onCommitEdit,
+        onCancelEdit = onCancelEdit,
+        queuedMessages = queuedMessages,
+        onEditQueuedMessage = onEditQueuedMessage,
+        onCancelQueuedMessage = onCancelQueuedMessage,
+        onReorderQueuedMessages = onReorderQueuedMessages,
+        fontSizeMultiplier = fontSizeMultiplier,
         onRemoveFile = onRemoveFile,
         modifier = modifier,
         leadingButtons = {

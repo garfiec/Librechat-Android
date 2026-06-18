@@ -7,7 +7,6 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.FileRepository
-import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.util.detectMimeTypeFromBytes
 import com.garfiec.librechat.feature.chat.util.fixFilenameExtension
@@ -253,35 +252,6 @@ class FileAttachmentDelegate(
     }
 
     /**
-     * Builds a list of [FileReference] from successfully uploaded attached files.
-     * Only includes files that have a server-assigned fileId (upload completed).
-     * Files still uploading (fileId == null) are excluded.
-     */
-    fun buildFileReferences(): List<FileReference> {
-        val allFiles = _attachedFiles.value
-        val uploadedFiles = allFiles.filter { it.fileId != null }
-        val pendingFiles = allFiles.filter { it.fileId == null && !it.uploadFailed }
-        if (pendingFiles.isNotEmpty()) {
-            Logger.w {
-                "buildFileReferences: ${pendingFiles.size} file(s) still uploading and will NOT be included: ${pendingFiles.joinToString { it.name }}"
-            }
-        }
-        Logger.d {
-            "buildFileReferences: ${allFiles.size} total, ${uploadedFiles.size} uploaded, ${pendingFiles.size} pending, ${allFiles.count { it.uploadFailed }} failed"
-        }
-        return uploadedFiles.map { file ->
-            FileReference(
-                fileId = file.fileId,
-                filename = file.name,
-                filepath = file.filepath,
-                type = file.type,
-                width = file.width,
-                height = file.height,
-            )
-        }
-    }
-
-    /**
      * Waits for all pending file uploads to complete (up to 30 seconds),
      * then proceeds with sending the message via the provided callback.
      */
@@ -309,5 +279,9 @@ class FileAttachmentDelegate(
 
     fun clearAttachedFiles() {
         _attachedFiles.update { emptyList() }
+    }
+
+    fun restoreAttachedFiles(files: List<AttachedFile>) {
+        _attachedFiles.update { files }
     }
 }

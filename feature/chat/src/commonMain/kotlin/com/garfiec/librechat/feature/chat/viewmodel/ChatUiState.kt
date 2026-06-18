@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
+import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.EndpointConfig
@@ -15,9 +16,11 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.SubagentPhase
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.core.model.endpoint.KeyState
+import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.model.response.FileUploadConfig
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
+import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
@@ -86,6 +89,82 @@ data class ActiveToolCall(
 )
 
 /**
+ * A follow-up message the user queued while a response was streaming, waiting to be
+ * auto-sent (FIFO) once the current reply completes. Rendered as a dimmed "ghost" bubble
+ * after the streaming bubble — it is NOT part of the message tree.
+ *
+ * Captures a full snapshot of the send config **at queue time** (model/endpoint/tools/
+ * webSearch/attachments + the resolved [dispatch]/[ephemeralAgent]), so a mid-stream model
+ * switch never retro-edits an already-queued item. The live-lineage fields
+ * (conversationId / parentMessageId / userMessageId) are deliberately NOT snapshotted — they
+ * are recomputed from the current tree when the item actually fires.
+ *
+ * [attachments] holds the already-uploaded [AttachedFile]s (not bare FileReferences) so editing
+ * a queued item restores its composer chips — including the local-uri image thumbnail — intact.
+ */
+@Immutable
+data class QueuedMessage(
+    /** Stable local id for list keying, edit, and reorder. Not a server message id. */
+    val localId: String,
+    val text: String,
+    val attachments: List<AttachedFile> = emptyList(),
+    val endpoint: String,
+    val model: String?,
+    val agentId: String?,
+    val enabledTools: Set<String> = emptySet(),
+    /** Selected ephemeral MCP servers — snapshotted so editing the item restores its tool state. */
+    val mcpServerNames: Set<String> = emptySet(),
+    /** Full composer parameters (web search, reasoning effort, etc.) — restored to the composer on edit. */
+    val modelParameters: ModelParameters = ModelParameters.DEFAULT,
+    val ephemeralAgent: EphemeralAgent? = null,
+    val dispatch: EndpointDispatch,
+    val isTemporary: Boolean = false,
+)
+
+/**
+ * Snapshot of the editable composer surface (the "new message" draft) stashed when entering
+ * queued-edit mode and restored on commit/cancel, so editing a queued item never clobbers what
+ * the user was already composing.
+ *
+ * These fields mirror [QueuedMessage]'s source-config fields (model/endpoint/tools/mcp/params) and
+ * are captured/applied by `ChatViewModel.captureComposer`/`applyComposer`/`toComposerSnapshot` — a
+ * new composer setting must be threaded through all of them (no compiler enforcement).
+ */
+@Immutable
+data class ComposerSnapshot(
+    val text: String,
+    val attachments: List<AttachedFile> = emptyList(),
+    val endpoint: String,
+    val model: String?,
+    val enabledTools: Set<String> = emptySet(),
+    val mcpServerNames: Set<String> = emptySet(),
+    val modelParameters: ModelParameters = ModelParameters.DEFAULT,
+)
+
+/**
+ * Active queued-edit session: the composer is loaded with [original]'s content + config for
+ * editing, while [stashed] holds the new-message draft to restore afterward and [originalIndex]
+ * is the FIFO slot to put the (possibly edited) item back into on commit/cancel.
+ */
+@Immutable
+data class QueuedEditSession(
+    val original: QueuedMessage,
+    val originalIndex: Int,
+    val stashed: ComposerSnapshot,
+)
+
+/** Loads a queued item's content + config onto the composer surface when entering edit mode. */
+fun QueuedMessage.toComposerSnapshot(): ComposerSnapshot = ComposerSnapshot(
+    text = text,
+    attachments = attachments,
+    endpoint = endpoint,
+    model = model,
+    enabledTools = enabledTools,
+    mcpServerNames = mcpServerNames,
+    modelParameters = modelParameters,
+)
+
+/**
  * Live progress of a single child agent's run (v0.8.6 subagents), accumulated
  * from `on_subagent_update` SSE envelopes and keyed in
  * [ChatUiState.subagentProgress] by the parent `subagent` tool_call id.
@@ -145,6 +224,16 @@ data class ChatUiState(
      *  Cleared when streaming ends. Used to provide attachment context while the
      *  final message (with full attachments) has not yet been persisted to Room. */
     val streamingAttachments: List<Attachment> = emptyList(),
+    /** Follow-up messages queued while a reply streams, drained FIFO on each successful
+     *  completion. Rendered as ghost bubbles after the streaming bubble; never part of the
+     *  message tree. In-memory only (dropped on conversation switch / process death). */
+    val messageQueue: List<QueuedMessage> = emptyList(),
+    /** True after Stop/stream-error with a non-empty queue: draining is held until the user
+     *  explicitly taps "Send queued". A successful Final drains automatically instead. */
+    val isQueuePaused: Boolean = false,
+    /** Non-null while a queued item is being edited in the composer (queued-edit mode). Holds the
+     *  stashed new-message draft + the item's slot so both are restored on commit/cancel. */
+    val editingQueuedItem: QueuedEditSession? = null,
     val selectedModel: String? = null,
     val selectedEndpoint: String = EndpointConstants.AGENTS,
     val endpointConfigs: Map<String, EndpointConfig> = emptyMap(),
@@ -321,6 +410,23 @@ data class ChatUiState(
      */
     val showEphemeralTools: Boolean
         get() = selectedEndpoint != EndpointConstants.AGENTS
+
+    /**
+     * Whether a follow-up may be queued mid-stream: only on an existing single-stream
+     * conversation (the queue affordance is hidden on the landing screen and in comparison
+     * mode). Single source of truth for the Android/iOS composer wiring.
+     */
+    val canQueueFollowUp: Boolean
+        get() = conversationId != null && !comparisonState.isEnabled
+
+    /** Number of queued messages a Stop/error pause is holding (0 = none / not paused). Drives
+     *  the "Send queued" banner above the composer. */
+    val pausedQueueCount: Int
+        get() = if (isQueuePaused) messageQueue.size else 0
+
+    /** True while the composer is editing a queued item rather than composing a new message. */
+    val isEditingQueued: Boolean
+        get() = editingQueuedItem != null
 
     /**
      * Bundle of the feature gates that flow into the composer ([ChatInput] →

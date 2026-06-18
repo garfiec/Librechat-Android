@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.content.MessageContentPart
@@ -50,6 +52,7 @@ internal fun ColumnScope.ChatContent(
     showAvatars: Boolean,
     showBubbles: Boolean,
     useKatex: Boolean,
+    bottomContentPadding: Dp,
     onShowSecondaryModelSheet: () -> Unit,
     onComparisonTabChange: (Int) -> Unit,
 ) {
@@ -138,6 +141,7 @@ internal fun ColumnScope.ChatContent(
                             uiState.activeToolCalls
                         },
                         streamingSenderName = senderName,
+                        bottomContentPadding = bottomContentPadding,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -164,6 +168,7 @@ internal fun ColumnScope.ChatContent(
                         showAvatars = showAvatars,
                         showBubbles = showBubbles,
                         useKatex = useKatex,
+                        bottomContentPadding = bottomContentPadding,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -227,6 +232,7 @@ internal fun ColumnScope.ChatContent(
                     streamingContent = uiState.streamingContent,
                     activeToolCalls = uiState.activeToolCalls,
                     streamingSenderName = senderName,
+                    bottomContentPadding = bottomContentPadding,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -256,6 +262,7 @@ private fun ChatMessageListPane(
     streamingContent: String,
     activeToolCalls: List<ActiveToolCall>,
     streamingSenderName: String,
+    bottomContentPadding: Dp,
     modifier: Modifier,
 ) {
     MessageList(
@@ -304,6 +311,7 @@ private fun ChatMessageListPane(
         currentSearchMatchIndex = uiState.currentSearchMatchIndex,
         searchScrollToIndex = uiState.searchScrollToIndex,
         onSearchScrollHandle = viewModel::onSearchScrollHandled,
+        bottomContentPadding = bottomContentPadding,
         modifier = modifier,
     )
 }

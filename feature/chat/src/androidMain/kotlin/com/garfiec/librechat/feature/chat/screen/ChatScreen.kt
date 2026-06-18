@@ -13,14 +13,18 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
@@ -163,6 +167,14 @@ actual fun ChatScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
+        // The composer overlays the message list at the bottom; the list reserves a scrollable
+        // bottom inset so its latest content rests above the bar. We measure the bar's actual
+        // height (which grows as queued ghost rows stack above it) so streaming text never hides
+        // behind the ghosts, while the list still scrolls *behind* the translucent overlay.
+        var inputBarHeightPx by remember { mutableIntStateOf(0) }
+        val bottomContentPadding = with(LocalDensity.current) {
+            maxOf(160.dp, inputBarHeightPx.toDp() + 16.dp)
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -183,6 +195,7 @@ actual fun ChatScreen(
                     showAvatars = showAvatars,
                     showBubbles = showBubbles,
                     useKatex = useKatex,
+                    bottomContentPadding = bottomContentPadding,
                     onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
                     onComparisonTabChange = { activeComparisonTab = it },
                 )
@@ -203,6 +216,13 @@ actual fun ChatScreen(
                     }
                 },
                 onStop = viewModel::stopGeneration,
+                onQueue = {
+                    viewModel.queueMessage()
+                    if (dismissKeyboardOnSend) {
+                        keyboardController?.hide()
+                    }
+                },
+                canQueue = uiState.canQueueFollowUp,
                 attachedFiles = attachedFiles,
                 onFilesSelected = viewModel::onFilesSelected,
                 onRemoveFile = viewModel::removeFile,
@@ -239,7 +259,20 @@ actual fun ChatScreen(
                 fileSearchEnabled = uiState.fileSearchEnabled,
                 mcpServersEnabled = uiState.mcpServersEnabled,
                 gates = uiState.chatInputGates,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                // After a Stop/error pause, the queue waits for an explicit nudge.
+                queuedPausedCount = uiState.pausedQueueCount,
+                onSendQueuedMessages = viewModel::sendQueuedNow,
+                isEditingQueued = uiState.isEditingQueued,
+                onCommitEdit = viewModel::commitQueuedEdit,
+                onCancelEdit = viewModel::cancelQueuedEdit,
+                queuedMessages = uiState.messageQueue,
+                onEditQueuedMessage = viewModel::editQueued,
+                onCancelQueuedMessage = viewModel::cancelQueued,
+                onReorderQueuedMessages = viewModel::reorderQueue,
+                fontSizeMultiplier = fontSizeMultiplier,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .onSizeChanged { inputBarHeightPx = it.height },
             )
         }
     }
