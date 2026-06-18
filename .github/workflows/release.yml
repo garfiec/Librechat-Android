@@ -258,11 +258,9 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      # The device framework must exist before xcodebuild — the Xcode project's framework
-      # search path points at shared/build/bin/iosArm64/releaseFramework.
-      - name: Build shared KMP framework (device, release)
-        run: ./gradlew :shared:linkReleaseFrameworkIosArm64
-
+      # The Kotlin framework is built by the Xcode "Compile Kotlin Framework" build phase
+      # (./gradlew :shared:embedAndSignAppleFrameworkForXcode), which runs inside the
+      # archive below — no separate link step needed. Direct integration; see iosApp/README.md.
       - name: Archive & package unsigned IPA
         id: ipa
         env:
@@ -275,8 +273,9 @@ jobs:
           # `CODE_SIGN_STYLE = Automatic`, which on a device archive would otherwise demand a
           # provisioning profile on this account-less runner — so we override the sdk-scoped
           # key, force Manual style, and blank the profile, not just the unscoped identity.
-          # The "Copy Compose Resources" build phase shells out to ./gradlew itself, which is
-          # why JDK + Gradle are set up above.
+          # The "Compile Kotlin Framework" build phase shells out to ./gradlew itself
+          # (embedAndSignAppleFrameworkForXcode, which also syncs Compose resources), which
+          # is why JDK + Gradle are set up above.
           xcodebuild archive \
             -project iosApp/iosApp.xcodeproj \
             -scheme iosApp \

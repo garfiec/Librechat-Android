@@ -25,8 +25,7 @@ File: `.github/workflows/ci.yml`
 #### `ios` (Build iOS App)
 - Selects latest stable Xcode
 - Caches `~/.konan`
-- Builds shared KMP framework via `./gradlew :shared:linkDebugFrameworkIosSimulatorArm64`
-- Runs `xcodebuild` for the iOS simulator (arm64-only, no signing)
+- Runs `xcodebuild` for the iOS simulator (arm64-only, no signing). The Kotlin framework is built by the Xcode "Compile Kotlin Framework" build phase (`./gradlew :shared:embedAndSignAppleFrameworkForXcode`) — no separate link step.
 
 ### Environment
 

@@ -173,12 +173,9 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      - name: Build shared KMP framework (simulator)
-        run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
-
-      - name: Build shared KMP framework (device)
-        run: ./gradlew :shared:linkDebugFrameworkIosArm64
-
+      # The Kotlin framework is built by the Xcode "Compile Kotlin Framework" build
+      # phase (./gradlew :shared:embedAndSignAppleFrameworkForXcode) — no separate
+      # link step needed. Direct integration; see iosApp/README.md.
       - name: Build iOS app
         run: |
           xcodebuild -project iosApp/iosApp.xcodeproj \

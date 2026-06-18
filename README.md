@@ -138,10 +138,11 @@ For a release build:
 
 ### iOS
 
+Xcode builds the Kotlin framework itself via a build phase (direct integration), so there is no separate `link*Framework` step to run by hand.
+
 **Simulator:**
 
 ```bash
-./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
   -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 16' \
@@ -151,7 +152,6 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
 **Physical device:**
 
 ```bash
-./gradlew :shared:linkDebugFrameworkIosArm64
 open iosApp/iosApp.xcodeproj
 ```
 

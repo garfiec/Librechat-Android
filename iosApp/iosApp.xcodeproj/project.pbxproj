@@ -16,7 +16,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		SSS00004 /* Embed Shared Framework */ = {
+		SSS00004 /* Compile Kotlin Framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -24,26 +24,12 @@
 			);
 			inputPaths = (
 			);
-			name = "Embed Shared Framework";
+			name = "Compile Kotlin Framework";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Embed the Kotlin/Native Shared.framework matching the active SDK + configuration.\n# FRAMEWORK_SEARCH_PATHS already resolve the framework for *linking*; this phase copies\n# that same framework into the app bundle's Frameworks/ dir. Keyed on PLATFORM_NAME +\n# CONFIGURATION to mirror the search paths, so simulator-debug and device-release both\n# embed the correct slice.\n#\n# Static frameworks (ar archive) are already linked into the app binary by the linker\n# and must NOT be embedded in Frameworks/ -- installd rejects ar archives as malformed\n# Mach-O. Clean up any stale copy then skip for static builds; only embed dynamic ones.\nset -eu\nif [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ]; then\n    ARCH_DIR=\"iosSimulatorArm64\"\nelse\n    ARCH_DIR=\"iosArm64\"\nfi\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n    FW_DIR=\"releaseFramework\"\nelse\n    FW_DIR=\"debugFramework\"\nfi\nSRC=\"$SRCROOT/../shared/build/bin/$ARCH_DIR/$FW_DIR/Shared.framework\"\nif [ ! -d \"$SRC\" ]; then\n    echo \"error: Shared.framework not found at $SRC -- build the matching :shared:link${CONFIGURATION}Framework task first\"\n    exit 1\nfi\nDST=\"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app/Frameworks\"\nrm -rf \"$DST/Shared.framework\"\nif file \"$SRC/Shared\" | grep -q 'ar archive'; then\n    echo \"Shared.framework is a static library -- skipping embed (already linked into app binary)\"\n    exit 0\nfi\nmkdir -p \"$DST\"\ncp -R \"$SRC\" \"$DST/\"\n# Mirror the old RemoveHeadersOnCopy attribute.\nrm -rf \"$DST/Shared.framework/Headers\" \"$DST/Shared.framework/PrivateHeaders\"\n# Code-sign on copy only when signing is enabled (skipped for unsigned sideload/CI builds).\nif [ \"${CODE_SIGNING_ALLOWED:-YES}\" != \"NO\" ] && [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]; then\n    codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$DST/Shared.framework\"\nfi\necho \"Embedded Shared.framework from $SRC\"\n";
-		};
-		SSS00001 /* Copy Compose Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Copy Compose Resources";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Aggregate and copy Compose Multiplatform resources into the app bundle.\n# Runs the Gradle aggregation task to ensure resources from all feature\n# modules are collected, then copies them into the .app bundle where\n# the Compose resource reader expects them at runtime.\n\nif [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ]; then\n    ARCH_DIR=\"iosSimulatorArm64\"\n    GRADLE_TASK=\":shared:iosSimulatorArm64AggregateResources\"\nelif [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n    ARCH_DIR=\"iosArm64\"\n    GRADLE_TASK=\":shared:iosArm64AggregateResources\"\nelse\n    echo \"error: Unsupported PLATFORM_NAME: $PLATFORM_NAME\"\n    exit 1\nfi\n\nPROJECT_ROOT=\"$SRCROOT/..\"\nSRC=\"$PROJECT_ROOT/shared/build/kotlin-multiplatform-resources/aggregated-resources/$ARCH_DIR/composeResources\"\nDST=\"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app/compose-resources/composeResources\"\n\n# Run Gradle aggregation to ensure resources are up to date\necho \"Running $GRADLE_TASK...\"\ncd \"$PROJECT_ROOT\" && ./gradlew \"$GRADLE_TASK\" 2>&1\nGRADLE_EXIT=$?\nif [ $GRADLE_EXIT -ne 0 ]; then\n    echo \"error: Gradle task $GRADLE_TASK failed with exit code $GRADLE_EXIT\"\n    exit $GRADLE_EXIT\nfi\n\n# Clean stale resources before copying fresh ones\nif [ -d \"$DST\" ]; then\n    rm -rf \"$DST\"\nfi\n\nif [ -d \"$SRC\" ]; then\n    mkdir -p \"$DST\"\n    cp -R \"$SRC/\" \"$DST/\"\n    echo \"Copied Compose resources from $SRC to $DST\"\nelse\n    echo \"error: Compose resources not found at $SRC after Gradle aggregation\"\n    exit 1\nfi\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 		SSS00002 /* Stamp Version from version.properties */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -157,11 +143,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = HHH00003 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
+				SSS00004 /* Compile Kotlin Framework */,
 				III00001 /* Sources */,
 				RRR00001 /* Resources */,
 				EEE00001 /* Frameworks */,
-				SSS00004 /* Embed Shared Framework */,
-				SSS00001 /* Copy Compose Resources */,
 				SSS00002 /* Stamp Version from version.properties */,
 				SSS00003 /* Stamp Git SHA */,
 			);
@@ -275,16 +260,10 @@
 				CURRENT_PROJECT_VERSION = 103;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/../shared/build/bin/iosSimulatorArm64/debugFramework",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/../shared/build/bin/iosArm64/debugFramework",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
@@ -314,16 +293,10 @@
 				CURRENT_PROJECT_VERSION = 103;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/../shared/build/bin/iosSimulatorArm64/releaseFramework",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/../shared/build/bin/iosArm64/releaseFramework",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;

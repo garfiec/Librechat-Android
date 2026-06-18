@@ -35,32 +35,34 @@ The `:shared` Gradle module exports `core:common`, `core:model`, `core:network`,
 
 ### Build and Run
 
+The Kotlin framework is built automatically by Xcode's **Compile Kotlin Framework**
+build phase, which runs `./gradlew :shared:embedAndSignAppleFrameworkForXcode`
+([direct integration](https://kotlinlang.org/docs/multiplatform/multiplatform-direct-integration.html)).
+That task builds the right framework slice for the active SDK/configuration, sets up
+linking, and syncs Compose resources — so there is no separate `link*Framework` step to
+run by hand. The framework is static (`isStatic = true`), so it is linked directly into
+the app binary and is **not** embedded in `Frameworks/`.
+
+> Because the build phase shells out to Gradle, **User Script Sandboxing must stay
+> disabled** for the `iosApp` target (`ENABLE_USER_SCRIPT_SANDBOXING = NO`). If you ever
+> toggle it on, run `./gradlew --stop` before rebuilding.
+
 #### Simulator
 
 ```bash
-# 1. Build the shared KMP framework
-./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
-
-# 2. Build the Xcode project
+# Build the Xcode project (Gradle builds the framework as a build phase)
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
   -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 16' \
   -derivedDataPath iosApp/build build
 
-# 3. Boot simulator, install, and launch
+# Boot simulator, install, and launch
 xcrun simctl boot "iPhone 16"
 xcrun simctl install booted iosApp/build/Build/Products/Debug-iphonesimulator/iosApp.app
 xcrun simctl launch booted com.garfiec.librechat.ios
 ```
 
 #### Physical Device
-
-```bash
-# 1. Build the shared KMP framework for device
-./gradlew :shared:linkDebugFrameworkIosArm64
-```
-
-Then open the project in Xcode:
 
 ```bash
 open iosApp/iosApp.xcodeproj
@@ -75,12 +77,7 @@ In Xcode:
 
 ### Known Xcode Behaviour
 
-**Red dot on `Shared.framework` in the navigator** — You may see a red indicator on `Shared.framework` in the Xcode file navigator (left sidebar). This is cosmetic and does not affect builds. It happens because the Xcode project file keeps a static reference path to the framework for display purposes, and that path may not exist if you haven't built that particular target yet. The linker always resolves the framework via `FRAMEWORK_SEARCH_PATHS`, which is set correctly per target — the red dot can be safely ignored. Building the Gradle framework for your active target clears it:
-
-```bash
-./gradlew :shared:linkDebugFrameworkIosSimulatorArm64  # clears it for simulator
-./gradlew :shared:linkDebugFrameworkIosArm64           # clears it for device
-```
+**Red dot on `Shared.framework` in the navigator** — cosmetic, safe to ignore. The Xcode project keeps a static display path for the framework, but the real artifact lives under `shared/build/xcode-frameworks/<Configuration>/<SDK>/` and is produced by the build phase. The linker resolves it via `FRAMEWORK_SEARCH_PATHS`, so builds are unaffected; running a build clears the indicator.
 
 ## Info.plist Permissions
 
