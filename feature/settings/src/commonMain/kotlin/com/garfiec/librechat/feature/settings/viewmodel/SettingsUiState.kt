@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.settings.viewmodel
 
 import androidx.compose.runtime.Immutable
 import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.data.datastore.ArtifactDisplayPrefs
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
@@ -192,6 +193,8 @@ data class SettingsUiState(
     val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
     // Inline artifact rendering (per-type toggles)
     val inlineArtifactPrefs: InlineArtifactPrefs = InlineArtifactPrefs(),
+    // Artifact viewer presentation (bottom sheet vs full screen + selector visibility)
+    val artifactDisplayPrefs: ArtifactDisplayPrefs = ArtifactDisplayPrefs(),
     // Role-permission gates. `serverMemoriesEnabled` is the SERVER-level MEMORIES.USE
     // gate and is orthogonal to [memoriesEnabled], which is the user's own opt-out
     // stored on their profile (`user.personalization.memories`).

@@ -35,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -59,7 +58,7 @@ import com.garfiec.librechat.core.ui.media.rememberShareFile
 import com.garfiec.librechat.core.ui.media.rememberShareImage
 import com.garfiec.librechat.feature.chat.components.artifact.Artifact
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactButton
-import com.garfiec.librechat.feature.chat.components.artifact.ArtifactPanel
+import com.garfiec.librechat.feature.chat.components.artifact.LocalOpenArtifact
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_close
 import com.garfiec.librechat.feature.chat.resources.cd_image
@@ -352,10 +351,9 @@ private fun ArtifactsList(artifacts: List<List<Artifact>>) {
         )
         return
     }
-    // Tapping a card opens the shared ArtifactPanel with that artifact's full version history.
-    // Only the identifier is held (a Saveable String) so the open panel survives rotation; the
-    // version list is re-derived from [artifacts] each composition.
-    var activeIdentifier by rememberSaveable { mutableStateOf<String?>(null) }
+    // Tapping a card hands the artifact (with its full version history) to the screen-level
+    // opener, which presents it as a bottom sheet or full-screen route per the display pref.
+    val openArtifact = LocalOpenArtifact.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -364,20 +362,10 @@ private fun ArtifactsList(artifacts: List<List<Artifact>>) {
         items(artifacts, key = { it.first().identifier }) { versions ->
             ArtifactButton(
                 artifact = versions.last(),
-                onClick = { activeIdentifier = versions.first().identifier },
+                onClick = { openArtifact?.invoke(versions.last(), versions) },
                 versionCount = versions.size,
             )
         }
-    }
-    val activeVersions = activeIdentifier?.let { id ->
-        artifacts.firstOrNull { it.first().identifier == id }
-    }
-    activeVersions?.let { versions ->
-        ArtifactPanel(
-            artifact = versions.last(),
-            onDismiss = { activeIdentifier = null },
-            versions = versions,
-        )
     }
 }
 

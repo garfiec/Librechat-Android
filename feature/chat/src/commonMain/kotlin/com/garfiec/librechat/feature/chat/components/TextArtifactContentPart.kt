@@ -5,17 +5,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
-import com.garfiec.librechat.feature.chat.components.artifact.Artifact
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactButton
-import com.garfiec.librechat.feature.chat.components.artifact.ArtifactPanel
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactSegment
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.components.artifact.InlineArtifactStrategy
@@ -25,6 +20,7 @@ import com.garfiec.librechat.feature.chat.components.artifact.InlineSvgArtifact
 import com.garfiec.librechat.feature.chat.components.artifact.InlineSvgSurface
 import com.garfiec.librechat.feature.chat.components.artifact.LocalInlineArtifactPrefs
 import com.garfiec.librechat.feature.chat.components.artifact.LocalMermaidRenderCache
+import com.garfiec.librechat.feature.chat.components.artifact.LocalOpenArtifact
 import com.garfiec.librechat.feature.chat.components.artifact.detectArtifacts
 import com.garfiec.librechat.feature.chat.components.artifact.groupArtifactVersions
 import com.garfiec.librechat.feature.chat.components.artifact.isCacheableMermaid
@@ -62,9 +58,7 @@ internal fun TextContentPart(
     } else {
         val versionMap = remember(segments) { groupArtifactVersions(segments) }
         val inlinePrefs = LocalInlineArtifactPrefs.current
-        var activeArtifact by remember {
-            mutableStateOf<Artifact?>(null)
-        }
+        val openArtifact = LocalOpenArtifact.current
         Column(modifier = modifier) {
             segments.forEach { segment ->
                 when (segment) {
@@ -88,13 +82,13 @@ internal fun TextContentPart(
                             when (val strategy = selectInlineArtifactStrategy(type, segment.artifact.content, cachedSvg)) {
                                 is InlineArtifactStrategy.CachedMermaidSvg -> InlineSvgSurface(
                                     svg = strategy.svg,
-                                    onTap = { activeArtifact = segment.artifact },
+                                    onTap = { openArtifact?.invoke(segment.artifact, versions) },
                                     modifier = Modifier.fillMaxWidth(),
                                     contentPadding = 4.dp,
                                 )
                                 InlineArtifactStrategy.NativeMarkdown -> InlineMarkdownArtifact(
                                     artifact = segment.artifact,
-                                    onTap = { activeArtifact = segment.artifact },
+                                    onTap = { openArtifact?.invoke(segment.artifact, versions) },
                                     modifier = Modifier.fillMaxWidth(),
                                     fontSizeMultiplier = fontSizeMultiplier,
                                     searchQuery = searchQuery,
@@ -103,19 +97,19 @@ internal fun TextContentPart(
                                 )
                                 InlineArtifactStrategy.IntrinsicSvg -> InlineSvgArtifact(
                                     artifact = segment.artifact,
-                                    onTap = { activeArtifact = segment.artifact },
+                                    onTap = { openArtifact?.invoke(segment.artifact, versions) },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 InlineArtifactStrategy.WebViewSlot -> InlineArtifactView(
                                     artifact = segment.artifact,
-                                    onTap = { activeArtifact = segment.artifact },
+                                    onTap = { openArtifact?.invoke(segment.artifact, versions) },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         } else {
                             ArtifactButton(
                                 artifact = segment.artifact,
-                                onClick = { activeArtifact = segment.artifact },
+                                onClick = { openArtifact?.invoke(segment.artifact, versions) },
                                 versionCount = versions.size,
                             )
                         }
@@ -123,14 +117,6 @@ internal fun TextContentPart(
                     }
                 }
             }
-        }
-        activeArtifact?.let { artifact ->
-            val versions = versionMap[artifact.identifier] ?: listOf(artifact)
-            ArtifactPanel(
-                artifact = artifact,
-                onDismiss = { activeArtifact = null },
-                versions = versions,
-            )
         }
     }
 }

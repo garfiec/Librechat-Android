@@ -185,6 +185,13 @@
 
     <!-- Artifacts -->
     <string name="section_artifacts">Artifacts</string>
+    <string name="artifact_viewer_title">Artifact viewer</string>
+    <string name="artifact_viewer_desc">How an artifact opens when you tap it.</string>
+    <string name="artifact_mode_bottom_sheet">Bottom sheet</string>
+    <string name="artifact_mode_bottom_sheet_desc">Slides up from the bottom; swipe down to dismiss.</string>
+    <string name="artifact_mode_fullscreen">Full screen</string>
+    <string name="artifact_mode_fullscreen_desc">Opens as a full-screen page with more room.</string>
+    <string name="artifact_inline_title">Render inline</string>
     <string name="artifacts_section_desc">Render artifacts directly in the chat instead of behind a tap-to-open card. Tap an inline artifact to open the fullscreen view.</string>
     <string name="inline_artifact_mermaid">Mermaid diagrams</string>
     <string name="inline_artifact_mermaid_desc">Render Mermaid flowcharts and diagrams inline</string>

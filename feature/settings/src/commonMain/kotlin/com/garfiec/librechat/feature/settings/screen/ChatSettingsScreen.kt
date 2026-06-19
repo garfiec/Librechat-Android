@@ -127,6 +127,8 @@ fun ChatSettingsContent(
             item(key = "artifacts_settings") {
                 ArtifactSettingsSection(
                     prefs = uiState.inlineArtifactPrefs,
+                    displayPrefs = uiState.artifactDisplayPrefs,
+                    onDisplayModeChange = viewModel::setArtifactDisplayMode,
                     onMermaidChange = viewModel::setInlineArtifactMermaid,
                     onSvgChange = viewModel::setInlineArtifactSvg,
                     onHtmlChange = viewModel::setInlineArtifactHtml,

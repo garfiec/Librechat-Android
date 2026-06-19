@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.settings.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -259,6 +260,10 @@ class SettingsViewModel(
 
     fun setInlineArtifactMarkdown(enabled: Boolean) {
         prefsController.setInlineArtifactMarkdown(enabled)
+    }
+
+    fun setArtifactDisplayMode(mode: ArtifactDisplayMode) {
+        prefsController.setArtifactDisplayMode(mode)
     }
 
     // ── Tablet preferences ─────────────────────────────────────────

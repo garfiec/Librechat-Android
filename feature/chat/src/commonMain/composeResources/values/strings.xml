@@ -304,6 +304,8 @@
     <string name="cd_next_version">Next version</string>
     <string name="artifact_version">v%1$d/%2$d</string>
     <string name="label_resource">Resource</string>
+    <string name="artifact_view_source">View source</string>
+    <string name="artifact_view_preview">View preview</string>
 
     <!-- Prompts -->
     <string name="prompts_library">Prompts Library</string>

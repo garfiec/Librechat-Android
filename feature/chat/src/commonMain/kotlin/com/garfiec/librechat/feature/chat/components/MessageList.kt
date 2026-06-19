@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -211,7 +212,10 @@ fun MessageList(
         searchMatchIndices.map { it.messageIndex }.toSet()
     }
 
-    var hasScrolledToBottom by remember { mutableStateOf(false) }
+    // Saveable so it survives the list leaving/re-entering composition (e.g. the
+    // full-screen artifact route disposes the chat entry); otherwise the initial
+    // scroll re-fires on return and overrides the restored scroll position.
+    var hasScrolledToBottom by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(displayMessages.size) {
         if (!hasScrolledToBottom && displayMessages.isNotEmpty()) {
             listState.scrollToItem(totalItemCount - 1, scrollOffset = Int.MAX_VALUE)

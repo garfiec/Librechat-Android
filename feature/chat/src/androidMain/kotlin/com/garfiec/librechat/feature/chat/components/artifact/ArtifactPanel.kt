@@ -11,289 +11,34 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import co.touchlab.kermit.Logger
-import com.garfiec.librechat.core.ui.theme.isSurfaceDark
-import com.garfiec.librechat.feature.chat.components.CodeBlock
-import com.garfiec.librechat.feature.chat.resources.*
-import com.garfiec.librechat.feature.chat.resources.Res
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
+import androidx.compose.runtime.rememberCoroutineScope
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-actual fun ArtifactPanel(
-    artifact: Artifact,
-    onDismiss: () -> Unit,
-    modifier: Modifier,
-    versions: List<Artifact>,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        modifier = modifier.fillMaxSize(),
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-    ) {
-        ArtifactPanelContent(
-            artifact = artifact,
-            versions = versions,
-            sheetState = sheetState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-                .navigationBarsPadding(),
-        )
-    }
-}
-
-private fun isPreviewableType(type: String): Boolean =
-    when (ArtifactType.from(type)) {
-        ArtifactType.MERMAID,
-        ArtifactType.REACT,
-        ArtifactType.SVG,
-        ArtifactType.MARKDOWN,
-        ArtifactType.HTML,
-        ArtifactType.PLAIN,
-        -> true
-        ArtifactType.CODE -> false
-    }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ArtifactPanelContent(
-    artifact: Artifact,
-    versions: List<Artifact>,
-    sheetState: SheetState,
-    modifier: Modifier,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var currentVersionIndex by remember {
-        mutableIntStateOf(versions.indexOfFirst { it.version == artifact.version }.coerceAtLeast(0))
-    }
-    var showFullscreen by remember { mutableIntStateOf(-1) } // -1 = hidden, 0 = code, 1 = preview
-
-    val currentArtifact = versions.getOrElse(currentVersionIndex) { artifact }
-    val isPreviewable = isPreviewableType(currentArtifact.type)
-    val isDarkTheme = isSurfaceDark()
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        // Title row with version nav and action buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = currentArtifact.title,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f),
-            )
-            if (versions.size > 1) {
-                ArtifactVersionNav(
-                    currentIndex = currentVersionIndex,
-                    totalVersions = versions.size,
-                    onPrevious = { currentVersionIndex-- },
-                    onNext = { currentVersionIndex++ },
-                )
-            }
-        }
-
-        // Action row: share + fullscreen
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(
-                onClick = {
-                    scope.launch {
-                        ArtifactDownloadHelper.share(
-                            context = context,
-                            artifact = currentArtifact,
-                        )
-                    }
-                },
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = stringResource(Res.string.cd_share_artifact),
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            IconButton(
-                onClick = { showFullscreen = selectedTab },
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Fullscreen,
-                    contentDescription = stringResource(Res.string.cd_fullscreen),
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        if (isPreviewable) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text(stringResource(Res.string.code)) },
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = {
-                        selectedTab = 1
-                        scope.launch { sheetState.expand() }
-                    },
-                    text = { Text(stringResource(Res.string.preview)) },
-                )
-            }
-        }
-
-        when {
-            !isPreviewable || selectedTab == 0 -> {
-                val codeScrollState = rememberScrollState()
-                val codeScrollBlocker = remember {
-                    SheetScrollBlocker(codeScrollState)
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(top = 8.dp)
-                        .nestedScroll(codeScrollBlocker)
-                        .verticalScroll(codeScrollState),
-                ) {
-                    CodeBlock(
-                        code = currentArtifact.content,
-                        language = currentArtifact.language,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-            selectedTab == 1 -> {
-                ArtifactPreviewWebView(
-                    content = currentArtifact.content,
-                    type = currentArtifact.type,
-                    isDarkTheme = isDarkTheme,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(top = 8.dp),
-                )
-            }
-        }
-    }
-
-    // Fullscreen dialog
-    if (showFullscreen >= 0) {
-        Dialog(
-            onDismissRequest = { showFullscreen = -1 },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface),
-            ) {
-                when {
-                    !isPreviewable || showFullscreen == 0 -> {
-                        CodeBlock(
-                            code = currentArtifact.content,
-                            language = currentArtifact.language,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-                        )
-                    }
-                    showFullscreen == 1 -> {
-                        ArtifactPreviewWebView(
-                            content = currentArtifact.content,
-                            type = currentArtifact.type,
-                            isDarkTheme = isDarkTheme,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 48.dp),
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = { showFullscreen = -1 },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.cd_close_fullscreen),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-        }
-    }
-}
-
+/**
+ * Android preview surface — a `WebView` hosting the artifact's rendered HTML.
+ * The shell, header, selector, and code body are shared in the common
+ * `ArtifactPanel`.
+ */
 @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
-private fun ArtifactPreviewWebView(
+actual fun ArtifactPreviewSurface(
     content: String,
     type: String,
     isDarkTheme: Boolean,
@@ -398,27 +143,14 @@ private fun ArtifactPreviewWebView(
     }
 }
 
-/**
- * Intercepts all vertical scroll and manually dispatches it to the given [ScrollState],
- * then reports it all as consumed so the parent ModalBottomSheet never receives it.
- * This isolates the content's scrolling from the sheet's drag gesture.
- */
-private class SheetScrollBlocker(private val scrollState: ScrollState) : NestedScrollConnection {
-    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        // Manually scroll the content and consume ALL vertical delta
-        // so none reaches the sheet's drag handler.
-        if (available.y != 0f) {
-            scrollState.dispatchRawDelta(-available.y)
+@Composable
+actual fun rememberShareArtifact(): (Artifact) -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    return remember(context) {
+        { artifact ->
+            scope.launch { ArtifactDownloadHelper.share(context = context, artifact = artifact) }
         }
-        return Offset(0f, available.y)
-    }
-
-    override fun onPostScroll(
-        consumed: Offset,
-        available: Offset,
-        source: NestedScrollSource,
-    ): Offset {
-        return Offset(0f, available.y)
     }
 }
 

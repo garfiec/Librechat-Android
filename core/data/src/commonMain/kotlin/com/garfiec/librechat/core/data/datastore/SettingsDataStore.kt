@@ -176,6 +176,12 @@ class SettingsDataStore(
         )
     }
 
+    val artifactDisplayPrefs: Flow<ArtifactDisplayPrefs> = dataStore.data.map { prefs ->
+        ArtifactDisplayPrefs(
+            mode = ArtifactDisplayMode.fromString(prefs[KEY_ARTIFACT_DISPLAY_MODE]),
+        )
+    }
+
     val selectedMcpServers: Flow<Set<String>> = dataStore.data.map { prefs ->
         prefs[KEY_SELECTED_MCP_SERVERS]?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
     }
@@ -369,6 +375,10 @@ class SettingsDataStore(
         dataStore.edit { prefs -> prefs[KEY_INLINE_ARTIFACT_MARKDOWN] = enabled }
     }
 
+    suspend fun setArtifactDisplayMode(mode: ArtifactDisplayMode) {
+        dataStore.edit { prefs -> prefs[KEY_ARTIFACT_DISPLAY_MODE] = mode.toStorageString() }
+    }
+
     /**
      * Saves the backend version for which the user chose "Don't warn again".
      * If the backend later updates to a different version, the warning will reappear.
@@ -439,6 +449,7 @@ class SettingsDataStore(
         private val KEY_INLINE_ARTIFACT_HTML = booleanPreferencesKey("inline_artifact_html")
         private val KEY_INLINE_ARTIFACT_REACT = booleanPreferencesKey("inline_artifact_react")
         private val KEY_INLINE_ARTIFACT_MARKDOWN = booleanPreferencesKey("inline_artifact_markdown")
+        private val KEY_ARTIFACT_DISPLAY_MODE = stringPreferencesKey("artifact_display_mode")
         private val KEY_DISMISSED_VERSION_WARNING = stringPreferencesKey("dismissed_version_warning")
         private val KEY_SELECTED_MCP_SERVERS = stringPreferencesKey("selected_mcp_servers")
         private val KEY_ENABLED_TOOLS = stringPreferencesKey("enabled_tools")

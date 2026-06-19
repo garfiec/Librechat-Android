@@ -1,6 +1,8 @@
 package com.garfiec.librechat.feature.settings.viewmodel
 
 import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
+import com.garfiec.librechat.core.data.datastore.ArtifactDisplayPrefs
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
@@ -58,6 +60,7 @@ private data class AdditionalPreferences(
     val showBubbles: Boolean = false,
     val latexRenderer: LatexRenderer = LatexRenderer.KATEX,
     val inlineArtifactPrefs: InlineArtifactPrefs = InlineArtifactPrefs(),
+    val artifactDisplayPrefs: ArtifactDisplayPrefs = ArtifactDisplayPrefs(),
     val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
     val selectedLanguage: String = SettingsDataStore.DEFAULT_LANGUAGE,
 )
@@ -147,6 +150,9 @@ class SettingsPreferencesController(
     private val inlineArtifactPrefsFlow: StateFlow<InlineArtifactPrefs> = settingsDataStore.inlineArtifactPrefs
         .stateIn(scope, SharingStarted.Eagerly, InlineArtifactPrefs())
 
+    private val artifactDisplayPrefsFlow: StateFlow<ArtifactDisplayPrefs> = settingsDataStore.artifactDisplayPrefs
+        .stateIn(scope, SharingStarted.Eagerly, ArtifactDisplayPrefs())
+
     private val starredModelsDisplayPref: StateFlow<StarredModelsDisplay> = settingsDataStore.starredModelsDisplay
         .stateIn(scope, SharingStarted.Eagerly, StarredModelsDisplay.OFF)
 
@@ -173,6 +179,8 @@ class SettingsPreferencesController(
         base.copy(chatLayoutStyle = layoutStyle, showAvatars = showAvatars, showBubbles = showBubbles, latexRenderer = latexRenderer)
     }.combine(inlineArtifactPrefsFlow) { additional, inlineArtifact ->
         additional.copy(inlineArtifactPrefs = inlineArtifact)
+    }.combine(artifactDisplayPrefsFlow) { additional, artifactDisplay ->
+        additional.copy(artifactDisplayPrefs = artifactDisplay)
     }.combine(starredModelsDisplayPref) { additional, starredDisplay ->
         additional.copy(starredModelsDisplay = starredDisplay)
     }.combine(selectedLanguagePref) { additional, selectedLanguage ->
@@ -217,6 +225,7 @@ class SettingsPreferencesController(
             showBubbles = additional.showBubbles,
             latexRenderer = additional.latexRenderer,
             inlineArtifactPrefs = additional.inlineArtifactPrefs,
+            artifactDisplayPrefs = additional.artifactDisplayPrefs,
             starredModelsDisplay = additional.starredModelsDisplay,
             selectedLanguage = additional.selectedLanguage,
         )
@@ -294,6 +303,10 @@ class SettingsPreferencesController(
 
     fun setInlineArtifactMarkdown(enabled: Boolean) {
         scope.launch { settingsDataStore.setInlineArtifactMarkdown(enabled) }
+    }
+
+    fun setArtifactDisplayMode(mode: ArtifactDisplayMode) {
+        scope.launch { settingsDataStore.setArtifactDisplayMode(mode) }
     }
 
     fun setTabletSidebarGestureEnabled(enabled: Boolean) {
