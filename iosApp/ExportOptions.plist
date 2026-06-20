@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Export options for xcodebuild -exportArchive.
+
+    Usage:
+        xcodebuild -exportArchive \
+            -archivePath iosApp/build/iosApp.xcarchive \
+            -exportPath iosApp/build/export \
+            -exportOptionsPlist iosApp/ExportOptions.plist
+
+    Before using:
+      1. Set DEVELOPMENT_TEAM in Xcode (Signing & Capabilities) or via
+         xcodebuild DEVELOPMENT_TEAM=<your-10-char-team-id>
+      2. Make sure your Apple Distribution certificate and an App Store
+         provisioning profile for com.garfiec.librechat.ios are installed
+         in your Keychain / available via fastlane match.
+
+    method options:
+      "app-store"          — Upload to App Store / TestFlight
+      "ad-hoc"             — Install on registered devices (for testing without TestFlight)
+      "development"        — Development-signed IPA (for devices registered in your team)
+      "enterprise"         — In-house distribution (requires Apple Developer Enterprise Program)
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+
+    <key>destination</key>
+    <string>upload</string>
+
+    <key>signingStyle</key>
+    <string>automatic</string>
+
+    <key>stripSwiftSymbols</key>
+    <true/>
+
+    <key>uploadBitcode</key>
+    <false/>
+
+    <key>uploadSymbols</key>
+    <true/>
+
+    <key>compileBitcode</key>
+    <false/>
+</dict>
+</plist>

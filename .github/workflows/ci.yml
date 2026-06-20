@@ -173,19 +173,34 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      - name: Build shared KMP framework (simulator)
+      - name: Build shared KMP framework (simulator, debug)
         run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
 
-      - name: Build shared KMP framework (device)
+      - name: Build shared KMP framework (device, debug)
         run: ./gradlew :shared:linkDebugFrameworkIosArm64
 
-      - name: Build iOS app
+      - name: Build shared KMP framework (device, release)
+        run: ./gradlew :shared:linkReleaseFrameworkIosArm64
+
+      - name: Build iOS app (simulator, debug)
         run: |
           xcodebuild -project iosApp/iosApp.xcodeproj \
             -scheme iosApp \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES
+
+      - name: Build iOS app (device, release — compile check)
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
             build \
             CODE_SIGNING_ALLOWED=NO \
             ARCHS=arm64 \

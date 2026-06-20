@@ -94,3 +94,56 @@ The following keys are configured in `Info.plist`:
 ## URL Scheme
 
 The app registers the `librechat://` URL scheme for deep linking (conversations, OAuth callbacks), matching the Android app's behavior.
+
+## TestFlight / App Store Distribution
+
+### Prerequisites
+
+- Apple Developer Program membership (paid — required for TestFlight and App Store)
+- An app record created in [App Store Connect](https://appstoreconnect.apple.com) with bundle ID `com.garfiec.librechat.ios`
+- An **Apple Distribution** certificate installed in your Keychain
+- An **App Store** provisioning profile for `com.garfiec.librechat.ios`
+
+### Build a distributable IPA
+
+```bash
+# 1. Build the Release KMP framework for device
+./gradlew :shared:linkReleaseFrameworkIosArm64
+
+# 2. Open the project in Xcode and set your Team under Signing & Capabilities
+open iosApp/iosApp.xcodeproj
+
+# 3. Archive (Product → Archive in Xcode), or via CLI:
+xcodebuild -project iosApp/iosApp.xcodeproj \
+  -scheme iosApp \
+  -sdk iphoneos \
+  -configuration Release \
+  -archivePath iosApp/build/iosApp.xcarchive \
+  archive \
+  DEVELOPMENT_TEAM=<your-10-char-team-id>
+
+# 4. Export the IPA using the provided ExportOptions.plist
+xcodebuild -exportArchive \
+  -archivePath iosApp/build/iosApp.xcarchive \
+  -exportPath iosApp/build/export \
+  -exportOptionsPlist iosApp/ExportOptions.plist
+```
+
+The signed `.ipa` will be at `iosApp/build/export/iosApp.ipa`. Upload it via Xcode Organizer, `xcrun altool`, or `xcrun notarytool`.
+
+> **DEVELOPMENT_TEAM is intentionally not committed** — set it in Xcode's *Signing & Capabilities* tab or pass it on the command line as shown above. Committing a personal/org Team ID would break other contributors' builds.
+
+### Version bumping
+
+Before each TestFlight build, bump the build number to avoid rejection:
+
+| Setting | File | Key |
+|---|---|---|
+| User-visible version (e.g. `1.0.1`) | `Info.plist` | `CFBundleShortVersionString` |
+| Build number (e.g. `2`) | `Info.plist` | `CFBundleVersion` |
+
+Both are also set in `project.pbxproj` via `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`. Keeping all four in sync avoids App Store Connect warnings.
+
+### Encryption declaration
+
+`ITSAppUsesNonExemptEncryption` is set to `false` in `Info.plist`. The app uses standard HTTPS (Ktor + NSURLSession) which qualifies as exempt encryption under U.S. Export Regulations (EAR exemption for standard protocols). No annual self-classification report is required.
