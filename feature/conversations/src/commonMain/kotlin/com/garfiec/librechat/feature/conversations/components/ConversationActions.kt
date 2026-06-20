@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -226,7 +227,7 @@ internal fun RenameDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.rename_conversation)) },
         text = {
-            Column {
+            Column(modifier = Modifier.imePadding()) {
                 Text(
                     text = stringResource(Res.string.rename_dialog_message),
                     style = MaterialTheme.typography.bodyMedium,

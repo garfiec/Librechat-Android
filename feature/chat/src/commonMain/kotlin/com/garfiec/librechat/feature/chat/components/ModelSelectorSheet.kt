@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -202,6 +203,7 @@ fun ModelSelectorSheet(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding()
                 .padding(bottom = 32.dp),
         ) {
             // Banner applies its own 16dp inset, so it sits outside the Column's
