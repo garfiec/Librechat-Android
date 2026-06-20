@@ -13,7 +13,7 @@ navigation3-kmp = "1.1.1"
 lifecycle-viewmodel-nav3-kmp = "2.11.0-beta01"
 
 # DI
-koin = "4.2.1"
+koin = "4.2.2"
 
 # Network
 ktor = "3.4.3"
