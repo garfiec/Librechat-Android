@@ -62,6 +62,8 @@ fun EntryProviderScope<NavKey>.chatEntries(
      * screen auto-opens the Set Key bottom-sheet for that endpoint.
      */
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
+    /** Navigates to the server-file picker; wired by the host to `navigator.navigate(FilesPicker)`. */
+    onAttachFromServer: () -> Unit,
 ) {
     entry<NewChat> { key ->
         NewChatScreen(
@@ -72,6 +74,7 @@ fun EntryProviderScope<NavKey>.chatEntries(
             onOpenDrawer = onOpenDrawer,
             onNavigateToPromptsLibrary = { onNavigate(PromptsLibrary) },
             onNavigateToProviderKeys = onNavigateToProviderKeys,
+            onAttachFromServer = onAttachFromServer,
         )
     }
     entry<Chat> { key ->
@@ -85,6 +88,7 @@ fun EntryProviderScope<NavKey>.chatEntries(
                 // Null on a new chat with no id yet, which hides the overflow menu item.
                 onShowAllMedia = key.conversationId?.let { id -> { onNavigate(ConversationMedia(id)) } },
                 onNavigateToProviderKeys = onNavigateToProviderKeys,
+                onAttachFromServer = onAttachFromServer,
             )
         }
     }

@@ -16,6 +16,7 @@ actual fun NewChatScreen(
     initialAgentId: String?,
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
+    onAttachFromServer: () -> Unit,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
     ChatScreen(
@@ -25,5 +26,6 @@ actual fun NewChatScreen(
         onOpenDrawer = onOpenDrawer,
         onNavigateToPromptsLibrary = onNavigateToPromptsLibrary,
         onNavigateToProviderKeys = onNavigateToProviderKeys,
+        onAttachFromServer = onAttachFromServer,
     )
 }

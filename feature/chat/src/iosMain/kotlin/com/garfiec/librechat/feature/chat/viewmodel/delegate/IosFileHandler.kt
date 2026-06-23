@@ -240,4 +240,8 @@ class IosFileHandler(
     override fun restoreAttachedFiles(files: List<AttachedFile>) {
         _attachedFiles.update { files }
     }
+
+    override fun addPreUploadedFiles(files: List<AttachedFile>) {
+        _attachedFiles.update { it.appendDedupedByFileId(files) }
+    }
 }

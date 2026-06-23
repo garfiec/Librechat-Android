@@ -74,6 +74,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.ui.components.EmptyState
 import com.garfiec.librechat.core.ui.components.ErrorBanner
 import com.garfiec.librechat.core.ui.media.MediaActionBar
@@ -96,9 +97,24 @@ import org.koin.compose.viewmodel.koinViewModel
 fun FilesScreen(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    /**
+     * When true the screen acts as an attachment picker: selection is always on, tapping a row
+     * (including images) toggles selection rather than opening a preview, and the top bar offers
+     * an "Attach" confirm that emits the chosen files via [onConfirmSelection] instead of deleting.
+     */
+    pickerMode: Boolean = false,
+    onConfirmSelection: ((List<FileObject>) -> Unit)? = null,
     viewModel: FilesViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // `enterPickerMode()` makes selection sticky in the VM (no auto-exit when the set empties). The
+    // VM flag it sets lags the first frame, so the view chrome below is driven off the stable
+    // [pickerMode] param instead — picker UI is correct from frame zero, no upload-FAB/preview flash.
+    if (pickerMode) {
+        LaunchedEffect(Unit) { viewModel.enterPickerMode() }
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var singleDeleteFileId by remember { mutableStateOf<String?>(null) }
@@ -118,18 +134,36 @@ fun FilesScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            if (uiState.isSelectionMode) {
+            if (pickerMode) {
                 TopAppBar(
-                    title = {
-                        val count = uiState.selectedFileIds.size
-                        Text(
-                            if (count == 0) {
-                                stringResource(Res.string.select_files)
-                            } else {
-                                stringResource(Res.string.selected_count, count)
-                            },
-                        )
+                    title = { SelectionCountTitle(uiState.selectedFileIds.size) },
+                    navigationIcon = {
+                        if (onBack != null) {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(Res.string.cd_close_picker),
+                                )
+                            }
+                        }
                     },
+                    actions = {
+                        SelectAllAction(onClick = { viewModel.selectAll() })
+                        ViewModeToggleAction(
+                            viewMode = uiState.viewMode,
+                            onClick = { viewModel.toggleViewMode() },
+                        )
+                        TextButton(
+                            onClick = { onConfirmSelection?.invoke(viewModel.confirmSelection()) },
+                            enabled = uiState.selectedFileIds.isNotEmpty(),
+                        ) {
+                            Text(stringResource(Res.string.attach_count, uiState.selectedFileIds.size))
+                        }
+                    },
+                )
+            } else if (uiState.isSelectionMode) {
+                TopAppBar(
+                    title = { SelectionCountTitle(uiState.selectedFileIds.size) },
                     navigationIcon = {
                         IconButton(onClick = { viewModel.exitSelectionMode() }) {
                             Icon(
@@ -139,12 +173,7 @@ fun FilesScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { viewModel.selectAll() }) {
-                            Icon(
-                                imageVector = Icons.Default.SelectAll,
-                                contentDescription = stringResource(Res.string.cd_select_all),
-                            )
-                        }
+                        SelectAllAction(onClick = { viewModel.selectAll() })
                         IconButton(
                             onClick = { showDeleteConfirmation = true },
                             enabled = uiState.selectedFileIds.isNotEmpty(),
@@ -186,18 +215,10 @@ fun FilesScreen(
                                 )
                             }
                         }
-                        IconButton(onClick = { viewModel.toggleViewMode() }) {
-                            Icon(
-                                imageVector = when (uiState.viewMode) {
-                                    FileViewMode.LIST -> Icons.Default.GridView
-                                    FileViewMode.GRID -> Icons.AutoMirrored.Filled.ViewList
-                                },
-                                contentDescription = when (uiState.viewMode) {
-                                    FileViewMode.LIST -> stringResource(Res.string.cd_switch_to_grid)
-                                    FileViewMode.GRID -> stringResource(Res.string.cd_switch_to_list)
-                                },
-                            )
-                        }
+                        ViewModeToggleAction(
+                            viewMode = uiState.viewMode,
+                            onClick = { viewModel.toggleViewMode() },
+                        )
                         Box {
                             IconButton(onClick = { showSortMenu = true }) {
                                 Icon(
@@ -220,7 +241,7 @@ fun FilesScreen(
             }
         },
         floatingActionButton = {
-            if (!uiState.isSelectionMode) {
+            if (!uiState.isSelectionMode && !pickerMode) {
                 FloatingActionButton(
                     onClick = { filePickerLauncher.launch("*/*") },
                 ) {
@@ -300,14 +321,18 @@ fun FilesScreen(
                                     ) { file ->
                                         FileItem(
                                             file = file,
-                                            isEditMode = uiState.isSelectionMode,
+                                            isEditMode = uiState.isSelectionMode || pickerMode,
                                             isSelected = file.fileId in uiState.selectedFileIds,
+                                            // The picker must never delete — it only attaches by reference.
+                                            showDelete = !pickerMode,
                                             onDelete = { singleDeleteFileId = file.fileId },
                                             onLongClick = {
-                                                viewModel.enterSelectionMode(file.fileId)
+                                                if (!pickerMode) {
+                                                    viewModel.enterSelectionMode(file.fileId)
+                                                }
                                             },
                                             onClick = {
-                                                if (uiState.isSelectionMode) {
+                                                if (uiState.isSelectionMode || pickerMode) {
                                                     viewModel.toggleFileSelection(file.fileId)
                                                 } else if (file.type.startsWith("image/")) {
                                                     viewModel.openImagePreview(file.fileId)
@@ -334,13 +359,15 @@ fun FilesScreen(
                                     ) { file ->
                                         FileGridItem(
                                             file = file,
-                                            isSelectionMode = uiState.isSelectionMode,
+                                            isSelectionMode = uiState.isSelectionMode || pickerMode,
                                             isSelected = file.fileId in uiState.selectedFileIds,
                                             onLongClick = {
-                                                viewModel.enterSelectionMode(file.fileId)
+                                                if (!pickerMode) {
+                                                    viewModel.enterSelectionMode(file.fileId)
+                                                }
                                             },
                                             onClick = {
-                                                if (uiState.isSelectionMode) {
+                                                if (uiState.isSelectionMode || pickerMode) {
                                                     viewModel.toggleFileSelection(file.fileId)
                                                 } else if (file.type.startsWith("image/")) {
                                                     viewModel.openImagePreview(file.fileId)
@@ -473,6 +500,46 @@ fun FilesScreen(
     }
 }
 
+/** Title for the selection/picker top bars: a generic prompt until something is picked. */
+@Composable
+private fun SelectionCountTitle(count: Int) {
+    Text(
+        if (count == 0) {
+            stringResource(Res.string.select_files)
+        } else {
+            stringResource(Res.string.selected_count, count)
+        },
+    )
+}
+
+/** Top-bar action that selects every visible file. */
+@Composable
+private fun SelectAllAction(onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = Icons.Default.SelectAll,
+            contentDescription = stringResource(Res.string.cd_select_all),
+        )
+    }
+}
+
+/** Top-bar action that toggles between the list and grid layouts. */
+@Composable
+private fun ViewModeToggleAction(viewMode: FileViewMode, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = when (viewMode) {
+                FileViewMode.LIST -> Icons.Default.GridView
+                FileViewMode.GRID -> Icons.AutoMirrored.Filled.ViewList
+            },
+            contentDescription = when (viewMode) {
+                FileViewMode.LIST -> stringResource(Res.string.cd_switch_to_grid)
+                FileViewMode.GRID -> stringResource(Res.string.cd_switch_to_list)
+            },
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FileItem(
@@ -483,6 +550,7 @@ private fun FileItem(
     onLongClick: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showDelete: Boolean = true,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -526,7 +594,7 @@ private fun FileItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (isEditMode) {
+            if (isEditMode && showDelete) {
                 IconButton(onClick = onDelete) {
                     Icon(
                         imageVector = Icons.Default.Delete,

@@ -148,6 +148,7 @@
     <string name="tool_camera">Camera</string>
     <string name="tool_photos">Photos</string>
     <string name="tool_files">Files</string>
+    <string name="tool_server_files">Server</string>
     <string name="tool_model">Model</string>
     <string name="tool_model_parameters">Model Parameters</string>
     <string name="tool_model_parameters_desc">Adjust temperature, tokens, and more</string>

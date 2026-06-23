@@ -17,6 +17,8 @@ expect fun ChatScreen(
     /** Opens the "Show all media" gallery for the current conversation. Null (and the menu item
      *  hidden) on a brand-new chat that has no conversation id yet. */
     onShowAllMedia: (() -> Unit)? = null,
+    /** Opens the server-file picker so the user can attach an already-uploaded file by reference. */
+    onAttachFromServer: () -> Unit = {},
     /**
      * Deep-link CTA from the user-provided-key error snackbar and the
      * model-selector "Set API Key" CTA on greyed endpoint groups. Tap navigates to
@@ -35,5 +37,6 @@ expect fun NewChatScreen(
     initialAgentId: String? = null,
     onOpenDrawer: (() -> Unit)? = null,
     onNavigateToPromptsLibrary: (() -> Unit)? = null,
+    onAttachFromServer: () -> Unit = {},
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 )

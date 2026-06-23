@@ -378,4 +378,82 @@ class FilesViewModelTest {
         assertThat(viewModel.uiState.value.selectedFileIds)
             .containsExactly("file-1", "file-2", "file-3")
     }
+
+    @Test
+    fun `selectAll keeps picks made under a different filter`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.enterPickerMode()
+        // Pick the image while the Images filter is active...
+        viewModel.setFilter(FileTypeFilter.IMAGES)
+        advanceUntilIdle()
+        viewModel.toggleFileSelection("file-2")
+        // ...then switch to Documents and Select All. The image pick must survive.
+        viewModel.setFilter(FileTypeFilter.DOCUMENTS)
+        advanceUntilIdle()
+        viewModel.selectAll()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selectedFileIds)
+            .containsExactly("file-1", "file-2")
+    }
+
+    @Test
+    fun `enterPickerMode enables sticky empty selection`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.enterPickerMode()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isPickerMode).isTrue()
+        assertThat(state.isSelectionMode).isTrue()
+        assertThat(state.selectedFileIds).isEmpty()
+    }
+
+    @Test
+    fun `picker mode keeps selection mode when last file deselected`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.enterPickerMode()
+        advanceUntilIdle()
+        viewModel.toggleFileSelection("file-1")
+        advanceUntilIdle()
+        viewModel.toggleFileSelection("file-1")
+        advanceUntilIdle()
+
+        // Unlike the delete flow, emptying the picker selection must not exit selection mode.
+        assertThat(viewModel.uiState.value.isPickerMode).isTrue()
+        assertThat(viewModel.uiState.value.isSelectionMode).isTrue()
+        assertThat(viewModel.uiState.value.selectedFileIds).isEmpty()
+    }
+
+    @Test
+    fun `confirmSelection returns the picked file objects`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.enterPickerMode()
+        advanceUntilIdle()
+        viewModel.toggleFileSelection("file-1")
+        viewModel.toggleFileSelection("file-3")
+        advanceUntilIdle()
+
+        val picked = viewModel.confirmSelection()
+        assertThat(picked.map { it.fileId }).containsExactly("file-1", "file-3")
+    }
+
+    @Test
+    fun `confirmSelection is empty when nothing picked`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.enterPickerMode()
+        advanceUntilIdle()
+
+        assertThat(viewModel.confirmSelection()).isEmpty()
+    }
 }

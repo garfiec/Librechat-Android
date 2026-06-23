@@ -6,6 +6,7 @@ import com.garfiec.librechat.feature.chat.prompts.PromptEditorViewModel
 import com.garfiec.librechat.feature.chat.prompts.PromptsViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.ConversationMediaViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
+import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -14,6 +15,7 @@ import org.koin.dsl.module
 val chatModule = module {
     includes(chatPlatformModule)
     single { NewChatSelectionHandoff() }
+    single { ServerFileSelectionHandoff() }
     single { ArtifactViewerHandoff() }
     viewModelOf(::PromptsViewModel)
     // Koin's constructor-DSL (`viewModelOf`) wires every argument via `get()` and cannot read

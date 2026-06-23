@@ -74,6 +74,7 @@ fun IosChatInput(
     onAttachFiles: () -> Unit = {},
     onTakePhoto: () -> Unit = {},
     onPickPhotos: () -> Unit = {},
+    onAttachFromServer: () -> Unit = {},
     webSearchEnabled: Boolean = true,
     runCodeEnabled: Boolean = true,
     fileSearchEnabled: Boolean = true,
@@ -228,6 +229,10 @@ fun IosChatInput(
             onPickPhotos = {
                 showToolsSheet = false
                 onPickPhotos()
+            },
+            onAttachFromServer = {
+                showToolsSheet = false
+                onAttachFromServer()
             },
             onOpenModelParameters = {
                 showToolsSheet = false

@@ -284,4 +284,8 @@ class FileAttachmentDelegate(
     fun restoreAttachedFiles(files: List<AttachedFile>) {
         _attachedFiles.update { files }
     }
+
+    fun addPreUploadedFiles(files: List<AttachedFile>) {
+        _attachedFiles.update { it.appendDedupedByFileId(files) }
+    }
 }

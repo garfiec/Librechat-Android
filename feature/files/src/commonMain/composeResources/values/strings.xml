@@ -30,6 +30,10 @@
     <string name="select_files">Select files</string>
     <string name="selected_count">%1$d selected</string>
 
+    <!-- Attachment picker -->
+    <string name="attach_count">Attach (%1$d)</string>
+    <string name="cd_close_picker">Close picker</string>
+
     <!-- Empty states -->
     <string name="no_files">No files</string>
     <string name="upload_to_get_started">Upload files to get started</string>

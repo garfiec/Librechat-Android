@@ -29,4 +29,5 @@ class AndroidFileHandler(
     override fun hasPendingUploads(): Boolean = delegate.hasPendingUploads()
     override fun clearAttachedFiles() = delegate.clearAttachedFiles()
     override fun restoreAttachedFiles(files: List<AttachedFile>) = delegate.restoreAttachedFiles(files)
+    override fun addPreUploadedFiles(files: List<AttachedFile>) = delegate.addPreUploadedFiles(files)
 }

@@ -30,6 +30,8 @@ import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
+import com.garfiec.librechat.core.model.FileObject
+import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.config.InterfaceConfig
@@ -47,6 +49,7 @@ import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
+import com.garfiec.librechat.feature.chat.util.resolveFileReferenceUrl
 import com.garfiec.librechat.feature.chat.util.stabilizeMessageInstances
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
@@ -1302,6 +1305,44 @@ class ChatViewModel(
     fun onFilesSelected(platformRefs: List<Any>) = fileDelegate.onFilesSelected(platformRefs)
     fun removeFile(file: AttachedFile) = fileDelegate.removeFile(file)
     fun retryUpload(file: AttachedFile) = fileDelegate.retryUpload(file)
+
+    /**
+     * Attaches already-uploaded server files (from the "From server" picker) to the composer by
+     * reference — no re-upload. Each [FileObject] is already persisted, so it maps to a completed
+     * [AttachedFile] (`uploadProgress = 1f`, real `fileId`); the synthetic `uri = fileId` just gives
+     * the chip a stable key for removal (mirrors iOS, which already uses a String uri).
+     */
+    fun attachServerFiles(files: List<FileObject>) {
+        if (files.isEmpty()) return
+        val baseUrl = uiState.value.serverUrl
+        fileDelegate.addPreUploadedFiles(
+            files.map { file ->
+                val isImage = file.type.startsWith("image/")
+                // The preview row loads images from `uri`, so resolve the same server URL the
+                // message renderers use. Non-image files show an icon, so the bare id is fine as
+                // a stable key for removal.
+                val previewUrl = if (isImage) {
+                    resolveFileReferenceUrl(
+                        FileReference(fileId = file.fileId, filepath = file.filepath, type = file.type),
+                        baseUrl,
+                    )
+                } else {
+                    null
+                }
+                AttachedFile(
+                    uri = previewUrl ?: file.fileId,
+                    name = file.filename,
+                    isImage = isImage,
+                    uploadProgress = 1f,
+                    fileId = file.fileId,
+                    filepath = file.filepath,
+                    type = file.type,
+                    width = file.width,
+                    height = file.height,
+                )
+            },
+        )
+    }
 
     // Presets and prompts
     fun savePreset(name: String) = presetPromptDelegate.savePreset(name)

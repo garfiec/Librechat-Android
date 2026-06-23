@@ -64,6 +64,7 @@ data class FilesUiState(
     val error: String? = null,
     val selectedFilter: FileTypeFilter = FileTypeFilter.ALL,
     val isSelectionMode: Boolean = false,
+    val isPickerMode: Boolean = false,
     val selectedFileIds: Set<String> = emptySet(),
     val sortField: FileSortField = FileSortField.DATE,
     val sortOrder: FileSortOrder = FileSortOrder.DESCENDING,
@@ -126,6 +127,7 @@ class FilesViewModel(
             error = transient.error,
             selectedFilter = list.filter,
             isSelectionMode = transient.isSelectionMode,
+            isPickerMode = transient.isPickerMode,
             selectedFileIds = transient.selectedFileIds,
             sortField = list.sortField,
             sortOrder = list.sortOrder,
@@ -379,6 +381,29 @@ class FilesViewModel(
 
     // Multi-select methods
 
+    /**
+     * Enters the attachment-picker variant of selection mode: selection starts active and empty,
+     * and (unlike [enterSelectionMode]) stays active even when the user deselects everything, so
+     * the "Attach" confirm bar never disappears mid-pick. Idempotent — safe to call from a
+     * `LaunchedEffect` that re-runs on recomposition.
+     */
+    fun enterPickerMode() {
+        if (_transientState.value.isPickerMode) return
+        updateTransient {
+            copy(
+                isSelectionMode = true,
+                isPickerMode = true,
+                selectedFileIds = emptySet(),
+            )
+        }
+    }
+
+    /** Returns the full [FileObject]s the user picked, for attaching by reference (no re-upload). */
+    fun confirmSelection(): List<FileObject> {
+        val selected = _transientState.value.selectedFileIds
+        return _files.value.filter { it.fileId in selected }
+    }
+
     fun enterEditMode() {
         updateTransient {
             copy(
@@ -409,7 +434,9 @@ class FilesViewModel(
     fun toggleFileSelection(fileId: String) {
         val current = _transientState.value.selectedFileIds
         val updated = if (fileId in current) current - fileId else current + fileId
-        if (updated.isEmpty()) {
+        // In picker mode selection mode is sticky — emptying the set must not dismiss the
+        // "Attach" bar, so only the delete-flow auto-exits when nothing is left.
+        if (updated.isEmpty() && !_transientState.value.isPickerMode) {
             updateTransient {
                 copy(
                     isSelectionMode = false,
@@ -422,9 +449,12 @@ class FilesViewModel(
     }
 
     fun selectAll() {
+        // "Select all" adds every currently-visible file to the selection rather than replacing
+        // it, so picks made under another filter (selection is sticky across filter changes in
+        // picker mode) are not silently dropped.
         val filtered = filterFiles(_files.value, _selectedFilter.value)
-        val allIds = filtered.map { it.fileId }.toSet()
-        updateTransient { copy(selectedFileIds = allIds) }
+        val visibleIds = filtered.map { it.fileId }.toSet()
+        updateTransient { copy(selectedFileIds = selectedFileIds + visibleIds) }
     }
 
     fun deleteSelected() {
@@ -556,6 +586,7 @@ private data class TransientState(
     val uploadProgress: Float? = null,
     val error: String? = null,
     val isSelectionMode: Boolean = false,
+    val isPickerMode: Boolean = false,
     val selectedFileIds: Set<String> = emptySet(),
     val previewFile: FilePreviewDisplayData? = null,
     val mediaPreview: MediaPreviewState? = null,

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FindInPage
@@ -70,6 +72,7 @@ fun ChatToolsBottomSheet(
     onAttachFiles: () -> Unit,
     onTakePhoto: () -> Unit,
     onPickPhotos: () -> Unit,
+    onAttachFromServer: () -> Unit,
     onOpenModelParameters: () -> Unit,
     onOpenModelSelector: () -> Unit,
     selectedModelDisplay: String?,
@@ -102,8 +105,9 @@ fun ChatToolsBottomSheet(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp),
         ) {
-            // Top section: Camera, Photos, Files cards — hidden when the selected
-            // endpoint can't accept uploads (mirrors web's AttachFileChat gate).
+            // Top section: Camera, Photos, Files, Server cards — hidden when the selected
+            // endpoint can't accept uploads (mirrors web's AttachFileChat gate). "Server"
+            // attaches an already-uploaded file by reference (no re-upload).
             if (gates.fileUploadEnabled) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -116,6 +120,7 @@ fun ChatToolsBottomSheet(
                             onTakePhoto()
                             onDismiss()
                         },
+                        modifier = Modifier.weight(1f),
                     )
                     AttachmentOptionCard(
                         icon = Icons.Default.PhotoLibrary,
@@ -124,6 +129,7 @@ fun ChatToolsBottomSheet(
                             onPickPhotos()
                             onDismiss()
                         },
+                        modifier = Modifier.weight(1f),
                     )
                     AttachmentOptionCard(
                         icon = Icons.Default.AttachFile,
@@ -132,6 +138,16 @@ fun ChatToolsBottomSheet(
                             onAttachFiles()
                             onDismiss()
                         },
+                        modifier = Modifier.weight(1f),
+                    )
+                    AttachmentOptionCard(
+                        icon = Icons.Default.CloudDownload,
+                        label = stringResource(Res.string.tool_server_files),
+                        onClick = {
+                            onAttachFromServer()
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f),
                     )
                 }
 
@@ -376,10 +392,11 @@ private fun AttachmentOptionCard(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.size(80.dp),
+        modifier = modifier.height(80.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -387,7 +404,7 @@ private fun AttachmentOptionCard(
     ) {
         Column(
             modifier = Modifier
-                .size(80.dp)
+                .fillMaxSize()
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -403,6 +420,8 @@ private fun AttachmentOptionCard(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

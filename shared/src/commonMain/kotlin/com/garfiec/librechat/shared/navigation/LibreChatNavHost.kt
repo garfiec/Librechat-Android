@@ -43,9 +43,12 @@ import com.garfiec.librechat.feature.auth.navigation.authEntries
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
+import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import com.garfiec.librechat.feature.conversations.navigation.ArchivedConversations
 import com.garfiec.librechat.feature.conversations.navigation.conversationsEntries
 import com.garfiec.librechat.feature.files.navigation.Files
+import com.garfiec.librechat.feature.files.navigation.FilesPicker
+import com.garfiec.librechat.feature.files.navigation.filePickerEntries
 import com.garfiec.librechat.feature.files.navigation.filesEntries
 import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
 import com.garfiec.librechat.feature.settings.navigation.mcpServersEntry
@@ -60,6 +63,7 @@ import com.garfiec.librechat.shared.resources.version_mismatch_message
 import com.garfiec.librechat.shared.resources.version_mismatch_title
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -250,6 +254,7 @@ fun MainNavDisplay(
     modifier: Modifier = Modifier,
     onMenuClick: (() -> Unit)? = null,
     navHostViewModel: NavHostViewModel = koinViewModel(),
+    serverFileSelectionHandoff: ServerFileSelectionHandoff = koinInject(),
 ) {
     NavDisplay(
         backStack = navigator.backStack,
@@ -302,6 +307,12 @@ fun MainNavDisplay(
                 onNavigateToProviderKeys = { endpointName ->
                     navigator.navigateToProviderKeys(endpointName)
                 },
+                onAttachFromServer = {
+                    // Tag the picker with the launching conversation (null on the new-chat
+                    // landing) so its selection routes back only to this chat.
+                    val launchingId = (navigator.currentRoute as? Chat)?.conversationId
+                    navigator.navigate(FilesPicker(targetConversationId = launchingId))
+                },
             )
             conversationsEntries(
                 onConversationClick = { navigator.navigateToChat(it) },
@@ -323,6 +334,13 @@ fun MainNavDisplay(
                 onBack = { navigator.goBack() },
             )
             filesEntries(
+                onBack = { navigator.goBack() },
+            )
+            filePickerEntries(
+                onConfirm = { targetConversationId, files ->
+                    serverFileSelectionHandoff.publish(targetConversationId, files)
+                    navigator.goBack()
+                },
                 onBack = { navigator.goBack() },
             )
             settingsEntries(
