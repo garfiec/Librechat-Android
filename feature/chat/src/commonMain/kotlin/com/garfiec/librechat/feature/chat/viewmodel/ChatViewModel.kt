@@ -350,6 +350,24 @@ class ChatViewModel(
                 ) { "handoff applied for $conversationId" }
                 modelDelegate.applyResolvedConversationModel(handoff.endpoint, handoff.model)
             }
+            // Seed the optimistic user message the landing VM sent, so it stays visible while the
+            // resumed stream runs. The server doesn't persist the request message until the reply
+            // completes, so the loadConversation read-through below would otherwise show only the
+            // streaming bubble with no user message above it. loadConversation reconciles the seed
+            // away by id once the server's copy lands. See NewChatSelectionHandoff.
+            handoff?.optimisticUserMessage?.let { optimistic ->
+                _uiState.update {
+                    val seeded = listOf(optimistic)
+                    it.copy(
+                        messages = seeded,
+                        displayMessages = buildActiveMessagePath(seeded, it.activeBranches),
+                        pendingResumeUserMessage = optimistic,
+                        // Show the message immediately instead of the LOADING spinner set above —
+                        // we already have content to render while the stream resumes.
+                        screenState = ChatScreenState.ACTIVE,
+                    )
+                }
+            }
             loadConversation(conversationId)
             loadConversationModel(conversationId)
             restoreDraft(conversationId)
@@ -520,16 +538,33 @@ class ChatViewModel(
                 // completion path writes finalized messages into _uiState *outside* this flow
                 // (finalizeChatDisplay) and happens-before the cacheMessages write that
                 // triggers this emission, so _uiState.value reflects the true on-screen state.
-                val stabilized = stabilizeMessageInstances(messages, _uiState.value.messages)
-                stabilized to buildActiveMessagePath(stabilized, branches)
+                val baseline = _uiState.value
+                val stabilized = stabilizeMessageInstances(messages, baseline.messages)
+                // A handed-off new chat seeds the just-sent user message (pendingResumeUserMessage):
+                // the server persists the request only when the reply completes, so the Room read is
+                // empty mid-stream and the user's message would otherwise vanish for the whole stream.
+                // Keep that seed appended until the server's own copy arrives by id, then drop it.
+                // (finalizeChatDisplay also clears the seed at Final, covering backends that never echo
+                // the optimistic id.) Done here, off Main, so the path build stays on the Default
+                // dispatcher. The takeIf guarantees the seed id is absent from stabilized, so this is a
+                // plain append — no by-id reconcile needed.
+                val pending = baseline.pendingResumeUserMessage
+                val retainedPending = pending?.takeIf { seed ->
+                    stabilized.none { it.messageId == seed.messageId }
+                }
+                val merged = retainedPending?.let { stabilized + it } ?: stabilized
+                Triple(merged, buildActiveMessagePath(merged, branches), retainedPending)
             }
                 .flowOn(defaultDispatcher)
-                .collect { (messages, displayMessages) ->
+                .collect { (messages, displayMessages, retainedPending) ->
                     _uiState.update {
                         it.copy(
                             messages = messages,
                             displayMessages = displayMessages,
                             screenState = ChatScreenState.ACTIVE,
+                            // Null once the server echoes its own copy (or there was never a seed) →
+                            // a later server-side delete can then still remove the row.
+                            pendingResumeUserMessage = retainedPending,
                         )
                     }
                 }

@@ -210,6 +210,15 @@ data class ChatUiState(
     val screenState: ChatScreenState = ChatScreenState.LANDING,
     val messages: List<Message> = emptyList(),
     val displayMessages: List<MessageNode> = emptyList(),
+    /**
+     * A just-sent optimistic user message handed off from the NewChat landing VM, kept on screen
+     * until the server persists its own copy. For a resumed new chat the server saves the request
+     * message only when the reply finishes (see `agents/request.js`), so `getMessages` returns no
+     * user message mid-stream; without this seed the user's own message would vanish for the whole
+     * stream. `loadConversation` reconciles it away by id once the server's copy arrives. Null in
+     * every other case. See [NewChatSelectionHandoff].
+     */
+    val pendingResumeUserMessage: Message? = null,
     val activeBranches: Map<String, Int> = emptyMap(),
     val inputText: String = "",
     val isStreaming: Boolean = false,

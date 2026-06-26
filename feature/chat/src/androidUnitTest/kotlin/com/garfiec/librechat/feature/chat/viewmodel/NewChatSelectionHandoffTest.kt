@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
+import com.garfiec.librechat.core.model.Message
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -55,6 +56,22 @@ class NewChatSelectionHandoffTest {
 
         assertThat(handoff.take("conv_1")).isEqualTo(
             NewChatSelectionHandoff.Selection("conv_1", "agents", null),
+        )
+    }
+
+    @Test
+    fun optimisticUserMessageIsCarriedThrough() {
+        val handoff = NewChatSelectionHandoff()
+        val optimistic = Message(
+            messageId = "msg_1",
+            conversationId = "",
+            text = "hello",
+            isCreatedByUser = true,
+        )
+        handoff.put("conv_1", "openAI", "gpt-4o", optimistic)
+
+        assertThat(handoff.take("conv_1")).isEqualTo(
+            NewChatSelectionHandoff.Selection("conv_1", "openAI", "gpt-4o", optimistic),
         )
     }
 }

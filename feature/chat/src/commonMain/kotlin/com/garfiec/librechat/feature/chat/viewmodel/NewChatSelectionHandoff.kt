@@ -1,5 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
+import com.garfiec.librechat.core.model.Message
+
 /**
  * In-process, single-slot handoff of the model selection from the NewChat landing
  * ViewModel to the freshly-created Chat(id) ViewModel.
@@ -35,12 +37,21 @@ class NewChatSelectionHandoff {
         val conversationId: String,
         val endpoint: String,
         val model: String?,
+        /**
+         * The optimistic user message the landing VM minted and sent (its id is adopted by the
+         * server, PR #139). Handed off because the server persists the request message only when
+         * the reply finishes (see `agents/request.js`) — so until then the just-created Chat(id)
+         * VM's `getMessages` returns no user message, and the optimistic copy lived only in the
+         * now-reset landing VM. Seeding it keeps the user's own message on screen for the whole
+         * resumed stream instead of vanishing until completion.
+         */
+        val optimisticUserMessage: Message? = null,
     )
 
     private var pending: Selection? = null
 
-    fun put(conversationId: String, endpoint: String, model: String?) {
-        pending = Selection(conversationId, endpoint, model)
+    fun put(conversationId: String, endpoint: String, model: String?, optimisticUserMessage: Message? = null) {
+        pending = Selection(conversationId, endpoint, model, optimisticUserMessage)
     }
 
     /** Returns and clears the pending selection only when it was staged for [conversationId]. */

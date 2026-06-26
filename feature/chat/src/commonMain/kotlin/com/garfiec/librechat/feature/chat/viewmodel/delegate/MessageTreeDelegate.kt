@@ -113,6 +113,12 @@ class MessageTreeDelegate(
                 streamingContent = "",
                 activeToolCalls = emptyList(),
                 streamingAttachments = emptyList(),
+                // The turn is finalized and (for normal chats) about to be persisted, so the
+                // handed-off optimistic seed has done its job. Clear it unconditionally — not just
+                // on an id match in loadConversation — so a backend that never echoes the
+                // client-minted id can't strand the seed and keep re-appending it as a phantom
+                // sibling. See pendingResumeUserMessage / NewChatSelectionHandoff.
+                pendingResumeUserMessage = null,
             )
         }
         if (finalMessages.isEmpty()) return emptyList()

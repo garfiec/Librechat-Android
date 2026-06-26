@@ -61,7 +61,11 @@ class SendCompletionDelegate(
             // unawaited conversation save. Keyed by id, so a deferred nav (comparison-mode
             // branch) still picks it up. See NewChatSelectionHandoff.
             val sent = stateHandle.state
-            selectionHandoff.put(conversationId, sent.selectedEndpoint, sent.selectedModel)
+            // Hand off the optimistic user message too, so the about-to-be-created Chat(id) VM
+            // can keep it on screen during the resumed stream — the server doesn't persist the
+            // request message until the reply completes. See NewChatSelectionHandoff.
+            val optimisticUserMessage = sent.messages.lastOrNull { it.isCreatedByUser }
+            selectionHandoff.put(conversationId, sent.selectedEndpoint, sent.selectedModel, optimisticUserMessage)
             stateHandle.update {
                 if (pendingNavigationConversationId == null && !comparisonState.isEnabled) {
                     copy(pendingNavigationConversationId = conversationId)
