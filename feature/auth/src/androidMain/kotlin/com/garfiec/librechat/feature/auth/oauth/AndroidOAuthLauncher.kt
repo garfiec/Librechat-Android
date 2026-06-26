@@ -1,8 +1,11 @@
 package com.garfiec.librechat.feature.auth.oauth
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.webkit.CookieManager
+import android.widget.Toast
 import androidx.browser.customtabs.CustomTabsIntent
 
 class AndroidOAuthLauncher(
@@ -14,7 +17,14 @@ class AndroidOAuthLauncher(
         val customTabsIntent = CustomTabsIntent.Builder()
             .setShowTitle(true)
             .build()
-        customTabsIntent.launchUrl(context, Uri.parse(oauthUrl))
+        // Launched from the application context (not an Activity), so the Custom Tab
+        // intent needs NEW_TASK or startActivity() throws AndroidRuntimeException.
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            customTabsIntent.launchUrl(context, Uri.parse(oauthUrl))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, "No browser available to sign in", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun extractTokenFromCookies(serverUrl: String): String? {
