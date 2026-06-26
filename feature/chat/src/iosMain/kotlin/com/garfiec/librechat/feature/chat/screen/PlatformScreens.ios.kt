@@ -83,11 +83,9 @@ import com.garfiec.librechat.feature.chat.util.openPhotoPicker
 import com.garfiec.librechat.feature.chat.util.readClipboardImage
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
-import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.asString
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -109,19 +107,6 @@ actual fun ChatScreen(
     val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
-
-    // The server-file picker hands its selection back through this singleton (Nav3 has no result
-    // channel). The selection is tagged with the conversation that launched the picker, so we
-    // attach only our own — a selection meant for a different chat is left for that chat (or
-    // dropped) rather than mis-attached here.
-    val serverFileSelection = koinInject<ServerFileSelectionHandoff>()
-    LaunchedEffect(viewModel) {
-        serverFileSelection.selections.collect { selection ->
-            if (selection.targetConversationId == conversationId) {
-                viewModel.attachServerFiles(selection.files)
-            }
-        }
-    }
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
 
     val isLandingPage = uiState.screenState == ChatScreenState.LANDING

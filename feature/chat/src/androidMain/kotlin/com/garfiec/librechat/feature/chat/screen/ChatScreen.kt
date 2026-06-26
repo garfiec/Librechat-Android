@@ -12,7 +12,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,9 +32,7 @@ import com.garfiec.librechat.feature.chat.components.ChatInput
 import com.garfiec.librechat.feature.chat.components.ChatRoot
 import com.garfiec.librechat.feature.chat.components.InConvoSearchBar
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
-import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.asString
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -57,19 +54,6 @@ actual fun ChatScreen(
     val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
-
-    // The server-file picker hands its selection back through this singleton (Nav3 has no result
-    // channel). The selection is tagged with the conversation that launched the picker, so we
-    // attach only our own — a selection meant for a different chat is left for that chat (or
-    // dropped) rather than mis-attached here.
-    val serverFileSelection = koinInject<ServerFileSelectionHandoff>()
-    LaunchedEffect(viewModel) {
-        serverFileSelection.selections.collect { selection ->
-            if (selection.targetConversationId == conversationId) {
-                viewModel.attachServerFiles(selection.files)
-            }
-        }
-    }
     val shareLinkUrl by viewModel.shareLinkUrl.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
     val showImageDescriptions = prefs.showImageDescriptions

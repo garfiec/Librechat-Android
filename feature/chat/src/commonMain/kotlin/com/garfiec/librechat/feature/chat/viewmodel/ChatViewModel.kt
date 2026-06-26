@@ -116,6 +116,7 @@ class ChatViewModel(
     private val json: Json,
     private val defaultDispatcher: CoroutineDispatcher,
     private val selectionHandoff: NewChatSelectionHandoff,
+    private val serverFileSelectionHandoff: ServerFileSelectionHandoff,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -371,6 +372,15 @@ class ChatViewModel(
         viewModelScope.launch {
             shareConsumer.shareAvailable.collect {
                 consumeShareIntent()
+            }
+        }
+
+        // Collect server-file picker results routed to this conversation's own channel
+        // (keyed by id; null for the NewChat landing). Consumed here in common code rather
+        // than per-platform in the screen — mirroring how NewChatSelectionHandoff is wired.
+        viewModelScope.launch {
+            serverFileSelectionHandoff.selectionsFor(initialConversationId).collect { files ->
+                attachServerFiles(files)
             }
         }
 
@@ -1312,7 +1322,7 @@ class ChatViewModel(
      * [AttachedFile] (`uploadProgress = 1f`, real `fileId`); the synthetic `uri = fileId` just gives
      * the chip a stable key for removal (mirrors iOS, which already uses a String uri).
      */
-    fun attachServerFiles(files: List<FileObject>) {
+    private fun attachServerFiles(files: List<FileObject>) {
         if (files.isEmpty()) return
         val baseUrl = uiState.value.serverUrl
         fileDelegate.addPreUploadedFiles(

@@ -47,6 +47,7 @@ actual val chatPlatformModule: Module = module {
             json = get(),
             defaultDispatcher = get(KoinQualifiers.Default),
             selectionHandoff = get(),
+            serverFileSelectionHandoff = get(),
         )
     }
 }
