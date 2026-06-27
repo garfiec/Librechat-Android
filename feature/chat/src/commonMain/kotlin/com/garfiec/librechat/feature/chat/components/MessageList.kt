@@ -19,6 +19,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -101,6 +103,11 @@ fun MessageList(
     // LazyColumn contentPadding, not a solid spacer: content still scrolls up *behind* the
     // translucent ghosts. Defaults to the single-line bar's reserve.
     bottomContentPadding: Dp = 160.dp,
+    // Scrollable top inset mirroring [bottomContentPadding] for the floating top bar: the first
+    // message rests below the bar yet still scrolls up *behind* its translucent scrim. The caller
+    // measures the bar's actual height (status bar + chips). Defaults to 0 for callers without an
+    // overlaid bar (e.g. comparison panes that sit under a separate header).
+    topContentPadding: Dp = 0.dp,
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -109,6 +116,10 @@ fun MessageList(
     var isTouching by remember { mutableStateOf(false) }
     val currentStreamingContent by rememberUpdatedState(streamingContent)
     val nearBottomThresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
+    // Height (px) of the floating top bar occluding the list's top edge. The search fine-tune adds
+    // this so a focused match settles below the bar rather than flush against (or under) it. Zero
+    // for callers without an overlaid bar (e.g. comparison panes), leaving their behavior unchanged.
+    val topContentPaddingPx = with(LocalDensity.current) { topContentPadding.toPx() }
     var lastNavigatedParentKey by remember { mutableStateOf<String?>(null) }
 
     val streamingToolCallCount = if (isStreaming) activeToolCalls.size else 0
@@ -309,10 +320,23 @@ fun MessageList(
         }
     }
 
+    val pullToRefreshState = rememberPullToRefreshState()
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         modifier = modifier.fillMaxSize(),
+        state = pullToRefreshState,
+        // The list extends under the floating top bar; offset the refresh indicator by the same
+        // top inset so it appears in clear space below the bar rather than behind its scrim.
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = topContentPadding),
+            )
+        },
     ) {
         LazyColumn(
             modifier = Modifier
@@ -327,7 +351,7 @@ fun MessageList(
                     }
                 },
             state = listState,
-            contentPadding = PaddingValues(top = 8.dp, bottom = bottomContentPadding),
+            contentPadding = PaddingValues(top = topContentPadding + 8.dp, bottom = bottomContentPadding),
         ) {
             itemsIndexed(
                 items = displayMessages,
@@ -423,11 +447,14 @@ fun MessageList(
 
                             val segmentBounds = coordinates.boundsInRoot()
                             val padding = 80f // Extra padding so the highlight isn't flush against edges
+                            // Push the focused match clear of the floating top bar, which overlays
+                            // the list's top edge (the list is full-bleed beneath it).
+                            val topInset = padding + topContentPaddingPx
 
                             coroutineScope.launch {
-                                if (segmentBounds.top < viewportTop + padding) {
+                                if (segmentBounds.top < viewportTop + topInset) {
                                     // Segment is above or too close to the top of the viewport
-                                    listState.animateScrollBy(segmentBounds.top - viewportTop - padding)
+                                    listState.animateScrollBy(segmentBounds.top - viewportTop - topInset)
                                 } else if (segmentBounds.bottom > viewportBottom - padding) {
                                     // Segment is below or too close to the bottom of the viewport
                                     listState.animateScrollBy(segmentBounds.bottom - viewportBottom + padding)

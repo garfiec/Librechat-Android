@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -53,20 +54,27 @@ internal fun ColumnScope.ChatContent(
     showBubbles: Boolean,
     useKatex: Boolean,
     bottomContentPadding: Dp,
+    topContentPadding: Dp,
     onShowSecondaryModelSheet: () -> Unit,
     onComparisonTabChange: (Int) -> Unit,
 ) {
+    // Non-scrolling bodies (landing, loading, comparison panes) clear the floating bar with a
+    // plain top padding; only the single active MessageList takes the inset as scrollable
+    // contentPadding so its content scrolls up behind the bar's scrim.
+    val topInsetModifier = Modifier
+        .weight(1f)
+        .padding(top = topContentPadding)
     when (uiState.screenState) {
         ChatScreenState.LANDING -> {
             LandingContent(
                 selectedModel = uiState.selectedModel,
                 selectedAgentName = agentName,
-                modifier = Modifier.weight(1f),
+                modifier = topInsetModifier,
             )
         }
         ChatScreenState.LOADING -> {
             LoadingIndicator(
-                modifier = Modifier.weight(1f),
+                modifier = topInsetModifier,
             )
         }
         ChatScreenState.ACTIVE -> {
@@ -128,6 +136,8 @@ internal fun ColumnScope.ChatContent(
                         showAvatars = showAvatars,
                         showBubbles = showBubbles,
                         useKatex = useKatex,
+                        // The comparison container is already padded clear of the floating bar.
+                        topContentPadding = 0.dp,
                         displayMessages = primaryDisplayMessages,
                         isStreaming = comparisonState.primaryIsStreaming || uiState.isStreaming,
                         streamingContent = if (comparisonState.primaryIsStreaming) {
@@ -202,7 +212,7 @@ internal fun ColumnScope.ChatContent(
                         secondaryContent = secondaryMessageList,
                         onContinueWithPrimary = onContinuePrimary,
                         onContinueWithSecondary = onContinueSecondary,
-                        modifier = Modifier.weight(1f),
+                        modifier = topInsetModifier,
                     )
                 } else {
                     ComparisonTabBar(
@@ -213,7 +223,7 @@ internal fun ColumnScope.ChatContent(
                         onContinueWithPrimary = onContinuePrimary,
                         onContinueWithSecondary = onContinueSecondary,
                         onTabChange = onComparisonTabChange,
-                        modifier = Modifier.weight(1f),
+                        modifier = topInsetModifier,
                     )
                 }
             } else {
@@ -227,6 +237,7 @@ internal fun ColumnScope.ChatContent(
                     showAvatars = showAvatars,
                     showBubbles = showBubbles,
                     useKatex = useKatex,
+                    topContentPadding = topContentPadding,
                     displayMessages = uiState.displayMessages,
                     isStreaming = uiState.isStreaming,
                     streamingContent = uiState.streamingContent,
@@ -257,6 +268,7 @@ private fun ChatMessageListPane(
     showAvatars: Boolean,
     showBubbles: Boolean,
     useKatex: Boolean,
+    topContentPadding: Dp,
     displayMessages: List<MessageNode>,
     isStreaming: Boolean,
     streamingContent: String,
@@ -312,6 +324,7 @@ private fun ChatMessageListPane(
         searchScrollToIndex = uiState.searchScrollToIndex,
         onSearchScrollHandle = viewModel::onSearchScrollHandled,
         bottomContentPadding = bottomContentPadding,
+        topContentPadding = topContentPadding,
         modifier = modifier,
     )
 }

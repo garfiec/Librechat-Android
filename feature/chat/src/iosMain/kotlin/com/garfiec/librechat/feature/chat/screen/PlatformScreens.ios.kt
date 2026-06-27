@@ -1,43 +1,22 @@
 package com.garfiec.librechat.feature.chat.screen
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Compare
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FileOpen
-import androidx.compose.material.icons.outlined.PhotoLibrary
-import androidx.compose.material.icons.outlined.SaveAs
-import androidx.compose.material.icons.outlined.Share
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -45,8 +24,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,13 +36,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
-import com.garfiec.librechat.feature.chat.components.InConvoSearchBar
+import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
 import com.garfiec.librechat.feature.chat.components.IosChatInput
 import com.garfiec.librechat.feature.chat.components.LandingContent
 import com.garfiec.librechat.feature.chat.components.ChatRoot
@@ -73,7 +49,6 @@ import com.garfiec.librechat.feature.chat.components.MessageList
 import com.garfiec.librechat.feature.chat.components.ModelSelectorSheet
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
-import com.garfiec.librechat.feature.chat.components.TempChatToggle
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.clipboardHasImage
@@ -82,6 +57,7 @@ import com.garfiec.librechat.feature.chat.util.openDocumentPicker
 import com.garfiec.librechat.feature.chat.util.openPhotoPicker
 import com.garfiec.librechat.feature.chat.util.readClipboardImage
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
+import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.asString
 import kotlinx.coroutines.launch
@@ -185,267 +161,39 @@ actual fun ChatScreen(
     ) {
     Scaffold(
         modifier = modifier.imePadding(),
+        // The floating top bar draws behind the status bar itself, so the body extends under the
+        // status bar — only reserve the navigation-bar inset here (for the snackbar).
+        contentWindowInsets = WindowInsets.navigationBars,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        // Show the conversation title only. The header intentionally has no
-                        // model selector — model/params stay reachable from the composer "+"
-                        // menu (tools sheet), a deliberate mobile decluttering choice that
-                        // diverges from web's header model selector. Mirrors Android ChatTopBar.
-                        val title = uiState.conversationTitle
-                        if (!isLandingPage && title != null) {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        if (onOpenDrawer != null) {
-                            IconButton(onClick = onOpenDrawer) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = stringResource(Res.string.cd_open_drawer),
-                                )
-                            }
-                        }
-                    },
-                    actions = {
-                        // Temp chat toggle — interactive on the landing page; stays
-                        // visible (ON) as a persistent indicator once a temporary chat
-                        // is active. Gated on TEMPORARY_CHAT.USE.
-                        if ((isLandingPage || uiState.isTemporaryChat) && uiState.temporaryChatEnabled) {
-                            TempChatToggle(
-                                isTemporary = uiState.isTemporaryChat,
-                                onToggle = viewModel::toggleTemporaryChat,
-                            )
-                        }
-                        // Options menu
-                        Box {
-                            IconButton(onClick = { showOptionsMenu = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = stringResource(Res.string.cd_more_options),
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showOptionsMenu,
-                                onDismissRequest = { showOptionsMenu = false },
-                                shape = RoundedCornerShape(16.dp),
-                            ) {
-                                // Search — only in active conversation
-                                if (uiState.conversationId != null) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.menu_search)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            viewModel.openSearch()
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Default.Search, contentDescription = null)
-                                        },
-                                    )
-                                }
-                                if (onShowAllMedia != null) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.action_show_all_media)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            onShowAllMedia()
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.PhotoLibrary, contentDescription = null)
-                                        },
-                                    )
-                                }
-                                // Presets — hidden when the server disables `interface.presets`
-                                // (or `interface.modelSelect`), matching web's Header.tsx.
-                                if (uiState.presetsEnabled) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.load_preset)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            showPresetPicker = true
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.FileOpen, contentDescription = null)
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.save_as_preset)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            showSavePresetDialog = true
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.SaveAs, contentDescription = null)
-                                        },
-                                    )
-                                }
-                                // Prompts Library — gated on PROMPTS.USE
-                                if (onNavigateToPromptsLibrary != null && uiState.promptsEnabled) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.prompts_library)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            onNavigateToPromptsLibrary()
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
-                                        },
-                                    )
-                                }
-                                // Compare Models — gated on MULTI_CONVO.USE
-                                if (uiState.multiConvoEnabled) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    text = stringResource(Res.string.compare_models),
-                                                    modifier = Modifier.weight(1f),
-                                                )
-                                                if (uiState.comparisonState.isEnabled) {
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Check,
-                                                        contentDescription = stringResource(Res.string.cd_comparison_enabled),
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(18.dp),
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            viewModel.toggleComparison()
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.Compare, contentDescription = null)
-                                        },
-                                    )
-                                }
-                                // Conversation-specific actions
-                                if (uiState.conversationId != null) {
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                    Text(
-                                        text = uiState.conversationTitle ?: stringResource(Res.string.new_chat),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    )
-                                    if (uiState.sharedLinksEnabled) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(Res.string.action_share)) },
-                                            onClick = {
-                                                showOptionsMenu = false
-                                                viewModel.shareConversation()
-                                            },
-                                            leadingIcon = {
-                                                Icon(Icons.Outlined.Share, contentDescription = null)
-                                            },
-                                        )
-                                    }
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.menu_rename)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            showRenameDialog = true
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.Edit, contentDescription = null)
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.action_duplicate)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            viewModel.duplicateConversation()
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.ContentCopy, contentDescription = null)
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(Res.string.action_archive)) },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            viewModel.archiveConversation()
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Outlined.Archive, contentDescription = null)
-                                        },
-                                    )
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                stringResource(Res.string.delete),
-                                                color = MaterialTheme.colorScheme.error,
-                                            )
-                                        },
-                                        onClick = {
-                                            showOptionsMenu = false
-                                            viewModel.deleteConversation()
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                Icons.Outlined.DeleteOutline,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error,
-                                            )
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
-
-                // In-conversation search bar
-                AnimatedVisibility(
-                    visible = uiState.isSearchOpen,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
-                ) {
-                    InConvoSearchBar(
-                        query = uiState.searchQuery,
-                        onQueryChange = viewModel::onSearchQueryChanged,
-                        currentMatchIndex = uiState.currentSearchMatchIndex,
-                        totalMatches = uiState.searchMatchIndices.size,
-                        onPreviousMatch = viewModel::previousSearchMatch,
-                        onNextMatch = viewModel::nextSearchMatch,
-                        onClose = viewModel::closeSearch,
-                    )
-                }
-            }
-        },
-    ) { paddingValues ->
+    ) { _ ->
         // The composer overlays the message list at the bottom; the list reserves a scrollable
         // bottom inset so its latest content rests above the bar. We measure the bar's actual
         // height (which grows as queued ghost rows stack above it) so streaming text never hides
         // behind the ghosts, while the list still scrolls *behind* the translucent overlay.
         var inputBarHeightPx by remember { mutableIntStateOf(0) }
+        var topBarHeightPx by remember { mutableIntStateOf(0) }
         val bottomContentPadding = with(LocalDensity.current) {
             maxOf(160.dp, inputBarHeightPx.toDp() + 16.dp)
         }
+        // Floor the top inset at status bar + one chip row so content clears the bar on the first
+        // frame (before onSizeChanged reports the real height), avoiding a content-under-bar flash
+        // on each screen entry. Mirrors the bottomContentPadding floor.
+        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val topContentPadding = with(LocalDensity.current) {
+            maxOf(statusBarTop + 56.dp, topBarHeightPx.toDp())
+        }
+        // Non-scrolling bodies (landing, loading) clear the floating bar with a plain top padding;
+        // only the active MessageList takes the inset as scrollable contentPadding.
+        val topPaddedFill = Modifier
+            .fillMaxSize()
+            .padding(top = topContentPadding)
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = paddingValues.calculateTopPadding()),
+            modifier = Modifier.fillMaxSize(),
         ) {
             when {
                 isLandingPage && !hasMessages -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = topPaddedFill,
                         contentAlignment = Alignment.Center,
                     ) {
                         LandingContent(
@@ -456,7 +204,7 @@ actual fun ChatScreen(
                 }
                 isLoading && uiState.displayMessages.isEmpty() -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = topPaddedFill,
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(modifier = Modifier.size(36.dp))
@@ -510,6 +258,7 @@ actual fun ChatScreen(
                         searchScrollToIndex = uiState.searchScrollToIndex,
                         onSearchScrollHandle = viewModel::onSearchScrollHandled,
                         bottomContentPadding = bottomContentPadding,
+                        topContentPadding = topContentPadding,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -592,6 +341,22 @@ actual fun ChatScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .onSizeChanged { inputBarHeightPx = it.height },
+            )
+
+            // Floating top bar overlays the message list (drawn last so it sits above content),
+            // measured so the content reserves a matching scrollable top inset.
+            ChatFloatingTopBar(
+                uiState = uiState,
+                viewModel = viewModel,
+                onLoadPreset = { showPresetPicker = true },
+                onSavePreset = { showSavePresetDialog = true },
+                onRename = { showRenameDialog = true },
+                onOpenDrawer = onOpenDrawer,
+                onShowAllMedia = onShowAllMedia,
+                onOpenPromptsLibrary = onNavigateToPromptsLibrary,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .onSizeChanged { topBarHeightPx = it.height },
             )
         }
     }
@@ -699,6 +464,33 @@ actual fun ChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRenameDialog = false }) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            },
+        )
+    }
+
+    // Delete confirmation — matches Android so a destructive delete can't fire from a single tap.
+    if (uiState.showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDeleteConfirmation,
+            title = { Text(stringResource(Res.string.dialog_title_delete_conversation)) },
+            text = {
+                Text(
+                    text = stringResource(Res.string.dialog_delete_conversation_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::deleteConversation) {
+                    Text(
+                        text = stringResource(Res.string.delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissDeleteConfirmation) {
                     Text(stringResource(Res.string.cancel))
                 }
             },

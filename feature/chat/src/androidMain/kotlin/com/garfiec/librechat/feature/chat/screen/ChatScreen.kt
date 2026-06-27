@@ -4,9 +4,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -28,9 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
+import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
 import com.garfiec.librechat.feature.chat.components.ChatInput
 import com.garfiec.librechat.feature.chat.components.ChatRoot
-import com.garfiec.librechat.feature.chat.components.InConvoSearchBar
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.asString
 import org.koin.compose.viewmodel.koinViewModel
@@ -123,63 +126,32 @@ actual fun ChatScreen(
         modifier = modifier
             .fillMaxSize()
             .imePadding(),
-        topBar = {
-            Column {
-                ChatTopBar(
-                    onLoadPreset = { showPresetPicker = true },
-                    onSavePreset = { showSavePresetDialog = true },
-                    onOpenDrawer = onOpenDrawer,
-                    onOpenSearch = viewModel::openSearch,
-                    onOpenPromptsLibrary = onNavigateToPromptsLibrary,
-                    onShowAllMedia = onShowAllMedia,
-                    promptsEnabled = uiState.promptsEnabled,
-                    presetsEnabled = uiState.presetsEnabled,
-                    multiConvoEnabled = uiState.multiConvoEnabled,
-                    isTemporaryChat = uiState.isTemporaryChat,
-                    onToggleTemporaryChat = viewModel::toggleTemporaryChat,
-                    // Interactive on the new-chat landing; once a temporary chat is
-                    // active it stays visible (ON) as a persistent indicator.
-                    showTempChatToggle = (uiState.conversationId == null || uiState.isTemporaryChat) &&
-                        uiState.temporaryChatEnabled,
-                    isComparisonEnabled = uiState.comparisonState.isEnabled,
-                    onToggleComparison = viewModel::toggleComparison,
-                    conversationId = uiState.conversationId,
-                    conversationTitle = uiState.conversationTitle,
-                    sharedLinksEnabled = uiState.sharedLinksEnabled,
-                    onShare = viewModel::shareConversation,
-                    onRename = viewModel::showRenameDialog,
-                    onDuplicate = viewModel::duplicateConversation,
-                    onArchive = viewModel::archiveConversation,
-                    onDelete = viewModel::showDeleteConfirmation,
-                )
-                // In-conversation search bar overlay
-                if (uiState.isSearchOpen) {
-                    InConvoSearchBar(
-                        query = uiState.searchQuery,
-                        onQueryChange = viewModel::onSearchQueryChanged,
-                        currentMatchIndex = uiState.currentSearchMatchIndex,
-                        totalMatches = uiState.searchMatchIndices.size,
-                        onPreviousMatch = viewModel::previousSearchMatch,
-                        onNextMatch = viewModel::nextSearchMatch,
-                        onClose = viewModel::closeSearch,
-                    )
-                }
-            }
-        },
+        // The floating top bar draws behind the status bar itself (statusBarsPadding), so the body
+        // must extend under the status bar — only reserve the navigation-bar inset here (for the
+        // snackbar); the composer handles its own nav-bar padding.
+        contentWindowInsets = WindowInsets.navigationBars,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
+    ) { _ ->
         // The composer overlays the message list at the bottom; the list reserves a scrollable
         // bottom inset so its latest content rests above the bar. We measure the bar's actual
         // height (which grows as queued ghost rows stack above it) so streaming text never hides
-        // behind the ghosts, while the list still scrolls *behind* the translucent overlay.
+        // behind the ghosts, while the list still scrolls *behind* the translucent overlay. The
+        // floating top bar is measured the same way so the first message clears it while still
+        // scrolling up behind its dimming scrim.
         var inputBarHeightPx by remember { mutableIntStateOf(0) }
+        var topBarHeightPx by remember { mutableIntStateOf(0) }
         val bottomContentPadding = with(LocalDensity.current) {
             maxOf(160.dp, inputBarHeightPx.toDp() + 16.dp)
         }
+        // Floor the top inset at status bar + one chip row so content clears the bar on the first
+        // frame (before onSizeChanged reports the real height), avoiding a content-under-bar flash
+        // on each screen entry. Mirrors the bottomContentPadding floor.
+        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val topContentPadding = with(LocalDensity.current) {
+            maxOf(statusBarTop + 56.dp, topBarHeightPx.toDp())
+        }
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding()),
+            modifier = Modifier.fillMaxSize(),
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -197,6 +169,7 @@ actual fun ChatScreen(
                     showBubbles = showBubbles,
                     useKatex = useKatex,
                     bottomContentPadding = bottomContentPadding,
+                    topContentPadding = topContentPadding,
                     onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
                     onComparisonTabChange = { activeComparisonTab = it },
                 )
@@ -275,6 +248,22 @@ actual fun ChatScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .onSizeChanged { inputBarHeightPx = it.height },
+            )
+
+            // Floating top bar overlays the message list (drawn last so it sits above content),
+            // measured so ChatContent can reserve a matching scrollable top inset.
+            ChatFloatingTopBar(
+                uiState = uiState,
+                viewModel = viewModel,
+                onLoadPreset = { showPresetPicker = true },
+                onSavePreset = { showSavePresetDialog = true },
+                onRename = viewModel::showRenameDialog,
+                onOpenDrawer = onOpenDrawer,
+                onShowAllMedia = onShowAllMedia,
+                onOpenPromptsLibrary = onNavigateToPromptsLibrary,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .onSizeChanged { topBarHeightPx = it.height },
             )
         }
     }
