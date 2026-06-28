@@ -199,7 +199,7 @@ fun TabletLayout(
                     dismissedBannerIds = dismissedBannerIds,
                     onDismissBanner = navHostViewModel::dismissBanner,
                     onToggleDrawer = {
-                        navHostViewModel.setTabletSidebarOpen(!isSidebarOpen)
+                        navHostViewModel.toggleTabletSidebar()
                     },
                 )
             },

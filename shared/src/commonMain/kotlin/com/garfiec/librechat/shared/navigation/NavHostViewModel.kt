@@ -378,6 +378,11 @@ class NavHostViewModel(
         }
     }
 
+    // Toggles via the StateFlow, not a call-site boolean — Nav3 entry closures can capture stale state.
+    fun toggleTabletSidebar() {
+        setTabletSidebarOpen(tabletSidebarOpen.value != true)
+    }
+
     fun dismissBanner(bannerId: String) {
         bannerStateHolder.dismissBanner(bannerId)
     }
