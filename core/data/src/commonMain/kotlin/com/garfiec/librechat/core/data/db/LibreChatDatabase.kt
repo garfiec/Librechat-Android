@@ -7,18 +7,17 @@ import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
 import com.garfiec.librechat.core.data.db.converter.Converters
+import com.garfiec.librechat.core.data.db.dao.AccountClaimDao
 import com.garfiec.librechat.core.data.db.dao.AgentDao
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.dao.ConversationTagDao
 import com.garfiec.librechat.core.data.db.dao.DraftDao
-import com.garfiec.librechat.core.data.db.dao.FileDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.db.dao.PresetDao
 import com.garfiec.librechat.core.data.db.entity.AgentEntity
 import com.garfiec.librechat.core.data.db.entity.ConversationEntity
 import com.garfiec.librechat.core.data.db.entity.ConversationTagEntity
 import com.garfiec.librechat.core.data.db.entity.DraftEntity
-import com.garfiec.librechat.core.data.db.entity.FileEntity
 import com.garfiec.librechat.core.data.db.entity.MessageEntity
 import com.garfiec.librechat.core.data.db.entity.PresetEntity
 
@@ -26,13 +25,12 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
     entities = [
         ConversationEntity::class,
         MessageEntity::class,
-        FileEntity::class,
         AgentEntity::class,
         PresetEntity::class,
         ConversationTagEntity::class,
         DraftEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -44,11 +42,11 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
 abstract class LibreChatDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
     abstract fun messageDao(): MessageDao
-    abstract fun fileDao(): FileDao
     abstract fun agentDao(): AgentDao
     abstract fun presetDao(): PresetDao
     abstract fun conversationTagDao(): ConversationTagDao
     abstract fun draftDao(): DraftDao
+    abstract fun accountClaimDao(): AccountClaimDao
 }
 
 // Room KSP auto-generates the actual implementations for each platform

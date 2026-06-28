@@ -12,6 +12,19 @@ interface AuthRepository {
     suspend fun register(name: String, email: String, username: String, password: String): Result<Unit>
     suspend fun logout(): Result<Unit>
     suspend fun isLoggedIn(): Boolean
+
+    /**
+     * Cold-start safety net for the **upgrade path**: a user already logged in on a pre-tenancy build
+     * has valid tokens but no persisted active account, and no login event fires to establish one. When
+     * logged in but the registry seeded no account, fetch the current user and establish it (which also
+     * runs the legacy claim). No-op when logged out or when the registry already restored an account.
+     *
+     * Returns `true` when the active account is resolved (already restored, just established, or not
+     * needed because logged out) and `false` when a logged-in upgrade user still has no account because
+     * the live `getUser()` failed (e.g. offline first launch) — the caller should retry on reconnect so
+     * the user isn't stranded on an empty, account-blind app. Never throws on a network failure.
+     */
+    suspend fun restoreAccountIfNeeded(): Boolean
     suspend fun enableTwoFactor(token: String? = null, backupCode: String? = null): Result<TwoFactorSetupResponse>
     suspend fun confirmTwoFactor(code: String): Result<TwoFactorSetupResponse>
     suspend fun disableTwoFactor(code: String): Result<Unit>

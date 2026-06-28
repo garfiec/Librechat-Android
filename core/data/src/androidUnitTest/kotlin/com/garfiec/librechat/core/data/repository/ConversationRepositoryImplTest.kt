@@ -1,5 +1,8 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.entity.ConversationEntity
@@ -27,6 +30,8 @@ class ConversationRepositoryImplTest {
     private val conversationsApi = mockk<ConversationsApi>(relaxed = true)
     private val conversationDao = mockk<ConversationDao>(relaxed = true)
     private val json = Json { ignoreUnknownKeys = true }
+    private val account = AccountId("srv:user-1")
+    private val activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(account))
 
     private lateinit var repository: ConversationRepositoryImpl
 
@@ -35,6 +40,7 @@ class ConversationRepositoryImplTest {
         repository = ConversationRepositoryImpl(
             conversationsApi = conversationsApi,
             conversationDao = conversationDao,
+            activeAccountProvider = activeAccountProvider,
             json = json,
         )
     }
@@ -102,8 +108,8 @@ class ConversationRepositoryImplTest {
         coEvery {
             conversationsApi.getConversations(any(), any(), any(), any(), any(), any(), any())
         } returns ConversationListResponse(conversations = listOf(serverConvo), nextCursor = null)
-        coEvery { conversationDao.getById("convo-1") } returns entity("convo-1", """["work"]""")
-        coEvery { conversationDao.getAllConversations(false) } returns flowOf(emptyList())
+        coEvery { conversationDao.getByIdForAccount("convo-1", account.value) } returns entity("convo-1", """["work"]""")
+        coEvery { conversationDao.observeConversationsForAccount(account.value, false) } returns flowOf(emptyList())
         coEvery { conversationDao.updateTags(any(), any(), any()) } just Runs
 
         repository.syncFavoritesFromServer()
@@ -122,7 +128,7 @@ class ConversationRepositoryImplTest {
             conversationsApi.getConversations(any(), any(), any(), any(), any(), any(), any())
         } returns ConversationListResponse(conversations = emptyList(), nextCursor = null)
         val staleFav = entity("convo-stale", """["work","Saved"]""")
-        coEvery { conversationDao.getAllConversations(false) } returns flowOf(listOf(staleFav))
+        coEvery { conversationDao.observeConversationsForAccount(account.value, false) } returns flowOf(listOf(staleFav))
         coEvery { conversationDao.updateTags(any(), any(), any()) } just Runs
 
         repository.syncFavoritesFromServer()
@@ -141,8 +147,8 @@ class ConversationRepositoryImplTest {
         coEvery {
             conversationsApi.getConversations(any(), any(), any(), any(), any(), any(), any())
         } returns ConversationListResponse(conversations = listOf(serverConvo), nextCursor = null)
-        coEvery { conversationDao.getById("convo-new") } returns null
-        coEvery { conversationDao.getAllConversations(false) } returns flowOf(emptyList())
+        coEvery { conversationDao.getByIdForAccount("convo-new", account.value) } returns null
+        coEvery { conversationDao.observeConversationsForAccount(account.value, false) } returns flowOf(emptyList())
 
         val upsertCaptor = slot<ConversationEntity>()
         coEvery { conversationDao.upsert(capture(upsertCaptor)) } answers {}
@@ -170,8 +176,8 @@ class ConversationRepositoryImplTest {
         coEvery {
             conversationsApi.getConversations("cursor-2", any(), any(), any(), any(), any(), any())
         } returns page2
-        coEvery { conversationDao.getById(any()) } returns null
-        coEvery { conversationDao.getAllConversations(false) } returns flowOf(emptyList())
+        coEvery { conversationDao.getByIdForAccount(any(), any()) } returns null
+        coEvery { conversationDao.observeConversationsForAccount(account.value, false) } returns flowOf(emptyList())
         coEvery { conversationDao.upsert(any()) } answers {}
 
         repository.syncFavoritesFromServer()
@@ -191,9 +197,9 @@ class ConversationRepositoryImplTest {
         coEvery {
             conversationsApi.getConversations(any(), any(), any(), any(), any(), any(), any())
         } returns ConversationListResponse(conversations = listOf(serverConvo), nextCursor = null)
-        coEvery { conversationDao.getById("convo-1") } returns entity("convo-1", """["Saved"]""")
+        coEvery { conversationDao.getByIdForAccount("convo-1", account.value) } returns entity("convo-1", """["Saved"]""")
         coEvery {
-            conversationDao.getAllConversations(false)
+            conversationDao.observeConversationsForAccount(account.value, false)
         } returns flowOf(listOf(entity("convo-1", """["Saved"]""")))
 
         repository.syncFavoritesFromServer()

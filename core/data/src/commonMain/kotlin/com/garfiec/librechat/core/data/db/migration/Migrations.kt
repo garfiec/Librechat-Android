@@ -40,3 +40,34 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
         }
     }
 }
+
+/**
+ * Row-tenancy schema change (account-isolation).
+ *
+ * Two DDL steps that ship together as the single account-tenancy schema bump:
+ *
+ * 1. Adds a nullable `accountId` owner column to the four tenant tables — `conversations`, `messages`,
+ *    `drafts`, `conversation_tags`. The column is **nullable with no default**: rows that exist at
+ *    migration time were written by the single legacy (pre-multi-account) user and are left NULL here;
+ *    a separate one-time runtime *claim* (gated on the active-account registry, not this DDL) stamps
+ *    those legacy rows for the resolved account once identity is known, and the reads are NULL-safe /
+ *    fail-open until then. Keeping the claim out of the migration is deliberate: the migration runs
+ *    before any account identity is available, so it cannot know which account owns the legacy rows.
+ * 2. Drops the dead `files` table. It was a Room entity from v1 but was never read or written — the
+ *    file DAO was bound in DI yet injected nowhere, and FileRepository reads files straight from the
+ *    API. Carrying it forward meant a stray, account-unaware cache table that would have needed its
+ *    own row-tenancy scoping; removing the dead table is simpler than scoping data nothing produces.
+ *    `IF EXISTS` keeps it safe on any odd v4 DB.
+ *
+ * Add-column is pure additive DDL and the drop is guarded, so the whole step is idempotent-safe for
+ * Room's single-shot migration contract. Both DDL steps ship as one hop because this feature has not
+ * shipped — there is no released v5 DB in the wild to migrate through.
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(connection: SQLiteConnection) {
+        listOf("conversations", "messages", "drafts", "conversation_tags").forEach { table ->
+            connection.execSQL("ALTER TABLE $table ADD COLUMN accountId TEXT")
+        }
+        connection.execSQL("DROP TABLE IF EXISTS files")
+    }
+}

@@ -1,7 +1,12 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.SessionManager
+import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
+import com.garfiec.librechat.core.data.datastore.AccountRegistry
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
@@ -16,6 +21,11 @@ class AuthRepositoryImpl(
     private val tokenManager: TokenManager,
     private val sessionCacheCleaner: SessionCacheCleaner,
     private val sessionTaskRunner: SessionTaskRunner,
+    private val accountSessionEstablisher: AccountSessionEstablisher,
+    private val accountRegistry: AccountRegistry,
+    private val activeAccountProvider: ActiveAccountProvider,
+    private val sessionManager: SessionManager,
+    private val accountDataPurger: AccountDataPurger,
 ) : AuthRepository {
 
     /**
@@ -40,10 +50,12 @@ class AuthRepositoryImpl(
                     accessToken = result.response.token ?: "",
                     refreshToken = result.refreshToken ?: "",
                 )
-                LoginOutcome.Success(
-                    result.response.user
-                        ?: throw IllegalStateException("Login succeeded but user was null in response"),
-                )
+                val user = result.response.user
+                    ?: throw IllegalStateException("Login succeeded but user was null in response")
+                // Establish identity (+ run the legacy claim) before session tasks fire, so their
+                // tenant writes are stamped to this account and reads filter to it.
+                accountSessionEstablisher.establish(user)
+                LoginOutcome.Success(user)
             }
         }.fireSessionTasksIfLoggedIn { outcome -> outcome is LoginOutcome.Success }
     }
@@ -59,8 +71,10 @@ class AuthRepositoryImpl(
                 accessToken = result.response.token,
                 refreshToken = effectiveRefreshToken,
             )
-            // Fetch the user profile
-            userApi.getUser()
+            // Fetch the user profile, then establish identity before session tasks fire.
+            val user = userApi.getUser()
+            accountSessionEstablisher.establish(user)
+            user
         }.fireSessionTasksIfLoggedIn()
     }
 
@@ -71,7 +85,9 @@ class AuthRepositoryImpl(
                 accessToken = result.response.token ?: "",
                 refreshToken = result.refreshToken ?: "",
             )
-            result.response.user ?: throw IllegalStateException("No user in 2FA response")
+            val user = result.response.user ?: throw IllegalStateException("No user in 2FA response")
+            accountSessionEstablisher.establish(user)
+            user
         }.fireSessionTasksIfLoggedIn()
     }
 
@@ -88,9 +104,28 @@ class AuthRepositoryImpl(
 
     override suspend fun logout(): Result<Unit> {
         return safeApiCall {
+            // Let the cold-start seed resolve identity first: a logout during the warming window
+            // would otherwise read a null account and skip the scoped Room purge below (the leak).
+            accountRegistry.awaitSeeded()
+            // Capture the account to purge before any teardown flips identity to null.
+            val account = activeAccountProvider.currentAccountId()
             try {
                 authApi.logout()
             } finally {
+                // Logout drives teardown — end the account session before its rows are deleted.
+                // NOTE: tenant writes are not yet bound to Session.scope (the structural SessionWriter
+                // is deferred), so this does not by itself fence a debounced/in-flight write against the
+                // purge below. Mitigated per-path instead: the draft debounce re-checks identity before
+                // it lands and drops on a flip (DraftRepositoryImpl), and the conversation/message cache
+                // writes capture+guard the account at request time. The remaining narrow
+                // streaming-write-after-purge window is the SessionWriter's job.
+                sessionManager.endCurrentSession()
+                // Flip identity to null first (read collectors tear down their account-scoped
+                // queries), purge the active account from the registry (disk + in-memory), then
+                // scoped-DELETE its tenant rows — the leak fix: logout finally clears Room, not just
+                // file caches/tokens.
+                accountRegistry.clearActiveAccount()
+                account?.let { accountDataPurger.purge(it) }
                 tokenManager.clearTokens()
                 sessionCacheCleaner.clearSessionCaches()
             }
@@ -99,6 +134,23 @@ class AuthRepositoryImpl(
 
     override suspend fun isLoggedIn(): Boolean {
         return tokenManager.getAccessToken() != null
+    }
+
+    override suspend fun restoreAccountIfNeeded(): Boolean {
+        if (!isLoggedIn()) return true
+        // Let the registry's cold-start seed finish, then act only if it found no persisted account.
+        accountRegistry.awaitSeeded()
+        val state = activeAccountProvider.state.value
+        if (state is AccountState.Resolved && state.id != null) return true
+        // Logged in but unaccounted → fresh upgrade. Derive identity from the current user. Wrap the
+        // live getUser() so a transient/offline failure returns false (retry-worthy) instead of throwing
+        // and leaving the provider stuck at Resolved(null) — which would render every tenant read empty
+        // for an otherwise logged-in user until a manual relaunch while online.
+        val result = safeApiCall {
+            val user = userApi.getUser()
+            accountSessionEstablisher.establish(user)
+        }
+        return result is Result.Success
     }
 
     override suspend fun enableTwoFactor(token: String?, backupCode: String?): Result<TwoFactorSetupResponse> {

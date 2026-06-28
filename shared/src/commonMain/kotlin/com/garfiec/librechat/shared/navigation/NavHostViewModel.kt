@@ -3,6 +3,7 @@ package com.garfiec.librechat.shared.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.AuthRepository
@@ -25,6 +26,7 @@ import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListEvent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -33,6 +35,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -50,6 +54,7 @@ class NavHostViewModel(
     private val serverUrlProvider: ServerUrlProvider,
     private val shareRepository: ShareRepository,
     private val conversationExporter: ConversationExporter,
+    private val connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
 
     private val bannerStateHolder = BannerStateHolder(bannerRepository, viewModelScope)
@@ -207,17 +212,58 @@ class NavHostViewModel(
                 val loggedIn = authRepository.isLoggedIn()
                 _isLoggedIn.value = loggedIn
                 if (loggedIn) {
+                    // Upgrade safety net: establish the active account before any tenant reads/writes
+                    // when an already-logged-in user came from a pre-tenancy build (no login fires).
+                    // Isolate its failure: restore does a live getUser() on the upgrade path, and a
+                    // transient error (e.g. offline first launch) must not also skip the version check
+                    // and session tasks below — those are independent of account resolution.
+                    val accountResolved = tryRestoreAccount()
                     versionCheckStateHolder.checkBackendVersion()
                     // Session tasks for the cold-start case (role fetch, tag refresh,
                     // favorites sync). Runs on the application scope so tasks outlive
                     // this VM's scope. Fresh logins fire these from AuthRepositoryImpl.
                     sessionTaskRunner.runAll()
+                    // Offline-upgrade recovery: getUser() couldn't run, so the account is unresolved and
+                    // every tenant read is empty for an otherwise logged-in user. Re-attempt when
+                    // connectivity returns instead of stranding them until a manual relaunch.
+                    if (!accountResolved) retryAccountRestoreOnReconnect()
                 }
             } catch (e: Exception) {
                 Logger.w(e) { "Failed to check auth state on init" }
             }
         }
         bannerStateHolder.fetchBanners()
+    }
+
+    /**
+     * Attempts the upgrade-path account restore, swallowing transient failures. Returns `true` when the
+     * account is resolved (or restore wasn't needed), `false` when a logged-in upgrade user is still
+     * unaccounted and should be retried on reconnect. restoreAccountIfNeeded() self-guards, so it is
+     * cheap and safe to call repeatedly.
+     */
+    private suspend fun tryRestoreAccount(): Boolean =
+        try {
+            authRepository.restoreAccountIfNeeded()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w(e) { "Account restore failed on cold start; will retry on reconnect" }
+            false
+        }
+
+    private fun retryAccountRestoreOnReconnect() {
+        viewModelScope.launch {
+            // Suspends until a connected emission finally resolves the account, then stops collecting.
+            // firstOrNull (not first) so a flow that ever completes returns null instead of throwing
+            // NoSuchElementException out of this launch.
+            val resolved = connectivityObserver.isConnected
+                .filter { it }
+                .firstOrNull { tryRestoreAccount() } != null
+            // Account just resolved: tenant list Flows repopulate reactively via the active-account
+            // gate, but the one-shot session fetches (roles / tags / favorites) already ran while empty,
+            // so re-run them now that identity and connectivity are both available.
+            if (resolved) sessionTaskRunner.runAll()
+        }
     }
 
     fun loadMoreConversations() {

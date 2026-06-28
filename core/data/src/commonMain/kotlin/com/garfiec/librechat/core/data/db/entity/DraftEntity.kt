@@ -14,4 +14,6 @@ data class DraftEntity(
     val text: String,
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long = Clock.System.now().toEpochMilliseconds(),
+    /** Row-tenancy owner (self-owning; drafts can be conversation-less/new-chat). See ConversationEntity.accountId. */
+    val accountId: String? = null,
 )

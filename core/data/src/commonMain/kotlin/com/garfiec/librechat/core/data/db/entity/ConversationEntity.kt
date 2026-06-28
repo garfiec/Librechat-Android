@@ -27,4 +27,10 @@ data class ConversationEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val lastSyncedAt: Long = 0,
+    /**
+     * Row-tenancy owner (account-isolation). Nullable: rows written
+     * before the 4→5 migration are NULL until the one-time claim stamps them for the resolved
+     * account. Reads filter on this; writes stamp it from the active session's immutable id.
+     */
+    val accountId: String? = null,
 )

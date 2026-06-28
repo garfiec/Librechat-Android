@@ -34,4 +34,6 @@ data class MessageEntity(
     val metadata: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Row-tenancy owner (self-owning; stamped from the carried command, not only transitively via conversation). See ConversationEntity.accountId. */
+    val accountId: String? = null,
 )

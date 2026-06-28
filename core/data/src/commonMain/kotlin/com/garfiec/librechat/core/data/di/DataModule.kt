@@ -1,12 +1,19 @@
 package com.garfiec.librechat.core.data.di
 
 import com.garfiec.librechat.core.common.di.KoinQualifiers
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.SessionManager
+import com.garfiec.librechat.core.data.datastore.AccountRegistry
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
+import com.garfiec.librechat.core.data.repository.AccountClaimReconciler
+import com.garfiec.librechat.core.data.repository.AccountDataPurger
+import com.garfiec.librechat.core.data.repository.AccountSessionEstablisher
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.AgentRepositoryImpl
 import com.garfiec.librechat.core.data.repository.AgentToolsRepository
@@ -83,11 +90,60 @@ val dataModule = module {
 
     single { get<LibreChatDatabase>().conversationDao() }
     single { get<LibreChatDatabase>().messageDao() }
-    single { get<LibreChatDatabase>().fileDao() }
     single { get<LibreChatDatabase>().agentDao() }
     single { get<LibreChatDatabase>().presetDao() }
     single { get<LibreChatDatabase>().conversationTagDao() }
     single { get<LibreChatDatabase>().draftDao() }
+    single { get<LibreChatDatabase>().accountClaimDao() }
+
+    // --- Account identity (row-tenancy) ---
+
+    // The in-memory active-account holder every identity-dependent subsystem will read.
+    single<ActiveAccountProvider> { InMemoryActiveAccountProvider() }
+    // Eager: at cold start it must seed the provider from the persisted id (chaining the URL
+    // warm-up) even before any consumer asks for it.
+    single(createdAtStart = true) {
+        AccountRegistry(
+            dataStore = get(),
+            activeAccountProvider = get(),
+            serverUrlProvider = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
+    single {
+        AccountClaimReconciler(
+            claimDao = get(),
+            dataStore = get(),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
+    single {
+        AccountSessionEstablisher(
+            accountRegistry = get(),
+            claimReconciler = get(),
+            serverUrlProvider = get(),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
+    single {
+        AccountDataPurger(
+            conversationDao = get(),
+            messageDao = get(),
+            draftDao = get(),
+            tagDao = get(),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
+    // Sole owner of account-Session transitions. Lazy (not createdAtStart): instantiated when the
+    // logout path (AuthRepositoryImpl) first resolves it, at which point its collector starts. Its
+    // `current` session flow has no consumer yet — the SessionWriter facade that would is deferred.
+    single {
+        SessionManager(
+            activeAccountProvider = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+        )
+    }
 
     // --- Datastores ---
 
@@ -125,6 +181,11 @@ val dataModule = module {
             tokenManager = get(),
             sessionCacheCleaner = get(),
             sessionTaskRunner = get(),
+            accountSessionEstablisher = get(),
+            accountRegistry = get(),
+            activeAccountProvider = get(),
+            sessionManager = get(),
+            accountDataPurger = get(),
         )
     }
 
@@ -168,6 +229,7 @@ val dataModule = module {
         MessageRepositoryImpl(
             messagesApi = get(),
             messageDao = get(),
+            activeAccountProvider = get(),
             dispatcher = get(KoinQualifiers.Default),
         )
     }
@@ -175,6 +237,7 @@ val dataModule = module {
     single<DraftRepository> {
         DraftRepositoryImpl(
             draftDao = get(),
+            activeAccountProvider = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }

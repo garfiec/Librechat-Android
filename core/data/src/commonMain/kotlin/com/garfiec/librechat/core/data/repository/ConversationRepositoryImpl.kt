@@ -1,5 +1,8 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
+import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
@@ -21,16 +24,15 @@ import kotlin.time.Clock
 class ConversationRepositoryImpl(
     private val conversationsApi: ConversationsApi,
     private val conversationDao: ConversationDao,
+    private val activeAccountProvider: ActiveAccountProvider,
     private val json: Json,
 ) : ConversationRepository {
 
-    override fun observeConversations(isArchived: Boolean): Flow<Result<List<Conversation>>> {
-        return conversationDao.getAllConversations(
-            isArchived = isArchived,
-        ).map { entities ->
-            Result.Success(entities.toModels()) as Result<List<Conversation>>
+    override fun observeConversations(isArchived: Boolean): Flow<Result<List<Conversation>>> =
+        activeAccountProvider.flatMapAccountOrEmpty(Result.Success(emptyList())) { account ->
+            conversationDao.observeConversationsForAccount(account.value, isArchived)
+                .map { entities -> Result.Success(entities.toModels()) as Result<List<Conversation>> }
         }
-    }
 
     override suspend fun loadNextPage(
         cursor: String?,
@@ -41,6 +43,10 @@ class ConversationRepositoryImpl(
         isArchived: Boolean,
     ): Result<String?> {
         return safeApiCall {
+            // Capture identity before the network suspend so an in-flight account switch can't
+            // mis-attribute these rows; skip the cache write entirely when unresolved (warming /
+            // logged out) rather than stamping a null orphan.
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val response = conversationsApi.getConversations(
                 cursor = cursor,
                 isArchived = isArchived,
@@ -49,21 +55,29 @@ class ConversationRepositoryImpl(
                 sortBy = sortBy,
                 sortDirection = sortDirection,
             )
-            conversationDao.upsertPreservingTags(response.conversations.map { it.toEntity() })
+            if (accountId != null) {
+                conversationDao.upsertPreservingTags(
+                    response.conversations.map { it.toEntity().copy(accountId = accountId) },
+                )
+            }
             response.nextCursor
         }
     }
 
     override suspend fun getConversation(id: String): Result<Conversation> {
-        val cached = conversationDao.getById(id)
+        val cached = activeAccountProvider.currentAccountId()
+            ?.let { conversationDao.getByIdForAccount(id, it.value) }
         if (cached != null) return Result.Success(cached.toModel())
         return refreshConversation(id)
     }
 
     override suspend fun refreshConversation(id: String): Result<Conversation> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val conversation = conversationsApi.getConversation(id)
-            conversationDao.upsertPreservingTags(conversation.toEntity())
+            if (accountId != null) {
+                conversationDao.upsertPreservingTags(conversation.toEntity().copy(accountId = accountId))
+            }
             conversation
         }
     }
@@ -107,6 +121,7 @@ class ConversationRepositoryImpl(
         latestMessageId: String?,
     ): Result<Conversation> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val response = conversationsApi.forkConversation(
                 ForkConversationRequest(
                     conversationId = conversationId,
@@ -117,7 +132,7 @@ class ConversationRepositoryImpl(
                 ),
             )
             val conversation = response.conversation
-            conversation.conversationId?.let { conversationDao.upsert(conversation.toEntity()) }
+            cacheOwned(accountId, conversation)
             conversation
         }
     }
@@ -127,36 +142,42 @@ class ConversationRepositoryImpl(
         title: String?,
     ): Result<Conversation> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val duplicated = conversationsApi.duplicateConversation(conversationId, title)
-            duplicated.conversationId?.let { conversationDao.upsert(duplicated.toEntity()) }
+            cacheOwned(accountId, duplicated)
             duplicated
         }
     }
 
     override suspend fun importConversation(jsonContent: String): Result<Conversation> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val fileBytes = jsonContent.encodeToByteArray()
             val imported = conversationsApi.importConversations(
                 fileBytes = fileBytes,
                 filename = "conversation.json",
                 contentType = "application/json",
             )
-            imported.conversationId?.let { conversationDao.upsert(imported.toEntity()) }
+            cacheOwned(accountId, imported)
             imported
         }
     }
 
     override suspend fun deleteAll(): Result<Unit> {
+        // Scope the local wipe to the active account: an unscoped DELETE would also destroy another
+        // account's cached conversations if their rows coexist (e.g. a prior user who never logged out).
+        val accountId = activeAccountProvider.currentAccountId()?.value
         return safeApiCall {
             conversationsApi.deleteAllConversations()
-            conversationDao.deleteAll()
+            if (accountId != null) conversationDao.deleteAllForAccount(accountId)
         }
     }
 
     override suspend fun saveConversation(conversation: Conversation) {
         val id = conversation.conversationId ?: return
         if (id.isBlank()) return
-        conversationDao.upsertPreservingTags(conversation.toEntity())
+        val accountId = activeAccountProvider.currentAccountId()?.value ?: return
+        conversationDao.upsertPreservingTags(conversation.toEntity().copy(accountId = accountId))
     }
 
     override suspend fun updateConversationTagsLocal(id: String, tags: List<String>) {
@@ -172,6 +193,7 @@ class ConversationRepositoryImpl(
     // conversation that was archived while favorited and later unfavorited
     // elsewhere will keep its local SAVED_TAG until the user unarchives it.
     override suspend fun syncFavoritesFromServer(): Result<Unit> = safeApiCall {
+        val account = activeAccountProvider.currentAccountId() ?: return@safeApiCall
         val serverFavoriteIds = mutableSetOf<String>()
         var cursor: String? = null
         do {
@@ -182,10 +204,11 @@ class ConversationRepositoryImpl(
             for (convo in response.conversations) {
                 val id = convo.conversationId ?: continue
                 serverFavoriteIds.add(id)
-                val existing = conversationDao.getById(id)
+                val existing = conversationDao.getByIdForAccount(id, account.value)
                 if (existing == null) {
                     conversationDao.upsert(
-                        convo.toEntity().copy(tags = encodeTags(listOf(SAVED_TAG))),
+                        convo.toEntity()
+                            .copy(tags = encodeTags(listOf(SAVED_TAG)), accountId = account.value),
                     )
                 } else {
                     val currentTags = existing.toModel().tags
@@ -197,7 +220,7 @@ class ConversationRepositoryImpl(
             cursor = response.nextCursor
         } while (cursor != null)
 
-        val localEntities = conversationDao.getAllConversations(isArchived = false).first()
+        val localEntities = conversationDao.observeConversationsForAccount(account.value, isArchived = false).first()
         for (entity in localEntities) {
             val currentTags = entity.toModel().tags
             if (SAVED_TAG in currentTags && entity.conversationId !in serverFavoriteIds) {
@@ -206,6 +229,15 @@ class ConversationRepositoryImpl(
                     currentTags.filterNot { it == SAVED_TAG },
                 )
             }
+        }
+    }
+
+    // Stamps + caches a single server-returned conversation for the account captured at request time.
+    // Skips when no account is resolved (warming / logged out → never write a null orphan) or the
+    // server returned no conversationId.
+    private suspend fun cacheOwned(accountId: String?, conversation: Conversation) {
+        if (accountId != null && conversation.conversationId != null) {
+            conversationDao.upsert(conversation.toEntity().copy(accountId = accountId))
         }
     }
 

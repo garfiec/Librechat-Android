@@ -596,7 +596,11 @@ class ChatViewModel(
      */
     private fun restoreDraft(draftKey: String) {
         viewModelScope.launch {
-            val draft = draftRepository.getDraft(draftKey)
+            // awaitDraft (not getDraft) so a first launch that opens the chat screen while identity is
+            // still warming — e.g. straight after a cold start or the pre-tenancy DB migration — waits
+            // for the account to resolve instead of reading null and leaving a saved draft hidden until
+            // the next launch. The blank-check below still yields to anything the user has since typed.
+            val draft = draftRepository.awaitDraft(draftKey)
             if (!draft.isNullOrBlank()) {
                 _uiState.update {
                     if (it.inputText.isBlank()) it.copy(inputText = draft) else it

@@ -59,8 +59,12 @@ kotlin {
             kotlin.srcDir(generateBackendVersion)
             dependencies {
                 implementation(libs.coroutines.core)
+                implementation(libs.okio)
                 api(libs.kotlinx.datetime)
             }
+        }
+        commonTest.dependencies {
+            implementation(libs.coroutines.test)
         }
         androidMain.dependencies {
             implementation(libs.coroutines.android)

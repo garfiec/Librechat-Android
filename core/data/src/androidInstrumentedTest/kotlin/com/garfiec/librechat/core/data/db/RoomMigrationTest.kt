@@ -8,6 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_3_4
+import com.garfiec.librechat.core.data.db.migration.MIGRATION_4_5
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
@@ -222,7 +223,7 @@ class RoomMigrationTest {
     }
 
     @Test
-    fun migrateV1ToV4_viaRoomApi_entitiesReadable() {
+    fun migrateV1ToV5_viaRoomApi_entitiesReadable() {
         // Create and populate a v1 database
         val db = helper.createDatabase(testDbName, 1)
         db.insert(
@@ -241,14 +242,15 @@ class RoomMigrationTest {
         )
         db.close()
 
-        // Open with Room (auto-runs auto-migrations 1→2→3 and the manual 3→4)
+        // Open with Room (auto-runs auto-migrations 1→2→3 and the manual 3→4, 4→5). All manual
+        // migrations through the current @Database version must be registered or the open throws.
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val roomDb = Room.databaseBuilder(
             context,
             LibreChatDatabase::class.java,
             testDbName,
         )
-            .addMigrations(MIGRATION_3_4)
+            .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
         // Verify we can read the migrated data via DAO

@@ -1,5 +1,8 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
+import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.db.dao.ConversationTagDao
@@ -15,14 +18,22 @@ class TagRepositoryImpl(
     private val tagsApi: TagsApi,
     private val tagDao: ConversationTagDao,
     private val conversationRepository: ConversationRepository,
+    private val activeAccountProvider: ActiveAccountProvider,
 ) : TagRepository {
 
     override fun observeTags(): Flow<List<ConversationTag>> =
-        tagDao.getAllTags().map { it.toModels() }
+        activeAccountProvider.flatMapAccountOrEmpty(emptyList()) { account ->
+            tagDao.observeTagsForAccount(account.value).map { it.toModels() }
+        }
 
     override suspend fun refreshTags(): Result<Unit> = safeApiCall {
+        val account = activeAccountProvider.currentAccountId() ?: return@safeApiCall
         val tags = tagsApi.getTags()
-        tagDao.replaceAll(tags.map { it.toEntity() })
+        // Scoped replace: only this account's tag rows are swapped, never another account's.
+        tagDao.replaceAllForAccount(
+            account.value,
+            tags.map { it.toEntity().copy(accountId = account.value) },
+        )
     }
 
     override suspend fun setConversationTags(
@@ -46,6 +57,7 @@ class TagRepositoryImpl(
     }
 
     override suspend fun clearCache() {
-        tagDao.deleteAll()
+        // Scope to the active account when known; logout's scoped DELETE is the authoritative purge.
+        activeAccountProvider.currentAccountId()?.let { tagDao.deleteAllForAccount(it.value) }
     }
 }

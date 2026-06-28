@@ -1,5 +1,8 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.db.dao.ConversationTagDao
 import com.garfiec.librechat.core.data.db.entity.ConversationTagEntity
@@ -26,6 +29,8 @@ class TagRepositoryImplTest {
     private val tagsApi = mockk<TagsApi>(relaxed = true)
     private val tagDao = mockk<ConversationTagDao>(relaxed = true)
     private val conversationRepository = mockk<ConversationRepository>(relaxed = true)
+    private val account = AccountId("srv:user-1")
+    private val activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(account))
 
     private lateinit var repository: TagRepositoryImpl
 
@@ -41,23 +46,26 @@ class TagRepositoryImplTest {
             tagsApi = tagsApi,
             tagDao = tagDao,
             conversationRepository = conversationRepository,
+            activeAccountProvider = activeAccountProvider,
         )
     }
 
     @Test
-    fun `refreshTags fetches from api and replaces all tags in dao`() = runTest {
+    fun `refreshTags fetches from api and replaces this account's tags, stamping accountId`() = runTest {
         coEvery { tagsApi.getTags() } returns serverTags
-        coEvery { tagDao.replaceAll(any()) } just Runs
+        coEvery { tagDao.replaceAllForAccount(any(), any()) } just Runs
 
         val result = repository.refreshTags()
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
         coVerify(exactly = 1) { tagsApi.getTags() }
         coVerify(exactly = 1) {
-            tagDao.replaceAll(
+            tagDao.replaceAllForAccount(
+                account.value,
                 match { entities ->
                     entities.size == 3 &&
-                        entities.map { it.tag }.containsAll(listOf("work", "personal", SAVED_TAG))
+                        entities.map { it.tag }.containsAll(listOf("work", "personal", SAVED_TAG)) &&
+                        entities.all { it.accountId == account.value }
                 },
             )
         }
@@ -70,7 +78,7 @@ class TagRepositoryImplTest {
         val result = repository.refreshTags()
 
         assertThat(result).isInstanceOf(Result.Error::class.java)
-        coVerify(exactly = 0) { tagDao.replaceAll(any()) }
+        coVerify(exactly = 0) { tagDao.replaceAllForAccount(any(), any()) }
     }
 
     @Test
@@ -168,7 +176,7 @@ class TagRepositoryImplTest {
                 updatedAt = 0L,
             ),
         )
-        every { tagDao.getAllTags() } returns flowOf(entities)
+        every { tagDao.observeTagsForAccount(account.value) } returns flowOf(entities)
 
         val result = repository.observeTags().first()
 
@@ -178,11 +186,11 @@ class TagRepositoryImplTest {
     }
 
     @Test
-    fun `clearCache delegates to tagDao deleteAll`() = runTest {
-        coEvery { tagDao.deleteAll() } just Runs
+    fun `clearCache deletes only the active account's tags`() = runTest {
+        coEvery { tagDao.deleteAllForAccount(any()) } just Runs
 
         repository.clearCache()
 
-        coVerify(exactly = 1) { tagDao.deleteAll() }
+        coVerify(exactly = 1) { tagDao.deleteAllForAccount(account.value) }
     }
 }

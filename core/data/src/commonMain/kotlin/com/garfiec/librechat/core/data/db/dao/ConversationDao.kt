@@ -21,6 +21,20 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations WHERE conversationId = :id")
     fun observeById(id: String): Flow<ConversationEntity?>
 
+    // --- Account-scoped reads (row-tenancy). Every read filters accountId, incl. by-PK:
+    // a known/stale/deep-linked id from the shared DB must not let account B read A's row. These
+    // are the forms the AccountScopedDb facade calls; the unfiltered forms above are removed once
+    // repos migrate + the Detekt rule turns on. ---
+
+    @Query("SELECT * FROM conversations WHERE accountId = :accountId AND isArchived = :isArchived ORDER BY updatedAt DESC")
+    fun observeConversationsForAccount(accountId: String, isArchived: Boolean): Flow<List<ConversationEntity>>
+
+    @Query("SELECT * FROM conversations WHERE conversationId = :id AND accountId = :accountId")
+    suspend fun getByIdForAccount(id: String, accountId: String): ConversationEntity?
+
+    @Query("SELECT * FROM conversations WHERE conversationId = :id AND accountId = :accountId")
+    fun observeByIdForAccount(id: String, accountId: String): Flow<ConversationEntity?>
+
     @Upsert
     suspend fun upsert(conversation: ConversationEntity)
 
@@ -66,4 +80,8 @@ interface ConversationDao {
 
     @Query("DELETE FROM conversations")
     suspend fun deleteAll()
+
+    // Logout / account-remove scoped purge (the leak fix): delete only this account's rows.
+    @Query("DELETE FROM conversations WHERE accountId = :accountId")
+    suspend fun deleteAllForAccount(accountId: String)
 }

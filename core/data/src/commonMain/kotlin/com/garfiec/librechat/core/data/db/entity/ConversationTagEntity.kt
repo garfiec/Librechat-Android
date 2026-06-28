@@ -18,4 +18,6 @@ data class ConversationTagEntity(
     val position: Int = 0,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Row-tenancy owner. See ConversationEntity.accountId. */
+    val accountId: String? = null,
 )

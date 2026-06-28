@@ -1,6 +1,9 @@
 package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
+import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.db.dao.MessageDao
@@ -19,25 +22,34 @@ import kotlinx.coroutines.flow.map
 class MessageRepositoryImpl(
     private val messagesApi: MessagesApi,
     private val messageDao: MessageDao,
+    private val activeAccountProvider: ActiveAccountProvider,
     private val dispatcher: CoroutineDispatcher,
 ) : MessageRepository {
 
-    override fun observeMessages(conversationId: String): Flow<List<Message>> {
-        return messageDao.getMessagesForConversation(conversationId)
-            .map { entities -> entities.toModels() }
-            .flowOn(dispatcher)
-    }
+    override fun observeMessages(conversationId: String): Flow<List<Message>> =
+        activeAccountProvider.flatMapAccountOrEmpty(emptyList<Message>()) { account ->
+            messageDao.observeMessagesForAccount(conversationId, account.value)
+                .map { entities -> entities.toModels() }
+        }.flowOn(dispatcher)
 
     override suspend fun getMessages(conversationId: String): Result<List<Message>> {
         val result = safeApiCall {
+            // Capture identity before the network suspend so an in-flight account switch can't
+            // mis-attribute these rows; skip caching when unresolved rather than stamping a null orphan.
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val messages = messagesApi.getMessages(conversationId)
-            cacheMessages(messages)
+            if (accountId != null) {
+                messageDao.upsertAll(messages.entitiesFor(accountId))
+            }
             messages
         }
 
-        // On network failure, fall back to cached messages
+        // On network failure, fall back to cached messages for the active account only.
         if (result is Result.Error) {
-            val cached = messageDao.getMessagesForConversation(conversationId).first()
+            val account = activeAccountProvider.currentAccountId()
+            val cached = account
+                ?.let { messageDao.observeMessagesForAccount(conversationId, it.value).first() }
+                ?: emptyList()
             if (cached.isNotEmpty()) {
                 Logger.d { "Using cached messages for $conversationId (network unavailable)" }
                 return Result.Success(cached.toModels())
@@ -48,15 +60,20 @@ class MessageRepositoryImpl(
 
     override suspend fun cacheMessages(messages: List<Message>) {
         if (messages.isEmpty()) return
-        messageDao.upsertAll(messages.map { it.toEntity() })
+        // Don't persist when no account is resolved (warming / logged out): a null-stamped row is
+        // invisible to every account-filtered read and unreapable by the scoped logout purge.
+        val accountId = activeAccountProvider.currentAccountId()?.value ?: return
+        messageDao.upsertAll(messages.entitiesFor(accountId))
     }
 
     override suspend fun refreshMessages(conversationId: String): Result<List<Message>> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val messages = messagesApi.getMessages(conversationId)
-            val entities = messages.map { it.toEntity() }
-            // Full replace: delete stale cache then insert fresh server data
-            messageDao.replaceAllForConversation(conversationId, entities)
+            if (accountId != null) {
+                // Full replace: delete stale cache then insert fresh server data
+                messageDao.replaceAllForConversation(conversationId, messages.entitiesFor(accountId))
+            }
             messages
         }
     }
@@ -99,4 +116,8 @@ class MessageRepositoryImpl(
             )
         }
     }
+
+    // Maps server messages to entities stamped with the account captured at request time.
+    private fun List<Message>.entitiesFor(accountId: String) =
+        map { it.toEntity().copy(accountId = accountId) }
 }

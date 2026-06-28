@@ -7,6 +7,10 @@ plugins {
 
 android {
     namespace = "com.garfiec.librechat.core.data"
+    testOptions {
+        // Robolectric needs the merged manifest + resources on the host-JVM unit-test classpath.
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin {
@@ -32,6 +36,13 @@ kotlin {
         named("androidUnitTest").dependencies {
             implementation(libs.koin.test)
             implementation(libs.ktor.client.mock)
+            // Host-JVM Room lane (account-tenancy migration + isolation suite): Robolectric supplies a
+            // working framework SQLite on the JVM, since production Android uses the framework driver.
+            implementation(libs.robolectric)
+            implementation(libs.android.test.core)
+            implementation(libs.room.testing)
+            implementation(libs.truth)
+            implementation(libs.coroutines.test)
         }
         named("androidInstrumentedTest").dependencies {
             implementation(libs.room.testing)
