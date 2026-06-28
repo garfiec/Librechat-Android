@@ -4,6 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Pinned to ktor 3.4.3: 3.5.0 OOMs the Kotlin/Native Release link on the 7 GB
+      # CI runner (KT-80367, fixed in Kotlin 2.4.0). Remove this ignore when we move
+      # to Kotlin 2.4.x and unpin ktor in libs.versions.toml.
+      - dependency-name: "io.ktor:*"
 
   # Third-party actions in the release workflow are pinned to commit SHAs (not moving
   # tags) so a compromised action can't slip into the secret-bearing job; this keeps

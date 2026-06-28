@@ -16,7 +16,10 @@ lifecycle-viewmodel-nav3-kmp = "2.11.0-beta01"
 koin = "4.2.2"
 
 # Network
-ktor = "3.5.0"
+# Pinned to 3.4.3 (do not bump). 3.5.0 enlarges the iOS framework enough that the
+# Kotlin/Native Release link OOMs in DevirtualizationAnalysis on the 7 GB CI runner
+# (JetBrains KT-80367, fixed in Kotlin 2.4.0). Unpin once we upgrade to Kotlin 2.4.x.
+ktor = "3.4.3"
 kotlinx-serialization = "1.11.0"
 kotlinx-datetime = "0.8.0"
 
