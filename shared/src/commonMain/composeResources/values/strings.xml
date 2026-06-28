@@ -27,5 +27,5 @@
     <string name="version_mismatch_title">Backend Version Mismatch</string>
     <string name="version_mismatch_message">This app was built for LibreChat v%1$s, but your server is running v%2$s. Some features may not work correctly.</string>
     <string name="dismiss">Dismiss</string>
-    <string name="dont_warn_again">Don\'t warn again</string>
+    <string name="dont_warn_again">Don't warn again</string>
 </resources>
