@@ -34,11 +34,9 @@ A third-party native mobile client for [LibreChat](https://www.librechat.ai/) (A
 | **Code Blocks** — Syntax-highlighted code with language badge and copy button | <img src="docs/screenshots/code-phone.png" width="280"> | <img src="docs/screenshots/code-tablet.png" width="380"> |
 | **Tables** — Clean, scrollable data tables | <img src="docs/screenshots/table-phone.png" width="280"> | <img src="docs/screenshots/table-tablet.png" width="380"> |
 | **Extended Thinking** — See the model's reasoning process | <img src="docs/screenshots/thinking-phone.png" width="280"> | <img src="docs/screenshots/thinking-tablet.png" width="380"> |
-| **Image Generation** — AI-generated images via agents | <img src="docs/screenshots/imagegen-phone.png" width="280"> | <img src="docs/screenshots/imagegen-tablet.png" width="380"> |
+| **Chat Media** — Browse all media shared in the current chat in one place | <img src="docs/screenshots/chat-media-phone.png" width="280"> | <img src="docs/screenshots/chat-media-tablet.png" width="380"> |
 | **Chat Options** — Attach files, switch models, toggle tools, and tune parameters | <img src="docs/screenshots/chat-options-phone.png" width="280"> | <img src="docs/screenshots/chat-options-tablet.png" width="380"> |
 | **Model Selection** — Searchable bottom sheet with models grouped by provider | <img src="docs/screenshots/model-selection-phone.png" width="280"> | <img src="docs/screenshots/model-selection-tablet.png" width="380"> |
-| **Model Parameters** — Fine-tune temperature, top-p, tokens, and custom instructions | <img src="docs/screenshots/model-params-phone.png" width="280"> | <img src="docs/screenshots/model-params-tablet.png" width="380"> |
-| **Photo Upload** — Attach images from your gallery or camera | <img src="docs/screenshots/photo-upload-phone.png" width="280"> | <img src="docs/screenshots/photo-upload-tablet.png" width="380"> |
 | **Settings** — Theme, language, layout, and personalization options | <img src="docs/screenshots/settings-phone.png" width="280"> | <img src="docs/screenshots/settings-tablet.png" width="380"> |
 
 ## Install (Android)
