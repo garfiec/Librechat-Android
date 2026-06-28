@@ -165,6 +165,16 @@
     <string name="starred_models_off">Desactivado</string>
     <string name="starred_models_grouped">Grupo plegable en la parte superior</string>
     <string name="starred_models_top">En la parte superior, sin agrupar</string>
+    <string name="chat_header_content_title">Contenido del encabezado del chat</string>
+    <string name="chat_header_content_desc">Elige qué muestra la barra superior del chat</string>
+    <string name="chat_header_content_title_option">Título de la conversación</string>
+    <string name="chat_header_content_model">Modelo seleccionado</string>
+    <string name="chat_header_content_none">Nada</string>
+    <string name="chat_header_alignment_title">Alineación del encabezado del chat</string>
+    <string name="chat_header_alignment_desc">Elige cómo se posiciona la burbuja de la barra superior del chat</string>
+    <string name="chat_header_alignment_left">Izquierda</string>
+    <string name="chat_header_alignment_center">Centro</string>
+    <string name="chat_header_alignment_fill">Ancho completo</string>
     <string name="font_size">Tamaño de fuente</string>
     <string name="font_size_small">Pequeño</string>
     <string name="font_size_medium">Mediano</string>

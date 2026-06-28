@@ -59,6 +59,7 @@
     <string name="cd_cancel_edit">Cancel edit</string>
     <string name="cd_update_queued_message">Update queued message</string>
     <string name="cd_open_drawer">Open navigation drawer</string>
+    <string name="cd_edit_title">Edit title</string>
     <string name="cd_more_options">More options</string>
     <string name="cd_more_tools">More tools</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>

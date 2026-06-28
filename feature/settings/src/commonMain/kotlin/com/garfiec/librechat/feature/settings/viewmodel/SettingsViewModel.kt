@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
+import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
+import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -208,6 +210,14 @@ class SettingsViewModel(
 
     fun setStarredModelsDisplay(display: StarredModelsDisplay) {
         prefsController.setStarredModelsDisplay(display)
+    }
+
+    fun setChatHeaderContent(content: ChatHeaderContent) {
+        prefsController.setChatHeaderContent(content)
+    }
+
+    fun setChatHeaderAlignment(alignment: ChatHeaderAlignment) {
+        prefsController.setChatHeaderAlignment(alignment)
     }
 
     fun setAutoScrollEnabled(enabled: Boolean) {

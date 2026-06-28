@@ -51,6 +51,7 @@
     <string name="cd_stop_generation">停止生成</string>
     <string name="cd_send_message">发送消息</string>
     <string name="cd_open_drawer">打开导航抽屉</string>
+    <string name="cd_edit_title">编辑标题</string>
     <string name="cd_more_options">更多选项</string>
     <string name="cd_more_tools">更多工具</string>
     <string name="cd_scroll_to_bottom">滚动到底部</string>

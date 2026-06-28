@@ -165,6 +165,16 @@
     <string name="starred_models_off">Aus</string>
     <string name="starred_models_grouped">Einklappbare Gruppe oben</string>
     <string name="starred_models_top">Oben, ohne Gruppierung</string>
+    <string name="chat_header_content_title">Inhalt der Chat-Kopfzeile</string>
+    <string name="chat_header_content_desc">Wählen Sie, was die Chat-Leiste anzeigt</string>
+    <string name="chat_header_content_title_option">Unterhaltungstitel</string>
+    <string name="chat_header_content_model">Ausgewähltes Modell</string>
+    <string name="chat_header_content_none">Nichts</string>
+    <string name="chat_header_alignment_title">Ausrichtung der Chat-Kopfzeile</string>
+    <string name="chat_header_alignment_desc">Wählen Sie, wie die Sprechblase der Chat-Leiste positioniert wird</string>
+    <string name="chat_header_alignment_left">Links</string>
+    <string name="chat_header_alignment_center">Zentriert</string>
+    <string name="chat_header_alignment_fill">Volle Breite</string>
     <string name="font_size">Schriftgröße</string>
     <string name="font_size_small">Klein</string>
     <string name="font_size_medium">Mittel</string>

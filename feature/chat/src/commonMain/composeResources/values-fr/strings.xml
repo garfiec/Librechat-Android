@@ -51,6 +51,7 @@
     <string name="cd_stop_generation">Arrêter la génération</string>
     <string name="cd_send_message">Envoyer le message</string>
     <string name="cd_open_drawer">Ouvrir le tiroir de navigation</string>
+    <string name="cd_edit_title">Modifier le titre</string>
     <string name="cd_more_options">Plus d\'options</string>
     <string name="cd_more_tools">Plus d\'outils</string>
     <string name="cd_scroll_to_bottom">Défiler vers le bas</string>

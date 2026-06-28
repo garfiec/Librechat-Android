@@ -5,6 +5,8 @@ import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
+import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
+import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
@@ -58,6 +60,16 @@ data class ChatPreferences(
     val sttEngine: String = "",
     val sttLanguage: String = "",
     val inlineArtifactPrefs: InlineArtifactPrefs = InlineArtifactPrefs(),
+)
+
+/**
+ * The chat floating top bar's mobile-only display preferences, bundled into a single
+ * flow so [ChatViewModel]'s `uiState` combine stays within Kotlin's 5-arg typed limit.
+ */
+@Immutable
+data class ChatHeaderPrefs(
+    val content: ChatHeaderContent = ChatHeaderContent.TITLE,
+    val alignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
 )
 
 /**
@@ -300,6 +312,13 @@ data class ChatUiState(
      * section), or top (flat top list). Read from [SettingsDataStore].
      */
     val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
+    /**
+     * Mobile-only preferences for the chat floating top bar: what its bubble shows
+     * ([chatHeaderContent]) and how the bubble is positioned ([chatHeaderAlignment]).
+     * Read from [SettingsDataStore].
+     */
+    val chatHeaderContent: ChatHeaderContent = ChatHeaderContent.TITLE,
+    val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
     val forkedConversationId: String? = null,
     val showForkOptionsForMessageId: String? = null,
     val isForkInProgress: Boolean = false,

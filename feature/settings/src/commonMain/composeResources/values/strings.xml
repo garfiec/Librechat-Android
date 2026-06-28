@@ -165,6 +165,16 @@
     <string name="starred_models_off">Off</string>
     <string name="starred_models_grouped">Collapsible group at top</string>
     <string name="starred_models_top">At top, no grouping</string>
+    <string name="chat_header_content_title">Chat header content</string>
+    <string name="chat_header_content_desc">Choose what the chat top bar shows</string>
+    <string name="chat_header_content_title_option">Conversation title</string>
+    <string name="chat_header_content_model">Selected model</string>
+    <string name="chat_header_content_none">Nothing</string>
+    <string name="chat_header_alignment_title">Chat header alignment</string>
+    <string name="chat_header_alignment_desc">Choose how the chat top bar bubble is positioned</string>
+    <string name="chat_header_alignment_left">Left</string>
+    <string name="chat_header_alignment_center">Center</string>
+    <string name="chat_header_alignment_fill">Fill width</string>
     <string name="font_size">Font size</string>
     <string name="font_size_small">Small</string>
     <string name="font_size_medium">Medium</string>

@@ -165,6 +165,16 @@
     <string name="starred_models_off">Выключено</string>
     <string name="starred_models_grouped">Сворачиваемая группа вверху</string>
     <string name="starred_models_top">Вверху, без группировки</string>
+    <string name="chat_header_content_title">Содержимое заголовка чата</string>
+    <string name="chat_header_content_desc">Выберите, что показывает верхняя панель чата</string>
+    <string name="chat_header_content_title_option">Название беседы</string>
+    <string name="chat_header_content_model">Выбранная модель</string>
+    <string name="chat_header_content_none">Ничего</string>
+    <string name="chat_header_alignment_title">Выравнивание заголовка чата</string>
+    <string name="chat_header_alignment_desc">Выберите расположение плашки верхней панели чата</string>
+    <string name="chat_header_alignment_left">Слева</string>
+    <string name="chat_header_alignment_center">По центру</string>
+    <string name="chat_header_alignment_fill">На всю ширину</string>
     <string name="font_size">Размер шрифта</string>
     <string name="font_size_small">Мелкий</string>
     <string name="font_size_medium">Средний</string>

@@ -165,6 +165,16 @@
     <string name="starred_models_off">إيقاف</string>
     <string name="starred_models_grouped">مجموعة قابلة للطي في الأعلى</string>
     <string name="starred_models_top">في الأعلى بدون تجميع</string>
+    <string name="chat_header_content_title">محتوى رأس المحادثة</string>
+    <string name="chat_header_content_desc">اختر ما يعرضه الشريط العلوي للمحادثة</string>
+    <string name="chat_header_content_title_option">عنوان المحادثة</string>
+    <string name="chat_header_content_model">النموذج المحدد</string>
+    <string name="chat_header_content_none">لا شيء</string>
+    <string name="chat_header_alignment_title">محاذاة رأس المحادثة</string>
+    <string name="chat_header_alignment_desc">اختر كيفية وضع فقاعة الشريط العلوي للمحادثة</string>
+    <string name="chat_header_alignment_left">يسار</string>
+    <string name="chat_header_alignment_center">وسط</string>
+    <string name="chat_header_alignment_fill">بعرض كامل</string>
     <string name="font_size">حجم الخط</string>
     <string name="font_size_small">صغير</string>
     <string name="font_size_medium">متوسط</string>

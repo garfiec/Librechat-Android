@@ -51,6 +51,7 @@
     <string name="cd_stop_generation">생성 중지</string>
     <string name="cd_send_message">메시지 전송</string>
     <string name="cd_open_drawer">탐색 서랍 열기</string>
+    <string name="cd_edit_title">제목 편집</string>
     <string name="cd_more_options">추가 옵션</string>
     <string name="cd_more_tools">추가 도구</string>
     <string name="cd_scroll_to_bottom">맨 아래로 스크롤</string>

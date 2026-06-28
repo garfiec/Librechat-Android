@@ -258,16 +258,26 @@ class ChatViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatPreferences())
 
+    // Bundled into one source so the uiState combine below stays within Kotlin's
+    // 5-argument typed `combine` ceiling.
+    private val chatHeaderPrefs: Flow<ChatHeaderPrefs> = combine(
+        settingsDataStore.chatHeaderContent,
+        settingsDataStore.chatHeaderAlignment,
+    ) { content, alignment -> ChatHeaderPrefs(content, alignment) }
+
     val uiState: StateFlow<ChatUiState> = combine(
         _uiState,
         serverDataStore.currentUrlFlow,
         settingsDataStore.chatFontSize,
         settingsDataStore.starredModelsDisplay,
-    ) { state, url, fontSize, starredDisplay ->
+        chatHeaderPrefs,
+    ) { state, url, fontSize, starredDisplay, headerPrefs ->
         state.copy(
             serverUrl = url,
             chatFontSize = fontSize,
             starredModelsDisplay = starredDisplay,
+            chatHeaderContent = headerPrefs.content,
+            chatHeaderAlignment = headerPrefs.alignment,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatUiState())
 

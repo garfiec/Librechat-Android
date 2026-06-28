@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.screen
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -32,12 +33,17 @@ fun rememberChatModelLabel(
     selectedEndpoint: String?,
     selectedModel: String?,
     agents: List<Agent>,
-): ChatModelLabel = chatModelLabel(
-    selectedEndpoint = selectedEndpoint,
-    selectedModel = selectedModel,
-    agents = agents,
-    agentFallbackLabel = stringResource(Res.string.chat_agent_fallback_label),
-)
+): ChatModelLabel {
+    val agentFallbackLabel = stringResource(Res.string.chat_agent_fallback_label)
+    return remember(selectedEndpoint, selectedModel, agents, agentFallbackLabel) {
+        chatModelLabel(
+            selectedEndpoint = selectedEndpoint,
+            selectedModel = selectedModel,
+            agents = agents,
+            agentFallbackLabel = agentFallbackLabel,
+        )
+    }
+}
 
 /**
  * Pure (non-Composable) label derivation, split out so the agent-vs-model and F4

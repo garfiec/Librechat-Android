@@ -4,6 +4,8 @@ import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayPrefs
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
+import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
+import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -63,6 +65,8 @@ private data class AdditionalPreferences(
     val artifactDisplayPrefs: ArtifactDisplayPrefs = ArtifactDisplayPrefs(),
     val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
     val selectedLanguage: String = SettingsDataStore.DEFAULT_LANGUAGE,
+    val chatHeaderContent: ChatHeaderContent = ChatHeaderContent.TITLE,
+    val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
 )
 
 /**
@@ -159,6 +163,12 @@ class SettingsPreferencesController(
     private val selectedLanguagePref: StateFlow<String> = settingsDataStore.selectedLanguage
         .stateIn(scope, SharingStarted.Eagerly, SettingsDataStore.DEFAULT_LANGUAGE)
 
+    private val chatHeaderContentPref: StateFlow<ChatHeaderContent> = settingsDataStore.chatHeaderContent
+        .stateIn(scope, SharingStarted.Eagerly, ChatHeaderContent.TITLE)
+
+    private val chatHeaderAlignmentPref: StateFlow<ChatHeaderAlignment> = settingsDataStore.chatHeaderAlignment
+        .stateIn(scope, SharingStarted.Eagerly, ChatHeaderAlignment.LEFT)
+
     private val baseAdditionalPreferences = combine(
         tabletSidebarGestureEnabled,
         settingsDataStore.autoSendAfterStt,
@@ -185,6 +195,10 @@ class SettingsPreferencesController(
         additional.copy(starredModelsDisplay = starredDisplay)
     }.combine(selectedLanguagePref) { additional, selectedLanguage ->
         additional.copy(selectedLanguage = selectedLanguage)
+    }.combine(chatHeaderContentPref) { additional, headerContent ->
+        additional.copy(chatHeaderContent = headerContent)
+    }.combine(chatHeaderAlignmentPref) { additional, headerAlignment ->
+        additional.copy(chatHeaderAlignment = headerAlignment)
     }.stateIn(scope, SharingStarted.Eagerly, AdditionalPreferences(true, false, "", "", true))
 
     /** The single public UI state that merges DataStore preferences with imperative state. */
@@ -228,6 +242,8 @@ class SettingsPreferencesController(
             artifactDisplayPrefs = additional.artifactDisplayPrefs,
             starredModelsDisplay = additional.starredModelsDisplay,
             selectedLanguage = additional.selectedLanguage,
+            chatHeaderContent = additional.chatHeaderContent,
+            chatHeaderAlignment = additional.chatHeaderAlignment,
         )
     }.stateIn(scope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -251,6 +267,14 @@ class SettingsPreferencesController(
 
     fun setStarredModelsDisplay(display: StarredModelsDisplay) {
         scope.launch { settingsDataStore.setStarredModelsDisplay(display) }
+    }
+
+    fun setChatHeaderContent(content: ChatHeaderContent) {
+        scope.launch { settingsDataStore.setChatHeaderContent(content) }
+    }
+
+    fun setChatHeaderAlignment(alignment: ChatHeaderAlignment) {
+        scope.launch { settingsDataStore.setChatHeaderAlignment(alignment) }
     }
 
     fun setAutoScrollEnabled(enabled: Boolean) {

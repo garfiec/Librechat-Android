@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayPrefs
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
+import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
+import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -191,6 +193,9 @@ data class SettingsUiState(
     val latexRenderer: LatexRenderer = LatexRenderer.KATEX,
     // Mobile-only: how pinned models/agents surface in the model-selection sheet
     val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
+    // Mobile-only: what the chat floating top bar shows + how its bubble is aligned
+    val chatHeaderContent: ChatHeaderContent = ChatHeaderContent.TITLE,
+    val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
     // Inline artifact rendering (per-type toggles)
     val inlineArtifactPrefs: InlineArtifactPrefs = InlineArtifactPrefs(),
     // Artifact viewer presentation (bottom sheet vs full screen + selector visibility)

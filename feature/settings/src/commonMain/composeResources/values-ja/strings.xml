@@ -165,6 +165,16 @@
     <string name="starred_models_off">オフ</string>
     <string name="starred_models_grouped">上部に折りたたみ可能なグループ</string>
     <string name="starred_models_top">上部に表示、グループ化なし</string>
+    <string name="chat_header_content_title">チャットヘッダーの内容</string>
+    <string name="chat_header_content_desc">チャット上部バーに表示する内容を選択</string>
+    <string name="chat_header_content_title_option">会話のタイトル</string>
+    <string name="chat_header_content_model">選択中のモデル</string>
+    <string name="chat_header_content_none">なし</string>
+    <string name="chat_header_alignment_title">チャットヘッダーの配置</string>
+    <string name="chat_header_alignment_desc">チャット上部バーのバブルの位置を選択</string>
+    <string name="chat_header_alignment_left">左</string>
+    <string name="chat_header_alignment_center">中央</string>
+    <string name="chat_header_alignment_fill">幅いっぱい</string>
     <string name="font_size">フォントサイズ</string>
     <string name="font_size_small">小</string>
     <string name="font_size_medium">中</string>

@@ -51,6 +51,7 @@
     <string name="cd_stop_generation">Остановить генерацию</string>
     <string name="cd_send_message">Отправить сообщение</string>
     <string name="cd_open_drawer">Открыть панель навигации</string>
+    <string name="cd_edit_title">Изменить название</string>
     <string name="cd_more_options">Дополнительно</string>
     <string name="cd_more_tools">Ещё инструменты</string>
     <string name="cd_scroll_to_bottom">Прокрутить вниз</string>

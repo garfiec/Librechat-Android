@@ -74,6 +74,14 @@ class SettingsDataStore(
         StarredModelsDisplay.fromString(prefs[KEY_STARRED_MODELS_DISPLAY])
     }
 
+    val chatHeaderContent: Flow<ChatHeaderContent> = dataStore.data.map { prefs ->
+        ChatHeaderContent.fromString(prefs[KEY_CHAT_HEADER_CONTENT])
+    }
+
+    val chatHeaderAlignment: Flow<ChatHeaderAlignment> = dataStore.data.map { prefs ->
+        ChatHeaderAlignment.fromString(prefs[KEY_CHAT_HEADER_ALIGNMENT])
+    }
+
     val autoScrollEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_AUTO_SCROLL_ENABLED] ?: true
     }
@@ -219,6 +227,18 @@ class SettingsDataStore(
     suspend fun setStarredModelsDisplay(display: StarredModelsDisplay) {
         dataStore.edit { prefs ->
             prefs[KEY_STARRED_MODELS_DISPLAY] = display.toStorageString()
+        }
+    }
+
+    suspend fun setChatHeaderContent(content: ChatHeaderContent) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CHAT_HEADER_CONTENT] = content.toStorageString()
+        }
+    }
+
+    suspend fun setChatHeaderAlignment(alignment: ChatHeaderAlignment) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CHAT_HEADER_ALIGNMENT] = alignment.toStorageString()
         }
     }
 
@@ -421,6 +441,8 @@ class SettingsDataStore(
         private val KEY_LATEX_RENDERER = stringPreferencesKey("latex_renderer")
         private val KEY_CHAT_FONT_SIZE = stringPreferencesKey("chat_font_size")
         private val KEY_STARRED_MODELS_DISPLAY = stringPreferencesKey("starred_models_display")
+        private val KEY_CHAT_HEADER_CONTENT = stringPreferencesKey("chat_header_content")
+        private val KEY_CHAT_HEADER_ALIGNMENT = stringPreferencesKey("chat_header_alignment")
         private val KEY_AUTO_SCROLL_ENABLED = booleanPreferencesKey("auto_scroll_enabled")
         private val KEY_SHOW_THINKING_BLOCKS = booleanPreferencesKey("show_thinking_blocks")
         private val KEY_AUTO_READ_ENABLED = booleanPreferencesKey("auto_read_enabled")

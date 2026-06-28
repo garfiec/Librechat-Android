@@ -51,6 +51,7 @@
     <string name="cd_stop_generation">إيقاف الإنشاء</string>
     <string name="cd_send_message">إرسال الرسالة</string>
     <string name="cd_open_drawer">فتح درج التنقل</string>
+    <string name="cd_edit_title">تعديل العنوان</string>
     <string name="cd_more_options">خيارات إضافية</string>
     <string name="cd_more_tools">أدوات إضافية</string>
     <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>

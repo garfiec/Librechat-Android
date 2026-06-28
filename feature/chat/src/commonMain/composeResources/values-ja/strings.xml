@@ -51,6 +51,7 @@
     <string name="cd_stop_generation">生成を停止</string>
     <string name="cd_send_message">メッセージを送信</string>
     <string name="cd_open_drawer">ナビゲーションドロワーを開く</string>
+    <string name="cd_edit_title">タイトルを編集</string>
     <string name="cd_more_options">その他のオプション</string>
     <string name="cd_more_tools">その他のツール</string>
     <string name="cd_scroll_to_bottom">一番下までスクロール</string>
