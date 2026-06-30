@@ -32,6 +32,8 @@ data class MessageEntity(
     val files: String?,
     val attachments: String?,
     val metadata: String?,
+    /** JSON-encoded `List<String>` of verbatim quote excerpts (v0.8.7). Null when absent. */
+    val quotes: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     /** Row-tenancy owner (self-owning; stamped from the carried command, not only transitively via conversation). See ConversationEntity.accountId. */

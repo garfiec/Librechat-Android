@@ -20,12 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
@@ -83,6 +80,8 @@ fun ChatToolsBottomSheet(
     modifier: Modifier = Modifier,
     isCodeInterpreterAvailable: Boolean = true,
     webSearchEnabled: Boolean = true,
+    /** Whether to offer the Google-only URL Context toggle (active provider is Google/Gemini). */
+    urlContextEnabled: Boolean = false,
     runCodeEnabled: Boolean = true,
     fileSearchEnabled: Boolean = true,
     mcpServersEnabled: Boolean = true,
@@ -265,34 +264,27 @@ fun ChatToolsBottomSheet(
 
             // Tool toggle items — ephemeral tools are hidden for the agents endpoint
             // (the agent uses its own configured tools), mirroring web's showEphemeralBadges.
-            if (gates.showEphemeralTools && webSearchEnabled) {
-                ToolToggleRow(
-                    icon = Icons.Default.Search,
-                    title = stringResource(Res.string.tool_web_search),
-                    subtitle = stringResource(Res.string.tool_web_search_desc),
-                    isEnabled = ToolConstants.WEB_SEARCH in enabledTools,
-                    onToggle = { onToggleTool(ToolConstants.WEB_SEARCH) },
+            // Each tool's icon/label comes from the shared [ephemeralToolMeta]; the per-tool
+            // enable gate stays inline (they differ per tool).
+            if (gates.showEphemeralTools) {
+                val toolRows = listOf(
+                    ToolConstants.WEB_SEARCH to webSearchEnabled,
+                    ToolConstants.URL_CONTEXT to urlContextEnabled,
+                    ToolConstants.CODE_INTERPRETER to (isCodeInterpreterAvailable && runCodeEnabled),
+                    ToolConstants.FILE_SEARCH to fileSearchEnabled,
                 )
-            }
-
-            if (gates.showEphemeralTools && isCodeInterpreterAvailable && runCodeEnabled) {
-                ToolToggleRow(
-                    icon = Icons.Default.Code,
-                    title = stringResource(Res.string.tool_code),
-                    subtitle = stringResource(Res.string.tool_code_desc),
-                    isEnabled = ToolConstants.CODE_INTERPRETER in enabledTools,
-                    onToggle = { onToggleTool(ToolConstants.CODE_INTERPRETER) },
-                )
-            }
-
-            if (gates.showEphemeralTools && fileSearchEnabled) {
-                ToolToggleRow(
-                    icon = Icons.Default.FindInPage,
-                    title = stringResource(Res.string.tool_file_search),
-                    subtitle = stringResource(Res.string.tool_file_search_desc),
-                    isEnabled = ToolConstants.FILE_SEARCH in enabledTools,
-                    onToggle = { onToggleTool(ToolConstants.FILE_SEARCH) },
-                )
+                toolRows.forEach { (toolKey, enabled) ->
+                    val meta = ephemeralToolMeta(toolKey)
+                    if (enabled && meta != null) {
+                        ToolToggleRow(
+                            icon = meta.icon,
+                            title = stringResource(meta.titleRes),
+                            subtitle = stringResource(meta.descriptionRes),
+                            isEnabled = toolKey in enabledTools,
+                            onToggle = { onToggleTool(toolKey) },
+                        )
+                    }
+                }
             }
 
             // MCP section — hidden when role denies MCP_SERVERS.USE, and for the agents

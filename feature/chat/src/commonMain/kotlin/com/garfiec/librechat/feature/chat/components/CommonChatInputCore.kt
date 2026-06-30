@@ -77,6 +77,9 @@ data class ChatInputState(
     val isRecording: Boolean,
     val isTranscribing: Boolean,
     val enabledTools: Set<String>,
+    /** Tool keys (already mapped + gated) to surface as inline quick-toggle chips on the
+     *  input bar (v0.8.7 `defaultPinnedTools`). Selected state reads from [enabledTools]. */
+    val pinnedToolKeys: List<String> = emptyList(),
     val mcpServers: List<McpServerDisplayData>,
     val selectedMcpServerNames: Set<String>,
     val selectedModelDisplay: String?,
@@ -115,6 +118,8 @@ fun CommonChatInputCore(
     onStop: () -> Unit,
     onRemoveFile: (AttachedFile) -> Unit,
     modifier: Modifier = Modifier,
+    /** Toggle a pinned tool from its inline chip (v0.8.7 `defaultPinnedTools`). */
+    onToggleTool: (String) -> Unit = {},
     /** Queue a follow-up while streaming. Null (or [ChatInputState.canQueue] false) keeps the
      *  button as plain Stop mid-stream (e.g. on a brand-new conversation). */
     onQueue: (() -> Unit)? = null,
@@ -191,6 +196,16 @@ fun CommonChatInputCore(
                 selectedMcpServerNames = state.selectedMcpServerNames,
                 showEphemeralTools = state.gates.showEphemeralTools,
             )
+
+            // Server-pinned tools (v0.8.7 defaultPinnedTools) as inline quick-toggle chips.
+            if (state.pinnedToolKeys.isNotEmpty()) {
+                PinnedToolsRow(
+                    pinnedToolKeys = state.pinnedToolKeys,
+                    enabledTools = state.enabledTools,
+                    onToggleTool = onToggleTool,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
 
             // Context-usage bar, between the chips and the composer row. Gated on the placement
             // preference (ABOVE_INPUT here), the server/version support flag, and a snapshot with

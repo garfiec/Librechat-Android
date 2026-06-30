@@ -24,6 +24,7 @@ import com.garfiec.librechat.core.model.ConversationTag
 import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
+import com.garfiec.librechat.core.model.permissions.canCreateSharedLinks
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.TokenManager
@@ -85,18 +86,20 @@ class NavHostViewModel(
 
     // Inputs for the drawer long-press action menu: the user-defined tags (excluding favorites,
     // same filter as ConversationListViewModel.observeTags) for the tag picker, plus the
-    // config-driven shared-links flag that gates the Share action.
+    // config-driven shared-links flag and the SHARED_LINKS role permission that gate the Share action.
     private val drawerActionMenuState: StateFlow<DrawerActionMenuState> =
         combine(
             tagRepository.observeTags()
                 .map { tags -> tags.filter { it.count > 0 && it.tag != SAVED_TAG } },
             configRepository.startupConfig,
             configRepository.detectedBackendVersion,
-        ) { tags, config, version ->
+            roleRepository.userPermissions,
+        ) { tags, config, version, permissions ->
             // Pin requires POST /api/convos/pin (v0.8.7+). Gate fail-closed on unknown
             // version so older servers don't surface an action they'd 404 on.
             val supportsV087 = version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7")
-            DrawerActionMenuState(tags, config?.sharedLinksEnabled ?: false, supportsV087, supportsV087)
+            val canShare = permissions.canCreateSharedLinks(config?.sharedLinksEnabled ?: false)
+            DrawerActionMenuState(tags, canShare, supportsV087, supportsV087)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DrawerActionMenuState())
 
     // Chat Projects (v0.8.7). Loaded lazily when the move-to-project picker / folder

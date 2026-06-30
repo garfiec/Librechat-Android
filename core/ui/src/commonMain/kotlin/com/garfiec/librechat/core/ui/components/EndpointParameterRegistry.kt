@@ -832,6 +832,13 @@ object EndpointParameterRegistry {
             description = "Enable web search to get up-to-date information.",
         ),
         ParameterDefinition(
+            key = "url_context",
+            label = "Use URL Context",
+            type = ParameterType.SWITCH,
+            default = "false",
+            description = "Let the model fetch and ground on URLs (and YouTube) you reference.",
+        ),
+        ParameterDefinition(
             key = "fileTokenLimit",
             label = "File Token Limit",
             type = ParameterType.TEXT,

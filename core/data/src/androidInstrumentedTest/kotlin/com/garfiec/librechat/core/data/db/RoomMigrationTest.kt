@@ -223,7 +223,7 @@ class RoomMigrationTest {
     }
 
     @Test
-    fun migrateV1ToV5_viaRoomApi_entitiesReadable() {
+    fun migrateV1ToCurrent_viaRoomApi_entitiesReadable() {
         // Create and populate a v1 database
         val db = helper.createDatabase(testDbName, 1)
         db.insert(
@@ -242,7 +242,7 @@ class RoomMigrationTest {
         )
         db.close()
 
-        // Open with Room (auto-runs auto-migrations 1→2→3 and the manual 3→4, 4→5). All manual
+        // Open with Room (auto-runs 1→2→3, the manual 3→4 and 4→5, then the auto 5→6). All
         // migrations through the current @Database version must be registered or the open throws.
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val roomDb = Room.databaseBuilder(

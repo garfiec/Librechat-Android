@@ -35,10 +35,12 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
-        // 4 -> 5 (manual MIGRATION_4_5) is account-tenancy: accountId + drop files table.
-        // 5 -> 6 adds the nullable v0.8.7 conversation columns `pinned` (pinned conversations)
-        // and `chatProjectId` (Chat Projects assignment). Bundled into one hop because neither
-        // shipped as a released DB version — there is no in-the-wild v6 to migrate through.
+        // 3 -> 4 and 4 -> 5 are manual (MIGRATION_3_4 / MIGRATION_4_5 in Migrations.kt, registered
+        // via addMigrations in the platform DI); 4 -> 5 is account-tenancy: accountId + drop files
+        // table. 5 -> 6 adds every nullable v0.8.7 column in one hop — `pinned` and `chatProjectId`
+        // on conversations (pinning + Chat Projects assignment) and `quotes` on messages
+        // (referenced-text excerpts). Bundled into a single hop because none shipped as a released
+        // DB version — there is no in-the-wild v6 to migrate through.
         AutoMigration(from = 5, to = 6),
     ],
 )

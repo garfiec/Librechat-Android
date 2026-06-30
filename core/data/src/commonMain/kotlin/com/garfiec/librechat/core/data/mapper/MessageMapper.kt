@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlin.time.Clock
@@ -33,6 +34,7 @@ fun Message.toEntity(): MessageEntity = MessageEntity(
     files = files?.let { json.encodeToString(ListSerializer(FileReference.serializer()), it) },
     attachments = attachments?.let { json.encodeToString(ListSerializer(Attachment.serializer()), it) },
     metadata = metadata?.toString(),
+    quotes = quotes?.let { json.encodeToString(ListSerializer(String.serializer()), it) },
     createdAt = parseTimestamp(createdAt),
     updatedAt = parseTimestamp(updatedAt),
 )
@@ -65,6 +67,9 @@ fun MessageEntity.toModel(): Message = Message(
     },
     metadata = metadata?.let {
         try { json.decodeFromString<JsonObject>(it) } catch (_: Exception) { null }
+    },
+    quotes = quotes?.let {
+        try { json.decodeFromString<List<String>>(it) } catch (_: Exception) { null }
     },
     createdAt = formatTimestamp(createdAt),
     updatedAt = formatTimestamp(updatedAt),

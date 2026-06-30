@@ -43,6 +43,8 @@ data class Preset(
     /** Anthropic prompt-cache duration: `"5m"` | `"1h"` (v0.8.7). Null leaves the provider default. */
     val promptCacheTtl: String? = null,
     @SerialName("web_search") val webSearch: Boolean? = null,
+    /** Google Gemini "URL Context" grounding (v0.8.7). Google-only, sibling of [webSearch]. */
+    @SerialName("url_context") val urlContext: Boolean? = null,
     val imageDetail: String? = null,
     val fileTokenLimit: Int? = null,
     val tags: List<String>? = null,

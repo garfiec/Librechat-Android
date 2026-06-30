@@ -58,3 +58,13 @@ fun UserRolePermissions?.hasAccessOrPermissive(type: PermissionType, permission:
  */
 fun UserRolePermissions?.hasAccessStrictOrDenied(type: PermissionType, permission: Permission): Boolean =
     this?.hasAccessStrict(type, permission) ?: false
+
+/**
+ * Share-conversation visibility gate (v0.8.7): the server feature flag AND the
+ * SHARED_LINKS/CREATE permission. Permissive on unknown (via [hasAccessOrPermissive]) so older
+ * backends that don't emit the permission keep showing Share; the server still enforces with 403.
+ * Mirrors upstream ConvoOptions' `sharedLinksEnabled && canCreateSharedLinks`. Single source of
+ * truth for both the drawer long-press menu and the chat overflow menu.
+ */
+fun UserRolePermissions?.canCreateSharedLinks(sharedLinksEnabled: Boolean): Boolean =
+    sharedLinksEnabled && hasAccessOrPermissive(PermissionType.SHARED_LINKS, Permission.CREATE)

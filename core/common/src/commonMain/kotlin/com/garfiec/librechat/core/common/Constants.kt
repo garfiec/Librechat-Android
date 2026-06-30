@@ -6,6 +6,10 @@ object EndpointConstants {
 
 object ToolConstants {
     const val WEB_SEARCH = "web_search"
+
+    /** Google Gemini "URL Context" grounding (v0.8.7). A Google-only model parameter,
+     *  sibling of [WEB_SEARCH] — backed by `modelParameters.urlContext`, not `enabledTools`. */
+    const val URL_CONTEXT = "url_context"
     const val CODE_INTERPRETER = "code_interpreter"
     const val FILE_SEARCH = "file_search"
     const val EXECUTE_CODE = "execute_code"

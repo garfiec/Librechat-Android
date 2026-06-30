@@ -39,4 +39,8 @@ data class Message(
     // [alwaysAppliedSkills] = auto-primed via frontmatter `always-apply`.
     val manualSkills: List<String>? = null,
     val alwaysAppliedSkills: List<String>? = null,
+    // Verbatim excerpts the user referenced on this turn (v0.8.7 "reference selected
+    // text"). Persisted UI-metadata; the web client creates them and merges them into
+    // the sent text. Mobile renders them on the user bubble (no creation affordance yet).
+    val quotes: List<String>? = null,
 )

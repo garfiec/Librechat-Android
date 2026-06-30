@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "51f559775be9a727df982fd6e8b177ce",
+    "identityHash": "e25991a679d30adac2e05014ada1564e",
     "entities": [
       {
         "tableName": "conversations",
@@ -130,7 +130,7 @@
       },
       {
         "tableName": "messages",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`messageId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `parentMessageId` TEXT, `sender` TEXT, `text` TEXT, `content` TEXT, `isCreatedByUser` INTEGER NOT NULL, `model` TEXT, `endpoint` TEXT, `iconURL` TEXT, `unfinished` INTEGER NOT NULL, `error` INTEGER NOT NULL, `finishReason` TEXT, `tokenCount` INTEGER, `feedback` TEXT, `files` TEXT, `attachments` TEXT, `metadata` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `accountId` TEXT, PRIMARY KEY(`messageId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`messageId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `parentMessageId` TEXT, `sender` TEXT, `text` TEXT, `content` TEXT, `isCreatedByUser` INTEGER NOT NULL, `model` TEXT, `endpoint` TEXT, `iconURL` TEXT, `unfinished` INTEGER NOT NULL, `error` INTEGER NOT NULL, `finishReason` TEXT, `tokenCount` INTEGER, `feedback` TEXT, `files` TEXT, `attachments` TEXT, `metadata` TEXT, `quotes` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `accountId` TEXT, PRIMARY KEY(`messageId`))",
         "fields": [
           {
             "fieldPath": "messageId",
@@ -225,6 +225,11 @@
           {
             "fieldPath": "metadata",
             "columnName": "metadata",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "quotes",
+            "columnName": "quotes",
             "affinity": "TEXT"
           },
           {
@@ -535,7 +540,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '51f559775be9a727df982fd6e8b177ce')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e25991a679d30adac2e05014ada1564e')"
     ]
   }
 }

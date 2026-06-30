@@ -34,6 +34,8 @@ data class Conversation(
     val spec: String? = null,
     val tools: List<String>? = null,
     @SerialName("web_search") val webSearch: Boolean? = null,
+    /** Google Gemini "URL Context" grounding (v0.8.7). Google-only, sibling of [webSearch]. */
+    @SerialName("url_context") val urlContext: Boolean? = null,
     /** Anthropic prompt-cache duration: `"5m"` | `"1h"` (v0.8.7). Persisted per-conversation. */
     val promptCacheTtl: String? = null,
     /** Whether the conversation is pinned to the top of the list (v0.8.7). */

@@ -632,6 +632,12 @@ class ModelSelectionDelegate(
             stateHandle.update {
                 copy(modelParameters = modelParameters.copy(webSearch = !current))
             }
+        } else if (toolName == ToolConstants.URL_CONTEXT) {
+            // URL context (Google-only) is backed by modelParameters.urlContext, like web search.
+            val current = stateHandle.state.modelParameters.urlContext
+            stateHandle.update {
+                copy(modelParameters = modelParameters.copy(urlContext = !current))
+            }
         } else if (toolName == ToolConstants.CODE_INTERPRETER && !stateHandle.state.isCodeInterpreterAvailable) {
             // Code interpreter is not available on this server; ignore toggle attempt.
             return

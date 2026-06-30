@@ -39,6 +39,7 @@ import com.garfiec.librechat.core.model.config.InterfaceConfig
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
+import com.garfiec.librechat.core.model.permissions.canCreateSharedLinks
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.model.request.ContextProjectionRequest
 import com.garfiec.librechat.core.ui.components.ModelParameters
@@ -1256,12 +1257,17 @@ class ChatViewModel(
     }
 
     private fun loadFlags() {
-        // startupConfig-driven flags (UI-only toggles, not permission gates).
+        // Share visibility = server feature flag AND the SHARED_LINKS/CREATE role permission
+        // (v0.8.7). Permissive on unknown so older backends (no permission emitted) keep
+        // showing Share. Mirrors upstream ConvoOptions' sharedLinksEnabled && canCreate gate.
         viewModelScope.launch {
-            configRepository.startupConfig.collect { config ->
-                _uiState.update {
-                    it.copy(sharedLinksEnabled = config?.sharedLinksEnabled ?: false)
-                }
+            combine(
+                configRepository.startupConfig,
+                roleRepository.userPermissions,
+            ) { config, role ->
+                role.canCreateSharedLinks(config?.sharedLinksEnabled ?: false)
+            }.distinctUntilChanged().collect { canShare ->
+                _uiState.update { it.copy(sharedLinksEnabled = canShare) }
             }
         }
         // Feature gates. The effective rule mirrors web: `interface.* flag AND role permission`.
@@ -1309,6 +1315,8 @@ class ChatViewModel(
                         presetsEnabled = (iface?.presets ?: true) && (iface?.modelSelect ?: true),
                         // Context-usage gauge (v0.8.7): interface flag AND backend support.
                         contextUsageEnabled = contextGaugeSupported && (iface?.contextUsage ?: true),
+                        // Pinned tools (v0.8.7): raw interface list; mapped/filtered by pinnedToolChips.
+                        pinnedTools = iface?.defaultPinnedTools ?: emptyList(),
                     )
                 }
             }

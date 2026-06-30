@@ -45,6 +45,7 @@ data class ModelParameters(
     val thinking: Boolean = false,
     val thinkingBudget: String = "Auto",
     val webSearch: Boolean = false,
+    val urlContext: Boolean = false,
     val fileTokenLimit: Int? = null,
     val dynamicValues: Map<String, String> = emptyMap(),
 ) {
@@ -72,6 +73,7 @@ data class ModelParameters(
         "thinking" -> thinking.toString()
         "thinkingBudget" -> thinkingBudget
         "web_search" -> webSearch.toString()
+        "url_context" -> urlContext.toString()
         "fileTokenLimit" -> fileTokenLimit?.toString() ?: ""
         "stop" -> dynamicValues["stop"] ?: ""
         "reasoning_effort", "effort" -> dynamicValues[key] ?: ""
@@ -100,6 +102,7 @@ data class ModelParameters(
         "thinking" -> copy(thinking = value.toBooleanStrictOrNull() ?: thinking)
         "thinkingBudget" -> copy(thinkingBudget = value)
         "web_search" -> copy(webSearch = value.toBooleanStrictOrNull() ?: webSearch)
+        "url_context" -> copy(urlContext = value.toBooleanStrictOrNull() ?: urlContext)
         "fileTokenLimit" -> copy(fileTokenLimit = value.toIntOrNull())
         else -> copy(dynamicValues = dynamicValues.toMutableMap().apply { this[key] = value })
     }
@@ -120,7 +123,7 @@ data class ModelParameters(
             "frequency_penalty", "presence_penalty",
             "topK",
             "resendFiles", "thinking", "thinkingBudget",
-            "web_search", "fileTokenLimit",
+            "web_search", "url_context", "fileTokenLimit",
         )
         return if (definition.key in typedKeys) {
             withUpdatedKey(definition.key, definition.default.orEmpty())

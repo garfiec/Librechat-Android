@@ -41,7 +41,8 @@ func verifySharedFrameworkImport() {
         updatedAt: nil,
         title: nil,
         manualSkills: nil,
-        alwaysAppliedSkills: nil
+        alwaysAppliedSkills: nil,
+        quotes: nil
     )
     assert(message.messageId == "msg-swift-001")
     assert(message.text == "Hello from Swift!")

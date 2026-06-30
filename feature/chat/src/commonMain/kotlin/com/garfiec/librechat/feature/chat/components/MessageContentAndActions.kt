@@ -214,49 +214,63 @@ internal fun MessageContentAndActions(
             onCancel = onEditCancel,
         )
     } else {
-        // Render attached files above message text (matches web app behavior)
-        val messageFiles = message.files
-        if (!messageFiles.isNullOrEmpty()) {
-            MessageFiles(
-                files = messageFiles,
-                baseUrl = baseUrl,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-        }
+        // Single Column root so this branch emits from one source (and the quote chips,
+        // files, content, and office previews stack the same as before).
+        Column {
+            // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
+            // text. Created on web; mobile displays them (no creation affordance yet).
+            val quotes = message.quotes
+            if (isUser && !quotes.isNullOrEmpty()) {
+                MessageQuotes(
+                    quotes = quotes,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
 
-        val contentParts = message.content
-        if (!contentParts.isNullOrEmpty()) {
-            contentParts.forEach { part ->
-                ContentPartRenderer(
-                    part = part,
+            // Render attached files above message text (matches web app behavior)
+            val messageFiles = message.files
+            if (!messageFiles.isNullOrEmpty()) {
+                MessageFiles(
+                    files = messageFiles,
                     baseUrl = baseUrl,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+
+            val contentParts = message.content
+            if (!contentParts.isNullOrEmpty()) {
+                contentParts.forEach { part ->
+                    ContentPartRenderer(
+                        part = part,
+                        baseUrl = baseUrl,
+                        fontSizeMultiplier = fontSizeMultiplier,
+                        useKatex = useKatex,
+                        attachments = message.attachments.orEmpty(),
+                        showImageDescriptions = showImageDescriptions,
+                        searchQuery = if (isSearchMatch) searchQuery else null,
+                        searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
+                        onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
+                }
+            } else if (message.text.isNotBlank()) {
+                MarkdownContent(
+                    text = message.text,
                     fontSizeMultiplier = fontSizeMultiplier,
                     useKatex = useKatex,
-                    attachments = message.attachments.orEmpty(),
-                    showImageDescriptions = showImageDescriptions,
                     searchQuery = if (isSearchMatch) searchQuery else null,
                     searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
                     onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
-                    modifier = Modifier.padding(vertical = 2.dp),
                 )
             }
-        } else if (message.text.isNotBlank()) {
-            MarkdownContent(
-                text = message.text,
-                fontSizeMultiplier = fontSizeMultiplier,
-                useKatex = useKatex,
-                searchQuery = if (isSearchMatch) searchQuery else null,
-                searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
-                onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
+
+            // Deferred office-doc preview attachments (v0.8.6) on a persisted message
+            // render as their own artifact card. Non-office attachments are unaffected.
+            OfficePreviewAttachments(
+                attachments = message.attachments.orEmpty(),
+                isDarkTheme = isSurfaceDark(),
             )
         }
-
-        // Deferred office-doc preview attachments (v0.8.6) on a persisted message
-        // render as their own artifact card. Non-office attachments are unaffected.
-        OfficePreviewAttachments(
-            attachments = message.attachments.orEmpty(),
-            isDarkTheme = isSurfaceDark(),
-        )
     }
 
     // Action row: sibling nav + message actions (tap-to-reveal)

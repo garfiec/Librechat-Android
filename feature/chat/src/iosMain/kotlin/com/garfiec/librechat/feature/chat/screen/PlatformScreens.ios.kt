@@ -276,6 +276,7 @@ actual fun ChatScreen(
                 onQueue = { viewModel.queueMessage() },
                 canQueue = uiState.canQueueFollowUp,
                 enabledTools = uiState.effectiveEnabledTools,
+                pinnedToolKeys = uiState.pinnedToolChips,
                 onToggleTool = viewModel::toggleTool,
                 mcpServers = uiState.mcpServers,
                 selectedMcpServerNames = uiState.selectedMcpServerNames,
@@ -324,6 +325,7 @@ actual fun ChatScreen(
                     }
                 },
                 webSearchEnabled = uiState.webSearchEnabled,
+                urlContextEnabled = uiState.urlContextProviderGate,
                 runCodeEnabled = uiState.runCodeEnabled,
                 fileSearchEnabled = uiState.fileSearchEnabled,
                 mcpServersEnabled = uiState.mcpServersEnabled,
