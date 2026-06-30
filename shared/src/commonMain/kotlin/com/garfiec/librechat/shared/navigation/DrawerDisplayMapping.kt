@@ -15,6 +15,7 @@ internal data class DrawerDataSnapshot(
     val grouped: List<Pair<String, List<Conversation>>>,
     val activeId: String?,
     val favConvos: List<Conversation>,
+    val pinnedConvos: List<Conversation>,
     val query: String,
 )
 
@@ -31,6 +32,8 @@ internal fun Conversation.toDrawerDisplayData(
         relativeTime = updatedAt?.toInstantOrNull()?.toRelativeTimeString() ?: "",
         isActive = convId == activeConversationId,
         isFavorite = SAVED_TAG in tags,
+        isPinned = pinned == true,
+        chatProjectId = chatProjectId,
         tags = tags,
         endpointIconUrl = resolveEndpointIconUrl(endpointConfigs),
     )

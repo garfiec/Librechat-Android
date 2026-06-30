@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
+import com.garfiec.librechat.core.data.repository.ProjectRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SearchRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
@@ -27,6 +28,7 @@ class ConversationsModuleVerificationTest {
                 ShareRepository::class,
                 SearchRepository::class,
                 ConfigRepository::class,
+                ProjectRepository::class,
                 RoleRepository::class,
                 ServerDataStore::class,
                 CoroutineDispatcher::class,

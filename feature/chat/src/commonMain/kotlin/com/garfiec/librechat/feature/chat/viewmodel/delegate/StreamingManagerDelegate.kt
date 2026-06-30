@@ -307,7 +307,29 @@ class StreamingManagerDelegate(
                 // there; nothing extra to do during streaming.
             }
             is StreamEvent.SubagentUpdate -> subagentTraceDelegate.onUpdate(event)
+            is StreamEvent.TitleUpdate -> handleTitleUpdate(event)
+            is StreamEvent.ContextUsageUpdate -> {
+                // Latest context-window snapshot drives the gauge. In-memory only.
+                stateHandle.update { copy(contextUsage = event.usage) }
+            }
+            is StreamEvent.TokenUsageUpdate -> {
+                // Per-call provider usage; the gauge denominator comes from the context
+                // snapshot, but the breakdown sheet shows Input/Output from this. In-memory only.
+                stateHandle.update { copy(tokenUsage = event.usage) }
+            }
         }
+    }
+
+    /**
+     * Eager mid-stream title reveal (v0.8.7 `titleTiming: immediate`). Updates the
+     * in-memory title only — writing to Room mid-stream would re-emit the
+     * loadConversation observer and clobber the in-place streaming view (see the
+     * streaming-anchor invariant). The post-stream title refetch persists it.
+     */
+    private fun handleTitleUpdate(event: StreamEvent.TitleUpdate) {
+        val current = stateHandle.state.conversationId
+        if (current != null && current != event.conversationId) return
+        stateHandle.update { copy(conversationTitle = event.title) }
     }
 
     private fun handleCreated(event: StreamEvent.Created) {

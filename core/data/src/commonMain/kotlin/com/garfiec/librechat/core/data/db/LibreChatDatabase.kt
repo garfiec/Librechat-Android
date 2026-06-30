@@ -30,11 +30,16 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
         ConversationTagEntity::class,
         DraftEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
+        // 4 -> 5 (manual MIGRATION_4_5) is account-tenancy: accountId + drop files table.
+        // 5 -> 6 adds the nullable v0.8.7 conversation columns `pinned` (pinned conversations)
+        // and `chatProjectId` (Chat Projects assignment). Bundled into one hop because neither
+        // shipped as a released DB version — there is no in-the-wild v6 to migrate through.
+        AutoMigration(from = 5, to = 6),
     ],
 )
 @TypeConverters(Converters::class)

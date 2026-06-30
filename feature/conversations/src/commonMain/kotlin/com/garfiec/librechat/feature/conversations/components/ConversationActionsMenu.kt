@@ -8,9 +8,12 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -57,6 +60,11 @@ fun ConversationActionsMenu(
     onExport: () -> Unit = {},
     onBookmarkToggle: () -> Unit = {},
     isBookmarked: Boolean = false,
+    onPinToggle: () -> Unit = {},
+    isPinned: Boolean = false,
+    showPinAction: Boolean = false,
+    onMoveToProject: () -> Unit = {},
+    showMoveToProject: Boolean = false,
     showShareAction: Boolean = false,
     bookmarksEnabled: Boolean = true,
     // Position offset relative to the anchor; callers feed the long-press point so the menu
@@ -82,6 +90,18 @@ fun ConversationActionsMenu(
             },
         )
 
+        if (showPinAction) {
+            MenuActionItem(
+                icon = if (isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                label = if (isPinned) stringResource(Res.string.unpin) else stringResource(Res.string.pin),
+                iconTint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                onClick = {
+                    onDismiss()
+                    onPinToggle()
+                },
+            )
+        }
+
         if (bookmarksEnabled) {
             MenuActionItem(
                 icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
@@ -102,6 +122,17 @@ fun ConversationActionsMenu(
                 onTags()
             },
         )
+
+        if (showMoveToProject) {
+            MenuActionItem(
+                icon = Icons.Default.DriveFileMove,
+                label = stringResource(Res.string.move_to_project),
+                onClick = {
+                    onDismiss()
+                    onMoveToProject()
+                },
+            )
+        }
 
         if (showShareAction) {
             MenuActionItem(

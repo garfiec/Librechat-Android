@@ -19,6 +19,8 @@ fun Conversation.toEntity(): ConversationEntity = ConversationEntity(
     model = model,
     agentId = agentId,
     isArchived = isArchived,
+    pinned = pinned ?: false,
+    chatProjectId = chatProjectId,
     tags = json.encodeToString(ListSerializer(serializer<String>()), tags),
     iconURL = iconURL,
     greeting = greeting,
@@ -36,6 +38,8 @@ fun ConversationEntity.toModel(): Conversation = Conversation(
     model = model,
     agentId = agentId,
     isArchived = isArchived,
+    pinned = pinned,
+    chatProjectId = chatProjectId,
     tags = try {
         json.decodeFromString<List<String>>(tags)
     } catch (_: Exception) {

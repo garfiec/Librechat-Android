@@ -2,7 +2,6 @@ package com.garfiec.librechat.core.network.api
 
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.model.request.ChatAbortRequest
-import com.garfiec.librechat.core.model.request.ChatRequest
 import com.garfiec.librechat.core.model.response.ActiveJobsResponse
 import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.core.model.response.ChatStartResponse
@@ -16,6 +15,7 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.path
+import kotlinx.serialization.json.JsonObject
 
 class ChatApi constructor(
     private val client: HttpClient,
@@ -31,10 +31,10 @@ class ChatApi constructor(
      * com.garfiec.librechat.core.model.response.ChatStartResponse...'".
      */
     @Throws(Exception::class)
-    suspend fun startChat(endpoint: String, request: ChatRequest): ChatStartResponse {
+    suspend fun startChat(endpoint: String, body: JsonObject): ChatStartResponse {
         val response = client.post {
             url { path("api/agents/chat/$endpoint") }
-            setBody(request)
+            setBody(body)
         }
         val contentType = response.headers[HttpHeaders.ContentType]
         if (contentType == null || ContentType.parse(contentType).match(ContentType.Application.Json).not()) {

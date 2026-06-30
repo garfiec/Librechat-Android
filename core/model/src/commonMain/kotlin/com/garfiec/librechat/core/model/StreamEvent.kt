@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.model
 
 import com.garfiec.librechat.core.model.content.MessageContentPart
+import com.garfiec.librechat.core.model.usage.ContextUsage
+import com.garfiec.librechat.core.model.usage.TokenUsage
 
 sealed interface StreamEvent {
     data class ContentDelta(
@@ -83,6 +85,34 @@ sealed interface StreamEvent {
         val conversationId: String,
         val messageId: String,
         val parentMessageId: String,
+    ) : StreamEvent
+
+    /**
+     * Mid-stream conversation title, emitted by the server (v0.8.7) as an
+     * `{event:'title', data:{conversationId, title}}` SSE frame when the interface
+     * `titleTiming` is `"immediate"`. Lets the title reveal eagerly during the
+     * stream; the post-stream title refetch remains the fallback for servers that
+     * don't emit it.
+     */
+    data class TitleUpdate(
+        val conversationId: String,
+        val title: String,
+    ) : StreamEvent
+
+    /**
+     * Provider-reported usage for a completed model call (v0.8.7 `on_token_usage`).
+     * Powers the cost portion of the context gauge.
+     */
+    data class TokenUsageUpdate(
+        val usage: TokenUsage,
+    ) : StreamEvent
+
+    /**
+     * Context-window usage snapshot dispatched before each model call (v0.8.7
+     * `on_context_usage`). Powers the context gauge (tokens used vs. window).
+     */
+    data class ContextUsageUpdate(
+        val usage: ContextUsage,
     ) : StreamEvent
 
     /**

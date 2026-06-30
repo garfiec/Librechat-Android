@@ -3,9 +3,6 @@ package com.garfiec.librechat.feature.conversations.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import co.touchlab.kermit.Logger
-import com.garfiec.librechat.core.common.extensions.toInstantOrNull
-import com.garfiec.librechat.core.common.extensions.toRelativeDateGroup
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -15,13 +12,11 @@ import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.ConversationTag
-import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.feature.conversations.components.ConversationDisplayData
-import com.garfiec.librechat.feature.conversations.components.toDisplayData
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
 import com.garfiec.librechat.feature.conversations.export.ConversationImporter
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
@@ -82,6 +77,17 @@ class ConversationListViewModel(
     /** Raw conversations kept for internal lookups (action sheets, etc.). */
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     private var searchJob: Job? = null
+
+    private val actions = ConversationListActionsDelegate(
+        scope = viewModelScope,
+        events = _events,
+        conversationRepository = conversationRepository,
+        tagRepository = tagRepository,
+        shareRepository = shareRepository,
+        conversationExporter = conversationExporter,
+        // Room-backed list: observeConversations re-emits on mutation, so no manual refresh.
+        onMutated = {},
+    )
 
     init {
         loadConversations()
@@ -153,22 +159,7 @@ class ConversationListViewModel(
     fun getConversation(conversationId: String): Conversation? =
         _conversations.value.firstOrNull { it.conversationId == conversationId }
 
-    fun toggleFavorite(conversation: Conversation) {
-        val id = conversation.conversationId ?: return
-        viewModelScope.launch {
-            when (val result = tagRepository.toggleFavorite(id, conversation.tags)) {
-                is Result.Error -> {
-                    _events.emit(
-                        ConversationListEvent.ShowError(
-                            result.message ?: "Failed to update favorite",
-                        ),
-                    )
-                }
-                is Result.Success -> { /* no-op */ }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun toggleFavorite(conversation: Conversation) = actions.toggleFavorite(conversation)
 
     fun loadConversations() {
         val activeTags = _uiState.value.selectedTags.toList().ifEmpty { null }
@@ -286,78 +277,20 @@ class ConversationListViewModel(
         }
     }
 
-    fun updateConversationTags(conversation: Conversation, userTags: List<String>) {
-        val id = conversation.conversationId ?: return
-        val wasFavorited = SAVED_TAG in conversation.tags
-        val cleaned = userTags.filterNot { it == SAVED_TAG }
-        val finalTags = if (wasFavorited) cleaned + SAVED_TAG else cleaned
-        viewModelScope.launch {
-            when (tagRepository.setConversationTags(id, finalTags)) {
-                is Result.Success -> {
-                    // Room Flow already emits the updated conversation via
-                    // observeConversations; we only need fresh tag counts.
-                    tagRepository.refreshTags()
-                }
-                is Result.Error -> {
-                    _events.emit(ConversationListEvent.ShowError("Failed to update tags"))
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun updateConversationTags(conversation: Conversation, userTags: List<String>) =
+        actions.updateConversationTags(conversation, userTags)
 
-    fun renameConversation(id: String, newTitle: String) {
-        viewModelScope.launch {
-            try {
-                conversationRepository.updateTitle(id, newTitle)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to rename conversation" }
-                _events.emit(ConversationListEvent.ShowError("Failed to rename conversation"))
-            }
-        }
-    }
+    fun renameConversation(id: String, newTitle: String) = actions.renameConversation(id, newTitle)
 
-    fun archiveConversation(id: String) {
-        viewModelScope.launch {
-            try {
-                conversationRepository.archive(id, true)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to archive conversation" }
-                _events.emit(ConversationListEvent.ShowError("Failed to archive conversation"))
-            }
-        }
-    }
+    fun archiveConversation(id: String) = actions.archiveConversation(id)
 
-    fun deleteConversation(id: String) {
-        viewModelScope.launch {
-            try {
-                conversationRepository.delete(id)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to delete conversation" }
-                _events.emit(ConversationListEvent.ShowError("Failed to delete conversation"))
-            }
-        }
-    }
+    fun deleteConversation(id: String) = actions.deleteConversation(id)
 
     fun dismissError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    fun shareConversation(conversationId: String) {
-        viewModelScope.launch {
-            when (val result = shareRepository.createShareLink(conversationId)) {
-                is Result.Success -> {
-                    _events.emit(ConversationListEvent.ShareLinkCopied(result.data))
-                }
-                is Result.Error -> {
-                    _events.emit(
-                        ConversationListEvent.ShowError(result.message ?: "Failed to create share link"),
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun shareConversation(conversationId: String) = actions.shareConversation(conversationId)
 
     fun forkConversation(conversationId: String, messageId: String) {
         viewModelScope.launch {
@@ -377,49 +310,11 @@ class ConversationListViewModel(
         }
     }
 
-    fun duplicateConversation(conversationId: String, title: String?) {
-        viewModelScope.launch {
-            when (val result = conversationRepository.duplicateConversation(conversationId, title)) {
-                is Result.Success -> {
-                    result.data.conversationId?.let { newId ->
-                        _events.emit(ConversationListEvent.NavigateToConversation(newId))
-                    }
-                }
-                is Result.Error -> {
-                    _events.emit(
-                        ConversationListEvent.ShowError(result.message ?: "Failed to duplicate conversation"),
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun duplicateConversation(conversationId: String, title: String?) =
+        actions.duplicateConversation(conversationId, title)
 
-    fun exportConversation(conversationId: String, title: String?, format: ExportFormat) {
-        viewModelScope.launch {
-            val result = when (format) {
-                ExportFormat.JSON -> conversationExporter.exportAsJson(conversationId)
-                ExportFormat.MARKDOWN -> conversationExporter.exportAsMarkdown(conversationId)
-            }
-            when (result) {
-                is Result.Success -> {
-                    _events.emit(
-                        ConversationListEvent.ExportReady(
-                            content = result.data,
-                            format = format,
-                            title = title ?: "conversation",
-                        ),
-                    )
-                }
-                is Result.Error -> {
-                    _events.emit(
-                        ConversationListEvent.ShowError(result.message ?: "Failed to export conversation"),
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
+    fun exportConversation(conversationId: String, title: String?, format: ExportFormat) =
+        actions.exportConversation(conversationId, title, format)
 
     fun importConversation(jsonContent: String) {
         viewModelScope.launch {
@@ -454,25 +349,6 @@ class ConversationListViewModel(
                 }
                 is Result.Loading -> { /* no-op */ }
             }
-        }
-    }
-
-    companion object {
-        private fun groupConversationsByDate(
-            conversations: List<Conversation>,
-            endpointConfigs: Map<String, EndpointConfig>,
-        ): List<Pair<String, List<ConversationDisplayData>>> {
-            if (conversations.isEmpty()) return emptyList()
-            return conversations
-                .groupBy { conversation ->
-                    conversation.updatedAt
-                        ?.toInstantOrNull()
-                        ?.toRelativeDateGroup()
-                        ?: "Unknown"
-                }
-                .map { (group, convos) ->
-                    group to convos.map { it.toDisplayData(endpointConfigs) }
-                }
         }
     }
 }

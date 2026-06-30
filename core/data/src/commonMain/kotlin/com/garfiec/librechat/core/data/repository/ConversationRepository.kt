@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.repository
 
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.Conversation
+import com.garfiec.librechat.core.model.ConversationPage
 import kotlinx.coroutines.flow.Flow
 
 interface ConversationRepository {
@@ -17,6 +18,21 @@ interface ConversationRepository {
     suspend fun getConversation(id: String): Result<Conversation>
 
     /**
+     * Fetches a cursor page of conversations filtered by [projectId] (a project id or
+     * [com.garfiec.librechat.core.model.ChatProject.UNASSIGNED]). Returned directly to the
+     * caller: the project-filtered list view is network-direct by design (not yet a Room-filtered
+     * query). The page is still upserted into the cache for warmth, which also keeps each row's
+     * chatProjectId current. Used by the project folder/browse views.
+     */
+    suspend fun getConversationsForProject(
+        projectId: String,
+        cursor: String? = null,
+        limit: Int = 25,
+        sortBy: String? = null,
+        sortDirection: String? = null,
+    ): Result<ConversationPage>
+
+    /**
      * Fetches [id] from the server and upserts it into the cache, bypassing
      * [getConversation]'s cache-first read. Use when the local row is known to be
      * stale (e.g. picking up a server-generated title).
@@ -25,6 +41,7 @@ interface ConversationRepository {
     suspend fun updateTitle(id: String, title: String): Result<Conversation>
     suspend fun generateTitle(conversationId: String): Result<String>
     suspend fun archive(id: String, isArchived: Boolean): Result<Conversation>
+    suspend fun pin(id: String, pinned: Boolean): Result<Conversation>
     suspend fun delete(id: String): Result<Unit>
     suspend fun forkConversation(
         conversationId: String,

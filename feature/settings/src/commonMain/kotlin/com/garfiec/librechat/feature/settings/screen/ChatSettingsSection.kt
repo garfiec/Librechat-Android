@@ -24,6 +24,7 @@ import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.feature.settings.resources.*
@@ -35,6 +36,7 @@ internal fun ChatSettingsSection(
     fontSize: ChatFontSize,
     autoScrollEnabled: Boolean,
     showThinkingBlocks: Boolean,
+    contextBarPlacement: ContextBarPlacement,
     showImageDescriptions: Boolean,
     dismissKeyboardOnSend: Boolean,
     chatLayoutStyle: String,
@@ -47,6 +49,7 @@ internal fun ChatSettingsSection(
     onFontSizeChange: (ChatFontSize) -> Unit,
     onAutoScrollChange: (Boolean) -> Unit,
     onShowThinkingChange: (Boolean) -> Unit,
+    onContextBarPlacementChange: (ContextBarPlacement) -> Unit,
     onShowImageDescriptionsChange: (Boolean) -> Unit,
     onDismissKeyboardOnSendChange: (Boolean) -> Unit,
     onChatLayoutStyleChange: (String) -> Unit,
@@ -288,6 +291,24 @@ internal fun ChatSettingsSection(
                     checked = showThinkingBlocks,
                     onCheckedChange = onShowThinkingChange,
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Context bar placement selector — where the v0.8.7 context-usage gauge is surfaced.
+            SettingsRadioGroup(
+                title = stringResource(Res.string.context_bar_title),
+                description = stringResource(Res.string.context_bar_desc),
+                options = ContextBarPlacement.entries,
+                selected = contextBarPlacement,
+                onSelect = onContextBarPlacementChange,
+            ) { option ->
+                when (option) {
+                    ContextBarPlacement.HIDDEN -> stringResource(Res.string.context_bar_hidden)
+                    ContextBarPlacement.ABOVE_INPUT -> stringResource(Res.string.context_bar_above_input)
+                    ContextBarPlacement.OPTIONS_SHEET -> stringResource(Res.string.context_bar_options_sheet)
+                    ContextBarPlacement.OVERFLOW_MENU -> stringResource(Res.string.context_bar_overflow_menu)
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

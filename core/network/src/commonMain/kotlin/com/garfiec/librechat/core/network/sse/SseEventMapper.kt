@@ -297,6 +297,9 @@ class SseEventMapper(private val json: Json) {
             "on_summarize_complete" -> mapSummarizeComplete(data, agentId, groupId)
             "on_subagent_update" -> mapSubagentUpdate(data, agentId, groupId)
             "attachment" -> mapAttachment(data)
+            "title" -> mapTitleEvent(data)
+            "on_token_usage" -> mapTokenUsage(data)
+            "on_context_usage" -> mapContextUsage(data)
             else -> null // Forward-compat: unknown agent-library events drop silently.
         }
     }
@@ -471,6 +474,37 @@ class SseEventMapper(private val json: Json) {
             agentId = agentId,
             groupId = groupId,
         )
+    }
+
+    private fun mapTitleEvent(data: JsonObject): StreamEvent? {
+        // {"conversationId":"...","title":"..."} — emitted mid-stream when
+        // interface.titleTiming === 'immediate' (v0.8.7).
+        val conversationId = data["conversationId"]?.jsonPrimitive?.contentOrNull ?: return null
+        val title = data["title"]?.jsonPrimitive?.contentOrNull ?: return null
+        if (title.isBlank()) return null
+        return StreamEvent.TitleUpdate(conversationId = conversationId, title = title)
+    }
+
+    private fun mapTokenUsage(data: JsonObject): StreamEvent? {
+        // data is a TTokenUsageEvent: {input_tokens, output_tokens, total_tokens, model, provider}.
+        val usage = try {
+            json.decodeFromJsonElement(com.garfiec.librechat.core.model.usage.TokenUsage.serializer(), data)
+        } catch (e: Exception) {
+            Logger.w("SSE", e) { "Failed to parse on_token_usage" }
+            return null
+        }
+        return StreamEvent.TokenUsageUpdate(usage)
+    }
+
+    private fun mapContextUsage(data: JsonObject): StreamEvent? {
+        // data is a TContextUsageEvent: {breakdown:{...}, contextBudget?, remainingContextTokens?, ...}.
+        val usage = try {
+            json.decodeFromJsonElement(com.garfiec.librechat.core.model.usage.ContextUsage.serializer(), data)
+        } catch (e: Exception) {
+            Logger.w("SSE", e) { "Failed to parse on_context_usage" }
+            return null
+        }
+        return StreamEvent.ContextUsageUpdate(usage)
     }
 
     private fun mapAttachment(data: JsonObject): StreamEvent? {

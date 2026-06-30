@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.data.mapper.toEntity
 import com.garfiec.librechat.core.data.mapper.toModel
 import com.garfiec.librechat.core.data.mapper.toModels
 import com.garfiec.librechat.core.model.Conversation
+import com.garfiec.librechat.core.model.ConversationPage
 import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.model.request.ForkConversationRequest
 import com.garfiec.librechat.core.network.api.ConversationsApi
@@ -64,6 +65,40 @@ class ConversationRepositoryImpl(
         }
     }
 
+    override suspend fun getConversationsForProject(
+        projectId: String,
+        cursor: String?,
+        limit: Int,
+        sortBy: String?,
+        sortDirection: String?,
+    ): Result<ConversationPage> {
+        return safeApiCall {
+            // Capture identity before the network suspend so an in-flight account switch can't
+            // mis-attribute these rows; skip the cache write entirely when unresolved rather than
+            // stamping a null orphan the account-filtered reads can't see and the reconciler reaps.
+            val accountId = activeAccountProvider.currentAccountId()?.value
+            val response = conversationsApi.getConversations(
+                cursor = cursor,
+                limit = limit,
+                projectId = projectId,
+                sortBy = sortBy,
+                sortDirection = sortDirection,
+            )
+            // Warm the cache (these are real conversations, and the upsert keeps each row's
+            // chatProjectId fresh for the drawer move-picker), but return the page directly:
+            // the project-filtered LIST view is network-direct by design, not a Room query.
+            if (accountId != null) {
+                conversationDao.upsertPreservingTags(
+                    response.conversations.map { it.toEntity().copy(accountId = accountId) },
+                )
+            }
+            ConversationPage(
+                conversations = response.conversations,
+                nextCursor = response.nextCursor,
+            )
+        }
+    }
+
     override suspend fun getConversation(id: String): Result<Conversation> {
         val cached = activeAccountProvider.currentAccountId()
             ?.let { conversationDao.getByIdForAccount(id, it.value) }
@@ -102,6 +137,14 @@ class ConversationRepositoryImpl(
         return safeApiCall {
             val updated = conversationsApi.archive(id, isArchived)
             conversationDao.updateArchived(id, isArchived, Clock.System.now().toEpochMilliseconds())
+            updated
+        }
+    }
+
+    override suspend fun pin(id: String, pinned: Boolean): Result<Conversation> {
+        return safeApiCall {
+            val updated = conversationsApi.pin(id, pinned)
+            conversationDao.updatePinned(id, pinned)
             updated
         }
     }

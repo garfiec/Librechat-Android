@@ -6,6 +6,12 @@
     <!-- Drawer -->
     <string name="new_chat">New chat</string>
     <string name="favorites">Favorites</string>
+    <string name="pinned">Pinned</string>
+    <string name="projects">Projects</string>
+    <string name="projects_all">All projects</string>
+    <string name="project_show_all">Show all</string>
+    <string name="project_unassigned">Unassigned</string>
+    <string name="project_new">New project</string>
     <string name="no_conversations_found">No conversations found</string>
     <string name="remove_bookmark">Remove bookmark</string>
     <string name="bookmark">Bookmark</string>

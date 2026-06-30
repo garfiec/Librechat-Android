@@ -50,6 +50,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.model.usage.ContextUsage
+import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
@@ -105,6 +108,10 @@ fun ChatInput(
     fileSearchEnabled: Boolean = true,
     mcpServersEnabled: Boolean = true,
     gates: ChatInputGates = ChatInputGates(),
+    contextUsage: ContextUsage? = null,
+    tokenUsage: TokenUsage? = null,
+    contextUsageEnabled: Boolean = false,
+    contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
 ) {
     val cdOpenToolsMenu = stringResource(Res.string.cd_open_tools_menu)
     val cdPasteImage = stringResource(Res.string.cd_paste_image)
@@ -242,6 +249,10 @@ fun ChatInput(
         gates = gates,
         canQueue = canQueue,
         isEditingQueued = isEditingQueued,
+        contextUsage = contextUsage,
+        tokenUsage = tokenUsage,
+        contextUsageEnabled = contextUsageEnabled,
+        contextBarPlacement = contextBarPlacement,
     )
 
     CommonChatInputCore(
@@ -436,6 +447,10 @@ fun ChatInput(
             fileSearchEnabled = fileSearchEnabled,
             mcpServersEnabled = mcpServersEnabled,
             gates = gates,
+            contextUsage = contextUsage,
+            tokenUsage = tokenUsage,
+            contextUsageEnabled = contextUsageEnabled,
+            contextBarPlacement = contextBarPlacement,
         )
     }
 }

@@ -9,10 +9,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ConversationDao {
-    @Query("SELECT * FROM conversations WHERE user = :userId AND isArchived = :isArchived ORDER BY updatedAt DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM conversations WHERE user = :userId AND isArchived = :isArchived " +
+            "ORDER BY pinned DESC, updatedAt DESC LIMIT :limit",
+    )
     fun getConversations(userId: String, isArchived: Boolean = false, limit: Int = 25): Flow<List<ConversationEntity>>
 
-    @Query("SELECT * FROM conversations WHERE isArchived = :isArchived ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM conversations WHERE isArchived = :isArchived ORDER BY pinned DESC, updatedAt DESC")
     fun getAllConversations(isArchived: Boolean = false): Flow<List<ConversationEntity>>
 
     @Query("SELECT * FROM conversations WHERE conversationId = :id")
@@ -75,8 +78,14 @@ interface ConversationDao {
     @Query("UPDATE conversations SET isArchived = :isArchived, updatedAt = :updatedAt WHERE conversationId = :id")
     suspend fun updateArchived(id: String, isArchived: Boolean, updatedAt: Long)
 
+    @Query("UPDATE conversations SET pinned = :pinned WHERE conversationId = :id")
+    suspend fun updatePinned(id: String, pinned: Boolean)
+
     @Query("UPDATE conversations SET tags = :tagsJson, updatedAt = :updatedAt WHERE conversationId = :id")
     suspend fun updateTags(id: String, tagsJson: String, updatedAt: Long)
+
+    @Query("UPDATE conversations SET chatProjectId = :chatProjectId WHERE conversationId = :id")
+    suspend fun updateChatProjectId(id: String, chatProjectId: String?)
 
     @Query("DELETE FROM conversations")
     suspend fun deleteAll()

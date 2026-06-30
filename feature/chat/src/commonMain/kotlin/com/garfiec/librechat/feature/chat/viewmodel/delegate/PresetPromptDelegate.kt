@@ -104,6 +104,7 @@ class PresetPromptDelegate(
             thinkingDisplay = dyn["thinkingDisplay"],
             thinkingLevel = dyn["thinkingLevel"],
             promptCache = dyn["promptCache"]?.toBooleanStrictOrNull(),
+            promptCacheTtl = dyn["promptCacheTtl"]?.takeIf { it == "5m" || it == "1h" },
             webSearch = params.webSearch,
             imageDetail = dyn["imageDetail"],
             fileTokenLimit = params.fileTokenLimit,
@@ -235,6 +236,7 @@ internal fun ModelParameters.mergedFromPreset(preset: Preset): ModelParameters {
     preset.thinkingDisplay?.let { dyn["thinkingDisplay"] = it }
     preset.thinkingLevel?.let { dyn["thinkingLevel"] = it }
     preset.promptCache?.let { dyn["promptCache"] = it.toString() }
+    preset.promptCacheTtl?.let { dyn["promptCacheTtl"] = it }
     preset.imageDetail?.let { dyn["imageDetail"] = it }
     preset.tags?.takeIf { it.isNotEmpty() }?.let { dyn["tags"] = it.joinToString("\n") }
     preset.region?.let { dyn["region"] = it }

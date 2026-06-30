@@ -40,6 +40,8 @@ data class Preset(
     @SerialName("thinkingLevel") val thinkingLevel: String? = null,
     val thinkingDisplay: String? = null,
     val promptCache: Boolean? = null,
+    /** Anthropic prompt-cache duration: `"5m"` | `"1h"` (v0.8.7). Null leaves the provider default. */
+    val promptCacheTtl: String? = null,
     @SerialName("web_search") val webSearch: Boolean? = null,
     val imageDetail: String? = null,
     val fileTokenLimit: Int? = null,

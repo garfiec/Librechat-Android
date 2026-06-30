@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.model.request.AddedConversation
 import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.JsonObject
 
 interface ChatRepository {
     fun startChat(
@@ -30,6 +31,7 @@ interface ChatRepository {
         addedConvo: AddedConversation? = null,
         ephemeralAgent: EphemeralAgent? = null,
         isTemporary: Boolean = false,
+        modelParams: JsonObject? = null,
     ): Flow<StreamEvent>
     suspend fun abortChat(streamId: String): Result<Unit>
     suspend fun checkStreamStatus(conversationId: String): ChatStatusResponse

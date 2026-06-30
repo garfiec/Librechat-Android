@@ -24,6 +24,8 @@ fun SidebarScaffold(
     onFilesClick: () -> Unit,
     onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenProject: (projectId: String, projectName: String) -> Unit = { _, _ -> },
+    onOpenProjectsIndex: () -> Unit = {},
     viewModel: NavHostViewModel = koinViewModel(),
 ) {
     val sidebarMode by viewModel.sidebarMode.collectAsStateWithLifecycle()
@@ -52,6 +54,8 @@ fun SidebarScaffold(
                     onAgentsClick = onAgentsClick,
                     onFilesClick = onFilesClick,
                     onSkillsClick = onSkillsClick,
+                    onOpenProject = onOpenProject,
+                    onOpenProjectsIndex = onOpenProjectsIndex,
                 )
             }
             is SidebarMode.Settings -> {

@@ -15,12 +15,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 
 class ChatRepositoryImpl(
     private val chatApi: ChatApi,
     private val sseClient: SseClient,
     private val connectivityObserver: ConnectivityObserver,
     private val dispatcher: CoroutineDispatcher,
+    private val json: Json,
 ) : ChatRepository {
 
     override fun startChat(
@@ -44,6 +47,7 @@ class ChatRepositoryImpl(
         addedConvo: AddedConversation?,
         ephemeralAgent: EphemeralAgent?,
         isTemporary: Boolean,
+        modelParams: JsonObject?,
     ): Flow<StreamEvent> = flow {
         // Phase 1: POST to start the chat - get back a streamId (= conversationId)
         val request = ChatPayloadBuilder.build(
@@ -68,7 +72,7 @@ class ChatRepositoryImpl(
             ephemeralAgent = ephemeralAgent,
             isTemporary = isTemporary,
         )
-        val startResponse = chatApi.startChat(endpoint, request)
+        val startResponse = chatApi.startChat(endpoint, ChatPayloadBuilder.toBody(json, request, modelParams))
         val streamId = startResponse.conversationId
 
         // Emit a Created event from the POST response so the ViewModel

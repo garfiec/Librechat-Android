@@ -41,6 +41,14 @@ class ConfigRepositoryImpl(
     private var loggedConfigSignature: Int? = null
 
     /**
+     * Whether the post-auth re-fetch in [checkBackendVersion] has already run this session. The cached
+     * onboarding config is unauthenticated and v0.8.7+ gates `customFooter` behind auth, so we force one
+     * authenticated re-fetch — but only once, so a server that genuinely never exposes a version doesn't
+     * re-fetch on every [checkBackendVersion] call. Reset by [clear] on logout / server switch.
+     */
+    private var versionRefetchAttempted: Boolean = false
+
+    /**
      * Emits a single redacted, low-cardinality snapshot of the server config to the
      * diagnostic log on first fetch and whenever the relevant feature flags change.
      * NEVER includes serverDomain, URLs, secrets (turnstile/balance), or analyticsGtmId.
@@ -196,18 +204,30 @@ class ConfigRepositoryImpl(
      */
     override suspend fun checkBackendVersion(): Result<VersionCheckResult> {
         return safeApiCall {
-            // Ensure we have the startup config (use cached if available)
-            val config = _startupConfig.value ?: run {
-                val fetchResult = fetchStartupConfig()
-                (fetchResult as? Result.Success)?.data
+            // Use the cached startup config if present, else fetch it. A cached config can be a
+            // pre-login (unauthenticated) onboarding snapshot, and v0.8.7+ only exposes the version
+            // source (`customFooter`) to authenticated requests — so a cached pre-login config yields
+            // no version, leaving every version-gated feature (pinned, projects) disabled for the whole
+            // first session. If detection comes up empty against a cached config, force one fresh
+            // (now-authenticated) fetch and retry before concluding "unknown" — at most once per session
+            // (see [versionRefetchAttempted]) so version-less servers don't re-fetch on every call.
+            val cached = _startupConfig.value
+            var config = cached ?: (fetchStartupConfig() as? Result.Success)?.data
+            var detectedVersion = detectVersion(config)
+            if (detectedVersion == null && cached != null && !versionRefetchAttempted) {
+                // Consume the one-shot only on a SUCCESSFUL re-fetch: a transient failure (network
+                // blip right after login) must not burn the single retry and strand every v0.8.7
+                // feature disabled for the whole session. A genuinely version-less server still
+                // re-fetches exactly once (the fetch succeeds, the version is just absent).
+                val refetched = (fetchStartupConfig() as? Result.Success)?.data
+                if (refetched != null) {
+                    versionRefetchAttempted = true
+                    config = refetched
+                    detectedVersion = detectVersion(config)
+                }
             }
 
             val supported = BackendVersion.SUPPORTED_BACKEND_VERSION
-
-            // Strategy 1: Check for explicit version field
-            val detectedVersion = config?.version?.trimStart('v', 'V')
-                // Strategy 2: Parse customFooter for version pattern
-                ?: BackendVersion.extractVersionFromFooter(config?.customFooter)
 
             _detectedBackendVersion.value = detectedVersion
 
@@ -251,6 +271,14 @@ class ConfigRepositoryImpl(
         }
     }
 
+    /**
+     * Resolves the backend version from a startup config: the explicit `version` field first
+     * (future-proof), then the `customFooter` "LibreChat vX.Y.Z" pattern. Null when neither is present.
+     */
+    private fun detectVersion(config: StartupConfig?): String? =
+        config?.version?.trimStart('v', 'V')
+            ?: BackendVersion.extractVersionFromFooter(config?.customFooter)
+
     override suspend fun getCategories(): Result<List<Category>> = safeApiCall {
         configApi.getCategories()
     }
@@ -261,6 +289,7 @@ class ConfigRepositoryImpl(
         _startupConfig.value = null
         _detectedBackendVersion.value = null
         loggedConfigSignature = null
+        versionRefetchAttempted = false
         configCache.clear()
     }
 }

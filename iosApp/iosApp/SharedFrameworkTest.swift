@@ -70,7 +70,8 @@ func verifySharedFrameworkImport() {
         assert(d.chunk == "Hello")
     case .error, .final, .toolCallStart, .toolCallComplete,
          .thinkingDelta, .attachmentCreated, .retrying, .sync,
-         .step, .created, .contextSummary, .subagentUpdate:
+         .step, .created, .contextSummary, .subagentUpdate,
+         .titleUpdate, .tokenUsageUpdate, .contextUsageUpdate:
         assertionFailure("Wrong case")
     }
 

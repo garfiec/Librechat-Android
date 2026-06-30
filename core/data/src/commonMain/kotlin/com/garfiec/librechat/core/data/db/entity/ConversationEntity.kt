@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -20,6 +21,10 @@ data class ConversationEntity(
     val model: String?,
     val agentId: String?,
     val isArchived: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val pinned: Boolean = false,
+    /** Folder/project assignment (v0.8.7). Nullable: most conversations belong to no project. */
+    val chatProjectId: String? = null,
     val tags: String,
     val iconURL: String?,
     val greeting: String?,

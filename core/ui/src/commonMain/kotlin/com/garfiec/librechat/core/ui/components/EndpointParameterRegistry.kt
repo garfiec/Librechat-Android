@@ -671,6 +671,14 @@ object EndpointParameterRegistry {
             description = "Enable prompt caching to reduce latency and cost.",
         ),
         ParameterDefinition(
+            key = "promptCacheTtl",
+            label = "Prompt Cache Duration",
+            type = ParameterType.ENUM_SLIDER,
+            options = listOf("5m", "1h"),
+            default = "5m",
+            description = "How long prompt caches persist (Anthropic). Applies when prompt caching is on.",
+        ),
+        ParameterDefinition(
             key = "thinking",
             label = "Thinking",
             type = ParameterType.SWITCH,

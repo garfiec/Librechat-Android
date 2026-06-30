@@ -16,8 +16,24 @@ data class DrawerConversationDisplayData(
     val relativeTime: String,
     val isActive: Boolean,
     val isFavorite: Boolean,
+    val isPinned: Boolean,
+    val chatProjectId: String? = null,
     val tags: List<String>,
     val endpointIconUrl: String? = null,
+)
+
+/**
+ * A Chat Project folder row in the drawer's Projects section (v0.8.7). When
+ * [isExpanded], [inlineChats] holds the first page (capped) of the project's own
+ * conversations shown inline; a "Show all" affordance routes to the full list.
+ */
+@Immutable
+data class DrawerProjectFolder(
+    val id: String,
+    val name: String,
+    val conversationCount: Int,
+    val isExpanded: Boolean,
+    val inlineChats: List<DrawerConversationDisplayData>,
 )
 
 /**
@@ -27,6 +43,7 @@ data class DrawerConversationDisplayData(
 data class DrawerUiState(
     val groupedConversations: List<Pair<String, List<DrawerConversationDisplayData>>> = emptyList(),
     val favoriteConversations: List<DrawerConversationDisplayData> = emptyList(),
+    val pinnedConversations: List<DrawerConversationDisplayData> = emptyList(),
     val searchQuery: String = "",
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
@@ -39,4 +56,9 @@ data class DrawerUiState(
     val availableTags: List<ConversationTag> = emptyList(),
     // Config-driven: whether server-side shared links are enabled (gates the menu's Share action).
     val sharedLinksEnabled: Boolean = false,
+    // Version-gated (v0.8.7+): whether the pin/unpin action is offered. Older servers lack
+    // POST /api/convos/pin, so the action is hidden there.
+    val pinEnabled: Boolean = false,
+    // Version-gated (v0.8.7+): whether the move-to-project action is offered.
+    val projectsEnabled: Boolean = false,
 )

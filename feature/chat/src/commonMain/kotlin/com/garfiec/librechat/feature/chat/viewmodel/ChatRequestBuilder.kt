@@ -1,8 +1,10 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
+import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.model.request.EphemeralAgent
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Builds the per-send request pieces shared by every chat-send path (new message, edit,
@@ -55,5 +57,29 @@ class ChatRequestBuilder(
             fileSearch = if (ToolConstants.FILE_SEARCH in enabledTools) true else null,
             executeCode = if (ToolConstants.CODE_INTERPRETER in enabledTools || ToolConstants.EXECUTE_CODE in enabledTools) true else null,
         )
+    }
+
+    /**
+     * Snapshots the configured model parameters (temperature, top_p, promptCache/promptCacheTtl, …)
+     * into the provider-keyed map sent at the top level of the chat payload, mirroring the web
+     * client. Returns null when nothing was customized so the send path stays byte-for-byte identical
+     * to before for untouched conversations. For the agents endpoint the underlying agent's provider
+     * selects the correct parameter set.
+     */
+    fun buildModelParams(): JsonObject? {
+        val state = stateHandle.state
+        val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
+        val provider = if (isAgent) {
+            state.agents.firstOrNull { it.id == state.selectedModel }?.provider
+        } else {
+            null
+        }
+        return ModelParamPayload.build(
+            endpoint = state.selectedEndpoint,
+            provider = provider,
+            model = state.selectedModel,
+            extendedEffortSupported = state.extendedEffortSupported,
+            params = state.modelParameters,
+        ).takeIf { it.isNotEmpty() }
     }
 }

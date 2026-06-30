@@ -90,6 +90,11 @@ class SettingsDataStore(
         prefs[KEY_SHOW_THINKING_BLOCKS] ?: true
     }
 
+    /** Where the v0.8.7 context-usage gauge is surfaced. Default [ContextBarPlacement.OPTIONS_SHEET]. */
+    val contextBarPlacement: Flow<ContextBarPlacement> = dataStore.data.map { prefs ->
+        ContextBarPlacement.fromString(prefs[KEY_CONTEXT_BAR_PLACEMENT])
+    }
+
     val autoReadEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_AUTO_READ_ENABLED] ?: false
     }
@@ -136,6 +141,11 @@ class SettingsDataStore(
 
     val tabletSidebarGestureEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_TABLET_SIDEBAR_GESTURE_ENABLED] ?: true
+    }
+
+    /** Whether the drawer's Projects folder section is expanded. Default expanded. */
+    val projectsSectionExpanded: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PROJECTS_SECTION_EXPANDED] ?: true
     }
 
     val autoSendAfterStt: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -254,6 +264,12 @@ class SettingsDataStore(
         }
     }
 
+    suspend fun setContextBarPlacement(placement: ContextBarPlacement) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CONTEXT_BAR_PLACEMENT] = placement.toStorageString()
+        }
+    }
+
     suspend fun setAutoReadEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_AUTO_READ_ENABLED] = enabled
@@ -312,6 +328,12 @@ class SettingsDataStore(
     suspend fun setTabletSidebarOpen(open: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_TABLET_SIDEBAR_OPEN] = open
+        }
+    }
+
+    suspend fun setProjectsSectionExpanded(expanded: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PROJECTS_SECTION_EXPANDED] = expanded
         }
     }
 
@@ -445,6 +467,7 @@ class SettingsDataStore(
         private val KEY_CHAT_HEADER_ALIGNMENT = stringPreferencesKey("chat_header_alignment")
         private val KEY_AUTO_SCROLL_ENABLED = booleanPreferencesKey("auto_scroll_enabled")
         private val KEY_SHOW_THINKING_BLOCKS = booleanPreferencesKey("show_thinking_blocks")
+        private val KEY_CONTEXT_BAR_PLACEMENT = stringPreferencesKey("context_bar_placement")
         private val KEY_AUTO_READ_ENABLED = booleanPreferencesKey("auto_read_enabled")
         private val KEY_SHOW_IMAGE_DESCRIPTIONS = booleanPreferencesKey("show_image_descriptions")
         private val KEY_SELECTED_VOICE_ID = stringPreferencesKey("selected_voice_id")
@@ -457,6 +480,7 @@ class SettingsDataStore(
         private val KEY_TTS_VOICE_NAME = stringPreferencesKey("tts_voice_name")
         private val KEY_TABLET_SIDEBAR_OPEN = booleanPreferencesKey("tablet_sidebar_open")
         private val KEY_TABLET_SIDEBAR_GESTURE_ENABLED = booleanPreferencesKey("tablet_sidebar_gesture_enabled")
+        private val KEY_PROJECTS_SECTION_EXPANDED = booleanPreferencesKey("projects_section_expanded")
         private val KEY_AUTO_SEND_AFTER_STT = booleanPreferencesKey("auto_send_after_stt")
         private val KEY_STT_ENGINE = stringPreferencesKey("stt_engine")
         private val KEY_STT_LANGUAGE = stringPreferencesKey("stt_language")

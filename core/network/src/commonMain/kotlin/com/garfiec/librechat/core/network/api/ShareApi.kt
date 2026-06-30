@@ -17,12 +17,14 @@ import io.ktor.http.path
 class ShareApi constructor(
     private val client: HttpClient,
 ) {
-    suspend fun getSharedLinks(cursor: String? = null): SharedLinksResponse =
+    suspend fun getSharedLinks(cursor: String? = null, isPublic: Boolean? = null): SharedLinksResponse =
         client.get {
             url { path("api/share") }
             parameter("cursor", cursor)
             parameter("pageSize", 25)
-            parameter("isPublic", true)
+            // Older backends (< 0.8.7) filter the route on `isPublic`, defaulting to false when
+            // absent — so the param must be sent explicitly there. Ktor omits null parameters.
+            parameter("isPublic", isPublic)
         }.body()
 
     suspend fun createShareLink(

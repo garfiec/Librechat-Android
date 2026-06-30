@@ -28,8 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.action_archive
 import com.garfiec.librechat.feature.chat.resources.action_duplicate
@@ -41,7 +42,6 @@ import com.garfiec.librechat.feature.chat.resources.cd_comparison_enabled
 import com.garfiec.librechat.feature.chat.resources.compare_models
 import com.garfiec.librechat.feature.chat.resources.delete
 import com.garfiec.librechat.feature.chat.resources.load_preset
-import com.garfiec.librechat.feature.chat.resources.new_chat
 import com.garfiec.librechat.feature.chat.resources.prompts_library
 import com.garfiec.librechat.feature.chat.resources.save_as_preset
 import org.jetbrains.compose.resources.stringResource
@@ -56,12 +56,15 @@ internal fun ChatOverflowMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     conversationId: String?,
-    conversationTitle: String?,
     presetsEnabled: Boolean,
     promptsEnabled: Boolean,
     multiConvoEnabled: Boolean,
     sharedLinksEnabled: Boolean,
     isComparisonEnabled: Boolean,
+    contextUsage: ContextUsage?,
+    contextUsageEnabled: Boolean,
+    contextBarPlacement: ContextBarPlacement,
+    onShowContextDetails: () -> Unit,
     onOpenSearch: () -> Unit,
     onShowAllMedia: (() -> Unit)?,
     onLoadPreset: () -> Unit,
@@ -167,16 +170,29 @@ internal fun ChatOverflowMenu(
                 },
             )
         }
+        // Context-usage gauge, surfaced here as a regular menu item when the user picked the
+        // overflow-menu placement. Tapping it dismisses the menu and the host (ChatFloatingTopBar)
+        // opens the breakdown sheet — that modal can't be opened from inside this popup without
+        // nesting modal surfaces.
+        val menuContextUsage = contextUsage
+        if (contextBarPlacement == ContextBarPlacement.OVERFLOW_MENU &&
+            contextUsageEnabled &&
+            menuContextUsage != null &&
+            menuContextUsage.usedTokens > 0
+        ) {
+            ContextUsageMenuItem(
+                usage = menuContextUsage,
+                onClick = {
+                    onDismiss()
+                    onShowContextDetails()
+                },
+            )
+        }
         if (conversationId != null) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            Text(
-                text = conversationTitle ?: stringResource(Res.string.new_chat),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+            // No conversation-title header here: a long title's full (untruncated) width is what a
+            // single-line Text reports as its max intrinsic width, and DropdownMenu measures at
+            // IntrinsicSize.Max — so the title would stretch the whole menu to full screen width.
             if (sharedLinksEnabled) {
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.action_share)) },

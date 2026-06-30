@@ -34,6 +34,12 @@ data class Conversation(
     val spec: String? = null,
     val tools: List<String>? = null,
     @SerialName("web_search") val webSearch: Boolean? = null,
+    /** Anthropic prompt-cache duration: `"5m"` | `"1h"` (v0.8.7). Persisted per-conversation. */
+    val promptCacheTtl: String? = null,
+    /** Whether the conversation is pinned to the top of the list (v0.8.7). */
+    val pinned: Boolean? = null,
+    /** Chat Project (folder) this conversation is assigned to, or null if unassigned (v0.8.7). */
+    val chatProjectId: String? = null,
     /** True for a temporary chat (v0.8.6): not persisted to normal history and
      *  expired/cleaned up server-side after [expiredAt]. Server-derived. */
     val isTemporary: Boolean? = null,

@@ -12,6 +12,7 @@ import com.garfiec.librechat.core.network.api.BannerApi
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.api.ConfigApi
 import com.garfiec.librechat.core.network.api.ConversationsApi
+import com.garfiec.librechat.core.network.api.EndpointTokenApi
 import com.garfiec.librechat.core.network.api.FavoritesApi
 import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
@@ -20,6 +21,7 @@ import com.garfiec.librechat.core.network.api.McpApi
 import com.garfiec.librechat.core.network.api.MemoriesApi
 import com.garfiec.librechat.core.network.api.MessagesApi
 import com.garfiec.librechat.core.network.api.PresetsApi
+import com.garfiec.librechat.core.network.api.ProjectsApi
 import com.garfiec.librechat.core.network.api.PromptsApi
 import com.garfiec.librechat.core.network.api.RolesApi
 import com.garfiec.librechat.core.network.api.SearchApi
@@ -119,6 +121,8 @@ val iosSharedModule = module {
     singleOf(::ChatApi)
     singleOf(::ConfigApi)
     singleOf(::ConversationsApi)
+    singleOf(::ProjectsApi)
+    singleOf(::EndpointTokenApi)
     singleOf(::FilesApi)
     singleOf(::FilesExtApi)
     singleOf(::MessagesApi)

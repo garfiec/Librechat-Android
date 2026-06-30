@@ -34,6 +34,8 @@ import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepositoryImpl
 import com.garfiec.librechat.core.data.repository.DraftRepository
 import com.garfiec.librechat.core.data.repository.DraftRepositoryImpl
+import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
+import com.garfiec.librechat.core.data.repository.EndpointTokenRepositoryImpl
 import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FavoritesRepositoryImpl
 import com.garfiec.librechat.core.data.repository.FileRepository
@@ -50,6 +52,8 @@ import com.garfiec.librechat.core.data.repository.PermissionsRepository
 import com.garfiec.librechat.core.data.repository.PermissionsRepositoryImpl
 import com.garfiec.librechat.core.data.repository.PresetRepository
 import com.garfiec.librechat.core.data.repository.PresetRepositoryImpl
+import com.garfiec.librechat.core.data.repository.ProjectRepository
+import com.garfiec.librechat.core.data.repository.ProjectRepositoryImpl
 import com.garfiec.librechat.core.data.repository.PromptRepository
 import com.garfiec.librechat.core.data.repository.PromptRepositoryImpl
 import com.garfiec.librechat.core.data.repository.RoleRepository
@@ -222,6 +226,7 @@ val dataModule = module {
             sseClient = get(),
             connectivityObserver = get(),
             dispatcher = get(KoinQualifiers.Default),
+            json = get(),
         )
     }
 
@@ -257,7 +262,9 @@ val dataModule = module {
     singleOf(::McpRepositoryImpl) bind McpRepository::class
     singleOf(::MemoryRepositoryImpl) bind MemoryRepository::class
     singleOf(::PermissionsRepositoryImpl) bind PermissionsRepository::class
+    singleOf(::EndpointTokenRepositoryImpl) bind EndpointTokenRepository::class
     singleOf(::PresetRepositoryImpl) bind PresetRepository::class
+    singleOf(::ProjectRepositoryImpl) bind ProjectRepository::class
     singleOf(::PromptRepositoryImpl) bind PromptRepository::class
     singleOf(::ShareRepositoryImpl) bind ShareRepository::class
     singleOf(::SkillsRepositoryImpl) bind SkillsRepository::class

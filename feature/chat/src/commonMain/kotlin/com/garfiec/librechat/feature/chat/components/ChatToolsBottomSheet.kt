@@ -55,6 +55,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ToolConstants
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.model.usage.ContextUsage
+import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -89,6 +92,14 @@ fun ChatToolsBottomSheet(
      * Camera / Photos / Files attach controls. See [ChatInputGates].
      */
     gates: ChatInputGates = ChatInputGates(),
+    /** Latest context-window usage snapshot; drives the optional context gauge above the model row. */
+    contextUsage: ContextUsage? = null,
+    /** Latest per-call token usage, for the gauge's expanded Input/Output breakdown rows. */
+    tokenUsage: TokenUsage? = null,
+    /** Server/version gate for the context gauge (`interface.contextUsage` AND backend ≥ 0.8.7). */
+    contextUsageEnabled: Boolean = false,
+    /** Where the user chose to surface the gauge; the sheet only renders it when [ContextBarPlacement.OPTIONS_SHEET]. */
+    contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showMcpServers by remember { mutableStateOf(false) }
@@ -154,6 +165,21 @@ fun ChatToolsBottomSheet(
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Context-usage gauge, surfaced here when the user picked the options-sheet placement.
+            // Full-width; tapping expands the breakdown inline (no nested modal sheet).
+            val sheetContextUsage = contextUsage
+            if (contextBarPlacement == ContextBarPlacement.OPTIONS_SHEET &&
+                contextUsageEnabled &&
+                sheetContextUsage != null &&
+                sheetContextUsage.usedTokens > 0
+            ) {
+                ContextUsageExpandableGauge(
+                    usage = sheetContextUsage,
+                    tokenUsage = tokenUsage,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
 
             // Model selector row — hidden when the server disables `interface.modelSelect`.

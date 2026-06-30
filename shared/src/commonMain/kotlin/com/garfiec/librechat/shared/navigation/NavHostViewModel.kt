@@ -3,6 +3,7 @@ package com.garfiec.librechat.shared.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -10,11 +11,14 @@ import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BannerRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
+import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
+import com.garfiec.librechat.core.data.repository.ProjectRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.model.Banner
+import com.garfiec.librechat.core.model.ChatProject
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.ConversationTag
 import com.garfiec.librechat.core.model.SAVED_TAG
@@ -25,7 +29,9 @@ import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
+import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListActionsDelegate
 import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListEvent
+import com.garfiec.librechat.feature.conversations.viewmodel.ProjectActionsDelegate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +45,11 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** How many of a project's chats are shown inline under an expanded drawer folder. */
+private const val INLINE_PROJECT_CHATS_CAP = 8
 
 class NavHostViewModel(
     private val authRepository: AuthRepository,
@@ -49,12 +59,14 @@ class NavHostViewModel(
     private val roleRepository: RoleRepository,
     private val sessionTaskRunner: SessionTaskRunner,
     private val tagRepository: TagRepository,
+    private val projectRepository: ProjectRepository,
     private val tokenManager: TokenManager,
     private val settingsDataStore: SettingsDataStore,
     private val serverUrlProvider: ServerUrlProvider,
     private val shareRepository: ShareRepository,
     private val conversationExporter: ConversationExporter,
     private val connectivityObserver: ConnectivityObserver,
+    private val endpointTokenRepository: EndpointTokenRepository,
 ) : ViewModel() {
 
     private val bannerStateHolder = BannerStateHolder(bannerRepository, viewModelScope)
@@ -66,6 +78,11 @@ class NavHostViewModel(
             .map { list -> list.filter { SAVED_TAG in it.tags } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val pinnedConversations: StateFlow<List<Conversation>> =
+        conversationListStateHolder.recentConversations
+            .map { list -> list.filter { it.pinned == true } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Inputs for the drawer long-press action menu: the user-defined tags (excluding favorites,
     // same filter as ConversationListViewModel.observeTags) for the tag picker, plus the
     // config-driven shared-links flag that gates the Share action.
@@ -74,9 +91,47 @@ class NavHostViewModel(
             tagRepository.observeTags()
                 .map { tags -> tags.filter { it.count > 0 && it.tag != SAVED_TAG } },
             configRepository.startupConfig,
-        ) { tags, config ->
-            DrawerActionMenuState(tags, config?.sharedLinksEnabled ?: false)
+            configRepository.detectedBackendVersion,
+        ) { tags, config, version ->
+            // Pin requires POST /api/convos/pin (v0.8.7+). Gate fail-closed on unknown
+            // version so older servers don't surface an action they'd 404 on.
+            val supportsV087 = version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7")
+            DrawerActionMenuState(tags, config?.sharedLinksEnabled ?: false, supportsV087, supportsV087)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DrawerActionMenuState())
+
+    // Chat Projects (v0.8.7). Loaded lazily when the move-to-project picker / folder
+    // section opens; the server is the source of truth (no local cache).
+    private val _projects = MutableStateFlow<List<ChatProject>>(emptyList())
+    val projects: StateFlow<List<ChatProject>> = _projects.asStateFlow()
+
+    // Drawer folder-section expand state + per-project inline chats (first page, capped).
+    private val _expandedProjectIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _projectInlineChats = MutableStateFlow<Map<String, List<Conversation>>>(emptyMap())
+
+    /** Drawer Projects section: folders with their (lazily-loaded) inline chats. */
+    val projectsSection: StateFlow<List<DrawerProjectFolder>> =
+        combine(
+            _projects,
+            _expandedProjectIds,
+            _projectInlineChats,
+            configRepository.endpointConfigs,
+            conversationListStateHolder.activeConversationId,
+        ) { projects, expanded, inlineChats, endpointConfigs, activeId ->
+            projects.map { project ->
+                val isExpanded = project.id in expanded
+                DrawerProjectFolder(
+                    id = project.id,
+                    name = project.name,
+                    conversationCount = project.conversationCount,
+                    isExpanded = isExpanded,
+                    inlineChats = if (isExpanded) {
+                        inlineChats[project.id].orEmpty().map { it.toDrawerDisplayData(activeId, endpointConfigs) }
+                    } else {
+                        emptyList()
+                    },
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // One-shot events for the drawer action menu (share-link copied, export-ready,
     // navigate-to-duplicate, errors). Reuses the conversation-list event type. extraBufferCapacity
@@ -84,6 +139,35 @@ class NavHostViewModel(
     // is momentarily absent — e.g. an action's result arriving as the drawer leaves composition.
     private val _events = MutableSharedFlow<ConversationListEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<ConversationListEvent> = _events.asSharedFlow()
+
+    // Shared row-action logic (rename/archive/delete/share/duplicate/export) — the same delegate
+    // ConversationListViewModel and ProjectChatsViewModel use, so the drawer long-press menu surfaces
+    // Result.Error failures (toast) instead of swallowing them in a dead try/catch around a
+    // Result-returning repo call. Room-backed here, so onMutated is a no-op: the conversation
+    // observe-Flow already re-emits after a mutation.
+    private val conversationActions = ConversationListActionsDelegate(
+        scope = viewModelScope,
+        events = _events,
+        conversationRepository = conversationRepository,
+        tagRepository = tagRepository,
+        shareRepository = shareRepository,
+        conversationExporter = conversationExporter,
+        onMutated = {},
+    )
+
+    // Shared project CRUD (same delegate ProjectsViewModel uses). onDeleted also drops this drawer's
+    // per-folder view state (expanded set + inline chats) before reloading.
+    private val projectActions = ProjectActionsDelegate(
+        scope = viewModelScope,
+        projectRepository = projectRepository,
+        onChanged = { loadProjects() },
+        onDeleted = { projectId ->
+            _expandedProjectIds.update { it - projectId }
+            _projectInlineChats.update { it - projectId }
+            loadProjects()
+        },
+        emitError = { _events.emit(ConversationListEvent.ShowError(it)) },
+    )
 
     // Seeded synchronously so first-frame routing (LibreChatNavHost reads isLoggedIn.value
     // once in a LaunchedEffect to redirect to auth) gets the correct value with no flash.
@@ -117,6 +201,12 @@ class NavHostViewModel(
         )
 
     val tabletSidebarGestureEnabled: StateFlow<Boolean> = settingsDataStore.tabletSidebarGestureEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    // Drawer Projects section collapse state, persisted across sessions. Eagerly warmed so the
+    // section is resolved to its saved state by the time the drawer composes (no expand->collapse
+    // flash on cold start), matching tabletSidebarGestureEnabled.
+    val projectsSectionExpanded: StateFlow<Boolean> = settingsDataStore.projectsSectionExpanded
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     private val _sidebarMode = MutableStateFlow<SidebarMode>(SidebarMode.Conversations)
@@ -156,9 +246,10 @@ class NavHostViewModel(
             conversationListStateHolder.groupedConversations,
             conversationListStateHolder.activeConversationId,
             favoriteConversations,
+            pinnedConversations,
             conversationListStateHolder.searchQuery,
-        ) { grouped, activeId, favConvos, query ->
-            DrawerDataSnapshot(grouped, activeId, favConvos, query)
+        ) { grouped, activeId, favConvos, pinnedConvos, query ->
+            DrawerDataSnapshot(grouped, activeId, favConvos, pinnedConvos, query)
         },
         combine(
             conversationListStateHolder.isRefreshing,
@@ -179,6 +270,9 @@ class NavHostViewModel(
             favoriteConversations = data.favConvos.map {
                 it.toDrawerDisplayData(data.activeId, endpointConfigs)
             },
+            pinnedConversations = data.pinnedConvos.map {
+                it.toDrawerDisplayData(data.activeId, endpointConfigs)
+            },
             searchQuery = data.query,
             isRefreshing = refreshing,
             isLoadingMore = loadingMore,
@@ -188,6 +282,8 @@ class NavHostViewModel(
             skillsEnabled = perms.skillsEnabled,
             availableTags = actionMenu.availableTags,
             sharedLinksEnabled = actionMenu.sharedLinksEnabled,
+            pinEnabled = actionMenu.pinEnabled,
+            projectsEnabled = actionMenu.projectsEnabled,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, DrawerUiState())
 
@@ -200,6 +296,8 @@ class NavHostViewModel(
     private data class DrawerActionMenuState(
         val availableTags: List<ConversationTag> = emptyList(),
         val sharedLinksEnabled: Boolean = false,
+        val pinEnabled: Boolean = false,
+        val projectsEnabled: Boolean = false,
     )
 
     init {
@@ -233,6 +331,15 @@ class NavHostViewModel(
             }
         }
         bannerStateHolder.fetchBanners()
+        // Load the Chat Projects folders once the backend is known to support them (v0.8.7+).
+        // detectedBackendVersion is a StateFlow (already conflated), so no distinctUntilChanged.
+        viewModelScope.launch {
+            configRepository.detectedBackendVersion.collect { version ->
+                if (version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7")) {
+                    loadProjects()
+                }
+            }
+        }
     }
 
     /**
@@ -302,100 +409,134 @@ class NavHostViewModel(
         }
     }
 
-    // --- Drawer conversation action menu (long-press). Bodies mirror ConversationListViewModel. ---
+    // --- Drawer conversation action menu (long-press). Row actions route through the shared
+    // ConversationListActionsDelegate; favorite/pin/tags stay local (different signatures). ---
 
-    fun renameConversation(id: String, newTitle: String) {
+    fun renameConversation(id: String, newTitle: String) = conversationActions.renameConversation(id, newTitle)
+
+    fun archiveConversation(id: String) = conversationActions.archiveConversation(id)
+
+    fun pinConversation(id: String, pinned: Boolean) {
         viewModelScope.launch {
-            try {
-                conversationRepository.updateTitle(id, newTitle)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to rename conversation" }
-                _events.emit(ConversationListEvent.ShowError("Failed to rename conversation"))
+            val result = conversationRepository.pin(id, pinned)
+            if (result is Result.Error) {
+                Logger.e(result.exception) { "Failed to pin conversation" }
+                _events.emit(ConversationListEvent.ShowError("Failed to pin conversation"))
             }
         }
     }
 
-    fun archiveConversation(id: String) {
+    /** Loads the user's projects for the move-to-project picker. */
+    fun loadProjects() {
         viewModelScope.launch {
-            try {
-                conversationRepository.archive(id, true)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to archive conversation" }
-                _events.emit(ConversationListEvent.ShowError("Failed to archive conversation"))
+            when (val result = projectRepository.listProjects()) {
+                is Result.Success -> _projects.value = result.data.projects
+                is Result.Error -> Logger.w(result.exception) { "Failed to load projects" }
+                is Result.Loading -> Unit
             }
         }
     }
 
-    fun deleteConversation(id: String) {
+    /** Assigns [conversationId] to [projectId], or unassigns it when null. */
+    fun moveConversationToProject(conversationId: String, projectId: String?) {
         viewModelScope.launch {
-            try {
-                conversationRepository.delete(id)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to delete conversation" }
-                _events.emit(ConversationListEvent.ShowError("Failed to delete conversation"))
-            }
-        }
-    }
-
-    fun shareConversation(conversationId: String) {
-        viewModelScope.launch {
-            when (val result = shareRepository.createShareLink(conversationId)) {
-                is Result.Success -> {
-                    _events.emit(ConversationListEvent.ShareLinkCopied(result.data))
-                }
+            when (val result = projectRepository.assignConversation(conversationId, projectId)) {
+                is Result.Success -> onProjectAssignmentChanged()
                 is Result.Error -> {
-                    _events.emit(
-                        ConversationListEvent.ShowError(result.message ?: "Failed to create share link"),
-                    )
+                    Logger.e(result.exception) { "Failed to move conversation to project" }
+                    _events.emit(ConversationListEvent.ShowError("Failed to move conversation"))
                 }
-                is Result.Loading -> { /* no-op */ }
+                is Result.Loading -> Unit
             }
         }
     }
 
-    fun duplicateConversation(conversationId: String, title: String?) {
+    /** Creates a project named [name] and assigns [conversationId] to it. */
+    fun createProjectAndAssign(conversationId: String, name: String) {
         viewModelScope.launch {
-            when (val result = conversationRepository.duplicateConversation(conversationId, title)) {
+            when (val created = projectRepository.createProject(name)) {
                 is Result.Success -> {
-                    result.data.conversationId?.let { newId ->
-                        _events.emit(ConversationListEvent.NavigateToConversation(newId))
+                    when (val assign = projectRepository.assignConversation(conversationId, created.data.id)) {
+                        is Result.Error -> {
+                            Logger.e(assign.exception) { "Failed to assign new project" }
+                            _events.emit(ConversationListEvent.ShowError("Failed to move conversation"))
+                        }
+                        is Result.Success -> onProjectAssignmentChanged()
+                        is Result.Loading -> Unit
                     }
                 }
                 is Result.Error -> {
-                    _events.emit(
-                        ConversationListEvent.ShowError(result.message ?: "Failed to duplicate conversation"),
-                    )
+                    Logger.e(created.exception) { "Failed to create project" }
+                    _events.emit(ConversationListEvent.ShowError("Failed to create project"))
                 }
-                is Result.Loading -> { /* no-op */ }
+                is Result.Loading -> Unit
             }
         }
     }
 
-    fun exportConversation(conversationId: String, title: String?, format: ExportFormat) {
-        viewModelScope.launch {
-            val result = when (format) {
-                ExportFormat.JSON -> conversationExporter.exportAsJson(conversationId)
-                ExportFormat.MARKDOWN -> conversationExporter.exportAsMarkdown(conversationId)
-            }
-            when (result) {
-                is Result.Success -> {
-                    _events.emit(
-                        ConversationListEvent.ExportReady(
-                            content = result.data,
-                            format = format,
-                            title = title ?: "conversation",
-                        ),
+    /**
+     * Refresh the drawer Projects section after a conversation's project assignment changes:
+     * reload the folders (their conversationCount is now stale) and re-fetch the inline chats of
+     * any expanded folder (a chat may have moved into/out of one).
+     */
+    private fun onProjectAssignmentChanged() {
+        loadProjects()
+        _expandedProjectIds.value.forEach { projectId ->
+            viewModelScope.launch {
+                when (
+                    val result = conversationRepository.getConversationsForProject(
+                        projectId,
+                        limit = INLINE_PROJECT_CHATS_CAP,
                     )
+                ) {
+                    is Result.Success -> _projectInlineChats.update { it + (projectId to result.data.conversations) }
+                    is Result.Error -> Logger.w(result.exception) { "Failed to refresh project chats" }
+                    is Result.Loading -> Unit
                 }
-                is Result.Error -> {
-                    _events.emit(
-                        ConversationListEvent.ShowError(result.message ?: "Failed to export conversation"),
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
             }
         }
     }
+
+    /** Expands/collapses a project folder, lazily loading its first inline page on expand. */
+    fun toggleProjectExpanded(projectId: String) {
+        val expanded = _expandedProjectIds.value
+        if (projectId in expanded) {
+            _expandedProjectIds.value = expanded - projectId
+            return
+        }
+        _expandedProjectIds.value = expanded + projectId
+        if (_projectInlineChats.value.containsKey(projectId)) return
+        viewModelScope.launch {
+            when (val result = conversationRepository.getConversationsForProject(projectId, limit = INLINE_PROJECT_CHATS_CAP)) {
+                is Result.Success -> _projectInlineChats.update { it + (projectId to result.data.conversations) }
+                is Result.Error -> Logger.w(result.exception) { "Failed to load project chats" }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
+    /** Collapses/expands the entire drawer Projects section, persisting the new state. */
+    fun toggleProjectsSection() {
+        viewModelScope.launch {
+            settingsDataStore.setProjectsSectionExpanded(!projectsSectionExpanded.value)
+        }
+    }
+
+    fun createProject(name: String) = projectActions.create(name)
+
+    fun renameProject(projectId: String, name: String) = projectActions.rename(projectId, name)
+
+    fun deleteProject(projectId: String) = projectActions.delete(projectId)
+
+    fun deleteConversation(id: String) = conversationActions.deleteConversation(id)
+
+    fun shareConversation(conversationId: String) = conversationActions.shareConversation(conversationId)
+
+    fun duplicateConversation(conversationId: String, title: String?) =
+        conversationActions.duplicateConversation(conversationId, title)
+
+    fun exportConversation(conversationId: String, title: String?, format: ExportFormat) =
+        conversationActions.exportConversation(conversationId, title, format)
 
     /**
      * Persists the user-chosen tags for [conversationId], preserving favorite status.
@@ -448,6 +589,13 @@ class NavHostViewModel(
             conversationListStateHolder.reset()
             tagRepository.clearCache()
             configRepository.clear()
+            endpointTokenRepository.clear()
+            // Chat Projects live only in-VM (no local cache) and this Activity-scoped VM survives
+            // logout — clear them too so the next account never sees the previous account's folders
+            // or expanded inline chats before its own loadProjects() returns.
+            _projects.value = emptyList()
+            _expandedProjectIds.value = emptySet()
+            _projectInlineChats.value = emptyMap()
             _sidebarMode.value = SidebarMode.Conversations
             _selectedSettingsCategory.value = null
         }

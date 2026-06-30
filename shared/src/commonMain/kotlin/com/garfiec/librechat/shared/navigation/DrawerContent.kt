@@ -1,5 +1,6 @@
 package com.garfiec.librechat.shared.navigation
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,10 +25,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
@@ -42,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +59,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -67,11 +73,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.model.ChatProject
 import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.ui.components.EndpointIcon
 import com.garfiec.librechat.feature.conversations.components.ConversationActionDialogs
 import com.garfiec.librechat.feature.conversations.components.ConversationActionEffects
 import com.garfiec.librechat.feature.conversations.components.ConversationActionsMenu
+import com.garfiec.librechat.feature.conversations.components.ProjectActionsMenu
+import com.garfiec.librechat.feature.conversations.components.ProjectDeleteDialog
+import com.garfiec.librechat.feature.conversations.components.ProjectNameDialog
+import com.garfiec.librechat.feature.conversations.components.ProjectPicker
 import com.garfiec.librechat.feature.conversations.components.TagPicker
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import com.garfiec.librechat.feature.conversations.export.ExportFormatPicker
@@ -85,6 +96,12 @@ import com.garfiec.librechat.shared.resources.favorites
 import com.garfiec.librechat.shared.resources.files
 import com.garfiec.librechat.shared.resources.new_chat
 import com.garfiec.librechat.shared.resources.no_conversations_found
+import com.garfiec.librechat.shared.resources.pinned
+import com.garfiec.librechat.shared.resources.project_new
+import com.garfiec.librechat.shared.resources.project_show_all
+import com.garfiec.librechat.shared.resources.project_unassigned
+import com.garfiec.librechat.shared.resources.projects
+import com.garfiec.librechat.shared.resources.projects_all
 import com.garfiec.librechat.shared.resources.remove_bookmark
 import com.garfiec.librechat.shared.resources.search_conversations_placeholder
 import com.garfiec.librechat.shared.resources.settings
@@ -111,9 +128,14 @@ fun DrawerContent(
     onFilesClick: () -> Unit,
     onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenProject: (projectId: String, projectName: String) -> Unit = { _, _ -> },
+    onOpenProjectsIndex: () -> Unit = {},
     viewModel: NavHostViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.drawerUiState.collectAsStateWithLifecycle()
+    val projects by viewModel.projects.collectAsStateWithLifecycle()
+    val projectsSection by viewModel.projectsSection.collectAsStateWithLifecycle()
+    val projectsSectionExpanded by viewModel.projectsSectionExpanded.collectAsStateWithLifecycle()
 
     // Side-effects for the long-press action menu (share-link copy, export file-save, navigate to
     // a duplicated conversation, error toasts). Lives in feature/conversations so it owns the
@@ -138,6 +160,20 @@ fun DrawerContent(
         onRename = { id, newTitle -> viewModel.renameConversation(id, newTitle) },
         onArchive = viewModel::archiveConversation,
         onDelete = viewModel::deleteConversation,
+        onPin = viewModel::pinConversation,
+        projects = projects,
+        onLoadProjects = viewModel::loadProjects,
+        onMoveToProject = viewModel::moveConversationToProject,
+        onCreateProjectAndAssign = viewModel::createProjectAndAssign,
+        projectsSection = projectsSection,
+        projectsSectionExpanded = projectsSectionExpanded,
+        onToggleProjectsSection = viewModel::toggleProjectsSection,
+        onToggleProjectExpansion = viewModel::toggleProjectExpanded,
+        onCreateProject = viewModel::createProject,
+        onRenameProject = viewModel::renameProject,
+        onDeleteProject = viewModel::deleteProject,
+        onOpenProject = onOpenProject,
+        onOpenProjectsIndex = onOpenProjectsIndex,
         onShare = viewModel::shareConversation,
         onDuplicate = { id, title -> viewModel.duplicateConversation(id, title) },
         onUpdateTags = { data, tags -> viewModel.updateConversationTags(data.conversationId, data.tags, tags) },
@@ -164,6 +200,20 @@ fun DrawerContent(
     onRename: (String, String) -> Unit = { _, _ -> },
     onArchive: (String) -> Unit = {},
     onDelete: (String) -> Unit = {},
+    onPin: (String, Boolean) -> Unit = { _, _ -> },
+    projects: List<ChatProject> = emptyList(),
+    onLoadProjects: () -> Unit = {},
+    onMoveToProject: (String, String?) -> Unit = { _, _ -> },
+    onCreateProjectAndAssign: (String, String) -> Unit = { _, _ -> },
+    projectsSection: List<DrawerProjectFolder> = emptyList(),
+    projectsSectionExpanded: Boolean = true,
+    onToggleProjectsSection: () -> Unit = {},
+    onToggleProjectExpansion: (String) -> Unit = {},
+    onCreateProject: (String) -> Unit = {},
+    onRenameProject: (String, String) -> Unit = { _, _ -> },
+    onDeleteProject: (String) -> Unit = {},
+    onOpenProject: (projectId: String, projectName: String) -> Unit = { _, _ -> },
+    onOpenProjectsIndex: () -> Unit = {},
     onShare: (String) -> Unit = {},
     onDuplicate: (String, String) -> Unit = { _, _ -> },
     onUpdateTags: (DrawerConversationDisplayData, List<String>) -> Unit = { _, _ -> },
@@ -179,6 +229,13 @@ fun DrawerContent(
     var deleteTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var tagPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var exportPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
+    var projectPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
+    // Projects folder-section state (v0.8.7): which folder's overflow menu is open, and the
+    // create/rename/delete dialog targets.
+    var projectMenuOpenId by remember { mutableStateOf<String?>(null) }
+    var showCreateProjectDialog by remember { mutableStateOf(false) }
+    var renameProjectTarget by remember { mutableStateOf<DrawerProjectFolder?>(null) }
+    var deleteProjectTarget by remember { mutableStateOf<DrawerProjectFolder?>(null) }
 
     // Invisible anchor that claims initial focus so the search field below
     // doesn't auto-focus and pop the keyboard when the drawer opens. Tapping
@@ -296,6 +353,14 @@ fun DrawerContent(
                             offset = menuOffset,
                             isBookmarked = data.isFavorite,
                             bookmarksEnabled = uiState.bookmarksEnabled,
+                            isPinned = data.isPinned,
+                            showPinAction = uiState.pinEnabled,
+                            onPinToggle = { onPin(data.conversationId, !data.isPinned) },
+                            showMoveToProject = uiState.projectsEnabled,
+                            onMoveToProject = {
+                                onLoadProjects()
+                                projectPickerTarget = data
+                            },
                             // Share is shown here when the server enables shared links; the
                             // full-screen list intentionally omits it (passes showShareAction=false).
                             showShareAction = uiState.sharedLinksEnabled,
@@ -336,6 +401,178 @@ fun DrawerContent(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
             ) {
+                // Projects folder section (v0.8.7) — expandable folders with inline chats.
+                if (uiState.projectsEnabled && uiState.searchQuery.isEmpty()) {
+                    item(key = "projects_header") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // Tapping the title area collapses/expands the whole section so it's
+                            // easy to get the projects out of the way and reach plain chats below.
+                            val sectionChevronRotation by animateFloatAsState(
+                                if (projectsSectionExpanded) 90f else 0f,
+                                label = "projectsSectionChevron",
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable(onClick = onToggleProjectsSection),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp).rotate(sectionChevronRotation),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(Res.string.projects),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.semantics { heading() },
+                                )
+                            }
+                            TextButton(onClick = onOpenProjectsIndex) {
+                                Text(
+                                    text = stringResource(Res.string.projects_all),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                            IconButton(onClick = { showCreateProjectDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = stringResource(Res.string.project_new),
+                                )
+                            }
+                        }
+                    }
+
+                    if (projectsSectionExpanded) {
+                    item(key = "project_unassigned") {
+                        val unassignedLabel = stringResource(Res.string.project_unassigned)
+                        DrawerProjectFolderRow(
+                            name = unassignedLabel,
+                            conversationCount = null,
+                            isExpanded = false,
+                            showChevron = false,
+                            onRowClick = { onOpenProject(ChatProject.UNASSIGNED, unassignedLabel) },
+                            menuContent = null,
+                        )
+                    }
+
+                    projectsSection.forEach { folder ->
+                        item(key = "project_${folder.id}") {
+                            DrawerProjectFolderRow(
+                                name = folder.name,
+                                conversationCount = folder.conversationCount,
+                                isExpanded = folder.isExpanded,
+                                showChevron = true,
+                                onRowClick = { onToggleProjectExpansion(folder.id) },
+                                menuContent = {
+                                    IconButton(onClick = { projectMenuOpenId = folder.id }) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = null)
+                                    }
+                                    ProjectActionsMenu(
+                                        expanded = projectMenuOpenId == folder.id,
+                                        onDismiss = { projectMenuOpenId = null },
+                                        onOpen = { onOpenProject(folder.id, folder.name) },
+                                        onRename = { renameProjectTarget = folder },
+                                        onDelete = { deleteProjectTarget = folder },
+                                    )
+                                },
+                            )
+                        }
+                        if (folder.isExpanded) {
+                            items(
+                                items = folder.inlineChats,
+                                key = { "projchat_${folder.id}_${it.conversationId}" },
+                                contentType = { "conversation" },
+                            ) { data ->
+                                renderConversationItem("projchat_${folder.id}_${data.conversationId}", data)
+                            }
+                            item(key = "project_showall_${folder.id}") {
+                                Text(
+                                    text = stringResource(Res.string.project_show_all),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onOpenProject(folder.id, folder.name) }
+                                        .padding(start = 48.dp, top = 8.dp, bottom = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                    } // projectsSectionExpanded
+
+                    item(key = "projects_divider") {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                }
+
+                // Pinned section (v0.8.7) — pinned conversations surfaced above favorites. This is
+                // their canonical home: when shown, they're filtered out of the date-grouped buckets
+                // (see ConversationListStateHolder.withoutPinned) so they don't appear twice. The
+                // section is hidden during search, where pinned rows instead surface in the results.
+                if (uiState.pinnedConversations.isNotEmpty() && uiState.searchQuery.isEmpty()) {
+                    item(key = "pinned_header") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    top = 8.dp,
+                                    bottom = 4.dp,
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PushPin,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(Res.string.pinned),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.semantics { heading() },
+                            )
+                        }
+                    }
+
+                    items(
+                        items = uiState.pinnedConversations,
+                        key = { "pin_${it.conversationId}" },
+                        contentType = { "conversation" },
+                    ) { data ->
+                        renderConversationItem("pin_${data.conversationId}", data)
+                    }
+
+                    item(key = "pinned_divider") {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                }
+
                 // Favorites section — hidden entirely when BOOKMARKS.USE is denied so
                 // any locally-cached favorites from a prior permissive session don't leak.
                 if (uiState.bookmarksEnabled && uiState.favoriteConversations.isNotEmpty() && uiState.searchQuery.isEmpty()) {
@@ -506,6 +743,106 @@ fun DrawerContent(
             },
             onDismiss = { exportPickerTarget = null },
         )
+    }
+
+    projectPickerTarget?.let { target ->
+        ProjectPicker(
+            projects = projects,
+            currentProjectId = target.chatProjectId,
+            onSelect = { projectId -> onMoveToProject(target.conversationId, projectId) },
+            onCreate = { name -> onCreateProjectAndAssign(target.conversationId, name) },
+            onDismiss = { projectPickerTarget = null },
+        )
+    }
+
+    if (showCreateProjectDialog) {
+        ProjectNameDialog(
+            title = stringResource(Res.string.project_new),
+            initialName = "",
+            onConfirm = {
+                onCreateProject(it)
+                showCreateProjectDialog = false
+            },
+            onDismiss = { showCreateProjectDialog = false },
+        )
+    }
+
+    renameProjectTarget?.let { target ->
+        ProjectNameDialog(
+            title = target.name,
+            initialName = target.name,
+            onConfirm = {
+                onRenameProject(target.id, it)
+                renameProjectTarget = null
+            },
+            onDismiss = { renameProjectTarget = null },
+        )
+    }
+
+    deleteProjectTarget?.let { target ->
+        ProjectDeleteDialog(
+            projectName = target.name,
+            onConfirm = {
+                onDeleteProject(target.id)
+                deleteProjectTarget = null
+            },
+            onDismiss = { deleteProjectTarget = null },
+        )
+    }
+}
+
+@Composable
+private fun DrawerProjectFolderRow(
+    name: String,
+    conversationCount: Int?,
+    isExpanded: Boolean,
+    showChevron: Boolean,
+    onRowClick: () -> Unit,
+    menuContent: (@Composable () -> Unit)?,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onRowClick)
+            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showChevron) {
+            val rotation by animateFloatAsState(if (isExpanded) 90f else 0f, label = "projectChevron")
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                modifier = Modifier.rotate(rotation),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Spacer(modifier = Modifier.width(24.dp))
+        }
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(
+            imageVector = Icons.Default.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (conversationCount != null) {
+            Text(
+                text = conversationCount.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (menuContent != null) {
+            Box { menuContent() }
+        }
     }
 }
 

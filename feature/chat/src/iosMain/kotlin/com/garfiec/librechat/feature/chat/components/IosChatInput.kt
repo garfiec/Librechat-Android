@@ -26,6 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.model.usage.ContextUsage
+import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_attach_file
@@ -80,6 +83,10 @@ fun IosChatInput(
     fileSearchEnabled: Boolean = true,
     mcpServersEnabled: Boolean = true,
     gates: ChatInputGates = ChatInputGates(),
+    contextUsage: ContextUsage? = null,
+    tokenUsage: TokenUsage? = null,
+    contextUsageEnabled: Boolean = false,
+    contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showToolsSheet by remember { mutableStateOf(false) }
@@ -98,6 +105,10 @@ fun IosChatInput(
         gates = gates,
         canQueue = canQueue,
         isEditingQueued = isEditingQueued,
+        contextUsage = contextUsage,
+        tokenUsage = tokenUsage,
+        contextUsageEnabled = contextUsageEnabled,
+        contextBarPlacement = contextBarPlacement,
     )
 
     CommonChatInputCore(
@@ -250,6 +261,10 @@ fun IosChatInput(
             fileSearchEnabled = fileSearchEnabled,
             mcpServersEnabled = mcpServersEnabled,
             gates = gates,
+            contextUsage = contextUsage,
+            tokenUsage = tokenUsage,
+            contextUsageEnabled = contextUsageEnabled,
+            contextBarPlacement = contextBarPlacement,
         )
     }
 }

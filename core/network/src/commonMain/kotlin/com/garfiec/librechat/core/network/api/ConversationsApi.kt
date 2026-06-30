@@ -5,6 +5,8 @@ import com.garfiec.librechat.core.model.request.ArchiveConversationArg
 import com.garfiec.librechat.core.model.request.ArchiveConversationRequest
 import com.garfiec.librechat.core.model.request.ConvoDeleteArg
 import com.garfiec.librechat.core.model.request.ConvoDeleteBody
+import com.garfiec.librechat.core.model.request.ConvoPinArg
+import com.garfiec.librechat.core.model.request.ConvoPinBody
 import com.garfiec.librechat.core.model.request.ConvoUpdateArg
 import com.garfiec.librechat.core.model.request.ConvoUpdateBody
 import com.garfiec.librechat.core.model.request.DuplicateConversationRequest
@@ -36,12 +38,15 @@ class ConversationsApi constructor(
         search: String? = null,
         sortBy: String? = null,
         sortDirection: String? = null,
+        projectId: String? = null,
     ): ConversationListResponse =
         client.get {
             url { path("api/convos") }
             parameter("cursor", cursor)
             parameter("limit", limit)
             parameter("isArchived", isArchived)
+            // v0.8.7: filter by Chat Project. Accepts a project id or the literal "unassigned".
+            projectId?.let { parameter("projectId", it) }
             // Upstream's route handler reads req.query.tags directly, so we send
             // repeated `tags=value` params rather than PHP-style `tags[]=value`.
             tags?.forEach { tag -> parameter("tags", tag) }
@@ -76,6 +81,19 @@ class ConversationsApi constructor(
                     arg = ArchiveConversationArg(
                         conversationId = conversationId,
                         isArchived = isArchived,
+                    ),
+                ),
+            )
+        }.body()
+
+    suspend fun pin(conversationId: String, pinned: Boolean): Conversation =
+        client.post {
+            url { path("api/convos/pin") }
+            setBody(
+                ConvoPinBody(
+                    arg = ConvoPinArg(
+                        conversationId = conversationId,
+                        pinned = pinned,
                     ),
                 ),
             )

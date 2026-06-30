@@ -57,4 +57,8 @@ data class StartupConfig(
     val cloudFront: JsonObject? = null,
     /** Server build metadata (commit/branch/buildDate), gated by `interface.buildInfo`. */
     val buildInfo: BuildInfo? = null,
+    // --- v0.8.7 detection (parse-surface only) ---
+    /** Whether shared links may include snapshot file copies. Mirrors `interface.sharedLinks.snapshotFiles`
+     *  at startup level. Mobile has no public-share viewer / snapshot fetch, so detection-only. */
+    val sharedLinksSnapshotFilesEnabled: Boolean? = null,
 )

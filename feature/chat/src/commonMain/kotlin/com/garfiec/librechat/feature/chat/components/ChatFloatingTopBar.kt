@@ -85,6 +85,7 @@ internal fun ChatFloatingTopBar(
     onOpenPromptsLibrary: (() -> Unit)? = null,
 ) {
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showContextSheet by remember { mutableStateOf(false) }
     val conversationId = uiState.conversationId
     val conversationTitle = uiState.conversationTitle
     // Interactive on the new-chat landing; once a temporary chat is active it stays visible (ON) as
@@ -173,12 +174,15 @@ internal fun ChatFloatingTopBar(
                     expanded = showOverflowMenu,
                     onDismiss = { showOverflowMenu = false },
                     conversationId = conversationId,
-                    conversationTitle = conversationTitle,
                     presetsEnabled = uiState.presetsEnabled,
                     promptsEnabled = uiState.promptsEnabled,
                     multiConvoEnabled = uiState.multiConvoEnabled,
                     sharedLinksEnabled = uiState.sharedLinksEnabled,
                     isComparisonEnabled = uiState.comparisonState.isEnabled,
+                    contextUsage = uiState.contextUsage,
+                    contextUsageEnabled = uiState.contextUsageEnabled,
+                    contextBarPlacement = uiState.contextBarPlacement,
+                    onShowContextDetails = { showContextSheet = true },
                     onOpenSearch = viewModel::openSearch,
                     onShowAllMedia = onShowAllMedia,
                     onLoadPreset = onLoadPreset,
@@ -192,6 +196,18 @@ internal fun ChatFloatingTopBar(
                     onDelete = viewModel::showDeleteConfirmation,
                 )
             }
+        }
+
+        // The context-usage gauge's default home is just above the composer (Settings → Chat picks
+        // its placement); see CommonChatInputCore. When the user routes it to the overflow menu, the
+        // menu item hands the trigger here so the breakdown sheet opens outside the menu popup.
+        val sheetContextUsage = uiState.contextUsage
+        if (showContextSheet && sheetContextUsage != null) {
+            ContextUsageSheet(
+                usage = sheetContextUsage,
+                tokenUsage = uiState.tokenUsage,
+                onDismiss = { showContextSheet = false },
+            )
         }
 
         // In-conversation search bar, pinned directly under the floating bar.

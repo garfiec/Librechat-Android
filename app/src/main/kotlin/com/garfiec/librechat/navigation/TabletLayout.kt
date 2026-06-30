@@ -32,6 +32,8 @@ import com.garfiec.librechat.core.model.Banner
 import com.garfiec.librechat.core.ui.components.BannerDisplay
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.chat.navigation.NewChat
+import com.garfiec.librechat.feature.conversations.navigation.ProjectChats
+import com.garfiec.librechat.feature.conversations.navigation.Projects
 import com.garfiec.librechat.feature.files.navigation.Files
 import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
 import com.garfiec.librechat.feature.skills.navigation.SkillsList
@@ -182,6 +184,12 @@ fun TabletLayout(
                         },
                         onSkillsClick = {
                             navigator.navigate(SkillsList)
+                        },
+                        onOpenProject = { projectId, projectName ->
+                            navigator.navigate(ProjectChats(projectId, projectName))
+                        },
+                        onOpenProjectsIndex = {
+                            navigator.navigate(Projects)
                         },
                         modifier = Modifier
                             .width(SidebarWidth)

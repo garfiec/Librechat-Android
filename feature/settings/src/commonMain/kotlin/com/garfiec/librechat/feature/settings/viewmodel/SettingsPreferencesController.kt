@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.data.datastore.ArtifactDisplayPrefs
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -67,6 +68,7 @@ private data class AdditionalPreferences(
     val selectedLanguage: String = SettingsDataStore.DEFAULT_LANGUAGE,
     val chatHeaderContent: ChatHeaderContent = ChatHeaderContent.TITLE,
     val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
+    val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
 )
 
 /**
@@ -169,6 +171,9 @@ class SettingsPreferencesController(
     private val chatHeaderAlignmentPref: StateFlow<ChatHeaderAlignment> = settingsDataStore.chatHeaderAlignment
         .stateIn(scope, SharingStarted.Eagerly, ChatHeaderAlignment.LEFT)
 
+    private val contextBarPlacementPref: StateFlow<ContextBarPlacement> = settingsDataStore.contextBarPlacement
+        .stateIn(scope, SharingStarted.Eagerly, ContextBarPlacement.OPTIONS_SHEET)
+
     private val baseAdditionalPreferences = combine(
         tabletSidebarGestureEnabled,
         settingsDataStore.autoSendAfterStt,
@@ -199,6 +204,8 @@ class SettingsPreferencesController(
         additional.copy(chatHeaderContent = headerContent)
     }.combine(chatHeaderAlignmentPref) { additional, headerAlignment ->
         additional.copy(chatHeaderAlignment = headerAlignment)
+    }.combine(contextBarPlacementPref) { additional, contextBarPlacement ->
+        additional.copy(contextBarPlacement = contextBarPlacement)
     }.stateIn(scope, SharingStarted.Eagerly, AdditionalPreferences(true, false, "", "", true))
 
     /** The single public UI state that merges DataStore preferences with imperative state. */
@@ -244,6 +251,7 @@ class SettingsPreferencesController(
             selectedLanguage = additional.selectedLanguage,
             chatHeaderContent = additional.chatHeaderContent,
             chatHeaderAlignment = additional.chatHeaderAlignment,
+            contextBarPlacement = additional.contextBarPlacement,
         )
     }.stateIn(scope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -283,6 +291,10 @@ class SettingsPreferencesController(
 
     fun setShowThinkingBlocks(show: Boolean) {
         scope.launch { settingsDataStore.setShowThinkingBlocks(show) }
+    }
+
+    fun setContextBarPlacement(placement: ContextBarPlacement) {
+        scope.launch { settingsDataStore.setContextBarPlacement(placement) }
     }
 
     fun setShowImageDescriptions(show: Boolean) {

@@ -65,7 +65,8 @@ class ConversationListStateHolder(
                     if (result is Result.Success) {
                         _recentConversations.value = result.data
                         if (_searchQuery.value.isBlank()) {
-                            _groupedConversations.value = groupConversationsByDate(result.data)
+                            _groupedConversations.value =
+                                groupConversationsByDate(result.data.withoutPinned())
                         }
                     }
                 }
@@ -127,7 +128,8 @@ class ConversationListStateHolder(
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
         if (query.isBlank()) {
-            _groupedConversations.value = groupConversationsByDate(_recentConversations.value)
+            _groupedConversations.value =
+                groupConversationsByDate(_recentConversations.value.withoutPinned())
         }
     }
 
@@ -160,6 +162,13 @@ class ConversationListStateHolder(
         _isRefreshing.value = false
         observeSearchQuery()
     }
+
+    /**
+     * Drops pinned conversations so they aren't double-listed: the dedicated Pinned drawer section
+     * is their canonical home when not searching. Search keeps them (that section is hidden then),
+     * so this is only applied on the non-search grouping paths.
+     */
+    private fun List<Conversation>.withoutPinned(): List<Conversation> = filterNot { it.pinned == true }
 
     private fun groupConversationsByDate(
         conversations: List<Conversation>,

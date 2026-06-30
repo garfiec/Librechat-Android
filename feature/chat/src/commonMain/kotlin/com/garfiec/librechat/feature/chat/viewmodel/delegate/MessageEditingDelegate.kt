@@ -217,6 +217,7 @@ class MessageEditingDelegate(
                 files = files,
                 ephemeralAgent = ephemeralAgent,
                 isTemporary = state.isTemporaryChat,
+                modelParams = requestBuilder.buildModelParams(),
             ),
         )
     }

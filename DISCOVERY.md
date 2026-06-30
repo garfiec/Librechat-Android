@@ -244,6 +244,55 @@ GET    /api/files/download-url/:userId/:file_id → { url, filename, type, metad
   is safe. New top-level keys: `rum`, `cloudFront`, `buildInfo`; new `interface` keys: `skills`,
   `buildInfo`, `autoSubmitFromUrl`, `retentionMode`. Mobile now PARSES these (C1) but gates no UI yet.
 
+### v0.8.7 endpoint surface (confirmed during sync; mobile status noted)
+```
+# Pinned conversations (BUILT — drawer pin/unpin + pinned section, gated >= 0.8.7)
+POST   /api/convos/pin                   → { arg: { conversationId, pinned } } → updated Conversation
+
+# Chat Projects / folders (BUILT — full: data layer + move-to-project picker + drawer folder
+# section + Projects index (ConversationsRoute.Projects) + ProjectChats detail (Nav3) + project CRUD)
+GET    /api/projects                     → { projects: [TChatProject], nextCursor }
+                                            ?cursor&limit&sortBy&sortDirection&search
+POST   /api/projects                     → { name, description? } → ChatProject (201)   (NOT arg-wrapped)
+GET    /api/projects/:projectId          → ChatProject
+PATCH  /api/projects/:projectId          → { name?, description? } → ChatProject          (NOT arg-wrapped)
+DELETE /api/projects/:projectId          → { deletedCount, modifiedCount }
+PUT    /api/projects/conversations/:conversationId → { projectId|null } → { conversation, previousProjectId, projectId }
+GET    /api/convos?projectId=<id|unassigned>       → conversations filtered by project (added projectId query param)
+
+# Context-usage gauge (BUILT — gauge + SSE; context-projection seeds the gauge on chat
+# open / model switch; gated on interface.contextUsage && >= 0.8.7)
+GET    /api/endpoints/token-config       → { [endpoint]: { [model]: { context, prompt?, completion?, cacheWrite?, cacheRead? } } }
+POST   /api/endpoints/context-projection → { conversationId, messageId, endpoint, model?, agentId?, spec?,
+                                            maxContextTokens?, calibrationRatio? } → ContextUsage | null
+
+# Shared links: getSharedLinks dropped the isPublic query param (visibility now ACL-governed).
+GET    /api/share?cursor&pageSize&sortBy&sortDirection&search   (NO isPublic — removed in v0.8.7)
+```
+
+### v0.8.7 SSE additions (BUILT)
+```
+{ event: 'title',            data: { conversationId, title } }        # immediate title (interface.titleTiming === 'immediate')
+{ event: 'on_token_usage',   data: TTokenUsageEvent }                 # per-call provider usage
+{ event: 'on_context_usage', data: TContextUsageEvent }               # context-window snapshot (breakdown + remaining)
+```
+
+### /api/config v0.8.7 behavior
+- New `interface` keys (mobile PARSES; gates noted): `contextUsage` (default true), `contextCost` (default false),
+  `titleTiming` ('immediate'|'final'), `defaultPinnedTools: string[]` (detection-only), `sharedLinks`
+  (bool | { create, share, public, snapshotFiles }), `maxCatalogSkills` (detection-only). New startup-level key:
+  `sharedLinksSnapshotFilesEnabled` (detection-only). New conversation/preset field: `promptCacheTtl` ('5m'|'1h').
+  New conversation fields: `pinned`, `chatProjectId`.
+
+### v0.8.7 chat-payload addition (BUILT)
+- The chat request now sends `timezone` (IANA id, e.g. "America/New_York"; #13815) so the server
+  resolves agent `{{current_date}}`/`{{current_datetime}}` to the user's wall clock. Always sent,
+  ungated; set in `ChatPayloadBuilder` from `TimeZone.currentSystemDefault()`.
+
+### v0.8.7 known-deferred parity gaps (NOT built; tracked in proposal-v0.8.7.md)
+- `url_context` conversation toggle (Google URL Context) — no mobile param-sheet control yet.
+- per-message `quotes[]` round-trip (selected-text quote-reply context) — mobile neither sends nor renders.
+
 ### Other
 ```
 GET/POST/DELETE /api/presets

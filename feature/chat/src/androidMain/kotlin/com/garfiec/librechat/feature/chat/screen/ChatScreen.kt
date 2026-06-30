@@ -234,6 +234,10 @@ actual fun ChatScreen(
                 fileSearchEnabled = uiState.fileSearchEnabled,
                 mcpServersEnabled = uiState.mcpServersEnabled,
                 gates = uiState.chatInputGates,
+                contextUsage = uiState.contextUsage,
+                tokenUsage = uiState.tokenUsage,
+                contextUsageEnabled = uiState.contextUsageEnabled,
+                contextBarPlacement = uiState.contextBarPlacement,
                 // After a Stop/error pause, the queue waits for an explicit nudge.
                 queuedPausedCount = uiState.pausedQueueCount,
                 onSendQueuedMessages = viewModel::sendQueuedNow,

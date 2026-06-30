@@ -39,7 +39,12 @@ class MessageTreeDelegate(
         stateHandle.update {
             val newBranches = activeBranches.toMutableMap()
             newBranches[parentMessageId] = siblingIndex
-            copy(activeBranches = newBranches)
+            // The sibling we're switching to has a different message history, so the seeded context
+            // gauge no longer describes it. Clear it (we're !isStreaming here, so no live SSE to
+            // disturb) and let observeContextProjection re-project once displayMessages rebuilds with
+            // the new tail. sameWindowAs() ignores the tail, so without this the stale numerator
+            // would linger until the next send.
+            copy(activeBranches = newBranches, contextUsage = null)
         }
     }
 

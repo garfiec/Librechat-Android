@@ -26,6 +26,10 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
 |---|---|---|---|---|---|
 | `isCollaborative` agent toggle | v0.8.5 (2026-04-23) | Toggle visible; mobile sends `isCollaborative` + `projectIds` to server | Toggle hidden; inline hint "Access permissions are managed server-side in this version" rendered instead; fields not sent | `feature/agents/.../components/AgentSharingSection.kt` + `feature/agents/.../viewmodel/AgentEditorViewModel.kt` (`observeServerVersion`, `save`) | v0.8.5 |
 | `xhigh` reasoning-effort dropdown value | v0.8.5 (2026-04-25) | `xhigh` filtered out of `reasoning_effort` and `effort` dropdowns (older Anthropic/Bedrock/OpenAI schemas reject the unknown enum) | `xhigh` shown alongside `low/medium/high/max` | `core/ui/.../components/EndpointParameterRegistry.kt` (`getDefinitions(xhighEffortSupported)`) + `feature/chat/.../viewmodel/ChatViewModel.kt` (xhigh observer in `init`) | v0.8.5 |
+| Pin/unpin conversation action | v0.8.7 (2026-06-26) | Pin action hidden (older servers lack `POST /api/convos/pin` → would 404) | Pin/unpin in the drawer long-press menu + a Pinned section atop the drawer | `shared/.../NavHostViewModel.kt` (`drawerActionMenuState` → `pinEnabled`) + `shared/.../DrawerContent.kt` | v0.8.7 |
+| Move-to-project action (Chat Projects) | v0.8.7 (2026-06-26) | Move-to-project action hidden (older servers lack `/api/projects`) | Move-to-project picker in the drawer long-press menu (create/assign/unassign) | `shared/.../NavHostViewModel.kt` (`drawerActionMenuState` → `projectsEnabled`) + `shared/.../DrawerContent.kt` | v0.8.7 |
+| Chat Projects browse UI (folder section + index/detail) | v0.8.7 (2026-06-26) | Drawer Projects folder section hidden (older servers lack `/api/projects`) | Expandable drawer folder section + `Projects` index + `ProjectChats` detail screens (inline chats / Show all / CRUD) | `shared/.../NavHostViewModel.kt` (`projectsSection` + the version-gated `loadProjects` init collector → only fires ≥0.8.7) + `shared/.../DrawerContent.kt` (`uiState.projectsEnabled`) | v0.8.7 |
+| Context-usage gauge | v0.8.7 (2026-06-26) | Gauge hidden (no `on_context_usage` SSE / `token-config` / `context-projection` on older servers) | Slim context gauge below the chat app bar when `interface.contextUsage` is on | `feature/chat/.../viewmodel/ChatViewModel.kt` (`contextGaugeSupported` in the role+interface combine → `contextUsageEnabled`/`contextCostEnabled`) | v0.8.7 |
 
 ## Sync notes
 
@@ -36,6 +40,22 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
   config `skills`/`buildInfo`/`rum`/`cloudFront`/`autoSubmitFromUrl`/`retentionMode`) that parse
   but gate nothing. When a Skills/Subagents UI is eventually built, gate it at
   `isCompatibleOrNewer(version, "0.8.6")` and add a row above.
+- **v0.8.7 (2026-06-26):** four gated surfaces added — pin, move-to-project, the Chat Projects
+  browse UI (drawer folder section + `Projects` index + `ProjectChats` detail), and the context
+  gauge (now also seeded on chat open / model switch via `context-projection`) — all at
+  `isCompatibleOrNewer(version, "0.8.7")`. These deliberately **fail CLOSED on unknown version**
+  (`version == null` hides the feature), a divergence from guideline #2's "default to older-server
+  behavior" — for these, older-server behavior *is* "feature absent", and surfacing an action that
+  would `404` (pin/projects) or has no data source (gauge) is worse than hiding it. The additive
+  parse-only fields from this sync (`promptCacheTtl`, `pinned`, `chatProjectId`, and the new
+  `interface` keys `contextUsage`/`contextCost`/`titleTiming`/`defaultPinnedTools`/`sharedLinks`/
+  `maxCatalogSkills`) gate nothing on their own. The immediate-title SSE (`event:'title'`) is **not**
+  version-gated — it's purely additive and absent servers simply never emit it. The chat-payload
+  `timezone` field (#13815) is likewise ungated: always sent (IANA id from
+  `TimeZone.currentSystemDefault()`); older servers ignore the unknown key.
+- **v0.8.7 known-deferred parity gaps (not built, tracked):** `url_context` conversation toggle (M2)
+  and per-message `quotes[]` round-trip (M3) — both additive, low priority; see
+  `proposal-v0.8.7.md` Deferred Items.
 - **Prerelease parse fix:** `BackendVersion.parse()` now strips semver prerelease (`-rc1`) and
   build-metadata (`+build`) suffixes before splitting. This affects ALL existing gates: previously a
   prerelease server footer (e.g. `0.8.6-rc1`) parsed as `0.8.0`, which would have **falsely failed**

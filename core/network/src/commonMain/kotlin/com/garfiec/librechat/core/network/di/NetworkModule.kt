@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.network.api.BannerApi
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.api.ConfigApi
 import com.garfiec.librechat.core.network.api.ConversationsApi
+import com.garfiec.librechat.core.network.api.EndpointTokenApi
 import com.garfiec.librechat.core.network.api.FavoritesApi
 import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
@@ -19,6 +20,7 @@ import com.garfiec.librechat.core.network.api.MemoriesApi
 import com.garfiec.librechat.core.network.api.MessagesApi
 import com.garfiec.librechat.core.network.api.PermissionsApi
 import com.garfiec.librechat.core.network.api.PresetsApi
+import com.garfiec.librechat.core.network.api.ProjectsApi
 import com.garfiec.librechat.core.network.api.PromptsApi
 import com.garfiec.librechat.core.network.api.RolesApi
 import com.garfiec.librechat.core.network.api.SearchApi
@@ -138,6 +140,7 @@ val networkModule = module {
     singleOf(::ChatApi)
     singleOf(::ConfigApi)
     singleOf(::ConversationsApi)
+    singleOf(::EndpointTokenApi)
     singleOf(::FavoritesApi)
     singleOf(::FilesApi)
     singleOf(::FilesExtApi)
@@ -147,6 +150,7 @@ val networkModule = module {
     singleOf(::MessagesApi)
     singleOf(::PermissionsApi)
     singleOf(::PresetsApi)
+    singleOf(::ProjectsApi)
     singleOf(::PromptsApi)
     singleOf(::RolesApi)
     singleOf(::SearchApi)

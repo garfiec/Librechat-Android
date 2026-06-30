@@ -188,6 +188,12 @@
     <string name="auto_scroll_desc">Automatically scroll to new content while a response is being generated</string>
     <string name="show_thinking_blocks">Show thinking blocks</string>
     <string name="show_thinking_blocks_desc">Display model reasoning steps when available</string>
+    <string name="context_bar_title">Context usage</string>
+    <string name="context_bar_desc">Where to show the context-window usage gauge</string>
+    <string name="context_bar_hidden">Hidden</string>
+    <string name="context_bar_above_input">Above the message box</string>
+    <string name="context_bar_options_sheet">Chat options menu</string>
+    <string name="context_bar_overflow_menu">Top bar menu (⋮)</string>
     <string name="show_image_descriptions">Show image descriptions</string>
     <string name="show_image_descriptions_desc">Display AI-generated image prompts below images</string>
     <string name="dismiss_keyboard_on_send">Dismiss keyboard after sending</string>

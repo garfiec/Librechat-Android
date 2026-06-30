@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.data.datastore.ArtifactDisplayPrefs
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -94,6 +95,7 @@ data class SettingsUiState(
     val chatFontSize: ChatFontSize = ChatFontSize.MEDIUM,
     val autoScrollEnabled: Boolean = true,
     val showThinkingBlocks: Boolean = true,
+    val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
     val showImageDescriptions: Boolean = false,
     val dismissKeyboardOnSend: Boolean = false,
     // Data management

@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
@@ -20,6 +21,8 @@ import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.model.response.FileUploadConfig
+import com.garfiec.librechat.core.model.usage.ContextUsage
+import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.chat.components.AttachedFile
@@ -27,6 +30,7 @@ import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.MessageNode
+import kotlinx.serialization.json.JsonObject
 
 enum class ChatScreenState { LANDING, LOADING, ACTIVE }
 
@@ -70,6 +74,7 @@ data class ChatPreferences(
 data class ChatHeaderPrefs(
     val content: ChatHeaderContent = ChatHeaderContent.TITLE,
     val alignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
+    val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
 )
 
 /**
@@ -128,6 +133,11 @@ data class QueuedMessage(
     val mcpServerNames: Set<String> = emptySet(),
     /** Full composer parameters (web search, reasoning effort, etc.) — restored to the composer on edit. */
     val modelParameters: ModelParameters = ModelParameters.DEFAULT,
+    /**
+     * Non-default model params (provider-keyed) serialized for the wire, snapshotted at enqueue time
+     * so a queued send carries the params it was composed with. Null when nothing was customized.
+     */
+    val modelParamsPayload: JsonObject? = null,
     val ephemeralAgent: EphemeralAgent? = null,
     val dispatch: EndpointDispatch,
     val isTemporary: Boolean = false,
@@ -366,6 +376,21 @@ data class ChatUiState(
     val presetsEnabled: Boolean = true,
     val modelSelectEnabled: Boolean = true,
     val parametersEnabled: Boolean = true,
+    /**
+     * Context-usage gauge gate (v0.8.7). [contextUsageEnabled] = `interface.contextUsage`
+     * AND backend ≥ 0.8.7. Fails closed on older/unknown servers (the gauge has no data source there).
+     */
+    val contextUsageEnabled: Boolean = false,
+    /** Latest context-window usage snapshot for the gauge, from the `on_context_usage` SSE
+     *  event or the context-projection endpoint. Null until the first snapshot arrives. */
+    val contextUsage: ContextUsage? = null,
+    /** Latest per-call provider token usage (`on_token_usage` SSE), feeding the context
+     *  sheet's Input/Output rows. Null until a stream reports usage. */
+    val tokenUsage: TokenUsage? = null,
+    /** User preference (Settings → Chat) for where the context gauge is surfaced (above the
+     *  composer, in the "+" sheet, in the overflow menu, or hidden). Default
+     *  [ContextBarPlacement.OPTIONS_SHEET]; independent of [contextUsageEnabled] (the server/version gate). */
+    val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
     /**
      * User-pinned agent IDs (v0.8.5 favorites). Pinned agents sort to the top
      * of the "My Agents" group in [ModelSelectorSheet] and get a filled star.

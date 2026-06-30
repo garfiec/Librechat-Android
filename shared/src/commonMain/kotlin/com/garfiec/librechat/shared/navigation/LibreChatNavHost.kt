@@ -45,6 +45,8 @@ import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
 import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import com.garfiec.librechat.feature.conversations.navigation.ArchivedConversations
+import com.garfiec.librechat.feature.conversations.navigation.ProjectChats
+import com.garfiec.librechat.feature.conversations.navigation.Projects
 import com.garfiec.librechat.feature.conversations.navigation.conversationsEntries
 import com.garfiec.librechat.feature.files.navigation.Files
 import com.garfiec.librechat.feature.files.navigation.FilesPicker
@@ -225,6 +227,14 @@ fun PhoneLayout(
                         scope.launch { drawerState.close() }
                         navigator.navigate(SkillsList)
                     },
+                    onOpenProject = { projectId, projectName ->
+                        scope.launch { drawerState.close() }
+                        navigator.navigate(ProjectChats(projectId, projectName))
+                    },
+                    onOpenProjectsIndex = {
+                        scope.launch { drawerState.close() }
+                        navigator.navigate(Projects)
+                    },
                 )
             }
         },
@@ -317,6 +327,9 @@ fun MainNavDisplay(
             conversationsEntries(
                 onConversationClick = { navigator.navigateToChat(it) },
                 onNavigateToArchive = { navigator.navigate(ArchivedConversations) },
+                onNavigateToProject = { projectId, projectName ->
+                    navigator.navigate(ProjectChats(projectId, projectName))
+                },
                 onBack = { navigator.goBack() },
             )
             agentsEntries(

@@ -58,4 +58,9 @@ data class ChatRequest(
      *  title generation, keeps it out of normal history, and sets an `expiredAt`
      *  from the interface `temporaryChatRetention`. Sent on the chat request. */
     val isTemporary: Boolean? = null,
+    /** IANA timezone id (e.g. "America/New_York") of the user's device (v0.8.7 #13815).
+     *  The server threads it into `replaceSpecialVars` so agent `{{current_date}}` /
+     *  `{{current_datetime}}` resolve to the user's wall clock instead of the server's.
+     *  Always sent (additive; older servers ignore the unknown key). */
+    val timezone: String? = null,
 )

@@ -20,6 +20,7 @@ import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.DraftRepository
+import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
 import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
@@ -28,6 +29,7 @@ import com.garfiec.librechat.core.data.repository.MemoryRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.data.repository.PermissionsRepository
 import com.garfiec.librechat.core.data.repository.PresetRepository
+import com.garfiec.librechat.core.data.repository.ProjectRepository
 import com.garfiec.librechat.core.data.repository.PromptRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SearchRepository
@@ -50,6 +52,7 @@ import com.garfiec.librechat.core.network.api.BannerApi
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.api.ConfigApi
 import com.garfiec.librechat.core.network.api.ConversationsApi
+import com.garfiec.librechat.core.network.api.EndpointTokenApi
 import com.garfiec.librechat.core.network.api.FavoritesApi
 import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
@@ -59,6 +62,7 @@ import com.garfiec.librechat.core.network.api.MemoriesApi
 import com.garfiec.librechat.core.network.api.MessagesApi
 import com.garfiec.librechat.core.network.api.PermissionsApi
 import com.garfiec.librechat.core.network.api.PresetsApi
+import com.garfiec.librechat.core.network.api.ProjectsApi
 import com.garfiec.librechat.core.network.api.PromptsApi
 import com.garfiec.librechat.core.network.api.SearchApi
 import com.garfiec.librechat.core.network.api.ShareApi
@@ -144,6 +148,7 @@ class KoinGraphVerificationTest {
             ChatApi::class,
             ConfigApi::class,
             ConversationsApi::class,
+            EndpointTokenApi::class,
             FavoritesApi::class,
             FilesApi::class,
             FilesExtApi::class,
@@ -153,6 +158,7 @@ class KoinGraphVerificationTest {
             MessagesApi::class,
             PermissionsApi::class,
             PresetsApi::class,
+            ProjectsApi::class,
             PromptsApi::class,
             SearchApi::class,
             ShareApi::class,
@@ -175,6 +181,7 @@ class KoinGraphVerificationTest {
             ConfigRepository::class,
             ConversationRepository::class,
             DraftRepository::class,
+            EndpointTokenRepository::class,
             FavoritesRepository::class,
             FileRepository::class,
             KeyRepository::class,
@@ -183,6 +190,7 @@ class KoinGraphVerificationTest {
             MessageRepository::class,
             PermissionsRepository::class,
             PresetRepository::class,
+            ProjectRepository::class,
             PromptRepository::class,
             RoleRepository::class,
             SearchRepository::class,
