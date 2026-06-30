@@ -1,0 +1,84 @@
+name: Feature request
+description: Suggest a new capability or improvement for the mobile app.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the **mobile client** for LibreChat. The best requests start with the problem you're trying to solve, not just a proposed solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do that you can't (or that's painful) today? Describe the underlying need, not the solution.
+      placeholder: When I'm on the conversation list I can't... so I end up...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like the app to do?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: web_parity
+    attributes:
+      label: Does the LibreChat web client already do this?
+      description: If web already has it, this is likely a parity gap the mobile app should pick up during an upstream sync.
+      options:
+        - "Yes — web already does this"
+        - "No — this would be new to LibreChat"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform_scope
+    attributes:
+      label: Which platforms?
+      options:
+        - Both Android and iOS
+        - Android only
+        - iOS only
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: mobile_angle
+    attributes:
+      label: Mobile-specific angle (optional)
+      description: |
+        Is this something that only makes sense on mobile (push notifications, offline use, biometric lock, share sheet, widgets), or a general LibreChat feature that happens to be missing here? Helps decide whether to build it in the app or upstream it.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered (optional)
+      description: Workarounds you've tried, or other ways this could be solved.
+    validations:
+      required: false
+
+  - type: input
+    id: server_version
+    attributes:
+      label: Server version (optional)
+      description: Only relevant if the feature depends on a specific backend capability or version.
+      placeholder: "v0.8.7"
+    validations:
+      required: false
+
+  - type: textarea
+    id: mockup
+    attributes:
+      label: Mockup / reference (optional)
+      description: A sketch, screenshot of the web behavior you want matched, or a link.
+    validations:
+      required: false

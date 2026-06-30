@@ -1,0 +1,130 @@
+name: Bug report
+description: Something in the mobile app is broken or behaving unexpectedly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. The fields below are what we need to actually reproduce and fix the problem — vague reports usually can't be acted on.
+
+        **Before posting:** scrub your server URL, auth tokens, and email out of any screenshots, logs, or text you paste. The log export redacts most of this automatically, but double-check.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior — what went wrong.
+      placeholder: When I tap X, the app does Y instead of...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps from a known starting point (e.g. fresh launch / a specific screen). If you can't reproduce it reliably, describe what you were doing when it happened.
+      placeholder: |
+        1. Open the app on the conversation list
+        2. Tap '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Intermittently
+        - Happened once
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - iOS
+        - Both Android and iOS
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version
+      placeholder: "Android 16 / iOS 26"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      description: Include whether it's a phone, tablet, or foldable — the app's layout adapts to screen size.
+      placeholder: "Pixel 10 Pro Fold (foldable) / iPhone 17 Pro"
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      description: "Found in Settings → General → About (the \"App version\" row)."
+      placeholder: "2026.06.8"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_source
+    attributes:
+      label: How did you install the app?
+      description: Debug and release builds, and different sideload paths, can behave differently.
+      options:
+        - GitHub release (APK)
+        - Obtainium
+        - Sideloaded IPA (AltStore / TrollStore)
+        - Built it myself (debug)
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: server_version
+    attributes:
+      label: LibreChat server version
+      description: "Leave blank if you don't know it. If your server exposes it, Settings → General → About shows the server build commit/branch/date; otherwise the version you deployed."
+      placeholder: "v0.8.7 / self-hosted Docker"
+    validations:
+      required: false
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots, recording, or diagnostic log
+      description: |
+        Optional but it speeds up diagnosis a lot.
+        - A screenshot or screen recording of the problem.
+        - A diagnostic log: Settings → Data → Diagnostic Logs → "Export diagnostic logs" (auto-redacted), then attach the file here.
+    validations:
+      required: false
+
+  - type: input
+    id: regression
+    attributes:
+      label: Did this work in a previous version?
+      description: If it's a regression, which app version last worked?
+      placeholder: "Worked in 2026.06.5, broke in 2026.06.8 / Not sure"
+    validations:
+      required: false
