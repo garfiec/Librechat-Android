@@ -253,7 +253,13 @@ val dataModule = module {
     // --- Repositories (simple auto-wiring) ---
 
     singleOf(::BalanceRepositoryImpl) bind BalanceRepository::class
-    singleOf(::ConfigRepositoryImpl) bind ConfigRepository::class
+    single {
+        ConfigRepositoryImpl(
+            configApi = get(),
+            configCache = get(),
+            dispatcher = get(KoinQualifiers.Default),
+        )
+    } bind ConfigRepository::class
     singleOf(::ConversationRepositoryImpl) bind ConversationRepository::class
     singleOf(::FileRepositoryImpl) bind FileRepository::class
     singleOf(::AgentRepositoryImpl) bind AgentRepository::class

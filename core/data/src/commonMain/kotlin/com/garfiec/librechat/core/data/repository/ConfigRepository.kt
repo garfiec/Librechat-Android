@@ -25,7 +25,7 @@ interface ConfigRepository {
 
     /**
      * The backend version detected from `/api/config` (via the `version` field
-     * or the `customFooter` pattern). `null` until [checkBackendVersion] runs
+     * or the build commit). `null` until [checkBackendVersion] runs
      * or if the backend does not expose its version.
      *
      * UI code should consult [com.garfiec.librechat.core.common.BackendVersion.isCompatible]

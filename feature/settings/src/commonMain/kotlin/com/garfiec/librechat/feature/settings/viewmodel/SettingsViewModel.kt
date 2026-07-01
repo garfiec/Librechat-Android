@@ -46,6 +46,7 @@ import com.garfiec.librechat.feature.settings.viewmodel.delegate.TwoFactorSecuri
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -164,11 +165,15 @@ class SettingsViewModel(
      */
     private fun observeAccountDeletionPolicy() {
         viewModelScope.launch {
-            configRepository.startupConfig.collect { config ->
+            combine(
+                configRepository.startupConfig,
+                configRepository.detectedBackendVersion,
+            ) { config, version -> config to version }.collect { (config, version) ->
                 _uiState.update {
                     it.copy(
                         allowAccountDeletion = config?.allowAccountDeletion ?: true,
                         buildInfo = config?.buildInfo,
+                        serverVersion = version,
                     )
                 }
             }

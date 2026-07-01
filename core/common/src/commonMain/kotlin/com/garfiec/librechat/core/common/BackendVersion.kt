@@ -3,13 +3,11 @@ package com.garfiec.librechat.core.common
 /**
  * Backend version compatibility constants and comparison utilities.
  *
- * The LibreChat backend does not currently expose a version endpoint.
- * The version is determined by:
- * 1. A `version` field in the `/api/config` response (if the backend adds one in the future)
- * 2. Parsing the `customFooter` field for a `LibreChat vX.Y.Z` pattern
- *    (when customFooter is null, the web frontend displays the default version from Constants.VERSION)
- *
- * If the version cannot be determined, the check is silently skipped.
+ * The LibreChat backend does not currently expose a version endpoint. The version is resolved
+ * from `/api/config` — an explicit `version` field if one is ever added, otherwise the build
+ * commit (`buildInfo.commit`) looked up in the baked commit→version table. See
+ * `ConfigRepositoryImpl.detectVersion`. If the version cannot be determined, the check is
+ * silently skipped.
  */
 object BackendVersion {
 
@@ -108,18 +106,5 @@ object BackendVersion {
             return actualVersion.minor > minimumVersion.minor
         }
         return actualVersion.patch >= minimumVersion.patch
-    }
-
-    /**
-     * Extracts a version string from a LibreChat customFooter value.
-     * The default footer format is: `[LibreChat vX.Y.Z](https://librechat.ai) - ...`
-     * Also handles variations like `LibreChat v0.8.2` without markdown links.
-     *
-     * @return The extracted version string (without 'v' prefix), or null if not found.
-     */
-    fun extractVersionFromFooter(footer: String?): String? {
-        if (footer == null) return null
-        val regex = Regex("""LibreChat\s+v?(\d+\.\d+(?:\.\d+)?)""", RegexOption.IGNORE_CASE)
-        return regex.find(footer)?.groupValues?.get(1)
     }
 }

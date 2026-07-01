@@ -332,6 +332,11 @@ fun DrawerContent(
         val listState = rememberLazyListState()
         val currentOnLoadMore by rememberUpdatedState(onLoadMore)
 
+        // The Projects section (index 0 when eligible) is present from the list's first frame:
+        // projectsEnabled is seeded from the cached config before the drawer opens (see
+        // ConfigRepositoryImpl.checkBackendVersion), so it isn't inserted above the scroll anchor
+        // after layout — no scroll adjustment is needed to surface it.
+
         // Single item renderer shared by the favorites section and the date groups so the
         // long-press action menu wiring isn't duplicated across both call sites. rowKey is the
         // row's LazyColumn key (unique per rendered row, unlike the conversation id).

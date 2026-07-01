@@ -186,6 +186,7 @@ fun GeneralSettingsContent(
                     serverUrl = uiState.serverUrl,
                     appVersion = uiState.appVersion,
                     gitSha = uiState.gitSha,
+                    serverVersion = uiState.serverVersion,
                     buildInfo = uiState.buildInfo,
                 )
             }
@@ -421,6 +422,7 @@ private fun AboutInfo(
     serverUrl: String,
     appVersion: String,
     gitSha: String,
+    serverVersion: String?,
     buildInfo: BuildInfo?,
 ) {
     Column {
@@ -478,6 +480,13 @@ private fun AboutInfo(
                     modifier = Modifier.weight(1f, fill = false),
                 )
             }
+            // Resolved LibreChat server version. Always shown — "Unknown" when it can't be
+            // determined (LibreChat has no version endpoint; we infer it from the build commit).
+            Spacer(modifier = Modifier.height(8.dp))
+            AboutRow(
+                label = stringResource(Res.string.server_version_label),
+                value = serverVersion ?: stringResource(Res.string.server_version_unknown),
+            )
             // Server build metadata (v0.8.6) — only when the server reports it.
             val commit = buildInfo?.commitShort ?: buildInfo?.commit
             if (!commit.isNullOrBlank()) {

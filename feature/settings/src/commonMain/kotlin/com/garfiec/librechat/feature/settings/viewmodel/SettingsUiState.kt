@@ -88,6 +88,13 @@ data class SettingsUiState(
      * server doesn't report it; the About section omits the rows in that case.
      */
     val buildInfo: BuildInfo? = null,
+    /**
+     * Resolved LibreChat backend version (e.g. `0.8.7`), from
+     * `ConfigRepository.detectedBackendVersion`. null when the version can't be determined
+     * (LibreChat exposes no version endpoint; we infer it from the build commit).
+     * The About section shows an explicit "Unknown" in that case rather than hiding the row.
+     */
+    val serverVersion: String? = null,
     /** True only when the authenticated user's system role is ADMIN. Gates the
      *  admin role-skills row fail-CLOSED (defaults false until the profile loads). */
     val isAdmin: Boolean = false,

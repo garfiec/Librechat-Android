@@ -1,3 +1,4 @@
+import io.gitlab.arturbosch.detekt.Detekt
 import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
 import io.gitlab.arturbosch.detekt.extensions.DetektExtension
 import org.gradle.api.Plugin
@@ -20,6 +21,13 @@ class DetektConventionPlugin : Plugin<Project> {
 
             tasks.withType<DetektCreateBaselineTask>().configureEach {
                 enabled = false
+            }
+
+            // Committed generated sources (e.g. BackendCommitMap) are machine-written; skip lint
+            // (large packed literals trip formatting/line-length rules that don't apply to codegen).
+            // Scoped to the specific codegen package so hand-written code elsewhere stays linted.
+            tasks.withType<Detekt>().configureEach {
+                exclude("**/com/garfiec/librechat/core/common/generated/**")
             }
 
             dependencies {

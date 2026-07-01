@@ -47,7 +47,6 @@ data class StartupConfig(
     val conversationImportMaxFileSize: Long? = null,
     val webSearch: JsonObject? = null,
     val ldap: LdapConfig? = null,
-    val customFooter: String? = null,
     /** Backend version, if the server includes it in the config response (not yet standard). */
     val version: String? = null,
     // --- v0.8.6 detection (parse-surface only) ---

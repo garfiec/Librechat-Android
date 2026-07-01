@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.generated.BackendCommitMap
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
@@ -12,14 +13,17 @@ import com.garfiec.librechat.core.model.config.StartupConfig
 import com.garfiec.librechat.core.model.response.Category
 import com.garfiec.librechat.core.network.api.ConfigApi
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 
 class ConfigRepositoryImpl(
     private val configApi: ConfigApi,
     private val configCache: ConfigCacheDataStore,
+    private val dispatcher: CoroutineDispatcher,
 ) : ConfigRepository {
 
     private val _startupConfig = MutableStateFlow<StartupConfig?>(null)
@@ -39,14 +43,6 @@ class ConfigRepositoryImpl(
      * per fetch/change rather than on every recomposition or duplicate fetch.
      */
     private var loggedConfigSignature: Int? = null
-
-    /**
-     * Whether the post-auth re-fetch in [checkBackendVersion] has already run this session. The cached
-     * onboarding config is unauthenticated and v0.8.7+ gates `customFooter` behind auth, so we force one
-     * authenticated re-fetch — but only once, so a server that genuinely never exposes a version doesn't
-     * re-fetch on every [checkBackendVersion] call. Reset by [clear] on logout / server switch.
-     */
-    private var versionRefetchAttempted: Boolean = false
 
     /**
      * Emits a single redacted, low-cardinality snapshot of the server config to the
@@ -193,39 +189,33 @@ class ConfigRepositoryImpl(
     }
 
     /**
-     * Checks the backend version against the supported version.
+     * Checks the backend version against the supported version. See [detectVersion] for how the
+     * version is resolved (config `version` field, else the build commit).
      *
-     * Version detection strategy (in order):
-     * 1. The `version` field in the startup config (future-proof: the backend may add this)
-     * 2. Parsing the `customFooter` field for a "LibreChat vX.Y.Z" pattern
-     *
-     * If neither source provides a version, the check passes (fail-open) with
+     * If the version can't be determined, the check passes (fail-open) with
      * [VersionCheckResult.backendVersion] = null and [VersionCheckResult.isCompatible] = true.
      */
     override suspend fun checkBackendVersion(): Result<VersionCheckResult> {
         return safeApiCall {
-            // Use the cached startup config if present, else fetch it. A cached config can be a
-            // pre-login (unauthenticated) onboarding snapshot, and v0.8.7+ only exposes the version
-            // source (`customFooter`) to authenticated requests — so a cached pre-login config yields
-            // no version, leaving every version-gated feature (pinned, projects) disabled for the whole
-            // first session. If detection comes up empty against a cached config, force one fresh
-            // (now-authenticated) fetch and retry before concluding "unknown" — at most once per session
-            // (see [versionRefetchAttempted]) so version-less servers don't re-fetch on every call.
-            val cached = _startupConfig.value
-            var config = cached ?: (fetchStartupConfig() as? Result.Success)?.data
-            var detectedVersion = detectVersion(config)
-            if (detectedVersion == null && cached != null && !versionRefetchAttempted) {
-                // Consume the one-shot only on a SUCCESSFUL re-fetch: a transient failure (network
-                // blip right after login) must not burn the single retry and strand every v0.8.7
-                // feature disabled for the whole session. A genuinely version-less server still
-                // re-fetches exactly once (the fetch succeeds, the version is just absent).
-                val refetched = (fetchStartupConfig() as? Result.Success)?.data
-                if (refetched != null) {
-                    versionRefetchAttempted = true
-                    config = refetched
-                    detectedVersion = detectVersion(config)
+            // Early UI seed: resolve the version from the persisted config up front so version-gated
+            // UI (the drawer's Projects section, pin) is already in place before the user opens the
+            // drawer, rather than popping in a beat later once the network fetch below returns.
+            // buildInfo.commit lives in the cached config, so this resolves without auth or network.
+            // Intentionally does NOT populate _startupConfig — the authoritative pass below still runs
+            // a fresh fetch (so a server that changed versions between sessions is detected) and
+            // overwrites this; StateFlow conflation means an unchanged version won't re-emit.
+            if (_detectedBackendVersion.value == null) {
+                configCache.loadStartupConfig()?.let { seed ->
+                    detectVersion(seed)?.let { _detectedBackendVersion.value = it }
                 }
             }
+
+            // Authoritative pass: fetch a fresh config (fetchStartupConfig falls back to the cache when
+            // offline) so a server that changed versions between sessions is picked up, then re-detect
+            // and publish. buildInfo.commit is present in every v0.8.7+ config — cached or fresh,
+            // authenticated or not — so a single fetch is enough; no auth re-fetch is needed.
+            val config = (fetchStartupConfig() as? Result.Success)?.data ?: _startupConfig.value
+            val detectedVersion = detectVersion(config)
 
             val supported = BackendVersion.SUPPORTED_BACKEND_VERSION
 
@@ -272,12 +262,40 @@ class ConfigRepositoryImpl(
     }
 
     /**
-     * Resolves the backend version from a startup config: the explicit `version` field first
-     * (future-proof), then the `customFooter` "LibreChat vX.Y.Z" pattern. Null when neither is present.
+     * Resolves the backend version from a startup config, in order:
+     * 1. the explicit `version` field (future-proof — not yet emitted by any release),
+     * 2. the build commit (`buildInfo.commit`) looked up in the baked [BackendCommitMap] — the only
+     *    reliable server-sent signal (LibreChat has no version endpoint), covering any tagged
+     *    official/rc image.
+     * Null when neither resolves.
      */
-    private fun detectVersion(config: StartupConfig?): String? =
-        config?.version?.trimStart('v', 'V')
-            ?: BackendVersion.extractVersionFromFooter(config?.customFooter)
+    private suspend fun detectVersion(config: StartupConfig?): String? {
+        config?.version?.trimStart('v', 'V')?.takeIf { it.isNotBlank() }?.let { return it }
+        val buildInfo = config?.buildInfo
+        val commit = buildInfo?.commit
+        if (commit != null) {
+            // First lookup lazily parses the baked ~1000-entry table; run it (and the O(1) lookups)
+            // off the caller thread so the parse never janks the post-auth main-thread moment.
+            val resolved = withContext(dispatcher) {
+                BackendCommitMap.versionForCommit(commit)
+                    ?.let { it to BackendCommitMap.classificationForCommit(commit) }
+            }
+            if (resolved != null) {
+                val (version, classification) = resolved
+                Diag.i(
+                    "BackendVersion",
+                    attrs = mapOf(
+                        "resolvedVia" to "buildInfo.commit",
+                        "commit" to (buildInfo.commitShort ?: commit),
+                        "classification" to (classification ?: "UNKNOWN"),
+                        "version" to version,
+                    ),
+                ) { "backend version resolved from build commit" }
+                return version
+            }
+        }
+        return null
+    }
 
     override suspend fun getCategories(): Result<List<Category>> = safeApiCall {
         configApi.getCategories()
@@ -289,7 +307,6 @@ class ConfigRepositoryImpl(
         _startupConfig.value = null
         _detectedBackendVersion.value = null
         loggedConfigSignature = null
-        versionRefetchAttempted = false
         configCache.clear()
     }
 }

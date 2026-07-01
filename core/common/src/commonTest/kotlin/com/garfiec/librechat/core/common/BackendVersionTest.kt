@@ -141,31 +141,4 @@ class BackendVersionTest {
     }
 
     // endregion
-
-    // region extractVersionFromFooter
-
-    @Test
-    fun extractVersionFromFooterParsesDefaultMarkdown() {
-        val footer = "[LibreChat v0.8.5](https://librechat.ai) - Free, Open Source"
-        assertEquals("0.8.5", BackendVersion.extractVersionFromFooter(footer))
-    }
-
-    @Test
-    fun extractVersionFromFooterParsesPlainText() {
-        assertEquals("0.8.5", BackendVersion.extractVersionFromFooter("LibreChat v0.8.5"))
-    }
-
-    @Test
-    fun extractVersionFromFooterAcceptsTwoDigitVersions() {
-        assertEquals("0.8", BackendVersion.extractVersionFromFooter("LibreChat v0.8"))
-    }
-
-    @Test
-    fun extractVersionFromFooterReturnsNullOnNoMatch() {
-        assertNull(BackendVersion.extractVersionFromFooter(null))
-        assertNull(BackendVersion.extractVersionFromFooter(""))
-        assertNull(BackendVersion.extractVersionFromFooter("custom footer text"))
-    }
-
-    // endregion
 }
