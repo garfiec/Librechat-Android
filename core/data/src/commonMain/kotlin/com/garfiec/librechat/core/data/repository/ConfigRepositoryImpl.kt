@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.generated.BackendCommitMap
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
@@ -12,14 +13,17 @@ import com.garfiec.librechat.core.model.config.StartupConfig
 import com.garfiec.librechat.core.model.response.Category
 import com.garfiec.librechat.core.network.api.ConfigApi
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 
 class ConfigRepositoryImpl(
     private val configApi: ConfigApi,
     private val configCache: ConfigCacheDataStore,
+    private val dispatcher: CoroutineDispatcher,
 ) : ConfigRepository {
 
     private val _startupConfig = MutableStateFlow<StartupConfig?>(null)
@@ -204,6 +208,19 @@ class ConfigRepositoryImpl(
      */
     override suspend fun checkBackendVersion(): Result<VersionCheckResult> {
         return safeApiCall {
+            // Early UI seed: resolve the version from the persisted config up front so version-gated
+            // UI (the drawer's Projects section, pin) is already in place before the user opens the
+            // drawer, rather than popping in a beat later once the network fetch below returns.
+            // buildInfo.commit lives in the cached config, so this resolves without auth or network.
+            // Intentionally does NOT populate _startupConfig — the authoritative pass below still runs
+            // a fresh fetch (so a server that changed versions between sessions is detected) and
+            // overwrites this; StateFlow conflation means an unchanged version won't re-emit.
+            if (_detectedBackendVersion.value == null) {
+                configCache.loadStartupConfig()?.let { seed ->
+                    detectVersion(seed)?.let { _detectedBackendVersion.value = it }
+                }
+            }
+
             // Use the cached startup config if present, else fetch it. A cached config can be a
             // pre-login (unauthenticated) onboarding snapshot, and v0.8.7+ only exposes the version
             // source (`customFooter`) to authenticated requests — so a cached pre-login config yields
@@ -272,12 +289,42 @@ class ConfigRepositoryImpl(
     }
 
     /**
-     * Resolves the backend version from a startup config: the explicit `version` field first
-     * (future-proof), then the `customFooter` "LibreChat vX.Y.Z" pattern. Null when neither is present.
+     * Resolves the backend version from a startup config, in order:
+     * 1. the explicit `version` field (future-proof — not yet emitted by any release),
+     * 2. the build commit (`buildInfo.commit`) looked up in the baked [BackendCommitMap] — the only
+     *    reliable server-sent signal (LibreChat has no version endpoint), covering any tagged
+     *    official/rc image regardless of footer config,
+     * 3. the legacy `customFooter` "LibreChat vX.Y.Z" scrape (present only when the admin set
+     *    `CUSTOM_FOOTER` with a version token).
+     * Null when none resolve.
      */
-    private fun detectVersion(config: StartupConfig?): String? =
-        config?.version?.trimStart('v', 'V')
-            ?: BackendVersion.extractVersionFromFooter(config?.customFooter)
+    private suspend fun detectVersion(config: StartupConfig?): String? {
+        config?.version?.trimStart('v', 'V')?.takeIf { it.isNotBlank() }?.let { return it }
+        val buildInfo = config?.buildInfo
+        val commit = buildInfo?.commit
+        if (commit != null) {
+            // First lookup lazily parses the baked ~1000-entry table; run it (and the O(1) lookups)
+            // off the caller thread so the parse never janks the post-auth main-thread moment.
+            val resolved = withContext(dispatcher) {
+                BackendCommitMap.versionForCommit(commit)
+                    ?.let { it to BackendCommitMap.classificationForCommit(commit) }
+            }
+            if (resolved != null) {
+                val (version, classification) = resolved
+                Diag.i(
+                    "BackendVersion",
+                    attrs = mapOf(
+                        "resolvedVia" to "buildInfo.commit",
+                        "commit" to (buildInfo.commitShort ?: commit),
+                        "classification" to (classification ?: "UNKNOWN"),
+                        "version" to version,
+                    ),
+                ) { "backend version resolved from build commit" }
+                return version
+            }
+        }
+        return BackendVersion.extractVersionFromFooter(config?.customFooter)
+    }
 
     override suspend fun getCategories(): Result<List<Category>> = safeApiCall {
         configApi.getCategories()

@@ -137,6 +137,8 @@
     <string name="app_build_label">Build</string>
     <string name="server_label">Server</string>
     <string name="server_not_configured">Not configured</string>
+    <string name="server_version_label">Server version</string>
+    <string name="server_version_unknown">Unknown</string>
     <string name="server_build_commit_label">Server commit</string>
     <string name="server_build_branch_label">Server branch</string>
     <string name="server_build_date_label">Server build date</string>

@@ -46,7 +46,8 @@ data class InterfaceConfig(
      *  title can be revealed eagerly; `"final"` (or null) keeps the post-stream reveal. */
     val titleTiming: String? = null,
     /** Tool keys (and `"mcp"` / an MCP server name) pinned to the prompt bar by default.
-     *  Parse-surface only — mobile has no pinned-tools prompt-bar concept yet (deferred). */
+     *  Rendered as inline quick-toggle chips on the input bar (recognized keys only, each gated
+     *  by its own enable flag). */
     val defaultPinnedTools: List<String>? = null,
     /** Shared-link sub-capabilities. `bool | { create, share, public, snapshotFiles }`.
      *  Kept as raw JSON for forward-compat, mirroring [prompts] / [agents] / [skills]. */
