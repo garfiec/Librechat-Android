@@ -71,8 +71,8 @@ class MessageRepositoryImpl(
             val accountId = activeAccountProvider.currentAccountId()?.value
             val messages = messagesApi.getMessages(conversationId)
             if (accountId != null) {
-                // Full replace: delete stale cache then insert fresh server data
-                messageDao.replaceAllForConversation(conversationId, messages.entitiesFor(accountId))
+                // Full replace: delete stale cache then insert fresh server data (delete leg scoped to account)
+                messageDao.replaceAllForConversation(conversationId, accountId, messages.entitiesFor(accountId))
             }
             messages
         }
@@ -84,9 +84,10 @@ class MessageRepositoryImpl(
         feedback: String?,
     ): Result<Unit> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             messagesApi.updateFeedback(conversationId, messageId, feedback)
-            // Update local cache
-            messageDao.updateFeedback(messageId, feedback)
+            // Update local cache, scoped to the active account; skip when unresolved.
+            if (accountId != null) messageDao.updateFeedback(messageId, feedback, accountId)
         }
     }
 
@@ -96,8 +97,9 @@ class MessageRepositoryImpl(
         text: String,
     ): Result<Unit> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             messagesApi.updateMessage(conversationId, messageId, UpdateMessageRequest(text = text))
-            messageDao.updateText(messageId, text)
+            if (accountId != null) messageDao.updateText(messageId, text, accountId)
         }
     }
 

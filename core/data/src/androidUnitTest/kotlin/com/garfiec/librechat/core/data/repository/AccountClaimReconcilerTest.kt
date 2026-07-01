@@ -15,7 +15,6 @@ import com.garfiec.librechat.core.data.db.entity.MessageEntity
 import com.garfiec.librechat.core.model.NEW_CHAT_DRAFT_KEY
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -64,6 +63,25 @@ class AccountClaimReconcilerTest {
     private fun reconciler(name: String) =
         AccountClaimReconciler(db.accountClaimDao(), dataStore(name), dispatcher)
 
+    // Account-agnostic raw reads for assertions: these tests must inspect rows regardless of which
+    // account owns them (to verify what accountId the claim stamped, or that foreign rows were swept),
+    // which the account-scoped DAO reads deliberately can't do. Query the DB directly instead of
+    // exposing an unscoped read on the production DAO.
+    private fun rowExists(table: String, pkCol: String, id: String): Boolean =
+        db.query("SELECT 1 FROM $table WHERE $pkCol = ?", arrayOf(id)).use { it.moveToFirst() }
+
+    private fun accountIdOf(table: String, pkCol: String, id: String): String? =
+        db.query("SELECT accountId FROM $table WHERE $pkCol = ?", arrayOf(id)).use {
+            if (it.moveToFirst() && !it.isNull(0)) it.getString(0) else null
+        }
+
+    private data class TagRow(val tag: String, val accountId: String?)
+
+    private fun allTags(): List<TagRow> =
+        db.query("SELECT tag, accountId FROM conversation_tags ORDER BY position ASC", null).use { c ->
+            buildList { while (c.moveToNext()) add(TagRow(c.getString(0), if (c.isNull(1)) null else c.getString(1))) }
+        }
+
     @Test
     fun claimsOwnerRowsByUser_stampsTransitively_deletesForeignAndConvLess() = runTest(dispatcher) {
         seedLegacyRows()
@@ -71,25 +89,25 @@ class AccountClaimReconcilerTest {
         reconciler("claim").claimIfNeeded(AccountId("srv:userA"), userKey = "userA")
 
         // Owner (userA) rows are stamped...
-        assertThat(db.conversationDao().getById("convA")?.accountId).isEqualTo("srv:userA")
-        assertThat(db.messageDao().getById("mA")?.accountId).isEqualTo("srv:userA")
-        assertThat(db.draftDao().getDraft("convA")?.accountId).isEqualTo("srv:userA")
-        val tags = db.conversationTagDao().getAllTags().first()
+        assertThat(accountIdOf("conversations", "conversationId", "convA")).isEqualTo("srv:userA")
+        assertThat(accountIdOf("messages", "messageId", "mA")).isEqualTo("srv:userA")
+        assertThat(accountIdOf("drafts", "conversation_id", "convA")).isEqualTo("srv:userA")
+        val tags = allTags()
         assertThat(tags.map { it.tag }).containsExactly("work")
         assertThat(tags.single().accountId).isEqualTo("srv:userA")
 
         // ...foreign (userB) rows are deleted, not visible, not re-attributed.
-        assertThat(db.conversationDao().getById("convB")).isNull()
-        assertThat(db.messageDao().getById("mB")).isNull()
-        assertThat(db.draftDao().getDraft("convB")).isNull()
+        assertThat(rowExists("conversations", "conversationId", "convB")).isFalse()
+        assertThat(rowExists("messages", "messageId", "mB")).isFalse()
+        assertThat(rowExists("drafts", "conversation_id", "convB")).isFalse()
 
         // ...un-attributable conv-less message is deleted (fail-safe).
-        assertThat(db.messageDao().getById("mOrphan")).isNull()
+        assertThat(rowExists("messages", "messageId", "mOrphan")).isFalse()
 
         // ...the conv-less new-chat draft survives, claimed for the upgrading account (unsent text kept)...
-        assertThat(db.draftDao().getDraft(NEW_CHAT_DRAFT_KEY)?.accountId).isEqualTo("srv:userA")
+        assertThat(accountIdOf("drafts", "conversation_id", NEW_CHAT_DRAFT_KEY)).isEqualTo("srv:userA")
         // ...but a stale conv-less draft (owning conversation already gone) is still swept.
-        assertThat(db.draftDao().getDraft("deleted-conv")).isNull()
+        assertThat(rowExists("drafts", "conversation_id", "deleted-conv")).isFalse()
     }
 
     @Test
@@ -100,9 +118,9 @@ class AccountClaimReconcilerTest {
         dao.claimLegacyRows(accountId = "srv:userA", userKey = "userA", newChatKey = NEW_CHAT_DRAFT_KEY)
         dao.claimLegacyRows(accountId = "srv:userA", userKey = "userA", newChatKey = NEW_CHAT_DRAFT_KEY)
 
-        assertThat(db.conversationDao().getById("convA")?.accountId).isEqualTo("srv:userA")
-        assertThat(db.conversationDao().getById("convB")).isNull()
-        assertThat(db.messageDao().getById("mA")?.accountId).isEqualTo("srv:userA")
+        assertThat(accountIdOf("conversations", "conversationId", "convA")).isEqualTo("srv:userA")
+        assertThat(rowExists("conversations", "conversationId", "convB")).isFalse()
+        assertThat(accountIdOf("messages", "messageId", "mA")).isEqualTo("srv:userA")
     }
 
     @Test
@@ -118,7 +136,8 @@ class AccountClaimReconcilerTest {
         // ...a second call is short-circuited by the marker, so it neither stamps nor deletes it.
         gated.claimIfNeeded(AccountId("srv:userA"), userKey = "userA")
 
-        assertThat(db.conversationDao().getById("convLate")?.accountId).isNull()
+        assertThat(rowExists("conversations", "conversationId", "convLate")).isTrue()
+        assertThat(accountIdOf("conversations", "conversationId", "convLate")).isNull()
     }
 
     private suspend fun seedLegacyRows() {

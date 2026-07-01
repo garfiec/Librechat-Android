@@ -40,7 +40,7 @@ class RoomHostJvmSmokeTest {
             .build()
         try {
             db.conversationDao().upsert(sampleConversation(id = "c1", title = "host-jvm-ok"))
-            val read = db.conversationDao().getById("c1")
+            val read = db.conversationDao().getByIdForAccount("c1", "acct")
             assertEquals("host-jvm-ok", read?.title)
         } finally {
             db.close()
@@ -62,5 +62,6 @@ class RoomHostJvmSmokeTest {
         modelParams = null,
         createdAt = 0L,
         updatedAt = 0L,
+        accountId = "acct",
     )
 }

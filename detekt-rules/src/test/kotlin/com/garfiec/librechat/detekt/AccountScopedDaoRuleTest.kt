@@ -51,9 +51,87 @@ class AccountScopedDaoRuleTest {
         )
     }
 
+    @Test
+    fun firesOnEntityDelete() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Delete
+
+            @Dao
+            interface ConversationDao {
+                @Delete
+                suspend fun delete(entity: Any)
+            }
+            """.trimIndent(),
+        )
+        assertTrue(
+            findings.flagged("delete"),
+            "entity @Delete matches by PK only (no accountId) and must be flagged",
+        )
+    }
+
+    @Test
+    fun firesOnEntityUpdate() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Update
+
+            @Dao
+            interface MessageDao {
+                @Update
+                suspend fun update(entity: Any)
+            }
+            """.trimIndent(),
+        )
+        assertTrue(
+            findings.flagged("update"),
+            "entity @Update matches by PK only (no accountId) and must be flagged",
+        )
+    }
+
     // endregion
 
     // region must NOT fire (no false positives)
+
+    @Test
+    fun ignoresEntityInsert() {
+        // @Insert/@Upsert attribute the account through the entity's accountId field, which a SQL-text
+        // rule can't see; they are deliberately out of scope (callsite + SessionWriter own attribution).
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Insert
+
+            @Dao
+            interface ConversationDao {
+                @Insert
+                suspend fun insert(entity: Any)
+            }
+            """.trimIndent(),
+        )
+        assertFalse(findings.flagged("insert"), "@Insert must not be flagged (field-attributed)")
+    }
+
+    @Test
+    fun acceptsCrossAccountOnEntityDelete() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Delete
+            import com.garfiec.librechat.core.common.identity.CrossAccount
+
+            @Dao
+            interface ConversationDao {
+                @CrossAccount
+                @Delete
+                suspend fun delete(entity: Any)
+            }
+            """.trimIndent(),
+        )
+        assertFalse(findings.flagged("delete"), "@CrossAccount must opt an entity @Delete out")
+    }
 
     @Test
     fun ignoresPlainUpsert() {
@@ -115,6 +193,307 @@ class AccountScopedDaoRuleTest {
             """.trimIndent(),
         )
         assertFalse(findings.flagged("getById"), "non-tenant table must be ignored")
+    }
+
+    @Test
+    fun tenantTableMatchIsCaseInsensitive_firesWhenUnscoped() {
+        // SQLite identifiers are case-insensitive, so `FROM Messages` / `FROM CONVERSATIONS` hit the
+        // real tenant table and an unscoped statement must still be flagged regardless of casing.
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query("DELETE FROM Messages WHERE messageId = :id")
+                suspend fun nukeByCasing(id: String)
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("nukeByCasing"), "case-variant tenant table must still be flagged when unscoped")
+    }
+
+    // endregion
+
+    // region hardened matcher (R5-D): WHERE-scoped predicate, concatenation, @RawQuery, interpolation
+
+    @Test
+    fun parsesConcatenatedSql_firesWhenUnscoped() {
+        // A `"a" + "b"` concatenated query must be matched as one SQL string, not just single literals.
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query(
+                    "SELECT * FROM messages WHERE conversationId = :c " +
+                        "AND parentMessageId = :p ORDER BY createdAt ASC",
+                )
+                suspend fun getSiblings(c: String, p: String): Any
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("getSiblings"), "unscoped concatenated SQL must be flagged")
+    }
+
+    @Test
+    fun parsesConcatenatedSql_passesWhenScoped() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query(
+                    "SELECT * FROM messages WHERE conversationId = :c AND accountId = :a " +
+                        "ORDER BY createdAt ASC",
+                )
+                suspend fun getSiblingsForAccount(c: String, a: String): Any
+            }
+            """.trimIndent(),
+        )
+        assertFalse(findings.flagged("getSiblingsForAccount"), "scoped concatenated SQL must pass")
+    }
+
+    @Test
+    fun setAccountIdIsNotScoping() {
+        // `SET accountId = :x` writes the column; it does not restrict which rows are touched. Only a
+        // WHERE-clause predicate scopes, so this must be flagged despite containing "accountId =".
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface ConversationDao {
+                @Query("UPDATE conversations SET accountId = :a WHERE conversationId = :id")
+                suspend fun reassign(a: String, id: String)
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("reassign"), "accountId in SET (not WHERE) must not count as scoping")
+    }
+
+    @Test
+    fun isNullIsNotPositiveScoping() {
+        // `accountId IS NULL` is the legacy-claim shape, not single-account scoping -> must be flagged
+        // (the real claim DAO opts out with @CrossAccount instead).
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface ConversationDao {
+                @Query("DELETE FROM conversations WHERE accountId IS NULL")
+                suspend fun deleteUnclaimed()
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("deleteUnclaimed"), "accountId IS NULL must not count as scoping")
+    }
+
+    @Test
+    fun acceptsAccountIdInPredicate() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface ConversationDao {
+                @Query("SELECT * FROM conversations WHERE accountId IN (:a, :b)")
+                suspend fun forAccounts(a: String, b: String): Any
+            }
+            """.trimIndent(),
+        )
+        assertFalse(findings.flagged("forAccounts"), "accountId IN (...) must count as scoping")
+    }
+
+    @Test
+    fun firesOnRawQueryInTenantDao() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.RawQuery
+
+            @Dao
+            interface ConversationDao {
+                @RawQuery
+                suspend fun raw(query: Any): Any
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("raw"), "@RawQuery in a tenant DAO must be flagged")
+    }
+
+    @Test
+    fun firesOnInterpolatedQueryInTenantDao() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query("SELECT * FROM messages WHERE messageId = ${'$'}id")
+                suspend fun byId(id: String): Any
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("byId"), "non-constant (interpolated) @Query in a tenant DAO must be flagged")
+    }
+
+    @Test
+    fun subqueryScopedPredicateIsNotOuterScoping() {
+        // accountId appears only inside a subquery; the outer messages statement is unscoped.
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query(
+                    "DELETE FROM messages WHERE conversationId IN " +
+                        "(SELECT conversationId FROM conversations WHERE accountId = :a)",
+                )
+                suspend fun deleteForConv(a: String)
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("deleteForConv"), "subquery-only accountId must not count as outer scoping")
+    }
+
+    @Test
+    fun topLevelOrIsNotScoping() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query("SELECT * FROM messages WHERE messageId = :id OR accountId = :a")
+                suspend fun byIdOrAccount(id: String, a: String): Any
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("byIdOrAccount"), "accountId joined by a top-level OR is not restrictive scoping")
+    }
+
+    @Test
+    fun differentlyNamedColumnEndingInAccountIdIsNotScoping() {
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface ConversationDao {
+                @Query("SELECT * FROM conversations WHERE userAccountId = :a")
+                suspend fun byWrongColumn(a: String): Any
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("byWrongColumn"), "a column merely ending in 'accountId' must not count as scoping")
+    }
+
+    @Test
+    fun inferredTenantDao_concreteBodyFlagged_evenWhenNotInNameList() {
+        // A DAO not named in TENANT_DAOS but carrying a tenant @Query is inferred to be a tenant DAO,
+        // so its unscoped concrete @Transaction body is still flagged.
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+            import androidx.room.Transaction
+            import androidx.room.Upsert
+
+            @Dao
+            interface MessageSearchDao {
+                @Query("SELECT * FROM messages WHERE accountId = :a")
+                fun forAccount(a: String): Any
+
+                @Transaction
+                suspend fun rebuild(a: String, rows: List<Any>) {
+                    upsertAll(rows)
+                }
+
+                @Upsert
+                suspend fun upsertAll(rows: List<Any>)
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("rebuild"), "concrete body in an inferred tenant DAO must be flagged")
+        assertFalse(findings.flagged("forAccount"), "the scoped @Query that triggered inference must itself pass")
+    }
+
+    @Test
+    fun acceptsParenthesizedAccountIdPredicate() {
+        // A validly-grouped accountId predicate must pass; the matcher must not strip it as if it were a
+        // subquery / value-list (that was a false positive that would push authors to a needless opt-out).
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query("DELETE FROM messages WHERE (accountId = :a) AND conversationId = :c")
+                suspend fun deleteForConv(a: String, c: String)
+            }
+            """.trimIndent(),
+        )
+        assertFalse(findings.flagged("deleteForConv"), "a parenthesized (accountId = :a) predicate must count as scoping")
+    }
+
+    @Test
+    fun subqueryWhereBeforeOuterWhere_isNotScoping() {
+        // The accountId WHERE lives in a subquery in the SET clause, textually before the outer WHERE.
+        // The outer UPDATE is scoped only by messageId -> must be flagged (the first-WHERE trap).
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query(
+                    "UPDATE messages SET text = " +
+                        "(SELECT text FROM messages WHERE accountId = :a LIMIT 1) WHERE messageId = :id",
+                )
+                suspend fun copyText(a: String, id: String)
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("copyText"), "a subquery WHERE must not be mistaken for the outer scoping WHERE")
+    }
+
+    @Test
+    fun multiTableJoinStatement_isFailClosed() {
+        // A statement spanning two tenant tables / a JOIN is fail-closed: a regex can't prove which
+        // table the accountId predicate scopes, so even a qualified `c.accountId` must not pass.
+        val findings = lint(
+            """
+            import androidx.room.Dao
+            import androidx.room.Query
+
+            @Dao
+            interface MessageDao {
+                @Query(
+                    "SELECT m.* FROM messages m JOIN conversations c " +
+                        "ON m.conversationId = c.conversationId WHERE c.accountId = :a",
+                )
+                suspend fun joinedForAccount(a: String): Any
+            }
+            """.trimIndent(),
+        )
+        assertTrue(findings.flagged("joinedForAccount"), "a multi-table/JOIN statement must be fail-closed")
     }
 
     // endregion

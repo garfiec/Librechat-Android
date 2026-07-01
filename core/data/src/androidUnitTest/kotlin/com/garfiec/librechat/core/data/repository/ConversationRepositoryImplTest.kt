@@ -70,7 +70,7 @@ class ConversationRepositoryImplTest {
             ConversationListResponse(conversations = listOf(serverConvo), nextCursor = null)
 
         val captured = slot<List<ConversationEntity>>()
-        coEvery { conversationDao.upsertPreservingTags(capture(captured)) } answers {}
+        coEvery { conversationDao.upsertPreservingTags(account.value, capture(captured)) } answers {}
 
         val result = repository.loadNextPage(cursor = null)
 
@@ -85,7 +85,7 @@ class ConversationRepositoryImplTest {
         val streamingConvo = Conversation(conversationId = "convo-1", title = "Updated mid-stream")
 
         val captured = slot<ConversationEntity>()
-        coEvery { conversationDao.upsertPreservingTags(capture(captured)) } answers {}
+        coEvery { conversationDao.upsertPreservingTags(account.value, capture(captured)) } answers {}
 
         repository.saveConversation(streamingConvo)
 
@@ -99,7 +99,7 @@ class ConversationRepositoryImplTest {
 
         repository.saveConversation(blank)
 
-        coVerify(exactly = 0) { conversationDao.upsertPreservingTags(any<ConversationEntity>()) }
+        coVerify(exactly = 0) { conversationDao.upsertPreservingTags(any(), any<ConversationEntity>()) }
     }
 
     @Test
@@ -110,13 +110,13 @@ class ConversationRepositoryImplTest {
         } returns ConversationListResponse(conversations = listOf(serverConvo), nextCursor = null)
         coEvery { conversationDao.getByIdForAccount("convo-1", account.value) } returns entity("convo-1", """["work"]""")
         coEvery { conversationDao.observeConversationsForAccount(account.value, false) } returns flowOf(emptyList())
-        coEvery { conversationDao.updateTags(any(), any(), any()) } just Runs
+        coEvery { conversationDao.updateTags(any(), any(), any(), any()) } just Runs
 
         repository.syncFavoritesFromServer()
 
         val tagsCaptor = slot<String>()
         coVerify(exactly = 1) {
-            conversationDao.updateTags("convo-1", capture(tagsCaptor), any())
+            conversationDao.updateTags("convo-1", capture(tagsCaptor), any(), any())
         }
         assertThat(json.decodeFromString<List<String>>(tagsCaptor.captured))
             .containsExactly("work", SAVED_TAG).inOrder()
@@ -129,13 +129,13 @@ class ConversationRepositoryImplTest {
         } returns ConversationListResponse(conversations = emptyList(), nextCursor = null)
         val staleFav = entity("convo-stale", """["work","Saved"]""")
         coEvery { conversationDao.observeConversationsForAccount(account.value, false) } returns flowOf(listOf(staleFav))
-        coEvery { conversationDao.updateTags(any(), any(), any()) } just Runs
+        coEvery { conversationDao.updateTags(any(), any(), any(), any()) } just Runs
 
         repository.syncFavoritesFromServer()
 
         val tagsCaptor = slot<String>()
         coVerify(exactly = 1) {
-            conversationDao.updateTags("convo-stale", capture(tagsCaptor), any())
+            conversationDao.updateTags("convo-stale", capture(tagsCaptor), any(), any())
         }
         assertThat(json.decodeFromString<List<String>>(tagsCaptor.captured))
             .containsExactly("work")
@@ -204,7 +204,7 @@ class ConversationRepositoryImplTest {
 
         repository.syncFavoritesFromServer()
 
-        coVerify(exactly = 0) { conversationDao.updateTags(any(), any(), any()) }
+        coVerify(exactly = 0) { conversationDao.updateTags(any(), any(), any(), any()) }
         coVerify(exactly = 0) { conversationDao.upsert(any()) }
     }
 }

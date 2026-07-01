@@ -176,3 +176,9 @@ formatting:
   SpacingAroundParens:
     excludes:
       - "**/build/generated/compose/resourceGenerator/**"
+
+# Custom row-tenancy ruleset (:detekt-rules). Enforces that account-scoped Room DAOs filter every
+# tenant-table statement by accountId. See AccountScopedDaoRule.
+librechat:
+  AccountScopedDao:
+    active: true

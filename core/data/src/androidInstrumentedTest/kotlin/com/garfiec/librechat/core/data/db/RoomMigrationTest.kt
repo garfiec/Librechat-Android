@@ -10,7 +10,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_3_4
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_4_5
 import com.google.common.truth.Truth.assertThat
-import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -253,12 +252,13 @@ class RoomMigrationTest {
             .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
-        // Verify we can read the migrated data via DAO
-        val conversation = runBlocking {
-            roomDb.conversationDao().getById("conv-api-test")
-        }
-        assertThat(conversation).isNotNull()
-        assertThat(conversation!!.title).isEqualTo("Room API Test")
+        // Verify we can read the migrated data (raw query: the migrated row carries a null accountId,
+        // so the account-scoped DAO reads can't see it).
+        val title = roomDb.query(
+            "SELECT title FROM conversations WHERE conversationId = ?",
+            arrayOf("conv-api-test"),
+        ).use { if (it.moveToFirst()) it.getString(0) else null }
+        assertThat(title).isEqualTo("Room API Test")
 
         roomDb.close()
     }

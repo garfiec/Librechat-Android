@@ -26,6 +26,9 @@ class DetektConventionPlugin : Plugin<Project> {
                 add("detektPlugins", libs.findLibrary("detekt-formatting").get())
                 add("detektPlugins", libs.findLibrary("detekt-koin").get())
                 add("detektPlugins", libs.findLibrary("detekt-compose").get())
+                // Custom row-tenancy ruleset (AccountScopedDao). :detekt-rules deliberately does not
+                // apply this convention, so wiring it here can't create a self-analysis cycle.
+                add("detektPlugins", project(":detekt-rules"))
             }
         }
     }

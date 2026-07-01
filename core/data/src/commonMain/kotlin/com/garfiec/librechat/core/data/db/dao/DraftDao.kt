@@ -8,14 +8,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DraftDao {
-    @Query("SELECT * FROM drafts WHERE conversation_id = :conversationId")
-    suspend fun getDraft(conversationId: String): DraftEntity?
 
     @Upsert
     suspend fun upsertDraft(draft: DraftEntity)
-
-    @Query("SELECT * FROM drafts ORDER BY updated_at DESC")
-    fun observeAllDrafts(): Flow<List<DraftEntity>>
 
     // --- Account-scoped reads (row-tenancy): filter accountId on every read incl. by-PK. ---
 

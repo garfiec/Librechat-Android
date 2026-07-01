@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.Agent
@@ -17,16 +18,15 @@ import com.garfiec.librechat.core.model.request.RevertAgentRequest
 import com.garfiec.librechat.core.model.request.ToolCallRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 import com.garfiec.librechat.core.network.api.AgentsApi
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 
 class AgentRepositoryImpl(
     private val agentsApi: AgentsApi,
+    activeAccountProvider: ActiveAccountProvider,
 ) : AgentRepository {
 
-    private val cacheMutex = Mutex()
-    private var cachedAgents: List<Agent>? = null
+    // Account-keyed in-memory cache: the only isolation tier for agents (no Room/accountId scoping).
+    private val cache = AccountKeyedCache<List<Agent>>(activeAccountProvider)
 
     // --- Agent CRUD ---
 
@@ -35,12 +35,7 @@ class AgentRepositoryImpl(
             if (category != null) {
                 return@safeApiCall agentsApi.getAgents(category).data
             }
-            cacheMutex.withLock {
-                cachedAgents?.let { return@withLock it }
-                val agents = agentsApi.getAgents(null).data
-                cachedAgents = agents
-                agents
-            }
+            cache.getOrFetch { agentsApi.getAgents(null).data }
         }
     }
 
@@ -67,7 +62,7 @@ class AgentRepositoryImpl(
 
     override suspend fun getAgent(id: String): Result<Agent> {
         return safeApiCall {
-            cacheMutex.withLock { cachedAgents?.find { it.id == id } }
+            cache.peek { agents -> agents.find { it.id == id } }
                 ?.let { return@safeApiCall it }
             agentsApi.getAgent(id)
         }
@@ -212,7 +207,5 @@ class AgentRepositoryImpl(
         }
     }
 
-    private suspend fun invalidateCache() {
-        cacheMutex.withLock { cachedAgents = null }
-    }
+    private suspend fun invalidateCache() = cache.invalidate()
 }

@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
@@ -58,6 +59,7 @@ class ConversationRepositoryImpl(
             )
             if (accountId != null) {
                 conversationDao.upsertPreservingTags(
+                    accountId,
                     response.conversations.map { it.toEntity().copy(accountId = accountId) },
                 )
             }
@@ -89,6 +91,7 @@ class ConversationRepositoryImpl(
             // the project-filtered LIST view is network-direct by design, not a Room query.
             if (accountId != null) {
                 conversationDao.upsertPreservingTags(
+                    accountId,
                     response.conversations.map { it.toEntity().copy(accountId = accountId) },
                 )
             }
@@ -111,7 +114,7 @@ class ConversationRepositoryImpl(
             val accountId = activeAccountProvider.currentAccountId()?.value
             val conversation = conversationsApi.getConversation(id)
             if (accountId != null) {
-                conversationDao.upsertPreservingTags(conversation.toEntity().copy(accountId = accountId))
+                conversationDao.upsertPreservingTags(accountId, conversation.toEntity().copy(accountId = accountId))
             }
             conversation
         }
@@ -119,40 +122,64 @@ class ConversationRepositoryImpl(
 
     override suspend fun updateTitle(id: String, title: String): Result<Conversation> {
         return safeApiCall {
+            // Capture identity before the network suspend; skip the local cache update when unresolved
+            // rather than running an account-blind by-PK write.
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val updated = conversationsApi.updateTitle(id, title)
-            conversationDao.updateTitle(id, title, Clock.System.now().toEpochMilliseconds())
+            if (accountId != null) {
+                conversationDao.updateTitle(id, title, Clock.System.now().toEpochMilliseconds(), accountId)
+            }
             updated
         }
     }
 
     override suspend fun generateTitle(conversationId: String): Result<String> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val response = conversationsApi.generateTitle(conversationId)
-            conversationDao.updateTitle(conversationId, response.title, Clock.System.now().toEpochMilliseconds())
+            if (accountId != null) {
+                conversationDao.updateTitle(conversationId, response.title, Clock.System.now().toEpochMilliseconds(), accountId)
+            }
             response.title
         }
     }
 
     override suspend fun archive(id: String, isArchived: Boolean): Result<Conversation> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val updated = conversationsApi.archive(id, isArchived)
-            conversationDao.updateArchived(id, isArchived, Clock.System.now().toEpochMilliseconds())
+            if (accountId != null) {
+                conversationDao.updateArchived(id, isArchived, Clock.System.now().toEpochMilliseconds(), accountId)
+            }
             updated
         }
     }
 
     override suspend fun pin(id: String, pinned: Boolean): Result<Conversation> {
         return safeApiCall {
+            // Capture identity before the network suspend; skip the local cache update when unresolved
+            // rather than running an account-blind by-PK write.
+            val accountId = activeAccountProvider.currentAccountId()?.value
             val updated = conversationsApi.pin(id, pinned)
-            conversationDao.updatePinned(id, pinned)
+            if (accountId != null) {
+                conversationDao.updatePinned(id, pinned, accountId)
+            }
             updated
         }
     }
 
     override suspend fun delete(id: String): Result<Unit> {
         return safeApiCall {
+            val accountId = activeAccountProvider.currentAccountId()?.value
             conversationsApi.deleteConversation(id)
-            conversationDao.deleteById(id)
+            // The local delete must be account-scoped, so it can't run while unresolved. The server row
+            // is already gone, so the stale local row lingers in the list until a resolved-account wipe;
+            // log it. In practice a delete is a foreground action where the account is resolved.
+            if (accountId != null) {
+                conversationDao.deleteById(id, accountId)
+            } else {
+                Logger.w { "Server-deleted $id but kept local row: no resolved account to scope the delete" }
+            }
         }
     }
 
@@ -220,11 +247,19 @@ class ConversationRepositoryImpl(
         val id = conversation.conversationId ?: return
         if (id.isBlank()) return
         val accountId = activeAccountProvider.currentAccountId()?.value ?: return
-        conversationDao.upsertPreservingTags(conversation.toEntity().copy(accountId = accountId))
+        conversationDao.upsertPreservingTags(accountId, conversation.toEntity().copy(accountId = accountId))
     }
 
     override suspend fun updateConversationTagsLocal(id: String, tags: List<String>) {
-        conversationDao.updateTags(id, encodeTags(tags), Clock.System.now().toEpochMilliseconds())
+        // Local-only tag write; skip when unresolved rather than running an account-blind by-PK update.
+        // Unlike the server-backed writes there is no remote copy to recover from, so a drop loses the
+        // edit outright — log it. In practice the account is resolved during active use; an unresolved
+        // window here only happens mid warming / soft-expiry re-auth.
+        val accountId = activeAccountProvider.currentAccountId()?.value ?: run {
+            Logger.w { "Dropping local tag update for $id: no resolved account" }
+            return
+        }
+        conversationDao.updateTags(id, encodeTags(tags), Clock.System.now().toEpochMilliseconds(), accountId)
     }
 
     // Reconciles SAVED_TAG attachment between the local Room cache and server by

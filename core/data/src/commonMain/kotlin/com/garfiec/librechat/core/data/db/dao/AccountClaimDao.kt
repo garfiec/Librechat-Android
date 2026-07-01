@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.data.db.dao
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
+import com.garfiec.librechat.core.common.identity.CrossAccount
 
 /**
  * One-time *claim* of legacy (pre-row-tenancy) data for the first resolved account.
@@ -19,24 +20,32 @@ import androidx.room.Transaction
  * deletes nothing that survived), so the persisted "claim done" marker is only an optimization, not a
  * correctness dependency.
  *
- * Not a tenant DAO by name, so the AccountScopedDao Detekt rule doesn't force `@CrossAccount` on the
- * transaction default; the individual statements all carry an `accountId IS NULL` predicate and pass.
+ * Every statement here touches a tenant table without a positive single-account predicate — the
+ * stamps scope by `accountId IS NULL` (claiming, not reading one account), the sweeps delete all
+ * remaining NULL rows. Both are deliberate cross-account operations, so each carries [CrossAccount]:
+ * the AccountScopedDao Detekt rule's tightened matcher (which accepts only a positive `accountId =`
+ * WHERE predicate as scoping) would otherwise flag them. Annotating all of them uniformly keeps the
+ * rule's verdict consistent across the claim methods regardless of subquery shape.
  */
 @Dao
 interface AccountClaimDao {
 
+    @CrossAccount
     @Query("UPDATE conversations SET accountId = :accountId WHERE accountId IS NULL AND user = :userKey")
     suspend fun stampConversations(accountId: String, userKey: String)
 
+    @CrossAccount
     @Query("UPDATE conversation_tags SET accountId = :accountId WHERE accountId IS NULL AND user = :userKey")
     suspend fun stampConversationTags(accountId: String, userKey: String)
 
+    @CrossAccount
     @Query(
         "UPDATE messages SET accountId = :accountId WHERE accountId IS NULL AND conversationId IN " +
             "(SELECT conversationId FROM conversations WHERE accountId = :accountId)",
     )
     suspend fun stampMessagesOfClaimedConversations(accountId: String)
 
+    @CrossAccount
     @Query(
         "UPDATE drafts SET accountId = :accountId WHERE accountId IS NULL AND conversation_id IN " +
             "(SELECT conversationId FROM conversations WHERE accountId = :accountId)",
@@ -50,18 +59,23 @@ interface AccountClaimDao {
      * row to the first post-upgrade account preserves it; isolation still holds afterward because every
      * read is account-filtered. Bounded leak surface: one local compose box on a shared device.
      */
+    @CrossAccount
     @Query("UPDATE drafts SET accountId = :accountId WHERE accountId IS NULL AND conversation_id = :newChatKey")
     suspend fun stampNewChatDraft(accountId: String, newChatKey: String)
 
+    @CrossAccount
     @Query("DELETE FROM messages WHERE accountId IS NULL")
     suspend fun deleteUnclaimedMessages()
 
+    @CrossAccount
     @Query("DELETE FROM drafts WHERE accountId IS NULL")
     suspend fun deleteUnclaimedDrafts()
 
+    @CrossAccount
     @Query("DELETE FROM conversations WHERE accountId IS NULL")
     suspend fun deleteUnclaimedConversations()
 
+    @CrossAccount
     @Query("DELETE FROM conversation_tags WHERE accountId IS NULL")
     suspend fun deleteUnclaimedConversationTags()
 
@@ -71,6 +85,7 @@ interface AccountClaimDao {
      * (and the conv-less new-chat draft via [newChatKey]) before the sweep removes the remaining NULL
      * rows.
      */
+    @CrossAccount
     @Transaction
     suspend fun claimLegacyRows(accountId: String, userKey: String, newChatKey: String) {
         stampConversations(accountId, userKey)

@@ -1,5 +1,8 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.Preset
@@ -30,7 +33,10 @@ class RepositoryCacheMutexTest {
                 AgentListResponse(data = responseAgents)
             }
 
-            val repository = AgentRepositoryImpl(agentsApi = agentsApi)
+            val repository = AgentRepositoryImpl(
+                agentsApi = agentsApi,
+                activeAccountProvider = InMemoryActiveAccountProvider(),
+            )
 
             val first = async { repository.getAgents(category = null) }
             val second = async { repository.getAgents(category = null) }
@@ -52,7 +58,10 @@ class RepositoryCacheMutexTest {
         val responseAgents = listOf(Agent(id = "a1"))
         coEvery { agentsApi.getAgents(null) } returns AgentListResponse(data = responseAgents)
 
-        val repository = AgentRepositoryImpl(agentsApi = agentsApi)
+        val repository = AgentRepositoryImpl(
+                agentsApi = agentsApi,
+                activeAccountProvider = InMemoryActiveAccountProvider(),
+            )
         repository.getAgents(category = null)
         repository.getAgents(category = null)
         repository.getAgents(category = null)
@@ -69,7 +78,10 @@ class RepositoryCacheMutexTest {
             coEvery { agentsApi.getAgents("writing") } returns AgentListResponse(data = filteredAgents)
             coEvery { agentsApi.getAgents(null) } returns AgentListResponse(data = allAgents)
 
-            val repository = AgentRepositoryImpl(agentsApi = agentsApi)
+            val repository = AgentRepositoryImpl(
+                agentsApi = agentsApi,
+                activeAccountProvider = InMemoryActiveAccountProvider(),
+            )
             repository.getAgents(category = "writing")
             // Cache must still be cold — next call with category=null must hit the API.
             repository.getAgents(category = null)
@@ -77,6 +89,27 @@ class RepositoryCacheMutexTest {
 
             coVerify(exactly = 1) { agentsApi.getAgents("writing") }
             coVerify(exactly = 1) { agentsApi.getAgents(null) }
+        }
+
+    @Test
+    fun `AgentRepositoryImpl - identity change makes next getAgents re-fetch (no stale cross-account serve)`() =
+        runTest {
+            val agentsApi = mockk<AgentsApi>()
+            coEvery { agentsApi.getAgents(null) } returns AgentListResponse(data = listOf(Agent(id = "a1")))
+            val provider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("srv:userA")))
+
+            val repository = AgentRepositoryImpl(
+                agentsApi = agentsApi,
+                activeAccountProvider = provider,
+            )
+
+            repository.getAgents(category = null) // populates cache under account A
+            provider.set(AccountId("srv:userB")) // now active account is B
+            // Read-time owner keying: the cache belongs to A, so B's read must NOT be served it; it
+            // re-fetches synchronously (no async clear to wait on).
+            repository.getAgents(category = null)
+
+            coVerify(exactly = 2) { agentsApi.getAgents(null) }
         }
 
     @Test
@@ -92,7 +125,10 @@ class RepositoryCacheMutexTest {
                 responsePresets
             }
 
-            val repository = PresetRepositoryImpl(presetsApi = presetsApi)
+            val repository = PresetRepositoryImpl(
+            presetsApi = presetsApi,
+            activeAccountProvider = InMemoryActiveAccountProvider(),
+        )
 
             val first = async { repository.getAll() }
             val second = async { repository.getAll() }
@@ -119,7 +155,10 @@ class RepositoryCacheMutexTest {
         coEvery { presetsApi.getPresets() } returnsMany listOf(first, second)
         coEvery { presetsApi.createPreset(any()) } returns Preset(presetId = "p2", title = "Two")
 
-        val repository = PresetRepositoryImpl(presetsApi = presetsApi)
+        val repository = PresetRepositoryImpl(
+            presetsApi = presetsApi,
+            activeAccountProvider = InMemoryActiveAccountProvider(),
+        )
         repository.getAll()
         repository.create(Preset(presetId = "p2", title = "Two"))
         val result = repository.getAll()

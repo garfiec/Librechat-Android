@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.deriveAccountId
 import com.garfiec.librechat.core.common.identity.deriveServerId
@@ -8,6 +9,7 @@ import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Turns a freshly-authenticated (or cold-start-restored) [User] into the active [AccountId] and
@@ -30,9 +32,32 @@ class AccountSessionEstablisher(
 ) {
 
     /**
-     * Resolves the [AccountId] for [user], persists + publishes it, then runs the one-time legacy
-     * claim. Idempotent: re-establishing the already-active account just re-publishes it and the
-     * marker-guarded claim short-circuits. Returns the resolved id.
+     * Resolves the [AccountId] for [user], runs the one-time legacy claim, then persists + publishes
+     * it. Idempotent: re-establishing the already-active account re-publishes it and the marker-guarded
+     * claim short-circuits. Returns the resolved id.
+     *
+     * **Claim before publish** is load-bearing: publishing flips `ActiveAccountProvider` to
+     * `Resolved(accountId)`, after which account-scoped reads/writes go live. Legacy pre-migration rows
+     * still carry `accountId IS NULL` until the claim stamps them, so a sync running in the window
+     * between publish and claim would read them as foreign (`getByIdForAccount` misses a NULL row) and
+     * an `upsertPreservingTags` would overwrite the row, dropping locally-stored tags. Claiming first
+     * keeps the provider at `Resolved(null)` (writes skip when unresolved) until every legacy row is
+     * attributed, closing that window.
+     *
+     * The claim is nonetheless **best-effort**: a *failure* must never abort establishment. It is
+     * idempotent and only writes its done-marker on success, so a failure (e.g. a transient DB error)
+     * retries on the next establish. Letting it propagate would skip [AccountRegistry.setActiveAccount]
+     * and strand an authenticated user at `Resolved(null)` — every scoped read/write silently skipped
+     * for the session — so a claim failure is caught here and the account is published regardless.
+     * **Cancellation is the exception**: a `CancellationException` is rethrown, so a session torn down
+     * mid-claim aborts cleanly instead of publishing an account for a coroutine that is being cancelled.
+     *
+     * The cost: the still-unclaimed legacy rows stay at `accountId IS NULL`, invisible to every
+     * account-filtered read, and the overwrite window above stays open. Recovery is coupled to the next
+     * establish (cold-start restore or a re-login). A session that logs in once and stays logged in
+     * never re-establishes, so on that path the orphaned pre-migration history is hidden until the user
+     * re-auths — not just for a brief window. That is still strictly better than a dead session;
+     * bounding it with a foreground/sync-time claim retry is left to a follow-up (SessionWriter / PR1-B).
      */
     suspend fun establish(user: User): AccountId = withContext(ioDispatcher) {
         val baseUrl = serverUrlProvider.awaitBaseUrl()
@@ -41,8 +66,14 @@ class AccountSessionEstablisher(
             "Authenticated user has no id; cannot derive an account owner"
         }
         val accountId = deriveAccountId(deriveServerId(baseUrl), userKey)
+        runCatching { claimReconciler.claimIfNeeded(accountId, userKey) }
+            .onFailure { error ->
+                // A cancelled establish (logout / teardown during cold-start restore) must abort, not
+                // publish the account for a session being torn down — rethrow rather than swallow it.
+                if (error is CancellationException) throw error
+                Logger.w(error) { "Legacy account claim failed; publishing account anyway (will retry)" }
+            }
         accountRegistry.setActiveAccount(accountId)
-        claimReconciler.claimIfNeeded(accountId, userKey)
         accountId
     }
 }
