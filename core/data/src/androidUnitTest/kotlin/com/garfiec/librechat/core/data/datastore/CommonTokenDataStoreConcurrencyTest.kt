@@ -37,35 +37,37 @@ class CommonTokenDataStoreConcurrencyTest {
         initialRefresh: String? = "initial-refresh",
     ) : CommonTokenDataStore(refreshClient) {
 
-        @Volatile
-        private var storedAccess: String? = initialAccess
-
-        @Volatile
-        private var storedRefresh: String? = initialRefresh
+        private val store = mutableMapOf<String, String>()
 
         val writeLog = mutableListOf<Pair<String, String>>()
         var removeCount = 0
 
-        fun persistedAccess(): String? = storedAccess
-        fun persistedRefresh(): String? = storedRefresh
+        // No account is resolved in these tests, so the store uses the bare token keys.
+        fun persistedAccess(): String? = store[KEY_ACCESS_TOKEN]
+        fun persistedRefresh(): String? = store[KEY_REFRESH_TOKEN]
 
         init {
+            initialAccess?.let { store[KEY_ACCESS_TOKEN] = it }
+            initialRefresh?.let { store[KEY_REFRESH_TOKEN] = it }
             initializeTokenCache()
         }
 
-        override fun readAccessToken(): String? = storedAccess
-        override fun readRefreshToken(): String? = storedRefresh
+        override fun readValue(key: String): String? = store[key]
 
-        override fun writeTokens(accessToken: String, refreshToken: String) {
-            storedAccess = accessToken
-            storedRefresh = refreshToken
-            writeLog += accessToken to refreshToken
+        override fun writeValue(key: String, value: String) {
+            store[key] = value
+            // setTokens writes access then refresh; log the pair once, keyed off the access write.
+            if (key == KEY_ACCESS_TOKEN) writeLog += value to (store[KEY_REFRESH_TOKEN] ?: "")
         }
 
-        override fun removeTokens() {
-            storedAccess = null
-            storedRefresh = null
-            removeCount++
+        override fun writeValues(values: Map<String, String>) {
+            values.forEach { (key, value) -> writeValue(key, value) }
+        }
+
+        override fun removeValue(key: String) {
+            store.remove(key)
+            // clearTokens removes access then refresh; count the logical clear off the access removal.
+            if (key == KEY_ACCESS_TOKEN) removeCount++
         }
 
         override fun onKeystoreCorruption() = Unit

@@ -3,11 +3,17 @@ package com.garfiec.librechat.core.data.datastore
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
+import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Rule
@@ -33,6 +39,20 @@ class DataStoreRoundTripTest {
             File(tmpFolder.root, "$name.preferences_pb")
         }
     }
+
+    // A resolved account so the account-scoped stores (SettingsDataStore last_used_*, RoleCache) select
+    // a keyed slot rather than reading null; server provider so ConfigCache can derive a serverId.
+    private fun resolvedAccountProvider(id: String = "srv:test-account"): ActiveAccountProvider =
+        InMemoryActiveAccountProvider().apply { set(AccountId(id)) }
+
+    private val fakeServerUrlProvider = object : ServerUrlProvider {
+        override fun getBaseUrl(): String = "https://chat.example.com"
+    }
+
+    private fun settingsStore(
+        ds: DataStore<Preferences>,
+        accountProvider: ActiveAccountProvider = resolvedAccountProvider(),
+    ) = SettingsDataStore(ds, accountProvider, CoroutineScope(testDispatcher), testDispatcher)
 
     // --- ServerDataStore ---
 
@@ -108,7 +128,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_defaults() = runTest(testDispatcher) {
         val ds = createDataStore("settings")
-        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
+        val store = settingsStore(ds)
 
         assertThat(store.autoScrollEnabled.first()).isTrue()
         assertThat(store.showThinkingBlocks.first()).isTrue()
@@ -124,7 +144,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_roundTrip_booleans() = runTest(testDispatcher) {
         val ds = createDataStore("settings-bool")
-        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
+        val store = settingsStore(ds)
 
         store.setAutoScrollEnabled(false)
         store.setShowThinkingBlocks(false)
@@ -142,7 +162,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_roundTrip_enums() = runTest(testDispatcher) {
         val ds = createDataStore("settings-enums")
-        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
+        val store = settingsStore(ds)
 
         store.setLatexRenderer(LatexRenderer.NATIVE)
         assertThat(store.latexRenderer.first()).isEqualTo(LatexRenderer.NATIVE)
@@ -157,7 +177,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_roundTrip_strings() = runTest(testDispatcher) {
         val ds = createDataStore("settings-strings")
-        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
+        val store = settingsStore(ds)
 
         store.setLastUsedModel("anthropic", "claude-3.5-sonnet")
         assertThat(store.lastUsedEndpoint.first()).isEqualTo("anthropic")
@@ -171,9 +191,30 @@ class DataStoreRoundTripTest {
     }
 
     @Test
+    fun settingsDataStore_lastUsed_suppressedWhileWarming_thenEmitsOnResolve() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-lastused-warming")
+        val provider = InMemoryActiveAccountProvider() // starts Warming
+        val store = SettingsDataStore(ds, provider, CoroutineScope(testDispatcher), testDispatcher)
+
+        val emissions = mutableListOf<String?>()
+        val job = launch { store.lastUsedModel.collect { emissions.add(it) } }
+        advanceUntilIdle()
+        // While the account is Warming the flow is suppressed (no null emission that a seeder would
+        // mistake for "no last-used saved").
+        assertThat(emissions).isEmpty()
+
+        provider.set(AccountId("srv:acctX"))
+        store.setLastUsedModel("openAI", "gpt-4o")
+        advanceUntilIdle()
+        assertThat(emissions.last()).isEqualTo("gpt-4o")
+
+        job.cancel()
+    }
+
+    @Test
     fun settingsDataStore_roundTrip_floats() = runTest(testDispatcher) {
         val ds = createDataStore("settings-floats")
-        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
+        val store = settingsStore(ds)
 
         store.setTtsSpeechRate(1.5f)
         store.setTtsPitch(0.8f)
@@ -184,7 +225,7 @@ class DataStoreRoundTripTest {
     @Test
     fun settingsDataStore_roundTrip_mcpServers() = runTest(testDispatcher) {
         val ds = createDataStore("settings-mcp")
-        val store = SettingsDataStore(ds, CoroutineScope(testDispatcher), testDispatcher)
+        val store = settingsStore(ds)
 
         store.setSelectedMcpServers(setOf("server-a", "server-b"))
         assertThat(store.selectedMcpServers.first()).containsExactly("server-a", "server-b")
@@ -199,7 +240,7 @@ class DataStoreRoundTripTest {
     fun configCacheDataStore_roundTrip_availableModels() = runTest(testDispatcher) {
         val ds = createDataStore("config-cache")
         val json = Json { ignoreUnknownKeys = true; isLenient = true }
-        val store = ConfigCacheDataStore(ds, json)
+        val store = ConfigCacheDataStore(ds, json, fakeServerUrlProvider)
 
         val models = mapOf(
             "openAI" to listOf("gpt-4o", "gpt-4o-mini"),
@@ -218,7 +259,7 @@ class DataStoreRoundTripTest {
     fun configCacheDataStore_returnsNullWhenEmpty() = runTest(testDispatcher) {
         val ds = createDataStore("config-empty")
         val json = Json { ignoreUnknownKeys = true }
-        val store = ConfigCacheDataStore(ds, json)
+        val store = ConfigCacheDataStore(ds, json, fakeServerUrlProvider)
 
         assertThat(store.loadStartupConfig()).isNull()
         assertThat(store.loadEndpointConfigs()).isNull()

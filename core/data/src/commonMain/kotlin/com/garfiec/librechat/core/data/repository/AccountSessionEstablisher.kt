@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.common.identity.deriveServerId
 import com.garfiec.librechat.core.data.datastore.AccountRegistry
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.TokenManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -28,6 +29,7 @@ class AccountSessionEstablisher(
     private val accountRegistry: AccountRegistry,
     private val claimReconciler: AccountClaimReconciler,
     private val serverUrlProvider: ServerUrlProvider,
+    private val tokenManager: TokenManager,
     private val ioDispatcher: CoroutineDispatcher,
 ) {
 
@@ -73,6 +75,10 @@ class AccountSessionEstablisher(
                 if (error is CancellationException) throw error
                 Logger.w(error) { "Legacy account claim failed; publishing account anyway (will retry)" }
             }
+        // Bind token storage to this account (re-homes bare/legacy or prior-account tokens into the
+        // keyed slot + repoints the sync mirror) before publishing identity, so a cold-start restore
+        // resolving the same account is a no-op and the next launch seeds the right bearer.
+        tokenManager.onAccountResolved(accountId.value)
         accountRegistry.setActiveAccount(accountId)
         accountId
     }

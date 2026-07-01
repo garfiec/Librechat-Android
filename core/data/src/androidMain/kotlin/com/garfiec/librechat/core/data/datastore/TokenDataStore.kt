@@ -28,26 +28,25 @@ class TokenDataStore(
         initializeTokenCache()
     }
 
-    override fun readAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
+    override fun readValue(key: String): String? = prefs.getString(key, null)
 
-    override fun readRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
-
-    override fun writeTokens(accessToken: String, refreshToken: String) {
-        prefs.edit()
-            .putString(KEY_ACCESS_TOKEN, accessToken)
-            .putString(KEY_REFRESH_TOKEN, refreshToken)
-            .apply()
+    override fun writeValue(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
     }
 
-    override fun removeTokens() {
-        prefs.edit()
-            .remove(KEY_ACCESS_TOKEN)
-            .remove(KEY_REFRESH_TOKEN)
-            .apply()
+    override fun writeValues(values: Map<String, String>) {
+        val editor = prefs.edit()
+        values.forEach { (key, value) -> editor.putString(key, value) }
+        editor.apply()
+    }
+
+    override fun removeValue(key: String) {
+        prefs.edit().remove(key).apply()
     }
 
     override fun onKeystoreCorruption() {
-        removeTokens()
+        // The encrypted store is unreadable; wipe it wholesale so a fresh master key can back new writes.
+        prefs.edit().clear().apply()
     }
 
     override fun isKeystoreException(e: Exception): Boolean = e is KeyStoreException

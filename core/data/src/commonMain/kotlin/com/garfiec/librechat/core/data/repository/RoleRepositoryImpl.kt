@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
@@ -11,12 +13,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 
 class RoleRepositoryImpl(
     private val rolesApi: RolesApi,
     private val userRepository: UserRepository,
     private val cacheDataStore: RoleCacheDataStore,
+    private val activeAccountProvider: ActiveAccountProvider,
     applicationScope: CoroutineScope,
 ) : RoleRepository {
 
@@ -24,10 +29,15 @@ class RoleRepositoryImpl(
     override val userPermissions: StateFlow<UserRolePermissions?> = _userPermissions.asStateFlow()
 
     init {
-        // Async DataStore prime — never runBlocking. The StateFlow briefly emits null
-        // then populates from disk; PermissionGate's permissive default covers the flash.
+        // Prime the cached role from disk once the account resolves — the cache is account-scoped, so a
+        // one-shot read during the cold-start Warming window (before the account is known) would read
+        // null and never re-prime. Re-primes per account; PermissionGate's permissive default covers the
+        // gap until this lands or the live fetch repopulates.
         applicationScope.launch {
-            cacheDataStore.load()?.let { _userPermissions.value = it }
+            activeAccountProvider.state
+                .mapNotNull { (it as? AccountState.Resolved)?.id }
+                .distinctUntilChanged()
+                .collect { cacheDataStore.load()?.let { role -> _userPermissions.value = role } }
         }
     }
 

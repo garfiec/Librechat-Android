@@ -6,20 +6,28 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.concurrent.Volatile
 
 class SettingsDataStore(
     private val dataStore: DataStore<Preferences>,
+    private val activeAccountProvider: ActiveAccountProvider,
     appScope: CoroutineScope,
     ioDispatcher: CoroutineDispatcher,
 ) {
@@ -107,13 +115,13 @@ class SettingsDataStore(
         prefs[KEY_SELECTED_VOICE_ID]
     }
 
-    val lastUsedEndpoint: Flow<String?> = dataStore.data.map { prefs ->
-        prefs[KEY_LAST_USED_ENDPOINT]
-    }
+    // Account-scoped: the last endpoint/model is per-account (server A's pick must not seed server B).
+    // Emits nothing while the account is Warming (NOT null) so a one-shot/wait-on-unresolved consumer
+    // — the model seeder — blocks for the real value instead of mistaking Warming for "none saved" and
+    // seeding a lower tier; emits null only once the account resolves (logged out or genuinely absent).
+    val lastUsedEndpoint: Flow<String?> = scopedString(::endpointKey)
 
-    val lastUsedModel: Flow<String?> = dataStore.data.map { prefs ->
-        prefs[KEY_LAST_USED_MODEL]
-    }
+    val lastUsedModel: Flow<String?> = scopedString(::modelKey)
 
     val dismissKeyboardOnSend: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_DISMISS_KEYBOARD_ON_SEND] ?: true
@@ -295,11 +303,31 @@ class SettingsDataStore(
     }
 
     suspend fun setLastUsedModel(endpoint: String, model: String) {
+        val accountId = activeAccountProvider.currentAccountId()?.value ?: return
         dataStore.edit { prefs ->
-            prefs[KEY_LAST_USED_ENDPOINT] = endpoint
-            prefs[KEY_LAST_USED_MODEL] = model
+            prefs[endpointKey(accountId)] = endpoint
+            prefs[modelKey(accountId)] = model
+            // Reset migration: drop the pre-keying bare entries (they'd mis-attribute A's model to B).
+            prefs.remove(stringPreferencesKey(LAST_USED_ENDPOINT))
+            prefs.remove(stringPreferencesKey(LAST_USED_MODEL))
         }
     }
+
+    // Suspends (emits nothing) while Warming; once Resolved emits the account's scoped value, or null
+    // when logged out. flatMapLatest re-subscribes on every identity transition so a switch re-emits.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun scopedString(keyFor: (String) -> Preferences.Key<String>): Flow<String?> =
+        activeAccountProvider.state.flatMapLatest { state ->
+            when (state) {
+                AccountState.Warming -> emptyFlow()
+                is AccountState.Resolved ->
+                    state.id?.let { id -> dataStore.data.map { it[keyFor(id.value)] } } ?: flowOf(null)
+            }
+        }
+
+    private fun endpointKey(accountId: String) = accountScopedKey(accountId, LAST_USED_ENDPOINT)
+
+    private fun modelKey(accountId: String) = accountScopedKey(accountId, LAST_USED_MODEL)
 
     suspend fun setTtsSource(source: String) {
         dataStore.edit { prefs ->
@@ -471,8 +499,8 @@ class SettingsDataStore(
         private val KEY_AUTO_READ_ENABLED = booleanPreferencesKey("auto_read_enabled")
         private val KEY_SHOW_IMAGE_DESCRIPTIONS = booleanPreferencesKey("show_image_descriptions")
         private val KEY_SELECTED_VOICE_ID = stringPreferencesKey("selected_voice_id")
-        private val KEY_LAST_USED_ENDPOINT = stringPreferencesKey("last_used_endpoint")
-        private val KEY_LAST_USED_MODEL = stringPreferencesKey("last_used_model")
+        private const val LAST_USED_ENDPOINT = "last_used_endpoint"
+        private const val LAST_USED_MODEL = "last_used_model"
         private val KEY_DISMISS_KEYBOARD_ON_SEND = booleanPreferencesKey("dismiss_keyboard_on_send")
         private val KEY_TTS_SOURCE = stringPreferencesKey("tts_source")
         private val KEY_TTS_SPEECH_RATE = floatPreferencesKey("tts_speech_rate")

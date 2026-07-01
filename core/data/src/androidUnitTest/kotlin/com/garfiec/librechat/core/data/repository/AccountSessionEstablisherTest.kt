@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.data.repository
 import com.garfiec.librechat.core.data.datastore.AccountRegistry
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.TokenManager
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -19,11 +20,13 @@ class AccountSessionEstablisherTest {
     private val accountRegistry = mockk<AccountRegistry>(relaxed = true)
     private val claimReconciler = mockk<AccountClaimReconciler>(relaxed = true)
     private val serverUrlProvider = mockk<ServerUrlProvider>(relaxed = true)
+    private val tokenManager = mockk<TokenManager>(relaxed = true)
 
     private val establisher = AccountSessionEstablisher(
         accountRegistry = accountRegistry,
         claimReconciler = claimReconciler,
         serverUrlProvider = serverUrlProvider,
+        tokenManager = tokenManager,
         ioDispatcher = UnconfinedTestDispatcher(),
     )
 
@@ -62,5 +65,24 @@ class AccountSessionEstablisherTest {
         establisher.establish(user)
 
         coVerify { accountRegistry.setActiveAccount(any()) }
+    }
+
+    /**
+     * The token store must be bound to the resolved account (re-homing tokens into its keyed slot +
+     * writing the sync mirror) before the account is published, so a scoped read/write going live on
+     * publish already sees keyed tokens.
+     */
+    @Test
+    fun bindsTokensToResolvedAccountBeforePublishing() = runTest {
+        coEvery { serverUrlProvider.awaitBaseUrl() } returns "https://chat.example.com"
+        val user = mockk<User>(relaxed = true)
+        every { user.id } returns "mongoUserId"
+
+        val accountId = establisher.establish(user)
+
+        coVerifyOrder {
+            tokenManager.onAccountResolved(accountId.value)
+            accountRegistry.setActiveAccount(any())
+        }
     }
 }

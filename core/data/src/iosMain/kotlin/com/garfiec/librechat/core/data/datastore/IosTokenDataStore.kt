@@ -44,19 +44,16 @@ class IosTokenDataStore(
         initializeTokenCache()
     }
 
-    override fun readAccessToken(): String? = keychainGet(KEY_ACCESS_TOKEN)
+    override fun readValue(key: String): String? = keychainGet(key)
 
-    override fun readRefreshToken(): String? = keychainGet(KEY_REFRESH_TOKEN)
+    override fun writeValue(key: String, value: String) = keychainSet(key, value)
 
-    override fun writeTokens(accessToken: String, refreshToken: String) {
-        keychainSet(KEY_ACCESS_TOKEN, accessToken)
-        keychainSet(KEY_REFRESH_TOKEN, refreshToken)
+    // Keychain has no batch API; writes are sequential (as the prior writeTokens already was).
+    override fun writeValues(values: Map<String, String>) {
+        values.forEach { (key, value) -> keychainSet(key, value) }
     }
 
-    override fun removeTokens() {
-        keychainDelete(KEY_ACCESS_TOKEN)
-        keychainDelete(KEY_REFRESH_TOKEN)
-    }
+    override fun removeValue(key: String) = keychainDelete(key)
 
     override fun readServerUrl(): String? = keychainGet(KEY_SERVER_URL)
 
@@ -73,7 +70,10 @@ class IosTokenDataStore(
     }
 
     override fun onKeystoreCorruption() {
-        removeTokens()
+        // Keychain access rarely "corrupts" like the Android keystore (isKeystoreException stays false
+        // on iOS, so this isn't reached); clear the bare token slots defensively if it ever is.
+        keychainDelete(KEY_ACCESS_TOKEN)
+        keychainDelete(KEY_REFRESH_TOKEN)
     }
 
     // ---- Keychain helpers using CFDictionary directly ----

@@ -48,6 +48,12 @@ class AuthInterceptorTest {
             accessToken = null
         }
 
+        override suspend fun onAccountResolved(accountId: String) = Unit
+
+        override suspend fun onAccountCleared() {
+            accessToken = null
+        }
+
         override fun emitSessionExpired() {
             sessionExpiredCount++
         }

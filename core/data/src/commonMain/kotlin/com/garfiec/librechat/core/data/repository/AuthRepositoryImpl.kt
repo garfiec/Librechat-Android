@@ -126,7 +126,9 @@ class AuthRepositoryImpl(
                 // file caches/tokens.
                 accountRegistry.clearActiveAccount()
                 account?.let { accountDataPurger.purge(it) }
-                tokenManager.clearTokens()
+                // Clears the active account's keyed tokens AND drops the persisted mirror (vs
+                // clearTokens, the refresh-failure path, which leaves the account pointer intact).
+                tokenManager.onAccountCleared()
                 sessionCacheCleaner.clearSessionCaches()
             }
         }

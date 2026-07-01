@@ -127,6 +127,7 @@ val dataModule = module {
             accountRegistry = get(),
             claimReconciler = get(),
             serverUrlProvider = get(),
+            tokenManager = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }
@@ -171,6 +172,7 @@ val dataModule = module {
     single {
         SettingsDataStore(
             dataStore = get(),
+            activeAccountProvider = get(),
             appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
             ioDispatcher = get(KoinQualifiers.IO),
         )
@@ -198,6 +200,7 @@ val dataModule = module {
             rolesApi = get(),
             userRepository = get(),
             cacheDataStore = get(),
+            activeAccountProvider = get(),
             applicationScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
         )
     }

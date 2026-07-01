@@ -1,5 +1,7 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.model.User
@@ -42,12 +44,16 @@ class RoleRepositoryImplTest {
         permissions = mapOf("PROMPTS" to mapOf("USE" to true)),
     )
 
+    // Resolved so the init prime-collector fires cacheDataStore.load() once (as the old one-shot did).
+    private val activeAccountProvider = InMemoryActiveAccountProvider().apply { set(AccountId("srv:test")) }
+
     private fun TestScope.newRepo(): RoleRepositoryImpl {
         val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
         return RoleRepositoryImpl(
             rolesApi = rolesApi,
             userRepository = userRepository,
             cacheDataStore = cacheDataStore,
+            activeAccountProvider = activeAccountProvider,
             applicationScope = scope,
         )
     }
