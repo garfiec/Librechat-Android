@@ -342,6 +342,22 @@ class ChatViewModel(
      */
     private val isHandedOffNewChat: Boolean
 
+    /** Last seen projection key, to detect a real window change vs. a tail-only change. */
+    private var previousProjectionKey: ProjectionKey? = null
+
+    /**
+     * Resolved (provider, model) per agentId, cached for the session so the per-window projection
+     * refresh doesn't re-hit the network each time. The list that fills [ChatUiState.agents] comes
+     * from `GET /api/agents`, which strips `provider`/`model` (both come back null) — so the agent's
+     * real model is only obtainable from the per-agent detail endpoint.
+     *
+     * Declared before the `init` block because `observeContextProjection()` launches a
+     * `Main.immediate` collector on the `_uiState` StateFlow, whose current value replays
+     * synchronously during construction. On the agents endpoint that first emission reaches
+     * `resolveProjectionModel`, so this map must already be initialized by then.
+     */
+    private val resolvedAgentModels = mutableMapOf<String, Pair<String, String?>>()
+
     init {
         val conversationId = initialConversationId
         isNewConversation = conversationId == null
@@ -650,17 +666,6 @@ class ChatViewModel(
                 endpoint == other.endpoint &&
                 model == other.model
     }
-
-    /** Last seen projection key, to detect a real window change vs. a tail-only change. */
-    private var previousProjectionKey: ProjectionKey? = null
-
-    /**
-     * Resolved (provider, model) per agentId, cached for the session so the per-window projection
-     * refresh doesn't re-hit the network each time. The list that fills [ChatUiState.agents] comes
-     * from `GET /api/agents`, which strips `provider`/`model` (both come back null) — so the agent's
-     * real model is only obtainable from the per-agent detail endpoint.
-     */
-    private val resolvedAgentModels = mutableMapOf<String, Pair<String, String?>>()
 
     /**
      * Resolves the (endpoint, model) used both to look up the context window and to address the
