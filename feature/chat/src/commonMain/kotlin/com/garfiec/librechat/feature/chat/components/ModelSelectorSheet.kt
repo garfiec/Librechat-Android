@@ -313,7 +313,7 @@ fun ModelSelectorSheet(
 
                 // "My Agents" group (shown first, like the web frontend)
                 if (filteredAgents.isNotEmpty()) {
-                    val agentsExpanded = expandedGroups[EndpointConstants.AGENTS] != false
+                    val agentsExpanded = isSearching || expandedGroups[EndpointConstants.AGENTS] != false
                     item(key = "header_agents") {
                         EndpointGroupHeader(
                             endpointName = EndpointConstants.AGENTS,
@@ -321,7 +321,7 @@ fun ModelSelectorSheet(
                             modelCount = filteredAgents.size,
                             isExpanded = agentsExpanded,
                             iconUrl = null,
-                            onToggle = { expandedGroups[EndpointConstants.AGENTS] = !agentsExpanded },
+                            onToggle = { if (!isSearching) expandedGroups[EndpointConstants.AGENTS] = !agentsExpanded },
                         )
                     }
                     if (agentsExpanded) {
@@ -359,8 +359,9 @@ fun ModelSelectorSheet(
                     if (filteredModels.isNotEmpty()) {
                         val config = endpointConfigs[endpointName]
                         val displayLabel = config?.modelDisplayLabel ?: endpointName
-                        // Auto-expand groups when searching, otherwise use manual toggle state
-                        val isExpanded = expandedGroups[endpointName] != false
+                        // Auto-expand while searching so matches in collapsed groups are visible;
+                        // otherwise use manual toggle state.
+                        val isExpanded = isSearching || expandedGroups[endpointName] != false
                         // Endpoints with userProvide=true and Unset/Expired key render disabled
                         // with a "Set API Key" CTA. Loading and absent states fail-open.
                         val keyState = endpointKeyStates[endpointName]
@@ -373,7 +374,7 @@ fun ModelSelectorSheet(
                                 modelCount = filteredModels.size,
                                 isExpanded = effectiveExpanded,
                                 iconUrl = config?.iconURL,
-                                onToggle = { expandedGroups[endpointName] = !isExpanded },
+                                onToggle = { if (!isSearching) expandedGroups[endpointName] = !isExpanded },
                                 needsKey = needsKey,
                                 onSetApiKey = { onSetApiKey(endpointName) },
                             )
