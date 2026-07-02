@@ -196,7 +196,7 @@ fun PhoneLayout(
         drawerState = drawerState,
         gesturesEnabled = !navigator.isInAuthFlow,
         drawerContent = {
-            ModalDrawerSheet {
+            ModalDrawerSheet(drawerState = drawerState) {
                 SidebarScaffold(
                     onNewChat = {
                         scope.launch { drawerState.close() }
