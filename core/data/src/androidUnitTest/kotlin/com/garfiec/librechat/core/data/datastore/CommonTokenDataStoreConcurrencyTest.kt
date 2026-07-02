@@ -3,6 +3,8 @@ package com.garfiec.librechat.core.data.datastore
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockEngineConfig
+import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -13,6 +15,7 @@ import io.ktor.http.contentType
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -73,6 +76,18 @@ class CommonTokenDataStoreConcurrencyTest {
         override fun onKeystoreCorruption() = Unit
     }
 
+    // MockEngine defaults its dispatcher to Dispatchers.IO, which hops the handler (and everything
+    // downstream of release.await()/respond()) onto a real thread pool outside the UnconfinedTestDispatcher's
+    // virtual scheduler. yield()/advanceUntilIdle() can't wait for that real-thread work, so the assertions
+    // below would race it. Pinning the engine to Dispatchers.Unconfined keeps the whole request handling
+    // synchronous with the test dispatcher, eliminating the race.
+    private fun mockEngine(handler: MockRequestHandler): MockEngine = MockEngine(
+        MockEngineConfig().apply {
+            requestHandlers.add(handler)
+            dispatcher = Dispatchers.Unconfined
+        },
+    )
+
     private fun mockRefreshClient(engine: MockEngine): Lazy<HttpClient> = lazy {
         HttpClient(engine) {
             install(ContentNegotiation) { json() }
@@ -92,7 +107,7 @@ class CommonTokenDataStoreConcurrencyTest {
     fun `clearTokens blocks until in-flight refresh releases the mutex`() =
         runTest(UnconfinedTestDispatcher()) {
             val release = CompletableDeferred<Unit>()
-            val engine = MockEngine {
+            val engine = mockEngine {
                 release.await()
                 respond(
                     content = refreshResponseBody("new-access"),
@@ -134,7 +149,7 @@ class CommonTokenDataStoreConcurrencyTest {
     fun `refresh does not resurrect a logout that raced its network call`() =
         runTest(UnconfinedTestDispatcher()) {
             val release = CompletableDeferred<Unit>()
-            val engine = MockEngine {
+            val engine = mockEngine {
                 release.await()
                 respond(
                     content = refreshResponseBody("resurrected-access"),
@@ -165,7 +180,7 @@ class CommonTokenDataStoreConcurrencyTest {
     @Test
     fun `refresh without a concurrent clear still writes the new token`() =
         runTest(UnconfinedTestDispatcher()) {
-            val engine = MockEngine {
+            val engine = mockEngine {
                 respond(
                     content = refreshResponseBody("fresh-access"),
                     status = HttpStatusCode.OK,
@@ -185,7 +200,7 @@ class CommonTokenDataStoreConcurrencyTest {
     @Test
     fun `sequential clearTokens and refreshAccessToken do not deadlock`() =
         runTest(UnconfinedTestDispatcher()) {
-            val engine = MockEngine {
+            val engine = mockEngine {
                 respond(
                     content = refreshResponseBody("seq-access"),
                     status = HttpStatusCode.OK,
