@@ -49,10 +49,21 @@ class SseEventMapper(private val json: Json) {
     private var activeAgentId: String? = null
     private var activeGroupId: Int? = null
 
+    // Per-step agent attribution (step id -> agentId/groupId). Deltas carry only
+    // their step `id` (data["id"]), never an agentId. In a Compare Models run two
+    // agents stream in parallel and their run steps interleave, so a single
+    // last-write-wins activeAgentId mis-stamps every delta with whichever agent's
+    // run step arrived most recently. We record each run step's attribution here
+    // and resolve deltas by their own step id (mirrors the web client's stepMap
+    // in useStepHandler.ts), keeping activeAgentId only as a fallback for events
+    // whose step was never announced (e.g. some handoff/subagent frames).
+    private val stepAgentContext = mutableMapOf<String, Pair<String?, Int?>>()
+
     /** Resets tracked state. Call when starting a new SSE stream. */
     fun resetState() {
         activeAgentId = null
         activeGroupId = null
+        stepAgentContext.clear()
     }
 
     /**
@@ -274,15 +285,28 @@ class SseEventMapper(private val json: Json) {
         val eventGroupId = data["groupId"]?.jsonPrimitive?.intOrNull
             ?: metadata?.get("groupId")?.jsonPrimitive?.intOrNull
 
-        // Track agent context from run steps for cross-event correlation
+        // Record each run step's attribution keyed by its step id, so deltas that
+        // follow (and only carry that step id, never an agentId) can be resolved
+        // to the right agent even when two agents' run steps interleave.
+        val stepId = data["id"]?.jsonPrimitive?.contentOrNull
+        if (eventType == "on_run_step" && stepId != null && (eventAgentId != null || eventGroupId != null)) {
+            stepAgentContext[stepId] = eventAgentId to eventGroupId
+        }
+
+        // Track agent context from run steps as a last-resort fallback for events
+        // whose step was never announced (e.g. some handoff frames).
         if (eventType == "on_run_step" && (eventAgentId != null || eventGroupId != null)) {
             activeAgentId = eventAgentId
             activeGroupId = eventGroupId
         }
 
-        // Resolve: use event-level values if present, otherwise fall back to tracked state
-        val agentId = eventAgentId ?: activeAgentId
-        val groupId = eventGroupId ?: activeGroupId
+        // Resolve attribution: explicit event-level values win; otherwise correlate
+        // by this event's step id (deltas via data["id"], completions via result.id);
+        // otherwise fall back to the most recent run step.
+        val stepContext = stepId?.let { stepAgentContext[it] }
+            ?: data["result"]?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull?.let { stepAgentContext[it] }
+        val agentId = eventAgentId ?: stepContext?.first ?: activeAgentId
+        val groupId = eventGroupId ?: stepContext?.second ?: activeGroupId
 
         return when (eventType) {
             "on_message_delta" -> mapMessageDelta(data, agentId, groupId)

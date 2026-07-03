@@ -155,6 +155,77 @@ class SseEventMapperTest {
         assertThat(delta.groupId).isNull()
     }
 
+    @Test
+    fun `attributes interleaved parallel deltas to their own step id, not last run step`() {
+        // Compare Models: two agents stream in parallel. Their run steps arrive
+        // staggered and deltas interleave per-chunk. Each delta carries only its
+        // own step id, so attribution must key on that id — not a shared
+        // last-write-wins that would stamp both agents with whichever ran last.
+        mapper.map(runStep(stepId = "s_added", agentId = "agent_x____1", groupId = 1))
+        mapper.map(runStep(stepId = "s_primary", agentId = "agent_x", groupId = 0))
+
+        val addedDelta = mapper.map(messageDelta(stepId = "s_added", text = "sky")) as StreamEvent.ContentDelta
+        val primaryDelta = mapper.map(messageDelta(stepId = "s_primary", text = "blue")) as StreamEvent.ContentDelta
+
+        assertThat(addedDelta.agentId).isEqualTo("agent_x____1")
+        assertThat(addedDelta.groupId).isEqualTo(1)
+        assertThat(primaryDelta.agentId).isEqualTo("agent_x")
+        assertThat(primaryDelta.groupId).isEqualTo(0)
+    }
+
+    @Test
+    fun `attributes reasoning deltas by their own step id in a parallel run`() {
+        mapper.map(runStep(stepId = "s_added", agentId = "agent_x____1", groupId = 1))
+        mapper.map(runStep(stepId = "s_primary", agentId = "agent_x", groupId = 0))
+
+        val addedThink = mapper.map(
+            SseEvent(
+                event = "",
+                data = """{"event":"on_reasoning_delta","data":{"id":"s_added","delta":{"content":[{"type":"think","think":"hmm"}]}}}""",
+            ),
+        ) as StreamEvent.ThinkingDelta
+
+        assertThat(addedThink.agentId).isEqualTo("agent_x____1")
+        assertThat(addedThink.groupId).isEqualTo(1)
+    }
+
+    @Test
+    fun `on_run_step_completed resolves attribution from its result step id`() {
+        mapper.map(runStep(stepId = "s_added", agentId = "agent_x____1", groupId = 1))
+        mapper.map(runStep(stepId = "s_primary", agentId = "agent_x", groupId = 0))
+
+        // Completion event carries no top-level agentId; resolve via result.id.
+        val completed = mapper.map(
+            SseEvent(
+                event = "",
+                data = """{"event":"on_run_step_completed","data":{"result":{"id":"s_added","tool_call":{"id":"c1","output":"done"}}}}""",
+            ),
+        ) as StreamEvent.ToolCallComplete
+
+        assertThat(completed.agentId).isEqualTo("agent_x____1")
+        assertThat(completed.groupId).isEqualTo(1)
+    }
+
+    @Test
+    fun `resetState clears per-step attribution map`() {
+        mapper.map(runStep(stepId = "s_added", agentId = "agent_x____1", groupId = 1))
+        mapper.resetState()
+
+        val delta = mapper.map(messageDelta(stepId = "s_added", text = "hi")) as StreamEvent.ContentDelta
+        assertThat(delta.agentId).isNull()
+        assertThat(delta.groupId).isNull()
+    }
+
+    private fun runStep(stepId: String, agentId: String, groupId: Int) = SseEvent(
+        event = "",
+        data = """{"event":"on_run_step","data":{"id":"$stepId","stepDetails":{"type":"tool_calls","tool_calls":[{"id":"c_$stepId","name":"t","args":""}]},"agentId":"$agentId","groupId":$groupId}}""",
+    )
+
+    private fun messageDelta(stepId: String, text: String) = SseEvent(
+        event = "",
+        data = """{"event":"on_message_delta","data":{"id":"$stepId","delta":{"content":[{"type":"text","text":"$text"}]}}}""",
+    )
+
     // --- Control Events ---
 
     @Test
