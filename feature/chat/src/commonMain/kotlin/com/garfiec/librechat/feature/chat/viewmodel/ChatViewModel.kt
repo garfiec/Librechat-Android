@@ -52,6 +52,7 @@ import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
+import com.garfiec.librechat.feature.chat.util.hasParallelParts
 import com.garfiec.librechat.feature.chat.util.resolveFileReferenceUrl
 import com.garfiec.librechat.feature.chat.util.stabilizeMessageInstances
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
@@ -567,6 +568,10 @@ class ChatViewModel(
         if (_uiState.value.isTemporaryChat) return
         // Cancel any previous Room observer to avoid duplicate collectors
         roomObserverJob?.cancel()
+        // Latch so comparison auto-rehydration runs at most once per load — on the first
+        // non-empty emission (the authoritative tail) — so a later Room re-emit can't
+        // re-enable comparison after the user has toggled it off for the session.
+        var autoRehydrateHandled = false
         roomObserverJob = viewModelScope.launch {
             try {
                 messageRepository.getMessages(conversationId)
@@ -624,6 +629,21 @@ class ChatViewModel(
                             // a later server-side delete can then still remove the row.
                             pendingResumeUserMessage = retainedPending,
                         )
+                    }
+                    // Restore comparison mode when reopening a Compare Models conversation: the
+                    // last assistant message carries both agents' attributed parts but nothing
+                    // else records it was a comparison. Only when not streaming and not already
+                    // comparing (respects a session toggle-off); the branched-away case has a
+                    // single-agent tail, so it naturally shows the normal view.
+                    if (!autoRehydrateHandled && displayMessages.isNotEmpty()) {
+                        autoRehydrateHandled = true
+                        val state = _uiState.value
+                        val tail = displayMessages.lastOrNull()?.message
+                        if (!state.isStreaming && !state.comparisonState.isEnabled &&
+                            tail != null && hasParallelParts(tail)
+                        ) {
+                            comparisonDelegate.rehydrateFromMessage(tail)
+                        }
                     }
                 }
         }

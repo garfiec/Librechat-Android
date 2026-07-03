@@ -3,8 +3,14 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.data.repository.MessageRepository
+import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.request.AddedConversation
+import com.garfiec.librechat.feature.chat.util.isEphemeralAgentId
+import com.garfiec.librechat.feature.chat.util.parseEphemeralAgentId
+import com.garfiec.librechat.feature.chat.util.primaryAgentId
+import com.garfiec.librechat.feature.chat.util.secondaryAgentId
+import com.garfiec.librechat.feature.chat.util.stripAgentIdSuffix
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
@@ -110,6 +116,45 @@ class ComparisonModeDelegate(
             agentId = if (isAgent) model else null,
             model = if (isAgent) null else model,
         )
+    }
+
+    /**
+     * Rebuilds comparison mode from a persisted parallel response [message] on reopen.
+     * v0.8.7 stores a comparison as one message whose parts carry per-agent ids (the added
+     * agent suffixed `____N`); nothing else records that a conversation was a comparison, so
+     * we derive the secondary endpoint/model back out of the added agent's id — a real
+     * `agent_…____1` maps to the AGENTS endpoint with the stripped id as the model, an
+     * ephemeral `endpoint__model___sender____1` decodes to its endpoint/model. This restores
+     * the dual-pane view, re-enables Continue-with-response, and lets a follow-up send keep
+     * comparing via [buildAddedConvo]. No-op if the message has no added-agent part.
+     */
+    fun rehydrateFromMessage(message: Message) {
+        val secondaryId = secondaryAgentId(message) ?: return
+        val (endpoint, model) = resolveSecondarySelection(secondaryId)
+        stateHandle.update {
+            copy(
+                comparisonState = ComparisonState(
+                    isEnabled = true,
+                    secondaryEndpoint = endpoint,
+                    secondaryModel = model,
+                    primaryAgentId = primaryAgentId(message),
+                    secondaryAgentId = secondaryId,
+                    parallelMessageId = message.messageId,
+                ),
+                screenState = if (screenState == ChatScreenState.LANDING) ChatScreenState.ACTIVE else screenState,
+            )
+        }
+    }
+
+    /** Decodes the secondary agent's id into the (endpoint, model) selection [buildAddedConvo] expects. */
+    private fun resolveSecondarySelection(secondaryAgentId: String): Pair<String, String> {
+        val stripped = stripAgentIdSuffix(secondaryAgentId)
+        if (!isEphemeralAgentId(secondaryAgentId)) {
+            // Real agent id (agent_…): AGENTS endpoint, the agent id is the "model".
+            return EndpointConstants.AGENTS to stripped
+        }
+        val parsed = parseEphemeralAgentId(secondaryAgentId)
+        return if (parsed != null) parsed.endpoint to parsed.model else EndpointConstants.AGENTS to stripped
     }
 
     // ── Streaming lifecycle ──────────────────────────────────────────
