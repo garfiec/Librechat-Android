@@ -1451,12 +1451,14 @@ class ChatViewModel(
     /**
      * Single choke point for showing the model-selector sheet — user-initiated (model
      * chip) and send-blocked auto-opens alike. Opening the selector retries a failed
-     * agent load so the user can actually pick an agent; routing every open through
-     * here keeps that retry from being forgotten on a future open path. A null
-     * [reason] leaves the current sendBlockReason untouched.
+     * agent load so the user can actually pick an agent, and refetches favorites to
+     * self-heal a failed cold-start fetch (see [FavoritesDelegate.refresh]); routing
+     * every open through here keeps both from being forgotten on a future open path. A
+     * null [reason] leaves the current sendBlockReason untouched.
      */
     private fun surfaceModelSheet(reason: SendBlockReason? = null) {
         modelDelegate.retryAgentsIfFailed(isNewConversation)
+        favoritesDelegate.refresh()
         _uiState.update {
             it.copy(
                 sendBlockReason = reason ?: it.sendBlockReason,

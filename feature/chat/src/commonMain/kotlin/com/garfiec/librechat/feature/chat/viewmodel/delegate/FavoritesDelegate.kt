@@ -27,6 +27,17 @@ class FavoritesDelegate(
 
     fun load() {
         observeFavorites()
+        refresh()
+    }
+
+    /**
+     * Re-fetches favorites from the server. Called at VM init and again whenever the
+     * model sheet opens: the init fetch is single-shot and its failure is swallowed,
+     * so a cold-start fetch that races auth/network warm-up would otherwise leave the
+     * picker starless (no top Starred section, unfilled stars) until a pin is toggled.
+     * The sheet-open refetch self-heals that and also picks up pins made elsewhere.
+     */
+    fun refresh() {
         stateHandle.scope.launch {
             when (val result = favoritesRepository.refresh()) {
                 is Result.Success -> Unit
