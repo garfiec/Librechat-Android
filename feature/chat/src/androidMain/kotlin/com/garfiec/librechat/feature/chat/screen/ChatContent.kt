@@ -25,6 +25,8 @@ import com.garfiec.librechat.feature.chat.components.SecondaryMessageList
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.select_model
 import com.garfiec.librechat.feature.chat.util.MessageNode
+import com.garfiec.librechat.feature.chat.util.hasParallelParts
+import com.garfiec.librechat.feature.chat.util.partsForPane
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -101,9 +103,11 @@ internal fun ColumnScope.ChatContent(
                     uiState.displayMessages,
                     comparisonState.parallelMessageId,
                     comparisonState.primaryFinalContent,
+                    senderName,
                 ) {
                     buildComparisonDisplayMessages(
                         uiState.displayMessages,
+                        secondary = false,
                         comparisonState.parallelMessageId,
                         comparisonState.primaryFinalContent,
                         senderName,
@@ -119,6 +123,7 @@ internal fun ColumnScope.ChatContent(
                 ) {
                     buildComparisonDisplayMessages(
                         uiState.displayMessages,
+                        secondary = true,
                         comparisonState.parallelMessageId,
                         comparisonState.secondaryFinalContent,
                         secondarySenderName,
@@ -227,6 +232,9 @@ internal fun ColumnScope.ChatContent(
                     )
                 }
             } else {
+                val singleDisplayMessages = remember(uiState.displayMessages) {
+                    collapseParallelToPrimary(uiState.displayMessages)
+                }
                 ChatMessageListPane(
                     uiState = uiState,
                     viewModel = viewModel,
@@ -238,7 +246,7 @@ internal fun ColumnScope.ChatContent(
                     showBubbles = showBubbles,
                     useKatex = useKatex,
                     topContentPadding = topContentPadding,
-                    displayMessages = uiState.displayMessages,
+                    displayMessages = singleDisplayMessages,
                     isStreaming = uiState.isStreaming,
                     streamingContent = uiState.streamingContent,
                     activeToolCalls = uiState.activeToolCalls,
@@ -330,30 +338,62 @@ private fun ChatMessageListPane(
 }
 
 /**
- * Replaces the parallel response message's content with [finalContent] captured from
- * the streaming buffer. The server-loaded message may only contain the primary agent's
- * content, so for the secondary pane we substitute the captured text.
+ * Derives one comparison pane's message list. v0.8.7 persists a comparison as a
+ * single response message whose content parts each carry an `agentId` (the added
+ * agent suffixed `____N`), so for any such message we keep only [secondary]'s parts
+ * (see [partsForPane]) — this restores the dual-pane view for *every* comparison turn
+ * in history, including on reopen. The captured streaming buffer ([finalContent]) is
+ * used only as a fallback: for the brief Final→reload gap before the attributed
+ * server message arrives, or if a pane ended up with no attributed parts.
  * Also updates the sender name so the bubble shows the correct model.
  */
 private fun buildComparisonDisplayMessages(
     displayMessages: List<MessageNode>,
+    secondary: Boolean,
     parallelMessageId: String?,
     finalContent: String?,
     senderName: String?,
 ): List<MessageNode> {
-    if (parallelMessageId == null || finalContent.isNullOrBlank()) return displayMessages
     return displayMessages.map { node ->
-        if (node.message.messageId == parallelMessageId) {
-            node.copy(
-                message = node.message.copy(
-                    content = listOf(
-                        MessageContentPart(type = ContentType.TEXT, text = finalContent),
+        val message = node.message
+        when {
+            hasParallelParts(message) -> {
+                val paneParts = partsForPane(message, secondary)
+                val content = if (paneParts.isEmpty() && !finalContent.isNullOrBlank()) {
+                    listOf(MessageContentPart(type = ContentType.TEXT, text = finalContent))
+                } else {
+                    paneParts
+                }
+                node.copy(
+                    message = message.copy(content = content, sender = senderName ?: message.sender),
+                )
+            }
+            // Final→reload gap: the server message isn't parallel-attributed yet, so fall
+            // back to this pane's captured streaming buffer.
+            message.messageId == parallelMessageId && !finalContent.isNullOrBlank() -> {
+                node.copy(
+                    message = message.copy(
+                        content = listOf(MessageContentPart(type = ContentType.TEXT, text = finalContent)),
+                        sender = senderName ?: message.sender,
                     ),
-                    sender = senderName ?: node.message.sender,
-                ),
-            )
+                )
+            }
+            else -> node
+        }
+    }
+}
+
+/**
+ * Collapses any parallel (Compare Models) message to just its primary agent's parts,
+ * so an old comparison turn never renders both agents' content concatenated in the
+ * single (non-comparison) list — e.g. after branching, or when viewing a comparison
+ * sibling that isn't the active-path tail.
+ */
+private fun collapseParallelToPrimary(displayMessages: List<MessageNode>): List<MessageNode> =
+    displayMessages.map { node ->
+        if (hasParallelParts(node.message)) {
+            node.copy(message = node.message.copy(content = partsForPane(node.message, secondary = false)))
         } else {
             node
         }
     }
-}
