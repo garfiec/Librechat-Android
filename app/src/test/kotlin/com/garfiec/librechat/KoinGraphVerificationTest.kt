@@ -4,12 +4,15 @@ import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.common.di.commonModule
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
+import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.di.dataModule
+import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.AgentToolsRepository
 import com.garfiec.librechat.core.data.repository.ApiKeyRepository
@@ -70,8 +73,10 @@ import com.garfiec.librechat.core.network.api.SkillsApi
 import com.garfiec.librechat.core.network.api.SpeechApi
 import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
+import com.garfiec.librechat.core.network.client.AccountReadyGate
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.core.network.di.networkModule
 import com.garfiec.librechat.core.network.sse.SseClient
@@ -131,6 +136,7 @@ class KoinGraphVerificationTest {
             CoroutineDispatcher::class,
             CoroutineScope::class,
             ConnectivityObserver::class,
+            ActiveAccountProvider::class,
             AppInfo::class,
             // core:logging provides
             DiagnosticLogRepository::class,
@@ -138,6 +144,8 @@ class KoinGraphVerificationTest {
             TokenManager::class,
             SecureTokenStorage::class,
             ServerUrlProvider::class,
+            AccountReadyGate::class,
+            SwitchGate::class,
             SseClient::class,
             AgentToolsApi::class,
             AgentsApi::class,
@@ -169,6 +177,8 @@ class KoinGraphVerificationTest {
             // core:data provides
             ConfigCacheDataStore::class,
             ServerDataStore::class,
+            AccountRoster::class,
+            AccountSwitcher::class,
             SettingsDataStore::class,
             ThemeDataStore::class,
             AgentRepository::class,
@@ -211,6 +221,8 @@ class KoinGraphVerificationTest {
             // Wrappers/DSL types that verify can't resolve via constructor
             Lazy::class,
             File::class,
+            // ServerUrlViewModel's addAccount mode flag, injected via parametersOf
+            Boolean::class,
         )
 
         // Types whose libraries aren't on the app test classpath (transitive

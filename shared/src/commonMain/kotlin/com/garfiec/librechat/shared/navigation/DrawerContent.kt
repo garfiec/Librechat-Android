@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -130,12 +131,21 @@ fun DrawerContent(
     modifier: Modifier = Modifier,
     onOpenProject: (projectId: String, projectName: String) -> Unit = { _, _ -> },
     onOpenProjectsIndex: () -> Unit = {},
+    onSwitchAccount: (String) -> Unit = {},
+    onAddAccount: () -> Unit = {},
     viewModel: NavHostViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.drawerUiState.collectAsStateWithLifecycle()
     val projects by viewModel.projects.collectAsStateWithLifecycle()
     val projectsSection by viewModel.projectsSection.collectAsStateWithLifecycle()
     val projectsSectionExpanded by viewModel.projectsSectionExpanded.collectAsStateWithLifecycle()
+    val accounts by viewModel.accounts.collectAsStateWithLifecycle()
+
+    // Account switcher: the header chip opens the roster sheet; remove asks for confirmation.
+    // Switch/add callbacks come from the host (they also close the drawer); remove goes straight to
+    // the ViewModel against the tapped row's id — no captured drawer state (Nav3 stale-closure rule).
+    var showAccountSheet by remember { mutableStateOf(false) }
+    var removeAccountTarget by remember { mutableStateOf<AccountUiModel?>(null) }
 
     // Side-effects for the long-press action menu (share-link copy, export file-save, navigate to
     // a duplicated conversation, error toasts). Lives in feature/conversations so it owns the
@@ -147,6 +157,25 @@ fun DrawerContent(
 
     DrawerContent(
         uiState = uiState,
+        footerContent = {
+            accounts.firstOrNull { it.isActive }?.let { active ->
+                Spacer(modifier = Modifier.height(8.dp))
+                AccountChip(
+                    account = active,
+                    onClick = { showAccountSheet = true },
+                    // Gmail/YouTube-style: swipe the chip up/down to round-robin accounts without
+                    // opening the sheet. Switches in place via the ViewModel rather than the host's
+                    // onSwitchAccount (which also closes the drawer) — keeping the drawer open lets
+                    // the user swipe through several accounts without the jarring dismiss each time.
+                    // Disabled (null) with a single account.
+                    onSwitchAdjacent = if (accounts.size > 1) {
+                        { delta -> adjacentAccountId(accounts, delta)?.let(viewModel::switchAccount) }
+                    } else {
+                        null
+                    },
+                )
+            }
+        },
         onSearchQueryChange = viewModel::onSearchQueryChanged,
         onNewChat = onNewChat,
         onConversationClick = onConversationClick,
@@ -180,6 +209,33 @@ fun DrawerContent(
         onExportFormat = { data, format -> viewModel.exportConversation(data.conversationId, data.title, format) },
         modifier = modifier,
     )
+
+    if (showAccountSheet) {
+        AccountSwitcherSheet(
+            accounts = accounts,
+            onSwitchAccount = { accountId ->
+                showAccountSheet = false
+                onSwitchAccount(accountId)
+            },
+            onRemoveAccountRequest = { removeAccountTarget = it },
+            onAddAccount = {
+                showAccountSheet = false
+                onAddAccount()
+            },
+            onDismiss = { showAccountSheet = false },
+        )
+    }
+
+    removeAccountTarget?.let { target ->
+        RemoveAccountDialog(
+            account = target,
+            onConfirm = {
+                viewModel.removeAccount(target.accountId)
+                removeAccountTarget = null
+            },
+            onDismiss = { removeAccountTarget = null },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -194,6 +250,9 @@ fun DrawerContent(
     onFilesClick: () -> Unit,
     onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // Slot below the footer links (Settings, Files, …) — the stateful wrapper puts the account chip
+    // here so switching accounts sits at the bottom of the drawer, near Settings.
+    footerContent: (@Composable () -> Unit)? = null,
     onToggleFavorite: (DrawerConversationDisplayData) -> Unit = {},
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
@@ -251,6 +310,7 @@ fun DrawerContent(
             .fillMaxHeight()
             .width(300.dp)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(top = 16.dp),
     ) {
         Spacer(
@@ -708,6 +768,8 @@ fun DrawerContent(
             label = stringResource(Res.string.settings),
             onClick = onSettingsClick,
         )
+
+        footerContent?.invoke()
 
         Spacer(modifier = Modifier.height(8.dp))
     }

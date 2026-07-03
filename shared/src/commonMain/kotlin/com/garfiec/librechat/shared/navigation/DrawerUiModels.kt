@@ -37,6 +37,19 @@ data class DrawerProjectFolder(
 )
 
 /**
+ * One signed-in account as the drawer header chip + switcher sheet render it (multi-account,
+ * issue #179). Mapped from the persisted roster; ordered active-first, then by recency.
+ */
+@Immutable
+data class AccountUiModel(
+    val accountId: String,
+    val displayLabel: String,
+    val serverHost: String,
+    val avatarUrl: String?,
+    val isActive: Boolean,
+)
+
+/**
  * Combined UI state for the drawer sidebar.
  */
 @Immutable

@@ -20,6 +20,17 @@
     <string name="files">Files</string>
     <string name="settings">Settings</string>
 
+    <!-- Account switcher -->
+    <string name="accounts">Accounts</string>
+    <string name="add_account">Add account</string>
+    <string name="remove_account">Remove account</string>
+    <string name="remove_account_title">Remove account?</string>
+    <string name="remove_account_message">%1$s and its data will be removed from this device. The account on the server is not affected.</string>
+    <string name="remove">Remove</string>
+    <string name="cancel">Cancel</string>
+    <string name="cd_switch_account">Switch account</string>
+    <string name="cd_active_account">Active account</string>
+
     <!-- Content descriptions -->
     <string name="cd_search">Search</string>
     <string name="cd_clear_search">Clear search</string>

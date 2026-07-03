@@ -25,7 +25,11 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,12 +38,17 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import coil3.SingletonImageLoader
+import coil3.compose.LocalPlatformContext
+import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.ui.components.BannerDisplay
 import com.garfiec.librechat.core.ui.theme.AppLocale
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.agents.navigation.agentsEntries
+import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
 import com.garfiec.librechat.feature.auth.navigation.authEntries
+import com.garfiec.librechat.feature.auth.navigation.isAddAccountFlowRoute
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
@@ -63,10 +72,17 @@ import com.garfiec.librechat.shared.resources.dismiss
 import com.garfiec.librechat.shared.resources.dont_warn_again
 import com.garfiec.librechat.shared.resources.version_mismatch_message
 import com.garfiec.librechat.shared.resources.version_mismatch_title
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+
+/** Sentinel for "no identity recorded yet" in the saved hygiene marker — distinct from null,
+ *  which means a recorded logged-out state. */
+private const val HYGIENE_UNRECORDED = "__unrecorded__"
 
 /**
  * Shared root composable for LibreChat navigation.
@@ -111,6 +127,64 @@ fun LibreChatNavHost(
         navHostViewModel.sessionExpired.collect {
             navigator.navigateToAuth()
         }
+    }
+
+    // A restored back stack can still hold add-account routes after process death, but the pending
+    // add session is memory-only and never survives it. Without the session the restored add-mode
+    // screens silently fall back to the LIVE server — credentials typed for the new server would be
+    // POSTed to the wrong host, and a "success" would replace the active session instead of adding.
+    // Strip the flow (and anything stacked above it) before it can render. On a plain Activity
+    // recreation the pending session is still alive, so nothing is stripped.
+    LaunchedEffect(Unit) {
+        if (!navHostViewModel.hasPendingAdd()) {
+            val firstAddRoute = backStack.indexOfFirst { it.isAddAccountFlowRoute }
+            if (firstAddRoute >= 0) {
+                while (backStack.size > firstAddRoute) backStack.removeLastOrNull()
+                if (backStack.isEmpty()) backStack.add(NewChat())
+            }
+        }
+    }
+
+    // Cancel an in-progress add-account flow once none of its routes remain on the back stack —
+    // covers back-out, the session-expiry reset, and any navigation that abandons the flow. On a
+    // successful completion the pending session is already consumed, so the cancel no-ops. Watching
+    // the stack (instead of per-screen dispose hooks) survives the flow spanning several routes.
+    LaunchedEffect(Unit) {
+        snapshotFlow { backStack.any { it.isAddAccountFlowRoute } }
+            .collect { inAddFlow ->
+                if (!inAddFlow) navHostViewModel.cancelPendingAdd()
+            }
+    }
+
+    // The active account changed underneath the UI. Drop the process-global Coil cache — it is
+    // account-blind (bare-URL keys), so the outgoing account's decoded images must not survive into
+    // the next session; the disk half only exists on Android (iOS configures no diskCache). On an
+    // account-to-account flip also reset the back stack: the outgoing account's routes point at
+    // rows the new account can't read (or, on remove, rows that no longer exist).
+    //
+    // The identity this UI last ran hygiene for is SAVED STATE, compared against the live resolved
+    // one — not a transition-flow collector. A cold collector restarted by Activity recreation or
+    // process death initializes its marker to the already-flipped account and silently swallows a
+    // flip that landed in the gap; the saved comparison catches up on whatever was missed while
+    // this composition did not exist.
+    val platformContext = LocalPlatformContext.current
+    val accountState by navHostViewModel.accountState.collectAsStateWithLifecycle()
+    var hygieneAccountId by rememberSaveable { mutableStateOf<String?>(HYGIENE_UNRECORDED) }
+    LaunchedEffect(accountState) {
+        val resolved = accountState as? AccountState.Resolved ?: return@LaunchedEffect
+        val current = resolved.id?.value
+        val previous = hygieneAccountId
+        if (previous != HYGIENE_UNRECORDED && previous != current) {
+            val imageLoader = SingletonImageLoader.get(platformContext)
+            imageLoader.memoryCache?.clear()
+            withContext(Dispatchers.IO) { imageLoader.diskCache?.clear() }
+            // Reset the stack only on an account-to-account flip; on account-to-logged-out the
+            // initiating flow (or the session-expired signal) owns navigation.
+            if (previous != null && current != null) {
+                navigator.navigateToChat()
+            }
+        }
+        hygieneAccountId = current
     }
 
     // The locale wrapper must sit BELOW the back stack: changing language recreates the rendered
@@ -234,6 +308,14 @@ fun PhoneLayout(
                     onOpenProjectsIndex = {
                         scope.launch { drawerState.close() }
                         navigator.navigate(Projects)
+                    },
+                    onSwitchAccount = { accountId ->
+                        scope.launch { drawerState.close() }
+                        navHostViewModel.switchAccount(accountId)
+                    },
+                    onAddAccount = {
+                        scope.launch { drawerState.close() }
+                        navigator.navigate(AddAccountServerUrl)
                     },
                 )
             }
@@ -361,10 +443,11 @@ fun MainNavDisplay(
             settingsEntries(
                 onNavigate = { navigator.navigate(it) },
                 onBack = { navigator.goBack() },
-                onLogout = {
-                    navHostViewModel.logout()
-                    navigator.navigateToAuth()
-                },
+                // Nav is reactive: signing out promotes the most-recent survivor and stays in the app,
+                // while the last-account teardown emits session-expired (handled above) to route to
+                // auth. Forcing navigateToAuth() here would wrongly leave the auth screen up after a
+                // successor was promoted.
+                onLogout = { navHostViewModel.logout() },
                 onNavigateToArchive = { navigator.navigate(ArchivedConversations) },
             )
             memoriesEntry(

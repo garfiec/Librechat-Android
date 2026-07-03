@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.model.Banner
 import com.garfiec.librechat.core.ui.components.BannerDisplay
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
+import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.conversations.navigation.ProjectChats
 import com.garfiec.librechat.feature.conversations.navigation.Projects
@@ -190,6 +191,12 @@ fun TabletLayout(
                         },
                         onOpenProjectsIndex = {
                             navigator.navigate(Projects)
+                        },
+                        onSwitchAccount = { accountId ->
+                            navHostViewModel.switchAccount(accountId)
+                        },
+                        onAddAccount = {
+                            navigator.navigate(AddAccountServerUrl)
                         },
                         modifier = Modifier
                             .width(SidebarWidth)

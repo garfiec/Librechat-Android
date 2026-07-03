@@ -2,6 +2,7 @@ package com.garfiec.librechat.shared
 
 import com.garfiec.librechat.core.common.di.KoinQualifiers
 import com.garfiec.librechat.core.common.di.commonModule
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.data.di.dataModule
 import com.garfiec.librechat.core.logging.di.loggingModule
 import com.garfiec.librechat.core.network.api.AgentsApi
@@ -32,6 +33,7 @@ import com.garfiec.librechat.core.network.api.UserApi
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.ServerUrlReadyPlugin
+import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.core.network.sse.SseClient
 import com.garfiec.librechat.core.network.sse.SseHttpTransport
@@ -82,6 +84,18 @@ val iosSharedModule = module {
         }
     }
 
+    // The switch barrier. iOS builds its own client stack (Darwin engine) instead of loading
+    // networkModule, so the gate must be bound here too — the HttpClient below, the SSE transport,
+    // and dataModule's AccountSwitcher/AuthRepository all resolve it.
+    single {
+        SwitchGate(
+            activeAccountProvider = get<ActiveAccountProvider>(),
+            serverUrlProvider = get(),
+            tokenManager = get(),
+            accountReadyGate = getOrNull(),
+        )
+    }
+
     // Main HttpClient (with auth interceptor)
     single {
         LibreChatHttpClient.create(
@@ -90,6 +104,8 @@ val iosSharedModule = module {
             tokenManager = get(),
             serverUrlProvider = get(),
             redactor = get(),
+            accountReadyGate = getOrNull(),
+            switchGate = get(),
         )
     }
 

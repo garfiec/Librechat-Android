@@ -4,9 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.extensions.serverHostLabel
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.AccountTransition
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.accountTransitions
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.data.datastore.AccountEntry
+import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BannerRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -26,6 +34,7 @@ import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.canCreateSharedLinks
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
+import com.garfiec.librechat.core.network.client.AccountReadyGate
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
@@ -62,16 +71,21 @@ class NavHostViewModel(
     private val tagRepository: TagRepository,
     private val projectRepository: ProjectRepository,
     private val tokenManager: TokenManager,
+    private val accountReadyGate: AccountReadyGate,
     private val settingsDataStore: SettingsDataStore,
     private val serverUrlProvider: ServerUrlProvider,
     private val shareRepository: ShareRepository,
     private val conversationExporter: ConversationExporter,
     private val connectivityObserver: ConnectivityObserver,
     private val endpointTokenRepository: EndpointTokenRepository,
+    private val activeAccountProvider: ActiveAccountProvider,
+    private val accountRoster: AccountRoster,
+    private val accountSwitcher: AccountSwitcher,
 ) : ViewModel() {
 
     private val bannerStateHolder = BannerStateHolder(bannerRepository, viewModelScope)
-    private val versionCheckStateHolder = VersionCheckStateHolder(configRepository, settingsDataStore, viewModelScope)
+    private val versionCheckStateHolder =
+        VersionCheckStateHolder(configRepository, settingsDataStore, serverUrlProvider, viewModelScope)
     private val conversationListStateHolder = ConversationListStateHolder(conversationRepository, viewModelScope)
 
     private val favoriteConversations: StateFlow<List<Conversation>> =
@@ -189,6 +203,33 @@ class NavHostViewModel(
     val dismissedBannerIds: StateFlow<Set<String>> = bannerStateHolder.dismissedBannerIds
 
     val sessionExpired: SharedFlow<Unit> = tokenManager.sessionExpiredFlow
+
+    // The live identity for the NavHost's account hygiene (Coil cache clear + back-stack reset on
+    // an account flip). Exposed as STATE rather than a transition flow so the UI can persist the
+    // identity it last ran hygiene for and catch up after Activity recreation or process death — a
+    // cold transition flow restarted in that gap would silently swallow a flip that landed mid-gap.
+    val accountState: StateFlow<AccountState> = activeAccountProvider.state
+
+    // The signed-in accounts for the drawer chip + switcher sheet: active entry first, the rest by
+    // recency (matching "switch to most-recently-active" on remove).
+    val accounts: StateFlow<List<AccountUiModel>> =
+        combine(accountRoster.entriesFlow(), activeAccountProvider.state) { entries, accountState ->
+            val activeId = (accountState as? AccountState.Resolved)?.id?.value
+            entries
+                .sortedWith(
+                    compareByDescending<AccountEntry> { it.accountId == activeId }
+                        .thenByDescending { it.lastActiveAt },
+                )
+                .map { entry ->
+                    AccountUiModel(
+                        accountId = entry.accountId,
+                        displayLabel = entry.displayLabel,
+                        serverHost = entry.serverUrl.serverHostLabel(),
+                        avatarUrl = entry.avatarUrl,
+                        isActive = entry.accountId == activeId,
+                    )
+                }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Seeded `null` (= "not resolved yet") and warmed up by the Eagerly-started collector. The
     // previous synchronous `firstBlocking` read blocked the Main thread Koin instantiates the VM
@@ -310,6 +351,11 @@ class NavHostViewModel(
                 // logged-in cold start can't fire requests (auth check, version/config fetch,
                 // session tasks) at an empty base URL while ServerDataStore is still resolving.
                 serverUrlProvider.awaitBaseUrl()
+                // Wait for the roster seed to reconcile the token mirror to the durable active pointer
+                // before deciding the route. The synchronous _isLoggedIn seed above reads the raw
+                // (possibly crash-diverged) mirror; without this gate a divergence would flash the
+                // wrong screen. The gate's seed also drives the server URL, so this is ordered first.
+                accountReadyGate.awaitReady()
                 val loggedIn = authRepository.isLoggedIn()
                 _isLoggedIn.value = loggedIn
                 if (loggedIn) {
@@ -343,7 +389,66 @@ class NavHostViewModel(
                 }
             }
         }
+        // The active account changed underneath this Activity-scoped VM (switch / add-completion /
+        // remove → Switched; remove-last → Ended; plain logout also lands here as Ended, where the
+        // clears below just repeat logout()'s — idempotent). Room-backed state re-filters
+        // reactively, but everything held in-memory here or in the singleton repos is account- or
+        // server-blind and must not survive the flip.
+        viewModelScope.launch {
+            activeAccountProvider.accountTransitions().collect { transition ->
+                _projects.value = emptyList()
+                _expandedProjectIds.value = emptySet()
+                _projectInlineChats.value = emptyMap()
+                _sidebarMode.value = SidebarMode.Conversations
+                _selectedSettingsCategory.value = null
+                conversationListStateHolder.reset()
+                tagRepository.clearCache()
+                endpointTokenRepository.clear()
+                // Reseed the in-memory config from the (already-flipped) server's own srv:-keyed
+                // cache — warm on switch-back — instead of clear(), which would wipe every server's
+                // disk cache.
+                configRepository.reloadForActiveServer()
+                if (transition is AccountTransition.Switched) {
+                    // The switch path never runs the login-side session machinery
+                    // (AuthRepositoryImpl fires these on sign-in; logout/re-auth via onAuthComplete)
+                    // so the incoming account's session state is fetched here.
+                    conversationListStateHolder.refreshConversations()
+                    bannerStateHolder.fetchBanners()
+                    versionCheckStateHolder.checkBackendVersion()
+                    sessionTaskRunner.runAll()
+                } else if (transition is AccountTransition.Ended) {
+                    // The last account signed out (plain logout, or remove-last): mark logged-out so
+                    // first-frame routing is correct. Nav-to-auth itself rides the session-expired
+                    // signal emitted by the teardown.
+                    _isLoggedIn.value = false
+                }
+            }
+        }
     }
+
+    /** Switch the active account (no-op for the already-active one). Post-switch refresh and the
+     *  back-stack reset ride on the [accountTransitions] collectors, not this call. */
+    fun switchAccount(accountId: String) {
+        viewModelScope.launch { accountSwitcher.switch(accountId) }
+    }
+
+    /** Remove an account and all its local data. Removing the active one switches to the
+     *  most-recently-active survivor, or routes to auth when it was the last. */
+    fun removeAccount(accountId: String) {
+        viewModelScope.launch { accountSwitcher.remove(accountId) }
+    }
+
+    /** Abandon any in-progress add-account flow; no-op when none is pending. Driven by the NavHost
+     *  when the add-flow routes leave the back stack (back-out, session expiry, completion). */
+    fun cancelPendingAdd() {
+        viewModelScope.launch { accountSwitcher.cancelAdd() }
+    }
+
+    /** True while an add-account flow is in progress. The NavHost checks this at composition: a
+     *  back stack restored after process death can still hold add-flow routes, but the pending
+     *  session is memory-only — restored add-mode screens without it would silently target the
+     *  LIVE server, so the NavHost strips them. */
+    fun hasPendingAdd(): Boolean = accountSwitcher.pendingAdd != null
 
     /**
      * Attempts the upgrade-path account restore, swallowing transient failures. Returns `true` when the
@@ -586,21 +691,13 @@ class NavHostViewModel(
     }
 
     fun logout() {
-        viewModelScope.launch {
-            authRepository.logout()
-            _isLoggedIn.value = false
-            conversationListStateHolder.reset()
-            tagRepository.clearCache()
-            configRepository.clear()
-            endpointTokenRepository.clear()
-            // Chat Projects live only in-VM (no local cache) and this Activity-scoped VM survives
-            // logout — clear them too so the next account never sees the previous account's folders
-            // or expanded inline chats before its own loadProjects() returns.
-            _projects.value = emptyList()
-            _expandedProjectIds.value = emptySet()
-            _projectInlineChats.value = emptyMap()
-            _sidebarMode.value = SidebarMode.Conversations
-            _selectedSettingsCategory.value = null
-        }
+        // Delegate to the account switcher's remove() (via the repository, which first revokes the
+        // session server-side): it promotes the most-recently-used survivor — the user stays signed in
+        // as that account — or, when this was the last account, tears down to logged-out and emits
+        // session-expired to route to auth. Either way the accountTransitions collector above resets
+        // this VM's in-memory state (conversation list, tags, projects, config, …) for both the
+        // Switched and Ended cases, so nothing is cleared imperatively here. Not forcing the auth
+        // route here is what lets the successor promotion keep the user in the app.
+        viewModelScope.launch { authRepository.logout() }
     }
 }
