@@ -336,6 +336,64 @@ class ModelSelectionDelegateTest {
         assertThat(delegate.agentsLoaded.value).isTrue()
     }
 
+    @Test
+    fun retryAgentsIfFailedRefetchesAfterErrorThenPopulates() = runTest {
+        // The cold-start-failure fix: a transient getAgents() error leaves the list empty.
+        // retryAgentsIfFailed (wired to opening the selector) must re-fetch and fill it.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle)
+        allowAgents()
+        coEvery { agentRepository.getAgents() } returns Result.Error(RuntimeException("boom"))
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+        assertThat(handle.state.agents).isEmpty()
+
+        // Network recovers; the retry re-hits it (the error was never cached) and populates.
+        coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
+        delegate.retryAgentsIfFailed(isNewConversation = false)
+        advanceUntilIdle()
+
+        assertThat(handle.state.agents).hasSize(1)
+        coVerify(exactly = 2) { agentRepository.getAgents() }
+    }
+
+    @Test
+    fun retryAgentsIfFailedIsNoOpAfterSuccess() = runTest {
+        // A successful load must not be re-fetched on selector open (no needless network).
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle)
+        allowAgents()
+        coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+        delegate.retryAgentsIfFailed(isNewConversation = false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { agentRepository.getAgents() }
+    }
+
+    @Test
+    fun retryAgentsIfFailedIsNoOpForCleanEmptyAccount() = runTest {
+        // A cleanly-resolved zero-agent account (success, empty list) must not re-fetch —
+        // only genuine errors are retried.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle)
+        allowAgents()
+        coEvery { agentRepository.getAgents() } returns Result.Success(emptyList())
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+        delegate.retryAgentsIfFailed(isNewConversation = false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { agentRepository.getAgents() }
+    }
+
     // ── Group C: seedInitialSelection precedence + race determinism ──────────
 
     @Test

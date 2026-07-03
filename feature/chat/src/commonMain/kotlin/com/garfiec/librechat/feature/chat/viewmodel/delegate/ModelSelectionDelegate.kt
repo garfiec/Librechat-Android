@@ -123,6 +123,19 @@ class ModelSelectionDelegate(
     internal val agentsLoaded = MutableStateFlow(false)
 
     /**
+     * True when the last [loadAgents] attempt ended in a network error (not a
+     * permission denial or a genuinely-empty account). Gates [retryAgentsIfFailed]
+     * so a transient cold-start failure — e.g. the token still settling right after
+     * login — doesn't strand the "My Agents" group empty until the app is recreated,
+     * without needlessly re-fetching for accounts that simply have no agents.
+     *
+     * [loadAgents] clears this up front, so it also doubles as the in-flight guard:
+     * a retry firing while an attempt is still running sees it already false and is a
+     * no-op. Only touched on the ViewModel's main dispatcher, so a plain var suffices.
+     */
+    private var agentsLoadFailed = false
+
+    /**
      * The last-used (endpoint, model) pair this delegate last applied as the
      * active selection. Lets [seedInitialSelection] re-apply a *changed* last-used
      * even over an already-valid selection (the retained-landing resync) without
@@ -559,6 +572,7 @@ class ModelSelectionDelegate(
      * still loading" (wait) from "agents loaded and empty" (fall through).
      */
     fun loadAgents(isNewConversation: Boolean) {
+        agentsLoadFailed = false
         stateHandle.scope.launch {
             // Skip the fetch entirely when the role denies AGENTS.USE; otherwise
             // the server would return 403 and we'd have to decide whether it's a
@@ -580,6 +594,10 @@ class ModelSelectionDelegate(
                 }
                 is Result.Error -> {
                     Logger.e(result.exception) { "Failed to load agents" }
+                    // Mark the attempt as failed so retryAgentsIfFailed can re-fetch
+                    // when the user next opens the selector. The AccountKeyedCache only
+                    // stores successes, so the retry genuinely re-hits the network.
+                    agentsLoadFailed = true
                     stateHandle.update { copy(error = "Could not load available agents") }
                     agentsLoaded.value = true
                 }
@@ -591,6 +609,19 @@ class ModelSelectionDelegate(
             // AND denial — so the hold is always released; an error/denied load (empty
             // list) correctly falls through to a config model instead of staying stuck.
             refilterModels(isNewConversation)
+        }
+    }
+
+    /**
+     * Re-attempts the agent fetch when the initial [loadAgents] ended in a network
+     * error, so a transient cold-start failure doesn't leave the "My Agents" group
+     * permanently empty. Wired to the model-selector open so the list refreshes on the
+     * user's next glance. No-op when a load is already in flight, the last load
+     * succeeded, or the account was cleanly resolved to zero agents.
+     */
+    fun retryAgentsIfFailed(isNewConversation: Boolean) {
+        if (agentsLoadFailed) {
+            loadAgents(isNewConversation)
         }
     }
 

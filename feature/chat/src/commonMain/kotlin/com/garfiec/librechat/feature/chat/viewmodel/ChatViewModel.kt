@@ -1369,6 +1369,9 @@ class ChatViewModel(
     private fun runWhenSendReady(action: () -> Unit) {
         val current = _uiState.value
         preflightSendBlockReason(current)?.let { reason ->
+            // These auto-opens surface the selector to resolve the block; if the agent
+            // list failed to load, retry so the user can actually pick one.
+            modelDelegate.retryAgentsIfFailed(isNewConversation)
             _uiState.update { it.copy(sendBlockReason = reason, showModelSheet = true) }
             return
         }
@@ -1380,6 +1383,7 @@ class ChatViewModel(
             if (awaitSendReady()) {
                 action()
             } else {
+                modelDelegate.retryAgentsIfFailed(isNewConversation)
                 _uiState.update {
                     it.copy(
                         sendBlockReason = sendReadinessTimeoutReason(it),
@@ -1430,6 +1434,7 @@ class ChatViewModel(
 
     /** Opens the model-selector sheet. Called when the user taps the model chip. */
     fun openModelSheet() {
+        modelDelegate.retryAgentsIfFailed(isNewConversation)
         _uiState.update { it.copy(showModelSheet = true) }
     }
 
