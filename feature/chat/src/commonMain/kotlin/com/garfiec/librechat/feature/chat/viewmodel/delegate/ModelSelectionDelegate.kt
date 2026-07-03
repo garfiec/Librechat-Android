@@ -19,12 +19,16 @@ import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+/** Failure banner published by [ModelSelectionDelegate.loadAgents]; cleared by a later success. */
+private const val AGENTS_LOAD_ERROR = "Could not load available agents"
 
 class ModelSelectionDelegate(
     private val stateHandle: ChatStateHandle,
@@ -128,12 +132,15 @@ class ModelSelectionDelegate(
      * so a transient cold-start failure — e.g. the token still settling right after
      * login — doesn't strand the "My Agents" group empty until the app is recreated,
      * without needlessly re-fetching for accounts that simply have no agents.
-     *
-     * [loadAgents] clears this up front, so it also doubles as the in-flight guard:
-     * a retry firing while an attempt is still running sees it already false and is a
-     * no-op. Only touched on the ViewModel's main dispatcher, so a plain var suffices.
+     * Only touched on the ViewModel's main dispatcher, so a plain var suffices.
      */
     private var agentsLoadFailed = false
+
+    /**
+     * The in-flight [loadAgents] attempt. Guards [retryAgentsIfFailed] against
+     * launching a duplicate concurrent fetch while one is still running.
+     */
+    private var agentsLoadJob: Job? = null
 
     /**
      * The last-used (endpoint, model) pair this delegate last applied as the
@@ -573,7 +580,7 @@ class ModelSelectionDelegate(
      */
     fun loadAgents(isNewConversation: Boolean) {
         agentsLoadFailed = false
-        stateHandle.scope.launch {
+        agentsLoadJob = stateHandle.scope.launch {
             // Skip the fetch entirely when the role denies AGENTS.USE; otherwise
             // the server would return 403 and we'd have to decide whether it's a
             // genuine 403 (rate limit, tenancy) vs. permission denial.
@@ -590,7 +597,16 @@ class ModelSelectionDelegate(
                     // otherwise tier 2 could fall through to a config model in the
                     // one-emission window before the flag flips.
                     agentsLoaded.value = true
-                    stateHandle.update { copy(agents = result.data) }
+                    stateHandle.update {
+                        copy(
+                            agents = result.data,
+                            // A successful retry must not leave the failure banner from
+                            // the attempt it just recovered next to the populated list.
+                            // Clear only our own message — the error slot is shared
+                            // with other delegates.
+                            error = error.takeUnless { it == AGENTS_LOAD_ERROR },
+                        )
+                    }
                 }
                 is Result.Error -> {
                     Logger.e(result.exception) { "Failed to load agents" }
@@ -598,7 +614,7 @@ class ModelSelectionDelegate(
                     // when the user next opens the selector. The AccountKeyedCache only
                     // stores successes, so the retry genuinely re-hits the network.
                     agentsLoadFailed = true
-                    stateHandle.update { copy(error = "Could not load available agents") }
+                    stateHandle.update { copy(error = AGENTS_LOAD_ERROR) }
                     agentsLoaded.value = true
                 }
                 is Result.Loading -> return@launch
@@ -620,7 +636,7 @@ class ModelSelectionDelegate(
      * succeeded, or the account was cleanly resolved to zero agents.
      */
     fun retryAgentsIfFailed(isNewConversation: Boolean) {
-        if (agentsLoadFailed) {
+        if (agentsLoadFailed && agentsLoadJob?.isActive != true) {
             loadAgents(isNewConversation)
         }
     }

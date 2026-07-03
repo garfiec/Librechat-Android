@@ -360,6 +360,45 @@ class ModelSelectionDelegateTest {
     }
 
     @Test
+    fun retryAgentsSuccessClearsFailureBanner() = runTest {
+        // A successful retry must clear the "Could not load available agents" banner
+        // the failed attempt published — otherwise the sheet shows the populated list
+        // alongside a stale error.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle)
+        allowAgents()
+        coEvery { agentRepository.getAgents() } returns Result.Error(RuntimeException("boom"))
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+        assertThat(handle.state.error).isEqualTo("Could not load available agents")
+
+        coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
+        delegate.retryAgentsIfFailed(isNewConversation = false)
+        advanceUntilIdle()
+
+        assertThat(handle.state.error).isNull()
+        assertThat(handle.state.agents).hasSize(1)
+    }
+
+    @Test
+    fun loadAgentsSuccessPreservesUnrelatedError() = runTest {
+        // The error slot is shared with other delegates — a successful agent load must
+        // clear only its own failure banner, never someone else's message.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, ChatUiState(error = "Failed to rename conversation"))
+        val delegate = newDelegate(handle)
+        allowAgents()
+        coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+
+        assertThat(handle.state.error).isEqualTo("Failed to rename conversation")
+    }
+
+    @Test
     fun retryAgentsIfFailedIsNoOpAfterSuccess() = runTest {
         // A successful load must not be re-fetched on selector open (no needless network).
         val scope = TestScope(StandardTestDispatcher(testScheduler))

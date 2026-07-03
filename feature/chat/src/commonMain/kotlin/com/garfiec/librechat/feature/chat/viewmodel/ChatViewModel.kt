@@ -1369,10 +1369,7 @@ class ChatViewModel(
     private fun runWhenSendReady(action: () -> Unit) {
         val current = _uiState.value
         preflightSendBlockReason(current)?.let { reason ->
-            // These auto-opens surface the selector to resolve the block; if the agent
-            // list failed to load, retry so the user can actually pick one.
-            modelDelegate.retryAgentsIfFailed(isNewConversation)
-            _uiState.update { it.copy(sendBlockReason = reason, showModelSheet = true) }
+            surfaceModelSheet(reason)
             return
         }
         if (current.isSendReady) {
@@ -1383,13 +1380,7 @@ class ChatViewModel(
             if (awaitSendReady()) {
                 action()
             } else {
-                modelDelegate.retryAgentsIfFailed(isNewConversation)
-                _uiState.update {
-                    it.copy(
-                        sendBlockReason = sendReadinessTimeoutReason(it),
-                        showModelSheet = true,
-                    )
-                }
+                surfaceModelSheet(sendReadinessTimeoutReason(_uiState.value))
             }
         }
     }
@@ -1433,9 +1424,23 @@ class ChatViewModel(
     }
 
     /** Opens the model-selector sheet. Called when the user taps the model chip. */
-    fun openModelSheet() {
+    fun openModelSheet() = surfaceModelSheet()
+
+    /**
+     * Single choke point for showing the model-selector sheet — user-initiated (model
+     * chip) and send-blocked auto-opens alike. Opening the selector retries a failed
+     * agent load so the user can actually pick an agent; routing every open through
+     * here keeps that retry from being forgotten on a future open path. A null
+     * [reason] leaves the current sendBlockReason untouched.
+     */
+    private fun surfaceModelSheet(reason: SendBlockReason? = null) {
         modelDelegate.retryAgentsIfFailed(isNewConversation)
-        _uiState.update { it.copy(showModelSheet = true) }
+        _uiState.update {
+            it.copy(
+                sendBlockReason = reason ?: it.sendBlockReason,
+                showModelSheet = true,
+            )
+        }
     }
 
     /** Dismisses the model-selector sheet. Called on sheet dismiss and model selection. */
