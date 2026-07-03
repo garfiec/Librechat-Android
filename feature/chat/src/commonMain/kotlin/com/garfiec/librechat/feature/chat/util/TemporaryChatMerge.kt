@@ -9,7 +9,7 @@ import com.garfiec.librechat.core.model.Message
  * placeholder) is replaced in place; genuinely new messages are appended, keeping
  * insertion order stable.
  *
- * Temporary chats (v0.8.6) are never persisted to Room (a data-at-rest leak would
+ * Temporary chats are never persisted to Room (a data-at-rest leak would
  * otherwise survive even though the conversation is hidden from history), so the
  * normal `loadConversation` read-through is bypassed and the display is driven from
  * this pure merge instead.

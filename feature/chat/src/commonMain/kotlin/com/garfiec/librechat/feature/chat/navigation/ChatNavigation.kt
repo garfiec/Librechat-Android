@@ -35,7 +35,13 @@ import org.koin.compose.koinInject
  *  that agent rather than falling back to last-used/first-agent/first-model. */
 @Serializable data class NewChat(val agentId: String? = null) : ChatRoute
 
-@Serializable data class Chat(val conversationId: String? = null) : ChatRoute
+/**
+ * [isTemporary] marks a conversation the user started as a temporary chat. It rides on the
+ * route (not just the in-memory NewChatSelectionHandoff) so it survives process death: a restored
+ * Chat(id) entry re-initializes temp-aware and never persists the server-hidden conversation to
+ * Room. SECURITY: this is the temp-chat data-at-rest guard for the handed-off / restored Chat VM.
+ */
+@Serializable data class Chat(val conversationId: String? = null, val isTemporary: Boolean = false) : ChatRoute
 
 @Serializable data object PromptsLibrary : ChatRoute
 
@@ -53,7 +59,7 @@ import org.koin.compose.koinInject
 fun EntryProviderScope<NavKey>.chatEntries(
     onNavigate: (NavKey) -> Unit,
     onBack: () -> Unit,
-    onNavigateToChat: (String) -> Unit,
+    onNavigateToChat: (conversationId: String, isTemporary: Boolean) -> Unit,
     onOpenDrawer: (() -> Unit)? = null,
     /**
      * Deep-link target for the user-provided-key error CTA snackbar and
@@ -68,8 +74,8 @@ fun EntryProviderScope<NavKey>.chatEntries(
     entry<NewChat> { key ->
         NewChatScreen(
             initialAgentId = key.agentId,
-            onConversationStart = { conversationId ->
-                onNavigateToChat(conversationId)
+            onConversationStart = { conversationId, isTemporary ->
+                onNavigateToChat(conversationId, isTemporary)
             },
             onOpenDrawer = onOpenDrawer,
             onNavigateToPromptsLibrary = { onNavigate(PromptsLibrary) },
@@ -81,10 +87,14 @@ fun EntryProviderScope<NavKey>.chatEntries(
         ProvideOpenArtifact(onNavigate) {
             ChatScreen(
                 conversationId = key.conversationId,
+                // A restored temp Chat(id) entry carries isTemporary=true so the VM re-initializes
+                // temp-aware (never persists the server-hidden conversation). See ChatViewModel.init.
+                isTemporaryRoute = key.isTemporary,
                 onOpenDrawer = onOpenDrawer,
                 onNavigateToPromptsLibrary = { onNavigate(PromptsLibrary) },
                 onNavigateBack = onBack,
-                onNavigateToConversation = { conversationId -> onNavigateToChat(conversationId) },
+                // Fork/duplicate produce real (non-temp) conversations.
+                onNavigateToConversation = { conversationId -> onNavigateToChat(conversationId, false) },
                 // Null on a new chat with no id yet, which hides the overflow menu item.
                 onShowAllMedia = key.conversationId?.let { id -> { onNavigate(ConversationMedia(id)) } },
                 onNavigateToProviderKeys = onNavigateToProviderKeys,

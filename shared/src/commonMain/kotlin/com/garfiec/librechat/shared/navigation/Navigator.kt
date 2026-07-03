@@ -28,12 +28,14 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
         backStack.removeLastOrNull()
     }
 
-    /** Navigate to a chat, replacing any current chat on the stack. */
-    fun navigateToChat(conversationId: String) {
+    /** Navigate to a chat, replacing any current chat on the stack. [isTemporary] marks a
+     *  temporary chat so a restored Chat(id) entry stays temp-aware and never persists
+     *  the server-hidden conversation to Room — see [Chat.isTemporary]. */
+    fun navigateToChat(conversationId: String, isTemporary: Boolean = false) {
         if (backStack.lastOrNull() is Chat) {
             backStack.removeLastOrNull()
         }
-        backStack.add(Chat(conversationId))
+        backStack.add(Chat(conversationId, isTemporary))
     }
 
     /**

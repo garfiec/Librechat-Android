@@ -24,6 +24,8 @@ actual val chatPlatformModule: Module = module {
             // type-based getOrNull() is ambiguous; read by index from values.
             initialConversationId = params.values.getOrNull(0) as String?,
             initialAgentId = params.values.getOrNull(1) as String?,
+            // [2] isTemporary route flag (temp-chat data-at-rest guard); absent on non-temp callers.
+            initialIsTemporary = params.values.getOrNull(2) as? Boolean ?: false,
             agentRepository = get(),
             chatRepository = get(),
             messageRepository = get(),

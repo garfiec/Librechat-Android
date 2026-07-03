@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
  */
 @Composable
 actual fun NewChatScreen(
-    onConversationStart: (String) -> Unit,
+    onConversationStart: (conversationId: String, isTemporary: Boolean) -> Unit,
     modifier: Modifier,
     initialAgentId: String?,
     onOpenDrawer: (() -> Unit)?,

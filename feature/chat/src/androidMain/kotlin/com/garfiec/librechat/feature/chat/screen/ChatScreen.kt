@@ -44,8 +44,9 @@ import org.koin.core.parameter.parametersOf
 actual fun ChatScreen(
     modifier: Modifier,
     conversationId: String?,
+    isTemporaryRoute: Boolean,
     initialAgentId: String?,
-    onConversationStart: ((String) -> Unit)?,
+    onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)?,
     onNavigateToConversation: ((String) -> Unit)?,
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
@@ -54,7 +55,8 @@ actual fun ChatScreen(
     onAttachFromServer: () -> Unit,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
-    val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
+    val viewModel: ChatViewModel =
+        koinViewModel { parametersOf(conversationId, initialAgentId, isTemporaryRoute) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val shareLinkUrl by viewModel.shareLinkUrl.collectAsStateWithLifecycle()

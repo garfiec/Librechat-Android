@@ -8,8 +8,11 @@ import androidx.compose.ui.Modifier
 expect fun ChatScreen(
     modifier: Modifier = Modifier,
     conversationId: String? = null,
+    /** True when this Chat(id) entry was created as (or restored as) a temporary chat. Seeds the
+     *  VM temp-aware so it never persists the server-hidden conversation. See Chat.isTemporary. */
+    isTemporaryRoute: Boolean = false,
     initialAgentId: String? = null,
-    onConversationStart: ((String) -> Unit)? = null,
+    onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)? = null,
     onNavigateToConversation: ((String) -> Unit)? = null,
     onOpenDrawer: (() -> Unit)? = null,
     onNavigateToPromptsLibrary: (() -> Unit)? = null,
@@ -32,7 +35,7 @@ expect fun ChatScreen(
  *  that agent for the new chat (set when starting from an agent detail/card). */
 @Composable
 expect fun NewChatScreen(
-    onConversationStart: (String) -> Unit,
+    onConversationStart: (conversationId: String, isTemporary: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     initialAgentId: String? = null,
     onOpenDrawer: (() -> Unit)? = null,

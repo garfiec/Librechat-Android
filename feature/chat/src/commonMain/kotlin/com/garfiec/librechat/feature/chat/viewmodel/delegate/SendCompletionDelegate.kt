@@ -48,12 +48,24 @@ class SendCompletionDelegate(
      * list even if the stream later fails.
      */
     fun onConversationCreated(conversationId: String, isNewConversation: Boolean) {
+        // SECURITY: temp-chat data-at-rest guard. Temporary chats still navigate to a
+        // Chat(id) so Back returns to the landing screen (they're a real, streaming conversation
+        // for the session) — but they must never be written to Room. Two Room-write paths in this
+        // landing VM are gated on this flag: the draft migration below (persists the composer draft
+        // keyed to the real id) and the eager cache-warm at the end (GETs + upserts the
+        // conversation — the write that would otherwise surface a temp chat in history). Temp-ness reaches the
+        // new Chat(id) VM via the Chat route's isTemporary flag (durable across process death), so
+        // that VM starts temp-aware and skips its own loadConversation / loadConversationModel
+        // upserts — see ChatViewModel.init and Navigator.navigateToChat.
+        val isTemporary = stateHandle.state.isTemporaryChat
         if (isNewConversation) {
-            stateHandle.scope.launch {
-                val existingDraft = draftRepository.getDraft(NEW_CHAT_DRAFT_KEY)
-                if (existingDraft != null) {
-                    draftRepository.saveDraft(conversationId, existingDraft)
-                    draftRepository.deleteDraft(NEW_CHAT_DRAFT_KEY)
+            if (!isTemporary) {
+                stateHandle.scope.launch {
+                    val existingDraft = draftRepository.getDraft(NEW_CHAT_DRAFT_KEY)
+                    if (existingDraft != null) {
+                        draftRepository.saveDraft(conversationId, existingDraft)
+                        draftRepository.deleteDraft(NEW_CHAT_DRAFT_KEY)
+                    }
                 }
             }
             // Stage the selection we actually sent so the about-to-be-created Chat(id) VM can
@@ -74,10 +86,12 @@ class SendCompletionDelegate(
                 }
             }
         }
-        // Eagerly fetch and cache the conversation the server just created,
-        // so it appears in the conversation list even if the stream fails later
-        stateHandle.scope.launch {
-            conversationRepository.getConversation(conversationId)
+        // Eagerly fetch and cache the conversation the server just created, so it appears in the
+        // conversation list even if the stream fails later — but never for temp chats (see guard).
+        if (!isTemporary) {
+            stateHandle.scope.launch {
+                conversationRepository.getConversation(conversationId)
+            }
         }
     }
 
@@ -112,7 +126,7 @@ class SendCompletionDelegate(
             ) { "handleFinal re-derived conversation model" }
         }
         // SECURITY: do not remove — temp-chat data-at-rest guard.
-        // Temporary chats (v0.8.6) are kept out of normal history — the server excludes
+        // Temporary chats are kept out of normal history — the server excludes
         // them from the conversation list, so don't cache them to Room either (it would
         // leak a temp chat into the local list the server hides).
         val isTemporary = stateHandle.state.isTemporaryChat || finalConversation?.isTemporary == true

@@ -312,7 +312,9 @@ fun MainNavDisplay(
             chatEntries(
                 onNavigate = { navigator.navigate(it) },
                 onBack = { navigator.goBack() },
-                onNavigateToChat = { navigator.navigateToChat(it) },
+                onNavigateToChat = { conversationId, isTemporary ->
+                    navigator.navigateToChat(conversationId, isTemporary)
+                },
                 onOpenDrawer = onMenuClick,
                 onNavigateToProviderKeys = { endpointName ->
                     navigator.navigateToProviderKeys(endpointName)

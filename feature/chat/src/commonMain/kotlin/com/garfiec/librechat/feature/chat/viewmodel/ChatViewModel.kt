@@ -96,6 +96,10 @@ import kotlin.uuid.Uuid
 class ChatViewModel(
     initialConversationId: String? = null,
     initialAgentId: String? = null,
+    /** True when this Chat(id) entry is a temporary chat. Rides on the Chat route so it
+     *  survives process death: a restored entry re-initializes temp-aware and never persists the
+     *  server-hidden conversation to Room. SECURITY: temp-chat data-at-rest guard — see init. */
+    initialIsTemporary: Boolean = false,
     private val agentRepository: AgentRepository,
     private val chatRepository: ChatRepository,
     private val messageRepository: MessageRepository,
@@ -365,7 +369,16 @@ class ChatViewModel(
             _uiState.update {
                 it.copy(
                     conversationId = conversationId,
-                    screenState = ChatScreenState.LOADING,
+                    // SECURITY: do not remove — temp-chat data-at-rest guard. Seeded from the Chat
+                    // route (durable across process death), so a restored temp Chat(id) stays
+                    // temp-aware from the first frame: this short-circuits loadConversation and
+                    // loadConversationModel below, both of which would otherwise upsert the
+                    // server-hidden conversation to Room, and makes follow-up sends temporary.
+                    isTemporaryChat = initialIsTemporary,
+                    // A temp chat restored across process death has no in-memory handoff to seed its
+                    // messages (they're gone with the session), and its Room read is guarded off — so
+                    // land on an empty ACTIVE chat rather than a LOADING spinner that never resolves.
+                    screenState = if (initialIsTemporary) ChatScreenState.ACTIVE else ChatScreenState.LOADING,
                 )
             }
             // If we arrived here straight from the NewChat landing (the common case for a
@@ -546,7 +559,7 @@ class ChatViewModel(
 
     private fun loadConversation(conversationId: String) {
         // SECURITY: do not remove — temp-chat data-at-rest guard.
-        // Defense-in-depth for temporary chats (v0.8.6): never route a temp conversation
+        // Defense-in-depth for temporary chats: never route a temp conversation
         // through the Room read-through, which would upsert its message rows to disk (the
         // convo is hidden from history but the text would persist). The temp chat's
         // display is finalized in memory by finalizeChatDisplay; any stray
@@ -774,6 +787,15 @@ class ChatViewModel(
     }
 
     private fun loadConversationModel(conversationId: String) {
+        // SECURITY: do not remove — temp-chat data-at-rest guard. getConversation below
+        // round-trips through refreshConversation, which upserts the conversation row to Room.
+        // Temp chats must never persist, and their model/endpoint was already seeded from the
+        // NewChatSelectionHandoff in init — so there is nothing to load and nothing to write.
+        if (_uiState.value.isTemporaryChat) {
+            modelDelegate.conversationModelLoaded = true
+            modelDelegate.refilterModels(isNewConversation)
+            return
+        }
         viewModelScope.launch {
             val result = conversationRepository.getConversation(conversationId)
             val conversation = result.getOrNull()

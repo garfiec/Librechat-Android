@@ -27,7 +27,7 @@ internal fun ChatScreenEffects(
     viewModel: ChatViewModel,
     snackbarHostState: SnackbarHostState,
     clipboardManager: ClipboardManager,
-    onConversationStart: ((String) -> Unit)?,
+    onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)?,
     onNavigateToConversation: ((String) -> Unit)?,
     onNavigateBack: (() -> Unit)?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
@@ -39,7 +39,9 @@ internal fun ChatScreenEffects(
     LaunchedEffect(uiState.pendingNavigationConversationId) {
         val pendingId = uiState.pendingNavigationConversationId
         if (pendingId != null && onConversationStart != null) {
-            onConversationStart(pendingId)
+            // Carry temp-ness onto the Chat(id) route so the new (and any process-death-restored)
+            // VM stays temp-aware and never persists the server-hidden conversation to Room.
+            onConversationStart(pendingId, uiState.isTemporaryChat)
             viewModel.onPendingNavigationHandled()
         }
     }
@@ -71,7 +73,8 @@ internal fun ChatScreenEffects(
             if (onNavigateToConversation != null) {
                 onNavigateToConversation(forkId)
             } else if (onConversationStart != null) {
-                onConversationStart(forkId)
+                // Forks are always real (non-temp) conversations.
+                onConversationStart(forkId, false)
             }
         }
     }
@@ -83,7 +86,8 @@ internal fun ChatScreenEffects(
             if (onNavigateToConversation != null) {
                 onNavigateToConversation(dupId)
             } else if (onConversationStart != null) {
-                onConversationStart(dupId)
+                // Duplicates are always real (non-temp) conversations.
+                onConversationStart(dupId, false)
             }
         }
     }

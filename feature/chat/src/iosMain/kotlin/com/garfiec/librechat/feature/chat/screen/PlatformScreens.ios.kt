@@ -70,8 +70,9 @@ import org.koin.core.parameter.parametersOf
 actual fun ChatScreen(
     modifier: Modifier,
     conversationId: String?,
+    isTemporaryRoute: Boolean,
     initialAgentId: String?,
-    onConversationStart: ((String) -> Unit)?,
+    onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)?,
     onNavigateToConversation: ((String) -> Unit)?,
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
@@ -80,7 +81,8 @@ actual fun ChatScreen(
     onAttachFromServer: () -> Unit,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
-    val viewModel: ChatViewModel = koinViewModel { parametersOf(conversationId, initialAgentId) }
+    val viewModel: ChatViewModel =
+        koinViewModel { parametersOf(conversationId, initialAgentId, isTemporaryRoute) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
@@ -111,7 +113,9 @@ actual fun ChatScreen(
         LaunchedEffect(uiState.pendingNavigationConversationId) {
             val navId = uiState.pendingNavigationConversationId
             if (navId != null) {
-                onConversationStart(navId)
+                // Carry temp-ness onto the Chat(id) route so the new VM stays temp-aware and
+                // never persists the server-hidden conversation to Room.
+                onConversationStart(navId, uiState.isTemporaryChat)
                 viewModel.onPendingNavigationHandled()
             }
         }
@@ -507,7 +511,7 @@ actual fun ChatScreen(
 
 @Composable
 actual fun NewChatScreen(
-    onConversationStart: (String) -> Unit,
+    onConversationStart: (conversationId: String, isTemporary: Boolean) -> Unit,
     modifier: Modifier,
     initialAgentId: String?,
     onOpenDrawer: (() -> Unit)?,
