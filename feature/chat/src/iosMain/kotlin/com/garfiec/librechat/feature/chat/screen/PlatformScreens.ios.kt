@@ -52,6 +52,7 @@ import com.garfiec.librechat.feature.chat.components.SavePresetDialog
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.clipboardHasImage
+import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
 import com.garfiec.librechat.feature.chat.util.openCamera
 import com.garfiec.librechat.feature.chat.util.openDocumentPicker
 import com.garfiec.librechat.feature.chat.util.openPhotoPicker
@@ -127,6 +128,8 @@ actual fun ChatScreen(
     var showPresetPicker by remember { mutableStateOf(false) }
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showSecondaryModelSheet by remember { mutableStateOf(false) }
+    var activeComparisonTab by remember { mutableStateOf(0) }
 
     // Check clipboard for image content
     var hasClipboardImage by remember { mutableStateOf(false) }
@@ -191,6 +194,16 @@ actual fun ChatScreen(
         val topPaddedFill = Modifier
             .fillMaxSize()
             .padding(top = topContentPadding)
+        // Streaming-bubble sender label for the active (primary) model: the agent's
+        // display name under the agents endpoint, else the raw model id.
+        val senderName = run {
+            val model = uiState.selectedModel
+            if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
+                uiState.agents.find { it.id == model }?.name ?: model
+            } else {
+                model ?: stringResource(Res.string.sender_assistant)
+            }
+        }
         Box(
             modifier = Modifier.fillMaxSize(),
         ) {
@@ -214,9 +227,31 @@ actual fun ChatScreen(
                         CircularProgressIndicator(modifier = Modifier.size(36.dp))
                     }
                 }
+                uiState.comparisonState.isEnabled -> {
+                    ComparisonPanes(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        displayModel = displayModel,
+                        senderName = senderName,
+                        fontSizeMultiplier = fontSizeMultiplier,
+                        showImageDescriptions = prefs.showImageDescriptions,
+                        chatLayoutStyle = prefs.chatLayoutStyle,
+                        showAvatars = prefs.showAvatars,
+                        showBubbles = prefs.showBubbles,
+                        useKatex = useKatex,
+                        bottomContentPadding = bottomContentPadding,
+                        onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
+                        onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
+                        onComparisonTabChange = { activeComparisonTab = it },
+                        modifier = topPaddedFill,
+                    )
+                }
                 else -> {
+                    val singleDisplayMessages = remember(uiState.displayMessages) {
+                        collapseParallelToPrimary(uiState.displayMessages)
+                    }
                     MessageList(
-                        displayMessages = uiState.displayMessages,
+                        displayMessages = singleDisplayMessages,
                         isStreaming = uiState.isStreaming,
                         streamingContent = uiState.streamingContent,
                         activeToolCalls = uiState.activeToolCalls,
@@ -243,14 +278,7 @@ actual fun ChatScreen(
                         userAvatarUrl = uiState.userAvatarUrl,
                         userName = uiState.userName,
                         selectedEndpoint = uiState.selectedEndpoint,
-                        streamingSenderName = run {
-                            val model = uiState.selectedModel
-                            if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
-                                uiState.agents.find { it.id == model }?.name ?: model
-                            } else {
-                                model ?: stringResource(Res.string.sender_assistant)
-                            }
-                        },
+                        streamingSenderName = senderName,
                         showImageDescriptions = prefs.showImageDescriptions,
                         chatLayoutStyle = prefs.chatLayoutStyle,
                         showAvatars = prefs.showAvatars,
@@ -269,9 +297,13 @@ actual fun ChatScreen(
             }
 
             // ChatInput overlays at the bottom so gradient shows content behind
+            val isAnyStreaming = uiState.isStreaming ||
+                uiState.comparisonState.primaryIsStreaming ||
+                uiState.comparisonState.secondaryIsStreaming
+            val isSecondaryTab = uiState.comparisonState.isEnabled && activeComparisonTab == 1
             IosChatInput(
                 inputText = uiState.inputText,
-                isStreaming = uiState.isStreaming,
+                isStreaming = isAnyStreaming,
                 onInputChanged = viewModel::onInputChanged,
                 onSend = {
                     viewModel.sendMessage()
@@ -290,8 +322,20 @@ actual fun ChatScreen(
                 onStartRecording = viewModel::startRecording,
                 onStopRecording = viewModel::stopRecording,
                 onOpenModelParameters = viewModel::showModelParameters,
-                onOpenModelSelector = viewModel::openModelSheet,
-                selectedModelDisplay = displayModel,
+                onOpenModelSelector = {
+                    if (isSecondaryTab) {
+                        showSecondaryModelSheet = true
+                    } else {
+                        viewModel.openModelSheet()
+                    }
+                },
+                selectedModelDisplay = if (isSecondaryTab) {
+                    viewModel.getSecondaryModelDisplayName()
+                        ?: uiState.comparisonState.secondaryModel
+                        ?: displayModel
+                } else {
+                    displayModel
+                },
                 isCodeInterpreterAvailable = uiState.isCodeInterpreterAvailable,
                 attachedFiles = attachedFiles,
                 onRemoveFile = viewModel::removeFile,
@@ -401,6 +445,30 @@ actual fun ChatScreen(
                 viewModel.dismissSendBlockReason()
                 viewModel.dismissError()
             },
+            favoriteAgentIds = uiState.favoriteAgentIds,
+            favoriteModelKeys = uiState.favoriteModelKeys,
+            onToggleAgentFavorite = viewModel::toggleAgentFavorite,
+            onToggleModelFavorite = viewModel::toggleModelFavorite,
+            starredDisplay = uiState.starredModelsDisplay,
+            endpointKeyStates = uiState.endpointKeyStates,
+            onSetApiKey = { name -> onNavigateToProviderKeys(name) },
+        )
+    }
+
+    // Secondary model selector sheet for comparison mode
+    if (showSecondaryModelSheet) {
+        ModelSelectorSheet(
+            endpointConfigs = uiState.endpointConfigs,
+            availableModels = uiState.availableModels,
+            agents = uiState.agents,
+            selectedEndpoint = uiState.comparisonState.secondaryEndpoint,
+            selectedModel = uiState.comparisonState.secondaryModel,
+            onModelSelect = { endpoint, model ->
+                viewModel.setSecondaryModel(endpoint, model)
+                showSecondaryModelSheet = false
+            },
+            onDismiss = { showSecondaryModelSheet = false },
+            serverUrl = uiState.serverUrl,
             favoriteAgentIds = uiState.favoriteAgentIds,
             favoriteModelKeys = uiState.favoriteModelKeys,
             onToggleAgentFavorite = viewModel::toggleAgentFavorite,

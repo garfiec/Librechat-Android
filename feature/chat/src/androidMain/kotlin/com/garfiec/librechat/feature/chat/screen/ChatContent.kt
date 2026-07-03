@@ -3,45 +3,30 @@ package com.garfiec.librechat.feature.chat.screen
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.EndpointConstants
-import com.garfiec.librechat.core.model.ContentType
-import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.core.ui.components.LoadingIndicator
-import com.garfiec.librechat.feature.chat.components.ComparisonDualPane
-import com.garfiec.librechat.feature.chat.components.ComparisonTabBar
 import com.garfiec.librechat.feature.chat.components.LandingContent
 import com.garfiec.librechat.feature.chat.components.MessageList
-import com.garfiec.librechat.feature.chat.components.ModelSelectorButton
-import com.garfiec.librechat.feature.chat.components.SecondaryMessageList
-import com.garfiec.librechat.feature.chat.resources.Res
-import com.garfiec.librechat.feature.chat.resources.select_model
 import com.garfiec.librechat.feature.chat.util.MessageNode
-import com.garfiec.librechat.feature.chat.util.hasParallelParts
-import com.garfiec.librechat.feature.chat.util.partsForPane
+import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Renders the chat screen's main content area for each [ChatScreenState]: the
  * landing greeting, the loading spinner, or the active message list. In active
- * comparison mode it lays out the dual primary/secondary panes (side-by-side on
+ * comparison mode it delegates to the shared [ComparisonPanes] (side-by-side on
  * wide screens, a tab pager on phones); otherwise it shows the single message
  * list. Lives in a [ColumnScope] so the panes can claim the remaining height via
  * `weight`, leaving the bottom of the box for the composer overlay.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ColumnScope.ChatContent(
     uiState: ChatUiState,
@@ -92,145 +77,23 @@ internal fun ColumnScope.ChatContent(
                 }
             }
             if (comparisonState.isEnabled) {
-                val screenWidthDp = LocalConfiguration.current.screenWidthDp
-                val isWideScreen = screenWidthDp >= 600
-
-                val canBranch = comparisonState.parallelMessageId != null &&
-                    !comparisonState.primaryIsStreaming &&
-                    !comparisonState.secondaryIsStreaming
-
-                val primaryDisplayMessages = remember(
-                    uiState.displayMessages,
-                    comparisonState.parallelMessageId,
-                    comparisonState.primaryFinalContent,
-                    senderName,
-                ) {
-                    buildComparisonDisplayMessages(
-                        uiState.displayMessages,
-                        secondary = false,
-                        comparisonState.parallelMessageId,
-                        comparisonState.primaryFinalContent,
-                        senderName,
-                    )
-                }
-                val secondarySenderName = viewModel.getSecondaryModelDisplayName()
-                    ?: comparisonState.secondaryModel ?: "Assistant"
-                val secondaryDisplayMessages = remember(
-                    uiState.displayMessages,
-                    comparisonState.parallelMessageId,
-                    comparisonState.secondaryFinalContent,
-                    secondarySenderName,
-                ) {
-                    buildComparisonDisplayMessages(
-                        uiState.displayMessages,
-                        secondary = true,
-                        comparisonState.parallelMessageId,
-                        comparisonState.secondaryFinalContent,
-                        secondarySenderName,
-                    )
-                }
-
-                val primaryMessageList: @Composable () -> Unit = {
-                    ChatMessageListPane(
-                        uiState = uiState,
-                        viewModel = viewModel,
-                        clipboardManager = clipboardManager,
-                        fontSizeMultiplier = fontSizeMultiplier,
-                        showImageDescriptions = showImageDescriptions,
-                        chatLayoutStyle = chatLayoutStyle,
-                        showAvatars = showAvatars,
-                        showBubbles = showBubbles,
-                        useKatex = useKatex,
-                        // The comparison container is already padded clear of the floating bar.
-                        topContentPadding = 0.dp,
-                        displayMessages = primaryDisplayMessages,
-                        isStreaming = comparisonState.primaryIsStreaming || uiState.isStreaming,
-                        streamingContent = if (comparisonState.primaryIsStreaming) {
-                            comparisonState.primaryStreamingContent
-                        } else {
-                            uiState.streamingContent
-                        },
-                        activeToolCalls = if (comparisonState.primaryIsStreaming) {
-                            comparisonState.primaryActiveToolCalls
-                        } else {
-                            uiState.activeToolCalls
-                        },
-                        streamingSenderName = senderName,
-                        bottomContentPadding = bottomContentPadding,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-
-                val secondaryEndpoint = comparisonState.secondaryEndpoint ?: "agents"
-                val secondaryModelName = viewModel.getSecondaryModelDisplayName()
-                    ?: comparisonState.secondaryModel
-                    ?: stringResource(Res.string.select_model)
-
-                val secondaryMessageList: @Composable () -> Unit = {
-                    SecondaryMessageList(
-                        displayMessages = secondaryDisplayMessages,
-                        isStreaming = comparisonState.secondaryIsStreaming,
-                        streamingContent = comparisonState.secondaryStreamingContent,
-                        activeToolCalls = comparisonState.secondaryActiveToolCalls,
-                        streamingAttachments = uiState.streamingAttachments,
-                        error = null,
-                        baseUrl = uiState.serverUrl,
-                        fontSizeMultiplier = fontSizeMultiplier,
-                        selectedEndpoint = secondaryEndpoint,
-                        streamingSenderName = secondaryModelName,
-                        showImageDescriptions = showImageDescriptions,
-                        chatLayoutStyle = chatLayoutStyle,
-                        showAvatars = showAvatars,
-                        showBubbles = showBubbles,
-                        useKatex = useKatex,
-                        bottomContentPadding = bottomContentPadding,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-
-                val onContinuePrimary = if (canBranch && comparisonState.primaryAgentId != null) {
-                    { viewModel.branchFromComparison(comparisonState.primaryAgentId) }
-                } else {
-                    null
-                }
-                val onContinueSecondary = if (canBranch && comparisonState.secondaryAgentId != null) {
-                    { viewModel.branchFromComparison(comparisonState.secondaryAgentId) }
-                } else {
-                    null
-                }
-
-                if (isWideScreen) {
-                    ComparisonDualPane(
-                        primaryModelSelector = {
-                            ModelSelectorButton(
-                                modelName = displayModel,
-                                onClick = viewModel::openModelSheet,
-                            )
-                        },
-                        secondaryModelSelector = {
-                            ModelSelectorButton(
-                                modelName = secondaryModelName,
-                                onClick = onShowSecondaryModelSheet,
-                            )
-                        },
-                        primaryContent = primaryMessageList,
-                        secondaryContent = secondaryMessageList,
-                        onContinueWithPrimary = onContinuePrimary,
-                        onContinueWithSecondary = onContinueSecondary,
-                        modifier = topInsetModifier,
-                    )
-                } else {
-                    ComparisonTabBar(
-                        primaryModelName = displayModel ?: "Primary",
-                        secondaryModelName = secondaryModelName,
-                        primaryContent = primaryMessageList,
-                        secondaryContent = secondaryMessageList,
-                        onContinueWithPrimary = onContinuePrimary,
-                        onContinueWithSecondary = onContinueSecondary,
-                        onTabChange = onComparisonTabChange,
-                        modifier = topInsetModifier,
-                    )
-                }
+                ComparisonPanes(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    displayModel = displayModel,
+                    senderName = senderName,
+                    fontSizeMultiplier = fontSizeMultiplier,
+                    showImageDescriptions = showImageDescriptions,
+                    chatLayoutStyle = chatLayoutStyle,
+                    showAvatars = showAvatars,
+                    showBubbles = showBubbles,
+                    useKatex = useKatex,
+                    bottomContentPadding = bottomContentPadding,
+                    onCopyMessage = { messageId -> copyMessageToClipboard(viewModel, clipboardManager, messageId) },
+                    onShowSecondaryModelSheet = onShowSecondaryModelSheet,
+                    onComparisonTabChange = onComparisonTabChange,
+                    modifier = topInsetModifier,
+                )
             } else {
                 val singleDisplayMessages = remember(uiState.displayMessages) {
                     collapseParallelToPrimary(uiState.displayMessages)
@@ -256,6 +119,17 @@ internal fun ColumnScope.ChatContent(
                 )
             }
         }
+    }
+}
+
+private fun copyMessageToClipboard(
+    viewModel: ChatViewModel,
+    clipboardManager: ClipboardManager,
+    messageId: String,
+) {
+    val text = viewModel.getMessageText(messageId)
+    if (text.isNotBlank()) {
+        clipboardManager.setPrimaryClip(ClipData.newPlainText("Message", text))
     }
 }
 
@@ -294,14 +168,7 @@ private fun ChatMessageListPane(
         onSiblingNavigation = viewModel::switchBranch,
         onEditMessage = viewModel::startEditing,
         onRegenerateMessage = viewModel::regenerateMessage,
-        onCopyMessage = { messageId ->
-            val text = viewModel.getMessageText(messageId)
-            if (text.isNotBlank()) {
-                clipboardManager.setPrimaryClip(
-                    ClipData.newPlainText("Message", text),
-                )
-            }
-        },
+        onCopyMessage = { messageId -> copyMessageToClipboard(viewModel, clipboardManager, messageId) },
         onFeedback = viewModel::submitFeedback,
         onContinue = { viewModel.continueGeneration() },
         onReadAloud = viewModel::readAloud,
@@ -336,64 +203,3 @@ private fun ChatMessageListPane(
         modifier = modifier,
     )
 }
-
-/**
- * Derives one comparison pane's message list. v0.8.7 persists a comparison as a
- * single response message whose content parts each carry an `agentId` (the added
- * agent suffixed `____N`), so for any such message we keep only [secondary]'s parts
- * (see [partsForPane]) — this restores the dual-pane view for *every* comparison turn
- * in history, including on reopen. The captured streaming buffer ([finalContent]) is
- * used only as a fallback: for the brief Final→reload gap before the attributed
- * server message arrives, or if a pane ended up with no attributed parts.
- * Also updates the sender name so the bubble shows the correct model.
- */
-private fun buildComparisonDisplayMessages(
-    displayMessages: List<MessageNode>,
-    secondary: Boolean,
-    parallelMessageId: String?,
-    finalContent: String?,
-    senderName: String?,
-): List<MessageNode> {
-    return displayMessages.map { node ->
-        val message = node.message
-        when {
-            hasParallelParts(message) -> {
-                val paneParts = partsForPane(message, secondary)
-                val content = if (paneParts.isEmpty() && !finalContent.isNullOrBlank()) {
-                    listOf(MessageContentPart(type = ContentType.TEXT, text = finalContent))
-                } else {
-                    paneParts
-                }
-                node.copy(
-                    message = message.copy(content = content, sender = senderName ?: message.sender),
-                )
-            }
-            // Final→reload gap: the server message isn't parallel-attributed yet, so fall
-            // back to this pane's captured streaming buffer.
-            message.messageId == parallelMessageId && !finalContent.isNullOrBlank() -> {
-                node.copy(
-                    message = message.copy(
-                        content = listOf(MessageContentPart(type = ContentType.TEXT, text = finalContent)),
-                        sender = senderName ?: message.sender,
-                    ),
-                )
-            }
-            else -> node
-        }
-    }
-}
-
-/**
- * Collapses any parallel (Compare Models) message to just its primary agent's parts,
- * so an old comparison turn never renders both agents' content concatenated in the
- * single (non-comparison) list — e.g. after branching, or when viewing a comparison
- * sibling that isn't the active-path tail.
- */
-private fun collapseParallelToPrimary(displayMessages: List<MessageNode>): List<MessageNode> =
-    displayMessages.map { node ->
-        if (hasParallelParts(node.message)) {
-            node.copy(message = node.message.copy(content = partsForPane(node.message, secondary = false)))
-        } else {
-            node
-        }
-    }
