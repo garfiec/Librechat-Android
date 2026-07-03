@@ -15,4 +15,12 @@ data class InlineArtifactPrefs(
     val html: Boolean = false,
     val react: Boolean = false,
     val markdown: Boolean = false,
-)
+) {
+    val enabledCount: Int
+        get() = (if (mermaid) 1 else 0) + (if (svg) 1 else 0) + (if (html) 1 else 0) +
+            (if (react) 1 else 0) + (if (markdown) 1 else 0)
+
+    companion object {
+        const val FIELD_COUNT = 5
+    }
+}

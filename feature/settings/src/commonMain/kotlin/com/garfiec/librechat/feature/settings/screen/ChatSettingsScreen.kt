@@ -30,6 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,6 +40,13 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
+import com.garfiec.librechat.core.data.datastore.ChatFontSize
+import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
+import com.garfiec.librechat.core.data.datastore.LatexRenderer
+import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsViewModel
@@ -86,6 +96,12 @@ fun ChatSettingsContent(
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var openDialog by remember { mutableStateOf<ChatSettingDialog?>(null) }
+    val dismissDialog = { openDialog = null }
+    fun <T> saveAndClose(setter: (T) -> Unit): (T) -> Unit = {
+        setter(it)
+        openDialog = null
+    }
 
     Box(modifier = modifier) {
         LazyColumn(
@@ -110,19 +126,13 @@ fun ChatSettingsContent(
                     starredModelsDisplay = uiState.starredModelsDisplay,
                     chatHeaderContent = uiState.chatHeaderContent,
                     chatHeaderAlignment = uiState.chatHeaderAlignment,
-                    onFontSizeChange = viewModel::setChatFontSize,
                     onAutoScrollChange = viewModel::setAutoScrollEnabled,
                     onShowThinkingChange = viewModel::setShowThinkingBlocks,
-                    onContextBarPlacementChange = viewModel::setContextBarPlacement,
                     onShowImageDescriptionsChange = viewModel::setShowImageDescriptions,
                     onDismissKeyboardOnSendChange = viewModel::setDismissKeyboardOnSend,
-                    onChatLayoutStyleChange = viewModel::setChatLayoutStyle,
                     onShowAvatarsChange = viewModel::setShowAvatars,
                     onShowBubblesChange = viewModel::setShowBubbles,
-                    onLatexRendererChange = viewModel::setLatexRenderer,
-                    onStarredModelsDisplayChange = viewModel::setStarredModelsDisplay,
-                    onChatHeaderContentChange = viewModel::setChatHeaderContent,
-                    onChatHeaderAlignmentChange = viewModel::setChatHeaderAlignment,
+                    onOpenDialog = { openDialog = it },
                 )
             }
 
@@ -131,15 +141,16 @@ fun ChatSettingsContent(
                 SectionHeader(stringResource(Res.string.section_artifacts))
             }
             item(key = "artifacts_settings") {
+                val prefs = uiState.inlineArtifactPrefs
                 ArtifactSettingsSection(
-                    prefs = uiState.inlineArtifactPrefs,
                     displayPrefs = uiState.artifactDisplayPrefs,
-                    onDisplayModeChange = viewModel::setArtifactDisplayMode,
-                    onMermaidChange = viewModel::setInlineArtifactMermaid,
-                    onSvgChange = viewModel::setInlineArtifactSvg,
-                    onHtmlChange = viewModel::setInlineArtifactHtml,
-                    onReactChange = viewModel::setInlineArtifactReact,
-                    onMarkdownChange = viewModel::setInlineArtifactMarkdown,
+                    inlineArtifactSummary = stringResource(
+                        Res.string.artifact_inline_enabled_count,
+                        prefs.enabledCount,
+                        InlineArtifactPrefs.FIELD_COUNT,
+                    ),
+                    onOpenArtifactViewerDialog = { openDialog = ChatSettingDialog.ARTIFACT_VIEWER },
+                    onOpenRenderInlineDialog = { openDialog = ChatSettingDialog.RENDER_INLINE },
                 )
             }
 
@@ -203,6 +214,119 @@ fun ChatSettingsContent(
 
             // Bottom spacing
             item { Spacer(modifier = Modifier.height(32.dp)) }
+        }
+
+        if (openDialog == ChatSettingDialog.CHAT_LAYOUT) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.chat_layout),
+                options = listOf(ChatLayoutConstants.THREAD, ChatLayoutConstants.TWO_SIDED),
+                selected = uiState.chatLayoutStyle,
+                onSave = saveAndClose(viewModel::setChatLayoutStyle),
+                onDismiss = dismissDialog,
+                optionLabel = { chatLayoutLabel(it) },
+                optionDescription = {
+                    if (it == ChatLayoutConstants.THREAD) {
+                        stringResource(Res.string.chat_layout_thread_desc)
+                    } else {
+                        stringResource(Res.string.chat_layout_two_sided_desc)
+                    }
+                },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.FONT_SIZE) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.font_size),
+                options = ChatFontSize.entries,
+                selected = uiState.chatFontSize,
+                onSave = saveAndClose(viewModel::setChatFontSize),
+                onDismiss = dismissDialog,
+                optionLabel = { fontSizeLabel(it) },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.LATEX_RENDERER) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.latex_renderer),
+                options = LatexRenderer.entries,
+                selected = uiState.latexRenderer,
+                onSave = saveAndClose(viewModel::setLatexRenderer),
+                onDismiss = dismissDialog,
+                optionLabel = { latexRendererLabel(it) },
+                optionDescription = {
+                    when (it) {
+                        LatexRenderer.KATEX -> stringResource(Res.string.latex_katex_desc)
+                        LatexRenderer.NATIVE -> stringResource(Res.string.latex_native_desc)
+                    }
+                },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.CONTEXT_BAR) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.context_bar_title),
+                description = stringResource(Res.string.context_bar_desc),
+                options = ContextBarPlacement.entries,
+                selected = uiState.contextBarPlacement,
+                onSave = saveAndClose(viewModel::setContextBarPlacement),
+                onDismiss = dismissDialog,
+                optionLabel = { contextBarPlacementLabel(it) },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.STARRED_MODELS) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.starred_models_title),
+                description = stringResource(Res.string.starred_models_desc),
+                options = StarredModelsDisplay.entries,
+                selected = uiState.starredModelsDisplay,
+                onSave = saveAndClose(viewModel::setStarredModelsDisplay),
+                onDismiss = dismissDialog,
+                optionLabel = { starredModelsDisplayLabel(it) },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.CHAT_HEADER) {
+            ChatHeaderSettingsDialog(
+                content = uiState.chatHeaderContent,
+                alignment = uiState.chatHeaderAlignment,
+                onSave = { content, alignment ->
+                    viewModel.setChatHeaderContent(content)
+                    viewModel.setChatHeaderAlignment(alignment)
+                    dismissDialog()
+                },
+                onDismiss = dismissDialog,
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.ARTIFACT_VIEWER) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.artifact_viewer_title),
+                description = stringResource(Res.string.artifact_viewer_desc),
+                options = ArtifactDisplayMode.entries,
+                selected = uiState.artifactDisplayPrefs.mode,
+                onSave = saveAndClose(viewModel::setArtifactDisplayMode),
+                onDismiss = dismissDialog,
+                optionLabel = { artifactDisplayModeLabel(it) },
+                optionDescription = {
+                    when (it) {
+                        ArtifactDisplayMode.BOTTOM_SHEET -> stringResource(Res.string.artifact_mode_bottom_sheet_desc)
+                        ArtifactDisplayMode.FULLSCREEN -> stringResource(Res.string.artifact_mode_fullscreen_desc)
+                    }
+                },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.RENDER_INLINE) {
+            RenderInlineDialog(
+                prefs = uiState.inlineArtifactPrefs,
+                onMermaidChange = viewModel::setInlineArtifactMermaid,
+                onSvgChange = viewModel::setInlineArtifactSvg,
+                onHtmlChange = viewModel::setInlineArtifactHtml,
+                onReactChange = viewModel::setInlineArtifactReact,
+                onMarkdownChange = viewModel::setInlineArtifactMarkdown,
+                onDismiss = dismissDialog,
+            )
         }
 
         // Fork settings dialog

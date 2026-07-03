@@ -153,6 +153,9 @@
     <string name="cd_token_balance">Token balance: %1$s credits</string>
 
     <!-- Chat settings -->
+    <string name="chat_group_display">Display</string>
+    <string name="chat_group_behavior">Behavior</string>
+    <string name="chat_group_header_context">Header &amp; context</string>
     <string name="chat_layout">Chat layout</string>
     <string name="chat_layout_thread">Thread</string>
     <string name="chat_layout_two_sided">Two-sided chat</string>
@@ -167,13 +170,17 @@
     <string name="starred_models_off">Off</string>
     <string name="starred_models_grouped">Collapsible group at top</string>
     <string name="starred_models_top">At top, no grouping</string>
+    <string name="chat_header_title">Chat header</string>
+    <string name="chat_header_summary_format">%1$s · %2$s</string>
     <string name="chat_header_content_title">Chat header content</string>
     <string name="chat_header_content_desc">Choose what the chat top bar shows</string>
+    <string name="chat_header_content_label">Content</string>
     <string name="chat_header_content_title_option">Conversation title</string>
     <string name="chat_header_content_model">Selected model</string>
     <string name="chat_header_content_none">Nothing</string>
     <string name="chat_header_alignment_title">Chat header alignment</string>
     <string name="chat_header_alignment_desc">Choose how the chat top bar bubble is positioned</string>
+    <string name="chat_header_alignment_label">Alignment</string>
     <string name="chat_header_alignment_left">Left</string>
     <string name="chat_header_alignment_center">Center</string>
     <string name="chat_header_alignment_fill">Fill width</string>
@@ -210,6 +217,7 @@
     <string name="artifact_mode_fullscreen">Full screen</string>
     <string name="artifact_mode_fullscreen_desc">Opens as a full-screen page with more room.</string>
     <string name="artifact_inline_title">Render inline</string>
+    <string name="artifact_inline_enabled_count">%1$d of %2$d enabled</string>
     <string name="artifacts_section_desc">Render artifacts directly in the chat instead of behind a tap-to-open card. Tap an inline artifact to open the fullscreen view.</string>
     <string name="inline_artifact_mermaid">Mermaid diagrams</string>
     <string name="inline_artifact_mermaid_desc">Render Mermaid flowcharts and diagrams inline</string>
