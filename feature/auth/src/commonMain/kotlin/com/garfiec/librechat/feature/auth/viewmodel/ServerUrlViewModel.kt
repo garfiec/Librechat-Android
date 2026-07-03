@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,9 +22,23 @@ data class ServerUrlUiState(
     val showHttpWarning: Boolean = false,
 )
 
+/**
+ * Validates a server URL and selects it for the sign-in flow. Two modes:
+ *
+ * - **Normal** (`addAccount = false`): the pre-login screen. Sets the process-global server URL and
+ *   validates + caches the config through the live pipeline.
+ * - **Add-account** (`addAccount = true`): reached from the account switcher while another account
+ *   is live. Must never touch the live account's state: the URL goes into a pending add session
+ *   ([AccountSwitcher.beginAdd]) instead of the global store, and validation runs under the pending
+ *   identity without publishing to the live server's config state/cache
+ *   ([ConfigRepository.probeServerUrl]). The validated config rides on the pending session for the
+ *   add-mode login screen.
+ */
 class ServerUrlViewModel(
     private val serverDataStore: ServerDataStore,
     private val configRepository: ConfigRepository,
+    private val accountSwitcher: AccountSwitcher,
+    private val addAccount: Boolean = false,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUrlUiState())
@@ -33,6 +48,8 @@ class ServerUrlViewModel(
         viewModelScope.launch {
             // awaitBaseUrl (not getBaseUrl) so a cold-start relaunch doesn't read "" before
             // ServerDataStore's async warm-up resolves, which would skip pre-filling the saved URL.
+            // In add mode this pre-fills the ACTIVE server so the common same-server-different-user
+            // add is a single tap; typing a different URL adds a new server.
             val existingUrl = serverDataStore.awaitBaseUrl()
             if (existingUrl.isNotBlank()) {
                 _uiState.value = _uiState.value.copy(
@@ -86,10 +103,9 @@ class ServerUrlViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            // Set the URL first so API calls use it
-            serverDataStore.setServerUrl(url)
+            val result = if (addAccount) validatePendingServer(url) else validateLiveServer(url)
 
-            when (val result = configRepository.validateServerUrl(url)) {
+            when (result) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -97,8 +113,6 @@ class ServerUrlViewModel(
                     )
                 }
                 is Result.Error -> {
-                    // Reset URL on failure
-                    serverDataStore.setServerUrl("")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = result.message ?: "Could not connect to server",
@@ -107,5 +121,36 @@ class ServerUrlViewModel(
                 is Result.Loading -> { /* no-op */ }
             }
         }
+    }
+
+    private suspend fun validateLiveServer(url: String): Result<*> {
+        // Set the URL first so API calls use it
+        serverDataStore.setServerUrl(url)
+        val result = configRepository.validateServerUrl(url)
+        if (result is Result.Error) {
+            serverDataStore.setServerUrl("")
+        }
+        return result
+    }
+
+    private suspend fun validatePendingServer(url: String): Result<*> {
+        // beginAdd requires a resolved active account; the switcher only offers "add" while one is
+        // live, but a logout/expiry racing the tap must surface as an error, not a crash.
+        val begun = runCatching { accountSwitcher.beginAdd(url) }
+        if (begun.isFailure) {
+            return Result.Error(
+                begun.exceptionOrNull(),
+                "Could not start adding an account. Try again.",
+            )
+        }
+        val result = accountSwitcher.withPendingIdentity { configRepository.probeServerUrl() }
+        when (result) {
+            is Result.Success -> accountSwitcher.attachPendingConfig(result.data)
+            // Drop the pending session so an abandoned attempt leaves no staged state; a retry
+            // begins a fresh one.
+            is Result.Error -> accountSwitcher.cancelAdd()
+            is Result.Loading -> Unit
+        }
+        return result
     }
 }

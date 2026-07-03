@@ -1,6 +1,9 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ChatRepository
@@ -133,7 +136,7 @@ class ChatViewModelContextProjectionInitTest {
         // the projection. Left to relaxed mockk this is load-bearing but implicit — an Error keeps the
         // precondition explicit so a change in relaxed handling of the sealed Result can't silently
         // flip the selection off AGENTS and fail this test on correct code.
-        coEvery { conversationRepository.getConversation(any()) } returns Result.Error(message = "test")
+        coEvery { conversationRepository.getConversation(any(), any()) } returns Result.Error(message = "test")
     }
 
     @After
@@ -206,5 +209,6 @@ class ChatViewModelContextProjectionInitTest {
             defaultDispatcher = testDispatcher,
             selectionHandoff = selectionHandoff,
             serverFileSelectionHandoff = serverFileSelectionHandoff,
+            activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("srv:user-1"))),
         )
 }

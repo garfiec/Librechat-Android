@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.getOrNull
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -47,7 +48,7 @@ class SendCompletionDelegate(
      * arms deferred navigation, and eagerly caches the conversation so it lands in the
      * list even if the stream later fails.
      */
-    fun onConversationCreated(conversationId: String, isNewConversation: Boolean) {
+    fun onConversationCreated(conversationId: String, isNewConversation: Boolean, originAccount: AccountId?) {
         // SECURITY: temp-chat data-at-rest guard. Temporary chats still navigate to a
         // Chat(id) so Back returns to the landing screen (they're a real, streaming conversation
         // for the session) — but they must never be written to Room. Two Room-write paths in this
@@ -90,7 +91,7 @@ class SendCompletionDelegate(
         // conversation list even if the stream fails later — but never for temp chats (see guard).
         if (!isTemporary) {
             stateHandle.scope.launch {
-                conversationRepository.getConversation(conversationId)
+                conversationRepository.getConversation(conversationId, originAccount)
             }
         }
     }
@@ -112,6 +113,7 @@ class SendCompletionDelegate(
         isNewConversation: Boolean,
         isHandedOffNewChat: Boolean,
         isComparison: Boolean,
+        originAccount: AccountId?,
     ) {
         val finalConversation = event.conversation
         // Belt-and-braces: if no handoff seeded the selection and the initial GET 404'd
@@ -132,7 +134,7 @@ class SendCompletionDelegate(
         val isTemporary = stateHandle.state.isTemporaryChat || finalConversation?.isTemporary == true
         if (finalConversation?.conversationId != null && !isTemporary) {
             stateHandle.scope.launch {
-                conversationRepository.saveConversation(finalConversation)
+                conversationRepository.saveConversation(finalConversation, originAccount)
             }
         }
         if (conversationId != null) {
@@ -156,7 +158,7 @@ class SendCompletionDelegate(
                     // canonical fields (refreshed anyway on the next open) while re-rendering
                     // the list with value-different instances — the completion flash.
                     val finalizedTurn = treeDelegate.finalizeChatDisplay(event)
-                    cacheTurn(finalizedTurn)
+                    cacheTurn(finalizedTurn, originAccount)
                 }
                 val shouldGenerate = shouldRequestTitleGeneration(
                     isNewConversation = isNewConversation,
@@ -166,9 +168,9 @@ class SendCompletionDelegate(
                 )
                 if (shouldGenerate) {
                     titleGenerationRequested = true
-                    generateAndSetTitle(conversationId)
+                    generateAndSetTitle(conversationId, originAccount)
                 } else {
-                    refreshConversationTitle(conversationId)
+                    refreshConversationTitle(conversationId, originAccount)
                 }
             }
         }
@@ -183,24 +185,25 @@ class SendCompletionDelegate(
      * forbids mid-stream writes), so this is what keeps it from being lost on reopen. The
      * resulting Room emission conflates away via instance-stabilization in loadConversation.
      */
-    private fun cacheTurn(turn: List<Message>) {
+    private fun cacheTurn(turn: List<Message>, originAccount: AccountId?) {
         if (turn.isEmpty()) return
         stateHandle.scope.launch {
-            runCatching { messageRepository.cacheMessages(turn) }
+            runCatching { messageRepository.cacheMessages(turn, originAccount) }
                 .onFailure { Logger.e(it) { "Failed to cache final messages for the completed turn" } }
         }
     }
 
-    private fun refreshConversationTitle(conversationId: String) {
+    private fun refreshConversationTitle(conversationId: String, originAccount: AccountId?) {
         stateHandle.scope.launch {
-            val conversation = conversationRepository.getConversation(conversationId).getOrNull() ?: return@launch
+            val conversation = conversationRepository.getConversation(conversationId, originAccount).getOrNull()
+                ?: return@launch
             stateHandle.update { copy(conversationTitle = conversation.title) }
         }
     }
 
-    private fun generateAndSetTitle(conversationId: String) {
+    private fun generateAndSetTitle(conversationId: String, originAccount: AccountId?) {
         stateHandle.scope.launch {
-            when (val result = conversationRepository.generateTitle(conversationId)) {
+            when (val result = conversationRepository.generateTitle(conversationId, originAccount)) {
                 is Result.Success -> {
                     stateHandle.update { copy(conversationTitle = result.data) }
                 }
@@ -212,7 +215,7 @@ class SendCompletionDelegate(
                     // still holds the "New Chat" placeholder, so cache-first getConversation
                     // could never observe the title, and refreshConversation's upsert also
                     // propagates it to the Room-observing conversation list.
-                    conversationRepository.refreshConversation(conversationId).getOrNull()?.let { conversation ->
+                    conversationRepository.refreshConversation(conversationId, originAccount).getOrNull()?.let { conversation ->
                         stateHandle.update { copy(conversationTitle = conversation.title) }
                     }
                 }

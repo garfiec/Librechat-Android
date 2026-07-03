@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.auth.viewmodel
 
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.model.LoginOutcome
@@ -33,6 +34,7 @@ class LoginViewModelTest {
     private val configRepository = mockk<ConfigRepository>(relaxed = true)
     private val oAuthLauncher = mockk<OAuthLauncher>(relaxed = true)
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
+    private val accountSwitcher = mockk<AccountSwitcher>(relaxed = true)
 
     private val configFlow = MutableStateFlow<StartupConfig?>(null)
 
@@ -42,6 +44,8 @@ class LoginViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         every { configRepository.startupConfig } returns configFlow
+        // No add-account flow pending: the VM reads the global config + live server URL.
+        every { accountSwitcher.pendingAdd } returns null
     }
 
     @After
@@ -54,6 +58,7 @@ class LoginViewModelTest {
         configRepository = configRepository,
         oAuthLauncher = oAuthLauncher,
         serverDataStore = serverDataStore,
+        accountSwitcher = accountSwitcher,
     )
 
     @Test

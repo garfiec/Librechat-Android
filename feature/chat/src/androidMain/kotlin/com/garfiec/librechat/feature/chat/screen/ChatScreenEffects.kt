@@ -63,6 +63,11 @@ internal fun ChatScreenEffects(
         onNavigateToProviderKeys = onNavigateToProviderKeys,
     )
 
+    QueuedMessageDroppedSnackbarEffect(
+        viewModel = viewModel,
+        snackbarHostState = snackbarHostState,
+    )
+
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPause() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 

@@ -141,6 +141,13 @@ data class QueuedMessage(
     val ephemeralAgent: EphemeralAgent? = null,
     val dispatch: EndpointDispatch,
     val isTemporary: Boolean = false,
+    /**
+     * The active account when this item was queued. A drain guard drops any item whose account no
+     * longer matches the active one (the user switched accounts since queueing), so a follow-up
+     * composed under account A can never be POSTed to account B's server under B's bearer. Null for
+     * items composed before multi-account (or in tests) — treated as "matches any", never dropped.
+     */
+    val accountId: String? = null,
 )
 
 /**

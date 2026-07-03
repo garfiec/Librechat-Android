@@ -6,6 +6,8 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.getOrNull
@@ -118,6 +120,7 @@ class ChatViewModel(
     private val roleRepository: RoleRepository,
     private val permissionGate: PermissionGate,
     private val connectivityObserver: ConnectivityObserver,
+    private val activeAccountProvider: ActiveAccountProvider,
     serverDataStore: ServerDataStore,
     private val settingsDataStore: SettingsDataStore,
     platformDelegateFactory: PlatformDelegateFactory,
@@ -190,6 +193,11 @@ class ChatViewModel(
         reloadConversation = ::loadConversation,
     )
 
+    // Channel-backed one-shot signal: N queued follow-ups were dropped on drain because they were
+    // composed under an account the user has since switched away from. Surfaced as a snackbar.
+    private val _queuedMessagesDropped = Channel<Int>(Channel.BUFFERED)
+    val queuedMessagesDropped: Flow<Int> = _queuedMessagesDropped.receiveAsFlow()
+
     private val queueDelegate = MessageQueueDelegate(
         stateHandle = stateHandle,
         // Drained items send with their snapshotted config but LIVE lineage. We first wait for
@@ -203,6 +211,8 @@ class ChatViewModel(
                 runWhenSendReady { doSendWithSpec(spec) }
             }
         },
+        activeAccountProvider = activeAccountProvider,
+        onQueuedDropped = { count -> _queuedMessagesDropped.trySend(count) },
     )
 
     // --- Delegate-owned flows exposed to the UI ---
@@ -300,6 +310,7 @@ class ChatViewModel(
     private val streamingManager = StreamingManagerDelegate(
         stateHandle = stateHandle,
         chatRepository = chatRepository,
+        activeAccountProvider = activeAccountProvider,
         connectivityObserver = connectivityObserver,
         comparisonDelegate = comparisonDelegate,
         subagentTraceDelegate = subagentTraceDelegate,
@@ -797,7 +808,7 @@ class ChatViewModel(
             return
         }
         viewModelScope.launch {
-            val result = conversationRepository.getConversation(conversationId)
+            val result = conversationRepository.getConversation(conversationId, originAccount = null)
             val conversation = result.getOrNull()
             if (conversation != null) {
                 _uiState.update { it.copy(conversationTitle = conversation.title) }
@@ -1056,6 +1067,9 @@ class ChatViewModel(
             ephemeralAgent = requestBuilder.buildEphemeralAgent(),
             dispatch = requestBuilder.currentDispatch(),
             isTemporary = state.isTemporaryChat,
+            // Capture the composing account so a drain after an account switch drops this item rather
+            // than POSTing it to the newly-active account's server.
+            accountId = activeAccountProvider.currentAccountId()?.value,
         )
     }
 

@@ -1,5 +1,8 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -26,12 +29,16 @@ class MessageQueueDelegateTest {
 
     private val sent = mutableListOf<QueuedMessage>()
     private val awaitSettleFlags = mutableListOf<Boolean>()
+    private val droppedCounts = mutableListOf<Int>()
+    private val activeAccount = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("srv:user-1")))
     private val delegate = MessageQueueDelegate(
         stateHandle = stateHandle,
+        activeAccountProvider = activeAccount,
         sendWithSpec = { spec, awaitSettle ->
             sent.add(spec)
             awaitSettleFlags.add(awaitSettle)
         },
+        onQueuedDropped = { droppedCounts.add(it) },
     )
 
     private fun spec(id: String, text: String = id, model: String? = "gpt-4") = QueuedMessage(
@@ -263,5 +270,66 @@ class MessageQueueDelegateTest {
 
         assertThat(sent.single().model).isEqualTo("gpt-4")
         assertThat(sent.single().endpoint).isEqualTo("openAI")
+    }
+
+    @Test
+    fun `drainNext drops items composed under a now-inactive account and signals the count`() {
+        // Two items queued under account A, one under the live account. The user switched to the live
+        // account (srv:user-1) since queueing the A items.
+        delegate.enqueue(spec("a1").copy(accountId = "srv:user-A"))
+        delegate.enqueue(spec("a2").copy(accountId = "srv:user-A"))
+        delegate.enqueue(spec("live").copy(accountId = "srv:user-1"))
+
+        delegate.drainNext(awaitSettle = false)
+
+        // The two foreign items are purged (never sent); the live item drains normally.
+        assertThat(sent.map { it.localId }).containsExactly("live")
+        assertThat(queue).isEmpty()
+        assertThat(droppedCounts).containsExactly(2)
+    }
+
+    @Test
+    fun `drainNext sends items with a null accountId (pre-multi-account) without dropping`() {
+        delegate.enqueue(spec("a")) // spec() leaves accountId null
+
+        delegate.drainNext(awaitSettle = false)
+
+        assertThat(sent.map { it.localId }).containsExactly("a")
+        assertThat(droppedCounts).isEmpty()
+    }
+
+    @Test
+    fun `drainNext leaves foreign items untouched (no purge, no signal) while paused`() {
+        // A foreign item on a paused queue: the pause is the user parking the queue, so drainNext must
+        // not mutate it or fire the "discarded" snackbar. The purge happens later, on resume.
+        delegate.enqueue(spec("a").copy(accountId = "srv:user-A"))
+        delegate.pause()
+
+        delegate.drainNext()
+
+        assertThat(sent).isEmpty()
+        assertThat(queue.map { it.localId }).containsExactly("a")
+        assertThat(droppedCounts).isEmpty()
+    }
+
+    @Test
+    fun `drainNext keeps stamped items when the active account is unresolved`() {
+        // A null current account (Warming / logged-out) is "identity not yet known", not "account B".
+        // Treating every stamped item as foreign then would wipe the whole queue for no real mismatch.
+        val warming = InMemoryActiveAccountProvider(AccountState.Warming)
+        val warmingSent = mutableListOf<QueuedMessage>()
+        val warmingDropped = mutableListOf<Int>()
+        val warmingDelegate = MessageQueueDelegate(
+            stateHandle = stateHandle,
+            activeAccountProvider = warming,
+            sendWithSpec = { spec, _ -> warmingSent.add(spec) },
+            onQueuedDropped = { warmingDropped.add(it) },
+        )
+        warmingDelegate.enqueue(spec("a").copy(accountId = "srv:user-A"))
+
+        warmingDelegate.drainNext(awaitSettle = false)
+
+        assertThat(warmingSent.map { it.localId }).containsExactly("a")
+        assertThat(warmingDropped).isEmpty()
     }
 }

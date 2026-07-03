@@ -17,7 +17,17 @@ expect val authPlatformModule: Module
 
 val authModule = module {
     includes(authPlatformModule)
-    viewModelOf(::ServerUrlViewModel)
+    // Lambda form (not viewModelOf) for the addAccount mode flag the add-account nav entry passes
+    // via parametersOf — see the DeprecatedKoinApi note below.
+    @Suppress("DeprecatedKoinApi")
+    viewModel { params ->
+        ServerUrlViewModel(
+            serverDataStore = get(),
+            configRepository = get(),
+            accountSwitcher = get(),
+            addAccount = params.getOrNull() ?: false,
+        )
+    }
     viewModelOf(::LoginViewModel)
     viewModelOf(::RegisterViewModel)
     // Koin's constructor-DSL (`viewModelOf`) wires every argument via `get()` and cannot read

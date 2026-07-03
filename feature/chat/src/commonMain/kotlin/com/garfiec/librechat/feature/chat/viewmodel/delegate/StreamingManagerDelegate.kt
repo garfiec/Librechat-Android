@@ -1,6 +1,9 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
@@ -33,6 +36,7 @@ import kotlinx.coroutines.launch
 class StreamingManagerDelegate(
     private val stateHandle: ChatStateHandle,
     private val chatRepository: ChatRepository,
+    private val activeAccountProvider: ActiveAccountProvider,
     private val connectivityObserver: ConnectivityObserver,
     private val comparisonDelegate: ComparisonModeDelegate,
     private val subagentTraceDelegate: SubagentTraceDelegate,
@@ -55,6 +59,15 @@ class StreamingManagerDelegate(
     private var streamingBufferDirty = false
     private var wasStreaming = false
 
+    /**
+     * The account active when the current stream started (origin-capture provenance): its finalize —
+     * message cache, conversation save, gen_title — lands minutes later, possibly after the user
+     * switched accounts. Threaded to [SendCompletionDelegate] so those writes attribute to the account
+     * that initiated the stream, not the live active one. Captured at every stream start ([beginStreaming],
+     * [resumeStream]).
+     */
+    private var streamOriginAccountId: AccountId? = null
+
     /** Tracks whether the last stream failure was a network error, to enable auto-reconnect. */
     private var lastErrorWasNetwork = false
 
@@ -73,6 +86,8 @@ class StreamingManagerDelegate(
      */
     fun beginStreaming(isEdit: Boolean) {
         isEditOrRegenerate = isEdit
+        // Capture the origin account at stream start so a post-switch finalize attributes to it.
+        streamOriginAccountId = activeAccountProvider.currentAccountId()
         streamingBuffer.clear()
         streamingBufferDirty = false
         subagentTraceDelegate.reset()
@@ -344,7 +359,7 @@ class StreamingManagerDelegate(
                 copy(conversationId = event.conversationId)
             }
         }
-        completionDelegate.onConversationCreated(event.conversationId, isNewConversation())
+        completionDelegate.onConversationCreated(event.conversationId, isNewConversation(), streamOriginAccountId)
     }
 
     private fun handleFinal(event: StreamEvent.Final) {
@@ -389,6 +404,7 @@ class StreamingManagerDelegate(
             isNewConversation = isNewConversation(),
             isHandedOffNewChat = isHandedOffNewChat(),
             isComparison = isComparison,
+            originAccount = streamOriginAccountId,
         )
         // Fallback for degenerate finals: a non-comparison stream that ends with no
         // conversation id (and thus nothing to finalize) never reaches finalizeChatDisplay,
@@ -516,6 +532,9 @@ class StreamingManagerDelegate(
      * (e.g. isStreaming, error) before calling this.
      */
     private fun resumeStream(conversationId: String) {
+        // Re-capture the origin: a resumed/reconnected stream finalizes under whoever is active now
+        // (you can only resume your own conversation), so its writes attribute to that account.
+        streamOriginAccountId = activeAccountProvider.currentAccountId()
         streamingBuffer.clear()
         streamingBufferDirty = false
         startStreamingUpdater()

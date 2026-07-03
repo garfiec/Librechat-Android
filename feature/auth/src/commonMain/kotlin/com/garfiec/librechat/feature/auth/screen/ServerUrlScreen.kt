@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.auth.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +39,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun ServerUrlScreen(
     onServerValidate: () -> Unit,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     viewModel: ServerUrlViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -56,64 +58,71 @@ fun ServerUrlScreen(
         )
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .imePadding()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            .background(MaterialTheme.colorScheme.background),
     ) {
-        Text(
-            text = stringResource(Res.string.connect_to_librechat),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.semantics { heading() },
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = stringResource(Res.string.enter_server_url_hint),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        OutlinedTextField(
-            value = uiState.url,
-            onValueChange = viewModel::onUrlChanged,
-            label = { Text(stringResource(Res.string.server_url_label)) },
-            placeholder = { Text(stringResource(Res.string.server_url_placeholder)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            isError = uiState.error != null,
-            supportingText = uiState.error?.let { error ->
-                { Text(text = error, color = MaterialTheme.colorScheme.error) }
-            },
-            enabled = !uiState.isLoading,
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = viewModel::validateAndConnect,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isLoading && uiState.url.isNotBlank(),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.height(20.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text(stringResource(Res.string.server_url_connect))
+            Text(
+                text = stringResource(Res.string.connect_to_librechat),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.semantics { heading() },
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = stringResource(Res.string.enter_server_url_hint),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            OutlinedTextField(
+                value = uiState.url,
+                onValueChange = viewModel::onUrlChanged,
+                label = { Text(stringResource(Res.string.server_url_label)) },
+                placeholder = { Text(stringResource(Res.string.server_url_placeholder)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = uiState.error != null,
+                supportingText = uiState.error?.let { error ->
+                    { Text(text = error, color = MaterialTheme.colorScheme.error) }
+                },
+                enabled = !uiState.isLoading,
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = viewModel::validateAndConnect,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading && uiState.url.isNotBlank(),
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text(stringResource(Res.string.server_url_connect))
+                }
             }
         }
+
+        BackAffordanceOverlay(onBack)
     }
 }
 

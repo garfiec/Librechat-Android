@@ -374,6 +374,9 @@
     <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
     <string name="provider_keys_chat_error_cta">Open key settings</string>
 
+    <!-- Snackbar shown when queued follow-up messages are discarded because the user switched accounts -->
+    <string name="queued_messages_dropped_account_switch">Queued messages discarded after switching accounts</string>
+
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
     <string name="send_block_select_agent">Select an agent before sending your message.</string>
     <string name="send_block_select_model">Select a model before sending your message.</string>

@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.di
 
 import android.app.Application
 import android.content.Context
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -54,6 +55,7 @@ class ChatModuleVerificationTest {
                 McpRepository::class,
                 UserRepository::class,
                 ConnectivityObserver::class,
+                ActiveAccountProvider::class,
                 ServerDataStore::class,
                 SettingsDataStore::class,
                 // Dispatchers are supplied via Koin qualifiers in explicit blocks; verify()

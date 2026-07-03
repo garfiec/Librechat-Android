@@ -46,6 +46,7 @@ actual val chatPlatformModule: Module = module {
             roleRepository = get(),
             permissionGate = get(),
             connectivityObserver = get(),
+            activeAccountProvider = get(),
             serverDataStore = get(),
             settingsDataStore = get(),
             platformDelegateFactory = get(),

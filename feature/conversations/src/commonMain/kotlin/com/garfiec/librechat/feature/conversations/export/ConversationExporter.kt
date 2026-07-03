@@ -23,7 +23,7 @@ class ConversationExporter(
     }
 
     suspend fun exportAsJson(conversationId: String): Result<String> {
-        val conversation = when (val result = conversationRepository.getConversation(conversationId)) {
+        val conversation = when (val result = conversationRepository.getConversation(conversationId, originAccount = null)) {
             is Result.Success -> result.data
             is Result.Error -> return Result.Error(result.exception, result.message)
             is Result.Loading -> return Result.Error(message = "Unexpected loading state")
@@ -46,7 +46,7 @@ class ConversationExporter(
     }
 
     suspend fun exportAsMarkdown(conversationId: String): Result<String> {
-        val conversation = when (val result = conversationRepository.getConversation(conversationId)) {
+        val conversation = when (val result = conversationRepository.getConversation(conversationId, originAccount = null)) {
             is Result.Success -> result.data
             is Result.Error -> return Result.Error(result.exception, result.message)
             is Result.Loading -> return Result.Error(message = "Unexpected loading state")

@@ -1,5 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 
@@ -15,11 +17,16 @@ import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
  */
 class MessageQueueDelegate(
     private val stateHandle: ChatStateHandle,
+    private val activeAccountProvider: ActiveAccountProvider,
     /** Fires one queued message. Set by `ChatViewModel` to `doSendWithSpec` (wrapped in the
      *  send-ready gate). Recomputes lineage live; only config comes from the spec. [awaitSettle]
      *  is true for the auto-drain after a Final (wait for the async reload to land the reply in
      *  the tree) and false for an explicit resume (the reply has already settled). */
     private val sendWithSpec: (spec: QueuedMessage, awaitSettle: Boolean) -> Unit,
+    /** Called with the number of queued items dropped because they belonged to a now-inactive
+     *  account (a switch happened since queueing). Set by `ChatViewModel` to surface a snackbar so a
+     *  silently-discarded follow-up leaves a user-visible trail. */
+    private val onQueuedDropped: (count: Int) -> Unit,
 ) {
 
     fun enqueue(spec: QueuedMessage) {
@@ -100,8 +107,29 @@ class MessageQueueDelegate(
         // out from under the user and shift the slots the edit session's originalIndex points at.
         // The edit's commit/cancel re-kicks draining once it completes.
         if (stateHandle.state.isEditingQueued) return
-        val head = stateHandle.state.messageQueue.firstOrNull() ?: return
+        // A paused queue must not be mutated: leave every item (foreign ones included) in place until
+        // the user resumes, which re-enters here with the pause lifted and runs the purge below. Guard
+        // before the purge so a stray drain trigger can't silently drop items — and fire a snackbar —
+        // on a queue the user has deliberately parked.
         if (stateHandle.state.isQueuePaused) return
+        // Purge items composed under a different account (the user switched accounts since queueing).
+        // Sending one would POST account A's content to account B's server under B's bearer — a
+        // content-to-wrong-server leak the same-owner reframe does not excuse. Surface a count so the
+        // discard isn't silent. Only purge when the active account is resolved: a null current means the
+        // identity is still unresolved (cold-start warm-up / logged-out), not "some other account", so
+        // dropping every stamped item then would wipe the queue for no real mismatch. Items with no
+        // accountId (pre-multi-account / tests) match any account.
+        val current = activeAccountProvider.currentAccountId()?.value
+        if (current != null) {
+            val foreign = stateHandle.state.messageQueue.count { it.accountId != null && it.accountId != current }
+            if (foreign > 0) {
+                stateHandle.update {
+                    copy(messageQueue = messageQueue.filter { it.accountId == null || it.accountId == current })
+                }
+                onQueuedDropped(foreign)
+            }
+        }
+        val head = stateHandle.state.messageQueue.firstOrNull() ?: return
         stateHandle.update { copy(messageQueue = messageQueue.drop(1)) }
         sendWithSpec(head, awaitSettle)
     }

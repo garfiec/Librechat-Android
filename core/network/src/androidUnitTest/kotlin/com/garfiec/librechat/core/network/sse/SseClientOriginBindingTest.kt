@@ -11,6 +11,8 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.url
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Test
@@ -21,6 +23,7 @@ import org.junit.Test
  * otherwise resume the outgoing account's stream path under the new account's URL and bearer — a
  * cross-account resume. The guard aborts the retry loop instead.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SseClientOriginBindingTest {
 
     private val accountA = AccountId("srv-1:user-a")
@@ -37,7 +40,7 @@ class SseClientOriginBindingTest {
     }
 
     @Test
-    fun `reconnect aborts when the active account changed since the stream started`() = runTest {
+    fun `reconnect aborts when the active account changed since the stream started`() = runTest(UnconfinedTestDispatcher()) {
         val provider = InMemoryActiveAccountProvider(AccountState.Resolved(accountA))
         var requestCount = 0
         val client = SseClient(
@@ -59,7 +62,7 @@ class SseClientOriginBindingTest {
     }
 
     @Test
-    fun `reconnect proceeds while the account is unchanged`() = runTest {
+    fun `reconnect proceeds while the account is unchanged`() = runTest(UnconfinedTestDispatcher()) {
         val provider = InMemoryActiveAccountProvider(AccountState.Resolved(accountA))
         var requestCount = 0
         val client = SseClient(

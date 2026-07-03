@@ -152,6 +152,11 @@ actual fun ChatScreen(
         onNavigateToProviderKeys = onNavigateToProviderKeys,
     )
 
+    QueuedMessageDroppedSnackbarEffect(
+        viewModel = viewModel,
+        snackbarHostState = snackbarHostState,
+    )
+
     val sendBlockMessage = uiState.sendBlockReason?.asString()
 
     ChatRoot(
