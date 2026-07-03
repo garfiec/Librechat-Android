@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.ConversationPage
@@ -15,7 +16,20 @@ interface ConversationRepository {
         sortDirection: String? = null,
         isArchived: Boolean = false,
     ): Result<String?>
-    suspend fun getConversation(id: String): Result<Conversation>
+
+    /**
+     * Cache-first read of [id]. [originAccount] (origin-capture provenance) scopes both the cache
+     * read and the fallback [refreshConversation] write to the account that started the operation, so
+     * a read-through landing after a switch doesn't miss-then-refetch under the new account. Null
+     * (foreground callers) uses the live active account.
+     *
+     * Deliberately no default on [originAccount] (here and on the other provenance-carrying methods):
+     * every caller must decide between a send-time capture (any write that can land after a switch —
+     * streamed finalize, debounced or queued work) and an explicit null (foreground, where entry *is*
+     * land time). A silent default would let new deferred-write paths compile with land-time
+     * attribution — the mis-attribution bug this parameter exists to prevent.
+     */
+    suspend fun getConversation(id: String, originAccount: AccountId?): Result<Conversation>
 
     /**
      * Fetches a cursor page of conversations filtered by [projectId] (a project id or
@@ -37,9 +51,9 @@ interface ConversationRepository {
      * [getConversation]'s cache-first read. Use when the local row is known to be
      * stale (e.g. picking up a server-generated title).
      */
-    suspend fun refreshConversation(id: String): Result<Conversation>
+    suspend fun refreshConversation(id: String, originAccount: AccountId?): Result<Conversation>
     suspend fun updateTitle(id: String, title: String): Result<Conversation>
-    suspend fun generateTitle(conversationId: String): Result<String>
+    suspend fun generateTitle(conversationId: String, originAccount: AccountId?): Result<String>
     suspend fun archive(id: String, isArchived: Boolean): Result<Conversation>
     suspend fun pin(id: String, pinned: Boolean): Result<Conversation>
     suspend fun delete(id: String): Result<Unit>
@@ -53,7 +67,7 @@ interface ConversationRepository {
     suspend fun duplicateConversation(conversationId: String, title: String?): Result<Conversation>
     suspend fun importConversation(jsonContent: String): Result<Conversation>
     suspend fun deleteAll(): Result<Unit>
-    suspend fun saveConversation(conversation: Conversation)
+    suspend fun saveConversation(conversation: Conversation, originAccount: AccountId?)
     suspend fun updateConversationTagsLocal(id: String, tags: List<String>)
     suspend fun syncFavoritesFromServer(): Result<Unit>
 }

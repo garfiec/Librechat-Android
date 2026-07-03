@@ -104,7 +104,7 @@ class CommonTokenDataStoreConcurrencyTest {
     private val jsonHeaders = headersOf("Content-Type", ContentType.Application.Json.toString())
 
     @Test
-    fun `clearTokens blocks until in-flight refresh releases the mutex`() =
+    fun `clearTokens does not block on an in-flight refresh and the refresh discards its result`() =
         runTest(UnconfinedTestDispatcher()) {
             val release = CompletableDeferred<Unit>()
             val engine = mockEngine {
@@ -118,9 +118,8 @@ class CommonTokenDataStoreConcurrencyTest {
             val store = FakeTokenDataStore(mockRefreshClient(engine))
 
             val refreshJob = async { store.refreshAccessToken() }
-            // Give the refresh coroutine a chance to acquire the mutex and
-            // suspend inside the MockEngine's release.await() before we start
-            // the concurrent clear.
+            // Give the refresh coroutine a chance to read the stored token and suspend inside the
+            // MockEngine's release.await() (the network POST) before we start the concurrent clear.
             yield()
             advanceUntilIdle()
 
@@ -128,18 +127,18 @@ class CommonTokenDataStoreConcurrencyTest {
             yield()
             advanceUntilIdle()
 
-            // Clear must still be suspended on the mutex while refresh waits on HTTP.
+            // The POST no longer holds a lock, so clear runs to completion immediately while the
+            // refresh is still parked on HTTP — a switch/logout never stalls behind a slow refresh.
             assertThat(refreshJob.isCompleted).isFalse()
-            assertThat(clearJob.isCompleted).isFalse()
-            assertThat(store.removeCount).isEqualTo(0)
+            assertThat(clearJob.isCompleted).isTrue()
+            assertThat(store.removeCount).isEqualTo(1)
 
             release.complete(Unit)
             advanceUntilIdle()
 
-            // Refresh completes and transiently writes the new token, but the
-            // queued clearTokens immediately wipes it. Final state: logged out.
-            assertThat(refreshJob.await()).isTrue()
-            assertThat(clearJob.isCompleted).isTrue()
+            // The refresh detects the epoch bump from clearTokens and discards its result (returns
+            // false), so it can never resurrect the cleared session. Final state: logged out.
+            assertThat(refreshJob.await()).isFalse()
             assertThat(store.persistedAccess()).isNull()
             assertThat(store.persistedRefresh()).isNull()
             assertThat(store.removeCount).isEqualTo(1)

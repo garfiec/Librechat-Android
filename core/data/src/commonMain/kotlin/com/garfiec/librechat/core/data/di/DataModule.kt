@@ -5,6 +5,8 @@ import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.SessionManager
 import com.garfiec.librechat.core.data.datastore.AccountRegistry
+import com.garfiec.librechat.core.data.datastore.AccountRoster
+import com.garfiec.librechat.core.data.datastore.AccountScopedPrefsPurger
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -14,6 +16,7 @@ import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.data.repository.AccountClaimReconciler
 import com.garfiec.librechat.core.data.repository.AccountDataPurger
 import com.garfiec.librechat.core.data.repository.AccountSessionEstablisher
+import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.AgentRepositoryImpl
 import com.garfiec.librechat.core.data.repository.AgentToolsRepository
@@ -70,6 +73,7 @@ import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.repository.TagRepositoryImpl
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.repository.UserRepositoryImpl
+import com.garfiec.librechat.core.data.util.AccountLabelBackfillSessionTask
 import com.garfiec.librechat.core.data.util.EndpointConfigFetchSessionTask
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.data.util.RefreshTagsSessionTask
@@ -77,6 +81,7 @@ import com.garfiec.librechat.core.data.util.RoleFetchSessionTask
 import com.garfiec.librechat.core.data.util.SessionTask
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.data.util.SyncFavoritesSessionTask
+import com.garfiec.librechat.core.network.client.AccountReadyGate
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
@@ -104,17 +109,21 @@ val dataModule = module {
 
     // The in-memory active-account holder every identity-dependent subsystem will read.
     single<ActiveAccountProvider> { InMemoryActiveAccountProvider() }
-    // Eager: at cold start it must seed the provider from the persisted id (chaining the URL
-    // warm-up) even before any consumer asks for it.
+    // Persisted account roster (list + single active pointer). Pure storage.
+    single { AccountRoster(dataStore = get(), json = get()) }
+    // Eager: at cold start it must migrate + reconcile + seed the provider (driving the URL from the
+    // active roster entry) even before any consumer asks for it. Bound as the AccountReadyGate the
+    // HTTP clients + first-frame routing await.
     single(createdAtStart = true) {
         AccountRegistry(
-            dataStore = get(),
+            roster = get(),
             activeAccountProvider = get(),
-            serverUrlProvider = get(),
+            serverDataStore = get(),
+            tokenManager = get(),
             appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
             ioDispatcher = get(KoinQualifiers.IO),
         )
-    }
+    } bind AccountReadyGate::class
     single {
         AccountClaimReconciler(
             claimDao = get(),
@@ -131,6 +140,24 @@ val dataModule = module {
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }
+    // Coordinates switch-without-re-login, the add-account flow, and account removal: URL + token key
+    // + roster pointer + identity flip, atomic under the SwitchGate barrier. The auth repository
+    // routes add-mode sign-ins through it; the switcher UI drives switch/add/remove.
+    single {
+        AccountSwitcher(
+            roster = get(),
+            serverDataStore = get(),
+            tokenManager = get(),
+            activeAccountProvider = get(),
+            switchGate = get(),
+            claimReconciler = get(),
+            switchCacheCleaner = get(),
+            accountDataPurger = get(),
+            prefsPurger = get(),
+            sessionCacheCleaner = get(),
+        )
+    }
+    single { AccountScopedPrefsPurger(dataStore = get()) }
     single {
         AccountDataPurger(
             conversationDao = get(),
@@ -191,7 +218,8 @@ val dataModule = module {
             accountRegistry = get(),
             activeAccountProvider = get(),
             sessionManager = get(),
-            accountDataPurger = get(),
+            accountSwitcher = get(),
+            switchGate = get(),
         )
     }
 
@@ -216,6 +244,7 @@ val dataModule = module {
     singleOf(::RefreshTagsSessionTask) bind SessionTask::class
     singleOf(::SyncFavoritesSessionTask) bind SessionTask::class
     singleOf(::EndpointConfigFetchSessionTask) bind SessionTask::class
+    singleOf(::AccountLabelBackfillSessionTask) bind SessionTask::class
     single {
         SessionTaskRunner(
             tasks = getAll<SessionTask>(),
@@ -238,6 +267,7 @@ val dataModule = module {
             messagesApi = get(),
             messageDao = get(),
             activeAccountProvider = get(),
+            roster = get(),
             dispatcher = get(KoinQualifiers.Default),
         )
     }

@@ -8,23 +8,88 @@ interface TokenManager {
     suspend fun getAccessToken(): String?
     suspend fun setTokens(accessToken: String, refreshToken: String)
     suspend fun refreshAccessToken(): Boolean
+
+    /**
+     * Full teardown of the active session — keyed tokens, any bare staging keys, and the persisted
+     * active-account pointer — bumping the refresh epoch so an in-flight refresh discards its result.
+     * The single teardown implementation; [onAccountCleared] is the logout-named alias that delegates
+     * here.
+     */
     suspend fun clearTokens()
 
     /**
+     * The access token stored in [accountId]'s keyed slot, independent of which account is active.
+     * Multi-account callers (the switch barrier) read the bearer for a specific request's account
+     * rather than the live active one.
+     */
+    suspend fun getAccessTokenFor(accountId: String): String?
+
+    /**
+     * The access token currently **staged** under the bare keys by an interactive sign-in
+     * ([setTokens]) that has not yet been re-homed by [onAccountResolved] — i.e. the token of an
+     * account mid-authentication. Null outside that window. The add-account flow's pending request
+     * identity reads its bearer from here.
+     */
+    suspend fun getStagedAccessToken(): String?
+
+    /**
+     * Drop any bare-key staged pair left by an abandoned or crashed sign-in, without touching any
+     * account's keyed slot, the mirror, or the refresh epoch. Callers must hold a resolved active
+     * account (whose real session is keyed) — when logged out or on a legacy pre-keying install the
+     * bare keys ARE the live session and must not be cleared through this.
+     */
+    suspend fun clearStagedTokens()
+
+    /**
+     * Non-destructive switch to an already-keyed account: repoints the active binding, the
+     * synchronously-readable mirror, and the cached bearer to [accountId] **without writing or
+     * deleting any token slot**. The previously active account's tokens are retained so a switch back
+     * needs no re-login. Unlike [onAccountResolved] this does not consume staged tokens — the target
+     * must already have keyed tokens.
+     */
+    suspend fun selectAccount(accountId: String)
+
+    /**
+     * Delete [accountId]'s keyed tokens (account removal). When [accountId] is the active account this
+     * also clears the mirror + cached bearer, like [onAccountCleared]; otherwise the active account is
+     * left untouched.
+     */
+    suspend fun removeAccount(accountId: String)
+
+    /**
+     * Refresh [accountId]'s tokens against [baseUrl] (an **absolute** URL, so a server-URL switch that
+     * races this call can never send this account's refresh token to a different server). Writes
+     * [accountId]'s keyed slot and updates the cached bearer only while [accountId] is still the active
+     * account. Distinct from [refreshAccessToken], which refreshes the live active account against the
+     * live base URL.
+     */
+    suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean
+
+    /**
      * Bind token storage to [accountId] once identity resolves (login, cold-start restore, upgrade).
-     * Re-homes tokens written under the previous key (the bare keys on a legacy/first install, or the
-     * prior account) into this account's keyed slot and repoints the synchronously-readable mirror, so
-     * subsequent cold starts seed the right account's bearer with no blind window. Idempotent when the
-     * account is unchanged.
+     * Re-homes the staged (bare-key) authentication tokens into this account's keyed slot and repoints
+     * the synchronously-readable mirror, so subsequent cold starts seed the right account's bearer with
+     * no blind window. Removes only the bare staging keys — never another account's keyed slot — so a
+     * previously-active account's tokens survive for a later switch. Idempotent when the account is
+     * unchanged.
      */
     suspend fun onAccountResolved(accountId: String)
 
     /**
-     * Clear the active account's tokens and the mirror on logout. Distinct from [clearTokens] (the
-     * refresh-failure path) in that it also drops the persisted active-account pointer.
+     * Clear the active account's tokens, any bare staging keys, and the persisted mirror on logout.
+     * The semantic logout entry point; delegates to [clearTokens] — same teardown, named for the
+     * identity-transition call site so implementers get one behaviour, not two that can drift.
      */
-    suspend fun onAccountCleared()
+    suspend fun onAccountCleared() = clearTokens()
 
-    fun emitSessionExpired()
+    /**
+     * Signal that a session's credentials are irrecoverably invalid (refresh failed / banned), which
+     * routes the app to re-auth. [expiredAccountId] scopes the signal to the account whose request
+     * failed: it emits only while that account is still the active binding, so a retained-but-inactive
+     * account's failed refresh (a straggler request landing after a switch) can't tear down the *live*
+     * account's session. The expired account keeps its rows and roster entry — re-auth restores it
+     * without data loss. Null = the active/legacy session; always emits.
+     */
+    fun emitSessionExpired(expiredAccountId: String? = null)
     val sessionExpiredFlow: SharedFlow<Unit>
 }

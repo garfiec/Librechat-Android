@@ -33,6 +33,8 @@ object LibreChatHttpClient {
         tokenManager: TokenManager,
         serverUrlProvider: ServerUrlProvider,
         redactor: LogRedactor,
+        accountReadyGate: AccountReadyGate? = null,
+        switchGate: SwitchGate? = null,
         debug: Boolean = false,
     ): HttpClient = HttpClient(engineFactory) {
         install(ContentNegotiation) {
@@ -70,10 +72,19 @@ object LibreChatHttpClient {
             this.serverUrlProvider = serverUrlProvider
         }
 
-        // Resolve the server-URL warm-up before defaultRequest reads getBaseUrl(), so a
-        // cold-start request can't be built against an empty base URL.
-        install(ServerUrlReadyPlugin) {
-            this.serverUrlProvider = serverUrlProvider
+        // The SwitchBarrierPlugin (when a SwitchGate is wired) captures a consistent
+        // (url, bearer, account) snapshot per request and resolves the URL against it, subsuming
+        // ServerUrlReadyPlugin's cold-start await. Without a gate (tests) fall back to the plain
+        // readiness plugin so a cold-start request can't be built against an empty base URL.
+        if (switchGate != null) {
+            install(SwitchBarrierPlugin) {
+                this.switchGate = switchGate
+            }
+        } else {
+            install(ServerUrlReadyPlugin) {
+                this.serverUrlProvider = serverUrlProvider
+                this.accountReadyGate = accountReadyGate
+            }
         }
 
         HttpResponseValidator {
@@ -95,7 +106,15 @@ object LibreChatHttpClient {
                     ) { "HTTP $statusCode" }
 
                     if (isBanned) {
-                        tokenManager.emitSessionExpired()
+                        // Scoped to the request's snapshot account: a ban landing on a switched-away
+                        // account's straggler request must not tear down the live session. A pending
+                        // add-flow request passes through entirely (its accountId is null, which
+                        // emitSessionExpired treats as "active session, always emit") — a ban from
+                        // the server being ADDED belongs to the add flow, mirroring the 401 path.
+                        val identity = response.call.request.attributes.getOrNull(RequestIdentityKey)
+                        if (identity?.isPending != true) {
+                            tokenManager.emitSessionExpired(identity?.accountId)
+                        }
                     }
 
                     throw ApiException(

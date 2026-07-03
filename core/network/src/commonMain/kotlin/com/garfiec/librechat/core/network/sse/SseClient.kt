@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.network.sse
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.StreamEvent
@@ -20,6 +22,7 @@ import kotlin.math.min
 class SseClient(
     private val json: Json,
     private val transport: SseHttpTransport,
+    private val activeAccountProvider: ActiveAccountProvider? = null,
 ) {
     private val mapper = SseEventMapper(json)
     private val lineParser = SseLineParser()
@@ -39,6 +42,11 @@ class SseClient(
         // so any Kotlin exception that escapes this flow will crash the iOS app.
         try {
         mapper.resetState()
+        // Bind the stream to the account it started under. Each transport (re)connect captures a
+        // FRESH identity snapshot, so without this guard a retry/resume attempted after an account
+        // switch would reconnect A's stream path as B — a cross-account resume. The stream aborts
+        // instead; the outgoing account's UI is gone (routes popped on switch) so nobody is watching.
+        val originAccountId = activeAccountProvider?.currentAccountId()?.value
         var attempt = 0
         var shouldResume = resume
         var done = false
@@ -47,6 +55,16 @@ class SseClient(
         val maxDelayMs = 30_000L
 
         while (attempt <= maxRetries && !done) {
+            if (activeAccountProvider != null &&
+                activeAccountProvider.currentAccountId()?.value != originAccountId
+            ) {
+                Diag.w(
+                    "SSE",
+                    origin = LogOrigin.CLIENT,
+                    attrs = mapOf("attempt" to attempt.toString()),
+                ) { "account changed mid-stream — aborting reconnect" }
+                break
+            }
             try {
                 val byteChannel = ByteChannel(autoFlush = true)
                 coroutineScope {

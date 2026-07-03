@@ -52,9 +52,13 @@ class RoleCacheDataStore(
 
     suspend fun clear() {
         try {
-            // Logout flips the active account to null before this runs, so remove every account's role
-            // entry (at most one under single-active) rather than the current key.
-            dataStore.edit { prefs -> prefs.removeScoped(listOf(ROLE_BASE)) }
+            // Scope to the resolved account only: other roster accounts' cached roles are retained
+            // multi-account state, not session garbage — a blanket wipe here would strip a retained
+            // account's permissions on someone else's logout. On the logout/remove paths the active
+            // account is already flipped to null when this runs; there its on-disk entry is reaped
+            // by AccountScopedPrefsPurger instead, so an unresolved clear has nothing left to do.
+            val accountId = activeAccountProvider.currentAccountId()?.value ?: return
+            dataStore.edit { prefs -> prefs.remove(key(accountId)) }
         } catch (e: Exception) {
             Logger.w(e) { "Failed to clear cached user role permissions" }
         }

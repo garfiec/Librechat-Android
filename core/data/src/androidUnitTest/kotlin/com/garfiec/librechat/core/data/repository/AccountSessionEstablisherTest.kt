@@ -46,7 +46,7 @@ class AccountSessionEstablisherTest {
 
         coVerifyOrder {
             claimReconciler.claimIfNeeded(any(), "mongoUserId")
-            accountRegistry.setActiveAccount(any())
+            accountRegistry.upsertActive(any())
         }
     }
 
@@ -64,7 +64,7 @@ class AccountSessionEstablisherTest {
 
         establisher.establish(user)
 
-        coVerify { accountRegistry.setActiveAccount(any()) }
+        coVerify { accountRegistry.upsertActive(any()) }
     }
 
     /**
@@ -82,7 +82,7 @@ class AccountSessionEstablisherTest {
 
         coVerifyOrder {
             tokenManager.onAccountResolved(accountId.value)
-            accountRegistry.setActiveAccount(any())
+            accountRegistry.upsertActive(any())
         }
     }
 }

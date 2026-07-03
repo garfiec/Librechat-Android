@@ -32,6 +32,7 @@ import com.garfiec.librechat.core.network.api.SkillsApi
 import com.garfiec.librechat.core.network.api.SpeechApi
 import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
+import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.sse.SseClient
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineDispatcher
@@ -83,6 +84,8 @@ class DataModuleVerificationTest {
                 SpeechApi::class,
                 BannerApi::class,
                 DataStore::class,
+                // AccountSwitcher pulls the switch barrier from :core:network (cross-module).
+                SwitchGate::class,
             ),
         )
     }

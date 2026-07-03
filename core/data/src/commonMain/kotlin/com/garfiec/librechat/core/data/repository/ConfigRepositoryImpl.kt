@@ -76,15 +76,27 @@ class ConfigRepositoryImpl(
         ) { "server config snapshot" }
     }
 
-    override suspend fun validateServerUrl(url: String): Result<StartupConfig> {
+    override suspend fun validateServerUrl(url: String): Result<StartupConfig> =
+        fetchAndValidateConfig { config ->
+            _startupConfig.value = config
+            configCache.saveStartupConfig(config)
+            logConfigSnapshot(config)
+        }
+
+    override suspend fun probeServerUrl(): Result<StartupConfig> =
+        // Validation only — publishing/caching would attribute the probed server's config to the
+        // live one (see the interface KDoc); the add flow carries the result on its pending session.
+        fetchAndValidateConfig { }
+
+    private suspend fun fetchAndValidateConfig(
+        onValid: suspend (StartupConfig) -> Unit,
+    ): Result<StartupConfig> {
         return try {
             val config = configApi.getStartupConfig()
             if (!isValidLibreChatConfig(config)) {
                 Result.Error(message = "This doesn't appear to be a LibreChat server")
             } else {
-                _startupConfig.value = config
-                configCache.saveStartupConfig(config)
-                logConfigSnapshot(config)
+                onValid(config)
                 Result.Success(config)
             }
         } catch (e: SerializationException) {
@@ -111,6 +123,15 @@ class ConfigRepositoryImpl(
      */
     private fun isValidLibreChatConfig(config: StartupConfig): Boolean {
         return config.serverDomain.isNotBlank()
+    }
+
+    override suspend fun reloadForActiveServer() {
+        _startupConfig.value = configCache.loadStartupConfig()
+        _endpointConfigs.value = configCache.loadEndpointConfigs().orEmpty()
+        _availableModels.value = configCache.loadAvailableModels().orEmpty()
+        // Version re-detects from the reloaded config on the next checkBackendVersion pass.
+        _detectedBackendVersion.value = null
+        loggedConfigSignature = null
     }
 
     override suspend fun fetchStartupConfig(): Result<StartupConfig> {

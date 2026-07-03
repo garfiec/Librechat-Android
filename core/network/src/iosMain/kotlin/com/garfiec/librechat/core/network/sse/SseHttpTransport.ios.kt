@@ -2,8 +2,9 @@ package com.garfiec.librechat.core.network.sse
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
-import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
+import com.garfiec.librechat.core.network.client.refreshBearerFor
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -94,32 +95,36 @@ import platform.posix.size_tVar
 //   engine.
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual class SseHttpTransport(
-    private val serverUrlProvider: ServerUrlProvider,
     private val tokenManager: TokenManager,
+    private val switchGate: SwitchGate,
 ) {
 
     actual fun stream(streamPath: String, resume: Boolean): Flow<ByteArray> = flow {
-        // 401-retry wrapper: resolve token in the suspend scope (we can't touch
-        // TokenManager from inside the NWConnection callback), open the connection,
-        // let it run to completion. If it throws SseHttpStatusException(401) and
-        // we haven't already retried, refresh the token and loop once. This
-        // replicates AuthInterceptorPlugin's 401 handling for the raw-socket path.
+        // Capture the (baseUrl, account, bearer) triple ONCE before opening the raw connection. This
+        // is the SwitchBarrierPlugin equivalent for the NWConnection path (which can't use Ktor
+        // plugins): a switch mid-stream can't tear the URL and token apart — the stream keeps running
+        // against the account and server it started on, whose tokens are retained.
+        val snapshot = switchGate.captureSnapshot()
+        var token = snapshot.bearer
         var triedRefresh = false
         while (true) {
-            val token = tokenManager.getAccessToken()
             try {
-                emitAll(openConnection(streamPath, resume, token))
+                emitAll(openConnection(streamPath, resume, snapshot.baseUrl, token))
                 return@flow
             } catch (e: SseHttpStatusException) {
                 if (e.statusCode == 401 && !triedRefresh) {
                     Logger.w("SSE-iOS") { "401 on SSE stream, attempting token refresh" }
                     triedRefresh = true
-                    val refreshed = tokenManager.refreshAccessToken()
-                    if (!refreshed) {
+                    // Refresh the snapshot's account (keyed + URL-pinned), never the live active one;
+                    // an expiry is likewise scoped to the snapshot's account, so a switched-away
+                    // stream's dead credentials can't tear down the live account's session.
+                    val refreshedToken = tokenManager.refreshBearerFor(snapshot)
+                    if (refreshedToken == null) {
                         Logger.w("SSE-iOS") { "token refresh failed — session expired" }
-                        tokenManager.emitSessionExpired()
+                        tokenManager.emitSessionExpired(snapshot.accountId)
                         throw e
                     }
+                    token = refreshedToken
                     // loop to retry with new token
                 } else {
                     throw e
@@ -131,15 +136,16 @@ actual class SseHttpTransport(
     private fun openConnection(
         streamPath: String,
         resume: Boolean,
+        snapshotBaseUrl: String,
         bearerToken: String?,
     ): Flow<ByteArray> = callbackFlow {
         // Normalize base URL + stream path so there's exactly one slash between
-        // them. ServerUrlProvider may or may not return a trailing slash, and
-        // SseClient passes the stream path without a leading slash, matching
-        // how ChatRepositoryImpl builds it ("api/agents/chat/stream/$streamId").
-        // awaitBaseUrl (not getBaseUrl) so a reconnect during the warm-up window can't
-        // build the SSE URL against an empty host.
-        val baseUrl = serverUrlProvider.awaitBaseUrl().trimEnd('/')
+        // them. The base URL comes from the snapshot captured before this connection
+        // (already awaited past cold-start warm-up in SwitchGate.captureSnapshot), so
+        // a switch can't repoint it under a live stream. SseClient passes the stream
+        // path without a leading slash, matching how ChatRepositoryImpl builds it
+        // ("api/agents/chat/stream/$streamId").
+        val baseUrl = snapshotBaseUrl.trimEnd('/')
         val normalizedPath = streamPath.trimStart('/')
         val queryString = if (resume) "?resume=true" else ""
         val fullUrl = "$baseUrl/$normalizedPath$queryString"

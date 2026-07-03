@@ -1,9 +1,11 @@
 package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.extensions.serverHostLabel
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.deriveAccountId
 import com.garfiec.librechat.core.common.identity.deriveServerId
+import com.garfiec.librechat.core.data.datastore.AccountEntry
 import com.garfiec.librechat.core.data.datastore.AccountRegistry
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
@@ -11,6 +13,7 @@ import com.garfiec.librechat.core.network.client.TokenManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Clock
 
 /**
  * Turns a freshly-authenticated (or cold-start-restored) [User] into the active [AccountId] and
@@ -48,7 +51,7 @@ class AccountSessionEstablisher(
      *
      * The claim is nonetheless **best-effort**: a *failure* must never abort establishment. It is
      * idempotent and only writes its done-marker on success, so a failure (e.g. a transient DB error)
-     * retries on the next establish. Letting it propagate would skip [AccountRegistry.setActiveAccount]
+     * retries on the next establish. Letting it propagate would skip [AccountRegistry.upsertActive]
      * and strand an authenticated user at `Resolved(null)` — every scoped read/write silently skipped
      * for the session — so a claim failure is caught here and the account is published regardless.
      * **Cancellation is the exception**: a `CancellationException` is rethrown, so a session torn down
@@ -63,11 +66,9 @@ class AccountSessionEstablisher(
      */
     suspend fun establish(user: User): AccountId = withContext(ioDispatcher) {
         val baseUrl = serverUrlProvider.awaitBaseUrl()
-        val userKey = user.id ?: user.mongoId
-        require(!userKey.isNullOrBlank()) {
-            "Authenticated user has no id; cannot derive an account owner"
-        }
-        val accountId = deriveAccountId(deriveServerId(baseUrl), userKey)
+        val userKey = user.accountUserKey()
+        val serverId = deriveServerId(baseUrl)
+        val accountId = deriveAccountId(serverId, userKey)
         runCatching { claimReconciler.claimIfNeeded(accountId, userKey) }
             .onFailure { error ->
                 // A cancelled establish (logout / teardown during cold-start restore) must abort, not
@@ -79,7 +80,36 @@ class AccountSessionEstablisher(
         // keyed slot + repoints the sync mirror) before publishing identity, so a cold-start restore
         // resolving the same account is a no-op and the next launch seeds the right bearer.
         tokenManager.onAccountResolved(accountId.value)
-        accountRegistry.setActiveAccount(accountId)
+        // Record the roster entry (with the display label/avatar from the live user) and publish it.
+        accountRegistry.upsertActive(
+            AccountEntry(
+                accountId = accountId.value,
+                serverUrl = baseUrl,
+                displayLabel = user.displayLabel(baseUrl),
+                avatarUrl = user.avatar?.takeIf { it.isNotBlank() },
+                lastActiveAt = Clock.System.now().toEpochMilliseconds(),
+            ),
+        )
         accountId
     }
 }
+
+/**
+ * The stable per-user key an [AccountId] is derived from — the user's Mongo `_id` (see the class
+ * KDoc above for why it must never be the email). Shared by the login/cold-start establish and the
+ * add-account completion so both derive identity identically.
+ */
+internal fun User.accountUserKey(): String {
+    val userKey = id ?: mongoId
+    require(!userKey.isNullOrBlank()) {
+        "Authenticated user has no id; cannot derive an account owner"
+    }
+    return userKey
+}
+
+/** Best display name for the switcher chip, falling back to the server host when the user is unnamed. */
+internal fun User.displayLabel(baseUrl: String): String =
+    name?.takeIf { it.isNotBlank() }
+        ?: username?.takeIf { it.isNotBlank() }
+        ?: email.takeIf { it.isNotBlank() }
+        ?: baseUrl.serverHostLabel()

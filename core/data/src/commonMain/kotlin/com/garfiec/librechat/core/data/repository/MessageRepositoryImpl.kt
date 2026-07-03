@@ -1,11 +1,13 @@
 package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
+import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.mapper.toEntity
 import com.garfiec.librechat.core.data.mapper.toModels
@@ -23,6 +25,7 @@ class MessageRepositoryImpl(
     private val messagesApi: MessagesApi,
     private val messageDao: MessageDao,
     private val activeAccountProvider: ActiveAccountProvider,
+    private val roster: AccountRoster,
     private val dispatcher: CoroutineDispatcher,
 ) : MessageRepository {
 
@@ -58,11 +61,14 @@ class MessageRepositoryImpl(
         return result
     }
 
-    override suspend fun cacheMessages(messages: List<Message>) {
+    override suspend fun cacheMessages(messages: List<Message>, originAccount: AccountId?) {
         if (messages.isEmpty()) return
-        // Don't persist when no account is resolved (warming / logged out): a null-stamped row is
-        // invisible to every account-filtered read and unreapable by the scoped logout purge.
-        val accountId = activeAccountProvider.currentAccountId()?.value ?: return
+        // Origin-capture: stamp the account that started the stream (threaded from send time), so a
+        // finalize landing after a switch attributes to it — not the live active account. Skip when
+        // unresolved (warming / logged out) or when the origin account was removed since capture: a
+        // null-stamped row is invisible to every account-filtered read and unreapable by the scoped
+        // logout purge, and resurrecting a removed account's rows would leak purged data.
+        val accountId = resolveWriteAccountId(originAccount, activeAccountProvider, roster) ?: return
         messageDao.upsertAll(messages.entitiesFor(accountId))
     }
 

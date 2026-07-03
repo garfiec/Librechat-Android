@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.network.di
 
 import com.garfiec.librechat.core.common.di.KoinQualifiers
+import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.network.api.AgentToolsApi
 import com.garfiec.librechat.core.network.api.AgentsApi
 import com.garfiec.librechat.core.network.api.ApiKeysApi
@@ -33,6 +34,8 @@ import com.garfiec.librechat.core.network.client.AuthInterceptorPlugin
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.ServerUrlReadyPlugin
+import com.garfiec.librechat.core.network.client.SwitchBarrierPlugin
+import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.core.network.sse.SseClient
 import io.ktor.client.HttpClient
@@ -65,6 +68,17 @@ val networkModule = module {
         }
     }
 
+    // The switch barrier: one gate shared by both HTTP clients and (on iOS) the SSE transport, so a
+    // single account switch flips URL + token key + identity atomically for all transports at once.
+    single {
+        SwitchGate(
+            activeAccountProvider = get<ActiveAccountProvider>(),
+            serverUrlProvider = get(),
+            tokenManager = get(),
+            accountReadyGate = getOrNull(),
+        )
+    }
+
     single {
         LibreChatHttpClient.create(
             engineFactory = get<HttpClientEngineFactory<*>>(),
@@ -72,6 +86,8 @@ val networkModule = module {
             tokenManager = get(),
             serverUrlProvider = get(),
             redactor = get(),
+            accountReadyGate = getOrNull(),
+            switchGate = get(),
         )
     }
 
@@ -79,13 +95,14 @@ val networkModule = module {
         val tokenManager = get<TokenManager>()
         val serverUrlProvider = get<ServerUrlProvider>()
         val engineFactory = get<HttpClientEngineFactory<*>>()
+        val switchGate = get<SwitchGate>()
         HttpClient(engineFactory) {
             install(AuthInterceptorPlugin) {
                 this.tokenManager = tokenManager
                 this.serverUrlProvider = serverUrlProvider
             }
-            install(ServerUrlReadyPlugin) {
-                this.serverUrlProvider = serverUrlProvider
+            install(SwitchBarrierPlugin) {
+                this.switchGate = switchGate
             }
             install(HttpTimeout) {
                 connectTimeoutMillis = 10_000
@@ -128,7 +145,7 @@ val networkModule = module {
     // SSE — SseHttpTransport is provided by networkPlatformModule because its
     // constructor signature differs between Android (takes the Ktor streaming
     // HttpClient) and iOS (takes NWConnection dependencies in Phase 2).
-    singleOf(::SseClient)
+    single { SseClient(json = get(), transport = get(), activeAccountProvider = get()) }
 
     // API services
     singleOf(::AgentsApi)

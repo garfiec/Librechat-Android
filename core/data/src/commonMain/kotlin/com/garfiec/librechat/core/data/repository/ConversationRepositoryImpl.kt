@@ -1,11 +1,13 @@
 package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
+import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.mapper.toEntity
 import com.garfiec.librechat.core.data.mapper.toModel
@@ -27,6 +29,7 @@ class ConversationRepositoryImpl(
     private val conversationsApi: ConversationsApi,
     private val conversationDao: ConversationDao,
     private val activeAccountProvider: ActiveAccountProvider,
+    private val roster: AccountRoster,
     private val json: Json,
 ) : ConversationRepository {
 
@@ -102,16 +105,25 @@ class ConversationRepositoryImpl(
         }
     }
 
-    override suspend fun getConversation(id: String): Result<Conversation> {
-        val cached = activeAccountProvider.currentAccountId()
-            ?.let { conversationDao.getByIdForAccount(id, it.value) }
+    override suspend fun getConversation(id: String, originAccount: AccountId?): Result<Conversation> {
+        val account = resolveWriteAccountId(originAccount, activeAccountProvider, roster)
+        val cached = account?.let { conversationDao.getByIdForAccount(id, it) }
         if (cached != null) return Result.Success(cached.toModel())
-        return refreshConversation(id)
+        return refreshConversation(id, originAccount)
     }
 
-    override suspend fun refreshConversation(id: String): Result<Conversation> {
+    override suspend fun refreshConversation(id: String, originAccount: AccountId?): Result<Conversation> {
+        // Origin-capture: this finalize may land after a switch. When the origin account is no longer
+        // live, skip the network refresh (the GET rides the LIVE snapshot and would carry this id to
+        // the new account's server) and serve the cached copy — a routine post-switch skip, not a bug.
+        if (!originTransportAllowed(originAccount, activeAccountProvider)) {
+            val account = resolveWriteAccountId(originAccount, activeAccountProvider, roster)
+            val cached = account?.let { conversationDao.getByIdForAccount(id, it)?.toModel() }
+            return cached?.let { Result.Success(it) }
+                ?: Result.Error(IllegalStateException("Skipped refresh for a non-active account's conversation"))
+        }
         return safeApiCall {
-            val accountId = activeAccountProvider.currentAccountId()?.value
+            val accountId = resolveWriteAccountId(originAccount, activeAccountProvider, roster)
             val conversation = conversationsApi.getConversation(id)
             if (accountId != null) {
                 conversationDao.upsertPreservingTags(accountId, conversation.toEntity().copy(accountId = accountId))
@@ -133,9 +145,18 @@ class ConversationRepositoryImpl(
         }
     }
 
-    override suspend fun generateTitle(conversationId: String): Result<String> {
+    override suspend fun generateTitle(conversationId: String, originAccount: AccountId?): Result<String> {
+        // Origin-capture: the gen_title long-poll returns minutes later, possibly post-switch — stamp
+        // the account that started the send, not the live active one. The POST rides the LIVE snapshot,
+        // so it must not fire once the origin is no longer active (it would carry this conversation id
+        // to the new account's server under its bearer). A benign skip, not a thrown invariant.
+        if (!originTransportAllowed(originAccount, activeAccountProvider)) {
+            return Result.Error(
+                IllegalStateException("Skipped title generation for a non-active account's conversation"),
+            )
+        }
         return safeApiCall {
-            val accountId = activeAccountProvider.currentAccountId()?.value
+            val accountId = resolveWriteAccountId(originAccount, activeAccountProvider, roster)
             val response = conversationsApi.generateTitle(conversationId)
             if (accountId != null) {
                 conversationDao.updateTitle(conversationId, response.title, Clock.System.now().toEpochMilliseconds(), accountId)
@@ -243,10 +264,12 @@ class ConversationRepositoryImpl(
         }
     }
 
-    override suspend fun saveConversation(conversation: Conversation) {
+    override suspend fun saveConversation(conversation: Conversation, originAccount: AccountId?) {
         val id = conversation.conversationId ?: return
         if (id.isBlank()) return
-        val accountId = activeAccountProvider.currentAccountId()?.value ?: return
+        // Origin-capture: the final-event save lands after the stream, possibly post-switch — stamp
+        // the originating account, and skip when unresolved or removed-since-capture.
+        val accountId = resolveWriteAccountId(originAccount, activeAccountProvider, roster) ?: return
         conversationDao.upsertPreservingTags(accountId, conversation.toEntity().copy(accountId = accountId))
     }
 

@@ -4,6 +4,7 @@ import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.entity.ConversationEntity
 import com.garfiec.librechat.core.model.Conversation
@@ -29,6 +30,7 @@ class ConversationRepositoryImplTest {
 
     private val conversationsApi = mockk<ConversationsApi>(relaxed = true)
     private val conversationDao = mockk<ConversationDao>(relaxed = true)
+    private val roster = mockk<AccountRoster>(relaxed = true)
     private val json = Json { ignoreUnknownKeys = true }
     private val account = AccountId("srv:user-1")
     private val activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(account))
@@ -41,6 +43,7 @@ class ConversationRepositoryImplTest {
             conversationsApi = conversationsApi,
             conversationDao = conversationDao,
             activeAccountProvider = activeAccountProvider,
+            roster = roster,
             json = json,
         )
     }
@@ -87,7 +90,7 @@ class ConversationRepositoryImplTest {
         val captured = slot<ConversationEntity>()
         coEvery { conversationDao.upsertPreservingTags(account.value, capture(captured)) } answers {}
 
-        repository.saveConversation(streamingConvo)
+        repository.saveConversation(streamingConvo, originAccount = null)
 
         assertThat(captured.captured.conversationId).isEqualTo("convo-1")
         assertThat(captured.captured.title).isEqualTo("Updated mid-stream")
@@ -97,8 +100,35 @@ class ConversationRepositoryImplTest {
     fun `saveConversation no-op for blank conversationId`() = runTest {
         val blank = Conversation(conversationId = "", title = "Blank")
 
-        repository.saveConversation(blank)
+        repository.saveConversation(blank, originAccount = null)
 
+        coVerify(exactly = 0) { conversationDao.upsertPreservingTags(any(), any<ConversationEntity>()) }
+    }
+
+    @Test
+    fun `saveConversation stamps the captured origin account, not the live active one`() = runTest {
+        // The stream started under account A; the user has since switched so B is now active.
+        val origin = AccountId("srv:origin-A")
+        activeAccountProvider.set(AccountId("srv:active-B"))
+        coEvery { roster.contains(origin.value) } returns true // A is still a known account
+        val captured = slot<ConversationEntity>()
+        coEvery { conversationDao.upsertPreservingTags(origin.value, capture(captured)) } answers {}
+
+        repository.saveConversation(Conversation(conversationId = "c1", title = "A's reply"), originAccount = origin)
+
+        // Row is attributed to A (the origin), never to the live active B.
+        assertThat(captured.captured.accountId).isEqualTo(origin.value)
+        coVerify(exactly = 0) { conversationDao.upsertPreservingTags("srv:active-B", any<ConversationEntity>()) }
+    }
+
+    @Test
+    fun `saveConversation skips when the captured origin account was removed since capture`() = runTest {
+        val origin = AccountId("srv:removed-A")
+        coEvery { roster.contains(origin.value) } returns false // A was removed (logout / remove-account)
+
+        repository.saveConversation(Conversation(conversationId = "c1", title = "orphan"), originAccount = origin)
+
+        // Don't resurrect a removed account's purged rows.
         coVerify(exactly = 0) { conversationDao.upsertPreservingTags(any(), any<ConversationEntity>()) }
     }
 

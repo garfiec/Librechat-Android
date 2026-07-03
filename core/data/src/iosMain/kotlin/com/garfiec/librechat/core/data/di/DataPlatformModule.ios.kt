@@ -12,13 +12,13 @@ import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_3_4
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_4_5
 import com.garfiec.librechat.core.data.repository.CommonSessionCacheCleaner
-import com.garfiec.librechat.core.data.repository.RoleRepository
+import com.garfiec.librechat.core.data.repository.IosSwitchCacheCleaner
 import com.garfiec.librechat.core.data.repository.SessionCacheCleaner
+import com.garfiec.librechat.core.data.repository.SwitchCacheCleaner
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
 import com.garfiec.librechat.core.network.client.TokenManager
 import io.ktor.client.HttpClient
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import okio.Path.Companion.toPath
@@ -76,8 +76,9 @@ actual val dataPlatformModule: Module = module {
         ).firstOrNull() as? String ?: error("Unable to resolve NSCachesDirectory")
         CommonSessionCacheCleaner(
             cacheRoot = cachePath,
-            roleRepository = get<RoleRepository>(),
-            applicationScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
         )
     }
+
+    // --- Switch Cache Cleaner (account switch, non-partitionable caches) ---
+    single<SwitchCacheCleaner> { IosSwitchCacheCleaner() }
 }

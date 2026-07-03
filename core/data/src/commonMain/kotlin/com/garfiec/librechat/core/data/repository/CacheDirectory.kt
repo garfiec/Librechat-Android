@@ -1,8 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /**
  * Subdirectories under the platform cache root that are cleared on logout.
@@ -11,6 +9,7 @@ internal val CACHE_SUBDIRECTORIES = listOf(
     "image_cache",
     "artifacts",
     "shared_images",
+    "shared_files",
     "camera_photos",
     "pdf_preview",
     "voice_recording",
@@ -25,16 +24,14 @@ internal val CACHE_SUBDIRECTORIES = listOf(
 internal expect fun deleteDirectoryRecursively(path: String)
 
 /**
- * Common implementation of [SessionCacheCleaner] that iterates [CACHE_SUBDIRECTORIES]
- * and deletes each from the provided [cacheRoot] directory. Also clears the cached
- * role permissions so permission gates don't leak across user sessions.
+ * Common implementation of [SessionCacheCleaner] that iterates [CACHE_SUBDIRECTORIES] and deletes
+ * each from the provided [cacheRoot] directory. Account-blind: role permissions and other
+ * account-scoped state are reaped by the account teardown, not here.
  */
 class CommonSessionCacheCleaner(
     private val cacheRoot: String,
-    private val roleRepository: RoleRepository,
-    private val applicationScope: CoroutineScope,
 ) : SessionCacheCleaner {
-    override fun clearSessionCaches() {
+    override fun clearFileCaches() {
         try {
             for (subdir in CACHE_SUBDIRECTORIES) {
                 deleteDirectoryRecursively("$cacheRoot/$subdir")
@@ -42,8 +39,5 @@ class CommonSessionCacheCleaner(
         } catch (e: Exception) {
             Logger.w(e) { "Failed to clear session caches on logout" }
         }
-        // roleRepository.clear() is a suspend function; dispatch it into the app scope so
-        // logout remains synchronous and can't be stalled by DataStore write latency.
-        applicationScope.launch { roleRepository.clear() }
     }
 }

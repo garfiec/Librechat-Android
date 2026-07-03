@@ -22,13 +22,13 @@ internal fun serverScopedKey(serverId: String, base: String): Preferences.Key<St
     stringPreferencesKey(serverScopedName(serverId, base))
 
 /**
- * Removes every entry whose name is the bare [bases] name or any `<scope>:<id>:<base>` variant of it.
- * Logout uses this to purge a base across all accounts/servers (single-active: at most one exists),
- * staying correct even when the active-account pointer has already been flipped to null.
+ * Removes every `acct:<accountId>:*` entry for one account, whatever its base — complete by
+ * construction, so a new account-scoped preference can never be forgotten by the removal path.
  */
-internal fun MutablePreferences.removeScoped(bases: List<String>) {
+internal fun MutablePreferences.removeAllForAccount(accountId: String) {
+    val prefix = accountScopedName(accountId, "")
     asMap().keys
-        .filter { key -> bases.any { key.name == it || key.name.endsWith(":$it") } }
+        .filter { it.name.startsWith(prefix) }
         .toList()
         .forEach { remove(it) }
 }

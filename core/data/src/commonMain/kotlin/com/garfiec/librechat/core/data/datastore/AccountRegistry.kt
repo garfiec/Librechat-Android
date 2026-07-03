@@ -1,55 +1,72 @@
 package com.garfiec.librechat.core.data.datastore
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
-import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.AccountReadyGate
+import com.garfiec.librechat.core.network.client.TokenManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * Device-global persistence of the **active account id**, and the cold-start seeder of
- * [ActiveAccountProvider].
+ * Owns the account **roster** cold-start seed and is the single [AccountReadyGate] every request /
+ * route waits on. Persistence itself lives in [AccountRoster]; this class orchestrates the seed.
  *
- * There is exactly one active account at a time. The id is the single persisted identity
- * fact (the leak persists because today *nothing* records who the cached rows belong to);
- * establishing it is the prerequisite the rest of row-tenancy builds on.
+ * There are three "active account" facts and they **cannot** be unified: the token store's
+ * synchronously-seeded secure-storage mirror (the fast bearer path), the durable roster active pointer,
+ * and the `serverId` derived from the persisted server URL. **The roster active pointer is the
+ * authority**; the mirror is a bearer-seed cache. At cold start this seed reconciles them:
  *
- * Cold start mirrors [ServerDataStore]'s async warm-up so Koin can instantiate this on Main without
- * blocking: it reads the persisted id off the IO dispatcher and resolves [ActiveAccountProvider] from
- * [AccountState.Warming] to the right [AccountState.Resolved]. The read **chains the URL warm-up**
- * — `awaitBaseUrl()` first — so identity never resolves before the server it belongs to is
- * known. A missing/blank id or any failure resolves to the logged-out state `Resolved(null)`, never
- * left [AccountState.Warming] and never failing open to a wrong account.
+ * 1. Read the persisted server URL (awaiting [ServerDataStore]'s own warm-up) — the migration input.
+ * 2. One-time migrate the pre-roster single-active pointer into a one-entry roster ([AccountRoster.migrateIfNeeded]).
+ * 3. Read the roster snapshot (authority).
+ * 4. If an active entry exists: **drive** the server URL from it (enforcing the url↔account invariant
+ *    even if the persisted URL drifted), reconcile the token mirror to it ([TokenManager.selectAccount],
+ *    idempotent + non-destructive), then publish identity. If none: publish `Resolved(null)` and touch
+ *    **no** tokens — an empty roster with tokens at rest is either a legacy pre-tenancy upgrade (bare
+ *    tokens the restore safety net must claim, `restoreAccountIfNeeded`) or a crash mid-establish
+ *    (keyed tokens the same safety net re-establishes); destroying them here would force a re-login.
+ *
+ * The publish uses the **low-level** [ActiveAccountProvider.set] / [ActiveAccountProvider.clear], never
+ * [upsertActive] / [clearActiveAccount] — those await [seeded] and would self-deadlock this coroutine.
+ * The whole body is inside the `try/finally` so [seeded] always completes and the [AccountReadyGate]
+ * never hangs, even on an unexpected failure.
  */
 class AccountRegistry(
-    private val dataStore: DataStore<Preferences>,
+    private val roster: AccountRoster,
     private val activeAccountProvider: ActiveAccountProvider,
-    private val serverUrlProvider: ServerUrlProvider,
+    private val serverDataStore: ServerDataStore,
+    private val tokenManager: TokenManager,
     appScope: CoroutineScope,
     ioDispatcher: CoroutineDispatcher,
-) {
+) : AccountReadyGate {
 
     private val seeded = CompletableDeferred<Unit>()
 
     init {
         appScope.launch(ioDispatcher) {
             try {
-                // Chain the URL warm-up: identity resolves only after the server is known.
-                serverUrlProvider.awaitBaseUrl()
-                val stored = dataStore.data.map { prefs -> prefs[KEY_ACTIVE_ACCOUNT_ID] }.first()
-                if (stored.isNullOrBlank()) {
+                // The persisted URL warm-up feeds migration and is the pre-roster fallback for the
+                // login screen. awaitBaseUrl() resolves ServerDataStore's own async warm-up.
+                val legacyUrl = serverDataStore.awaitBaseUrl()
+                roster.migrateIfNeeded(legacyUrl)
+                val activeEntry = roster.snapshot().activeEntry
+                if (activeEntry == null) {
+                    // Authority says no account — publish logged-out, but leave the token store
+                    // alone: on a pre-tenancy upgrade the roster is empty while the user's session
+                    // lives under the bare keys, and clearing here would destroy it before the
+                    // restore safety net (restoreAccountIfNeeded) can claim it.
                     activeAccountProvider.clear()
                 } else {
-                    activeAccountProvider.set(AccountId(stored))
+                    // Drive the URL from the active entry BEFORE publishing identity: the token bearer
+                    // and the server it is sent to must agree from the first admitted request.
+                    serverDataStore.setServerUrl(activeEntry.serverUrl)
+                    // Point the sync mirror at the authority. Idempotent when already aligned (the
+                    // common case); re-homes a crash-diverged mirror. Writes/deletes nothing.
+                    tokenManager.selectAccount(activeEntry.accountId)
+                    activeAccountProvider.set(AccountId(activeEntry.accountId))
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -62,38 +79,28 @@ class AccountRegistry(
         }
     }
 
-    /** Suspends until the cold-start seed has resolved the provider (for ordered consumers / tests). */
-    suspend fun awaitSeeded() {
-        seeded.await()
-    }
+    /** [AccountReadyGate]: suspends until the cold-start seed + reconcile has resolved. */
+    override suspend fun awaitReady() = seeded.await()
 
     /**
-     * Records [id] as the active account and publishes it. Persist-then-publish: disk is the source
-     * of truth, so a crash between the two is reconciled (re-seeded) on the next cold start. Called by
-     * the login paths and the account-switch transition.
+     * Records [entry] as the active account (upsert + activate) and publishes it. Called by the login
+     * paths and cold-start restore via [AccountSessionEstablisher]. Ordered after the seed so its async
+     * resolve can't land after this set and clobber the just-established account back to stale.
      */
-    suspend fun setActiveAccount(id: AccountId) {
-        // Order after the cold-start seed: otherwise its async resolve can land *after* this set
-        // and clobber the just-established account back to null/stale (a spurious logout). The
-        // login paths don't await the seed themselves, so the gate lives here.
+    suspend fun upsertActive(entry: AccountEntry) {
         seeded.await()
-        dataStore.edit { prefs -> prefs[KEY_ACTIVE_ACCOUNT_ID] = id.value }
-        activeAccountProvider.set(id)
+        roster.upsertAndActivate(entry)
+        activeAccountProvider.set(AccountId(entry.accountId))
     }
 
     /**
-     * Clears the active account (logout / account-remove). **Flip-to-null first** (collectors
-     * must tear down their account-scoped query before any row delete), then drop it from disk.
+     * Clears the active account (logout / remove-active). **Flip-to-null first** (collectors must tear
+     * down their account-scoped query before any row delete), then drop the entry from the roster.
      */
     suspend fun clearActiveAccount() {
-        // Same ordering guard as setActiveAccount: don't let a late seed re-publish a stale account
-        // after we've cleared it.
         seeded.await()
+        val activeId = roster.snapshot().activeId
         activeAccountProvider.clear()
-        dataStore.edit { prefs -> prefs.remove(KEY_ACTIVE_ACCOUNT_ID) }
-    }
-
-    private companion object {
-        val KEY_ACTIVE_ACCOUNT_ID = stringPreferencesKey("active_account_id")
+        if (activeId != null) roster.removeAndDeactivate(activeId)
     }
 }

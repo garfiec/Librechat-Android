@@ -10,13 +10,13 @@ import com.garfiec.librechat.core.data.datastore.TokenDataStore
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_3_4
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_4_5
+import com.garfiec.librechat.core.data.repository.AndroidSwitchCacheCleaner
 import com.garfiec.librechat.core.data.repository.CommonSessionCacheCleaner
-import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SessionCacheCleaner
+import com.garfiec.librechat.core.data.repository.SwitchCacheCleaner
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
 import com.garfiec.librechat.core.network.client.TokenManager
 import io.ktor.client.HttpClient
-import kotlinx.coroutines.CoroutineScope
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.dsl.binds
@@ -50,8 +50,9 @@ actual val dataPlatformModule: Module = module {
     single<SessionCacheCleaner> {
         CommonSessionCacheCleaner(
             cacheRoot = androidContext().cacheDir.absolutePath,
-            roleRepository = get<RoleRepository>(),
-            applicationScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
         )
     }
+
+    // --- Switch Cache Cleaner (account switch, non-partitionable caches) ---
+    single<SwitchCacheCleaner> { AndroidSwitchCacheCleaner() }
 }

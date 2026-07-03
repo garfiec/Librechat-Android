@@ -1,5 +1,8 @@
 package com.garfiec.librechat.core.network.client
 
+import com.garfiec.librechat.core.common.identity.AccountId
+import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -14,6 +17,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Test
 
 class AuthInterceptorTest {
@@ -25,6 +29,7 @@ class AuthInterceptorTest {
     ) : TokenManager {
         var refreshCallCount = 0
         var sessionExpiredCount = 0
+        var lastExpiredAccountId: String? = null
         private val _sessionExpiredFlow = MutableSharedFlow<Unit>()
         override val sessionExpiredFlow: SharedFlow<Unit> = _sessionExpiredFlow
         override val isAuthenticated: Boolean get() = accessToken != null
@@ -48,14 +53,30 @@ class AuthInterceptorTest {
             accessToken = null
         }
 
+        override suspend fun getAccessTokenFor(accountId: String): String? = accessToken
+
+        override suspend fun getStagedAccessToken(): String? = null
+
+        override suspend fun clearStagedTokens() = Unit
+
+        override suspend fun selectAccount(accountId: String) = Unit
+
+        override suspend fun removeAccount(accountId: String) {
+            accessToken = null
+        }
+
+        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean =
+            refreshAccessToken()
+
         override suspend fun onAccountResolved(accountId: String) = Unit
 
         override suspend fun onAccountCleared() {
             accessToken = null
         }
 
-        override fun emitSessionExpired() {
+        override fun emitSessionExpired(expiredAccountId: String?) {
             sessionExpiredCount++
+            lastExpiredAccountId = expiredAccountId
         }
     }
 
@@ -328,6 +349,70 @@ class AuthInterceptorTest {
 
         client.get("https://anyhost.example.org/api/data")
         assertThat(capturedAuth).isEqualTo("Bearer my-token")
+    }
+
+    @Test
+    fun `pending-identity request carries the staged bearer and its 401 passes through untouched`() = runTest {
+        // Add-account flow: the pending snapshot routes URL + bearer; a 401 must neither refresh any
+        // account nor emit the global session-expired signal (which would tear down the live account).
+        val tokenManager = FakeTokenManager(accessToken = "live-a-token", refreshSucceeds = true)
+        var requestCount = 0
+        var capturedAuth: String? = null
+        var capturedHost: String? = null
+        val engine = MockEngine { request ->
+            requestCount++
+            capturedAuth = request.headers[HttpHeaders.Authorization]
+            capturedHost = request.url.host
+            respond("Unauthorized", HttpStatusCode.Unauthorized)
+        }
+        val gate = SwitchGate(
+            activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("acct-a"))),
+            serverUrlProvider = FakeServerUrlProvider("https://a.example.com"),
+            tokenManager = tokenManager,
+            accountReadyGate = null,
+        )
+        val client = HttpClient(engine) {
+            install(ContentNegotiation) { json() }
+            install(SwitchBarrierPlugin) { switchGate = gate }
+            install(AuthInterceptorPlugin) { this.tokenManager = tokenManager }
+        }
+
+        val response = withContext(PendingRequestIdentity("https://b.example.com") { "staged-b" }) {
+            client.get("/api/user")
+        }
+
+        assertThat(capturedHost).isEqualTo("b.example.com")
+        assertThat(capturedAuth).isEqualTo("Bearer staged-b")
+        assertThat(response.status).isEqualTo(HttpStatusCode.Unauthorized)
+        assertThat(requestCount).isEqualTo(1)
+        assertThat(tokenManager.refreshCallCount).isEqualTo(0)
+        assertThat(tokenManager.sessionExpiredCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `refresh failure on a snapshot request scopes the expiry signal to the snapshot account`() = runTest {
+        // The store decides whether a scoped expiry still matters (it suppresses non-active
+        // accounts); the plugin's contract is to pass the snapshot's account along, never a blanket
+        // global signal.
+        val tokenManager = FakeTokenManager(accessToken = "a-token", refreshSucceeds = false)
+        val engine = MockEngine { respond("Unauthorized", HttpStatusCode.Unauthorized) }
+        val gate = SwitchGate(
+            activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("acct-a"))),
+            serverUrlProvider = FakeServerUrlProvider("https://a.example.com"),
+            tokenManager = tokenManager,
+            accountReadyGate = null,
+        )
+        val client = HttpClient(engine) {
+            install(ContentNegotiation) { json() }
+            install(SwitchBarrierPlugin) { switchGate = gate }
+            install(AuthInterceptorPlugin) { this.tokenManager = tokenManager }
+        }
+
+        val response = client.get("/api/user")
+
+        assertThat(response.status).isEqualTo(HttpStatusCode.Unauthorized)
+        assertThat(tokenManager.sessionExpiredCount).isEqualTo(1)
+        assertThat(tokenManager.lastExpiredAccountId).isEqualTo("acct-a")
     }
 
     @Test

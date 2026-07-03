@@ -33,14 +33,25 @@ All impls take constructor parameters (api, dao, mapper, dispatcher) wired via K
 3. Upsert into Room. The Room `Flow` auto-emits the updated list.
 4. On network error, the cached data remains visible; error is surfaced separately.
 
-### Token Refresh with Mutex
+### Account-keyed token store (`CommonTokenDataStore`)
 
-```kotlin
-private val refreshMutex = Mutex()
-override suspend fun refreshAccessToken(): Boolean = refreshMutex.withLock {
-    // Single refresh attempt, all concurrent callers wait on this lock
-}
-```
+Tokens are namespaced by account (`acct:<accountId>:access_token`) and several accounts' tokens are
+retained at rest at once (multi-account, issue #179). Concurrency uses three cooperating pieces, not a
+single refresh mutex:
+
+- **`stateMutex`** — guards the in-memory identity + cached bearer and short storage reads/writes of
+  it. Held only for brief critical sections, **never across the refresh network POST**, so a switch or
+  logout never stalls behind a slow refresh.
+- **per-account `flightMutex`/`flights`** — single-flights refreshes of the *same* account across their
+  POST, so a second 401 reads the rotated token instead of re-POSTing a spent one.
+- **`tokenEpoch`** — bumped by every op that invalidates token truth (logout, clear, removal, a new
+  authentication, an identity re-home). A refresh captures it before its POST and discards its result
+  if it changed, so a refresh racing a teardown can't resurrect a cleared session even with no lock
+  held across the POST.
+
+Interactive sign-in (`setTokens`) **stages** the pair under the bare keys and drops the active binding;
+`onAccountResolved` re-homes it into the account's keyed slot. This makes a re-login while another
+account is active unable to corrupt/leak into that account's slot.
 
 Wrap `EncryptedSharedPreferences` in try/catch -- some OEM devices have broken Keystore implementations. On `KeyStoreException`, clear tokens and force re-login.
 

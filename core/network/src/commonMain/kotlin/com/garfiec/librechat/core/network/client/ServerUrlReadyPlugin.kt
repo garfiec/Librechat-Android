@@ -7,7 +7,7 @@ import io.ktor.util.AttributeKey
 import io.ktor.util.pipeline.PipelinePhase
 
 /**
- * Awaits the server URL's async warm-up before each request is built.
+ * Awaits the account/server cold-start readiness before each request is built.
  *
  * [ServerDataStore] resolves the persisted base URL asynchronously off the Main thread, so
  * during a narrow cold-start window [ServerUrlProvider.getBaseUrl] (which the non-suspend
@@ -16,12 +16,21 @@ import io.ktor.util.pipeline.PipelinePhase
  * network layer: it runs in a phase inserted *before* [HttpRequestPipeline.Before] — where
  * Ktor's `DefaultRequest` applies the URL — so by the time `defaultRequest` reads
  * `getBaseUrl()` the warm-up has completed. After warm-up it is a no-op suspension point.
+ *
+ * When an [AccountReadyGate] is configured it is awaited **first**: the roster seed reconciles the
+ * token mirror to the durable active pointer and drives the server URL from the active entry, so
+ * gating on it closes the cold-start window where a request would fly with a stale mirror bearer or a
+ * pre-roster server URL. The gate's own seed awaits the same URL warm-up, so `awaitBaseUrl()` after it
+ * is a no-op. The token-refresh client is deliberately left ungated so a seed-time mirror reconcile
+ * can never deadlock behind an in-flight refresh.
  */
 class ServerUrlReadyPlugin private constructor(
     private val serverUrlProvider: ServerUrlProvider,
+    private val accountReadyGate: AccountReadyGate?,
 ) {
     class Config {
         lateinit var serverUrlProvider: ServerUrlProvider
+        var accountReadyGate: AccountReadyGate? = null
     }
 
     companion object : HttpClientPlugin<Config, ServerUrlReadyPlugin> {
@@ -30,12 +39,13 @@ class ServerUrlReadyPlugin private constructor(
 
         override fun prepare(block: Config.() -> Unit): ServerUrlReadyPlugin {
             val config = Config().apply(block)
-            return ServerUrlReadyPlugin(config.serverUrlProvider)
+            return ServerUrlReadyPlugin(config.serverUrlProvider, config.accountReadyGate)
         }
 
         override fun install(plugin: ServerUrlReadyPlugin, scope: HttpClient) {
             scope.requestPipeline.insertPhaseBefore(HttpRequestPipeline.Before, AwaitServerUrlPhase)
             scope.requestPipeline.intercept(AwaitServerUrlPhase) {
+                plugin.accountReadyGate?.awaitReady()
                 plugin.serverUrlProvider.awaitBaseUrl()
             }
         }

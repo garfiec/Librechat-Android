@@ -32,16 +32,17 @@ class AuthInterceptorPlugin private constructor(
     }
 
     /**
-     * True when [requestHost] belongs to the configured server (so the bearer
-     * token is safe to attach). Returns true when host-scoping is disabled
-     * (no [serverUrlProvider]) or the base URL isn't resolved yet (empty host) —
-     * the latter only happens during cold-start warm-up, before any cross-host
-     * CDN fetch can occur, so it preserves same-origin auth without leaking.
+     * True when [requestHost] belongs to the server [baseUrl] (so the bearer token is safe to attach).
+     * Returns true when host-scoping is disabled ([baseUrl] null — no provider and no snapshot) or the
+     * base URL isn't resolved yet (empty host) — the latter only happens during cold-start warm-up,
+     * before any cross-host CDN fetch can occur, so it preserves same-origin auth without leaking.
+     *
+     * [baseUrl] is the request's snapshotted server URL when the [SwitchBarrierPlugin] is installed, so
+     * an account switch mid-request scopes the bearer to the account the request was snapshotted for
+     * (never the live one), keeping A's bearer off B's host.
      */
-    private fun isSameHostAsServer(requestHost: String): Boolean {
-        val provider = serverUrlProvider ?: return true
-        val baseUrl = provider.getBaseUrl()
-        if (baseUrl.isEmpty()) return true
+    private fun isSameHostAsServer(requestHost: String, baseUrl: String?): Boolean {
+        if (baseUrl.isNullOrEmpty()) return true
         val baseHost = runCatching { Url(baseUrl).host }.getOrNull()
         if (baseHost.isNullOrEmpty()) return true
         return requestHost.equals(baseHost, ignoreCase = true)
@@ -63,15 +64,28 @@ class AuthInterceptorPlugin private constructor(
             )
 
             // Attach token to outgoing requests. Runs at State, which is after
-            // defaultRequest (Before) has applied the base URL — so for the
-            // common relative-path call `context.url.host` is already the base
-            // host, and for an absolute cross-host URL (e.g. a presigned CDN
-            // download) it is that foreign host.
+            // the SwitchBarrier/defaultRequest phases have applied the base URL —
+            // so for the common relative-path call `context.url.host` is already
+            // the base host, and for an absolute cross-host URL (e.g. a presigned
+            // CDN download) it is that foreign host.
+            //
+            // When the SwitchBarrierPlugin is installed the request carries a
+            // RequestIdentity snapshot: the bearer, its account, and the server
+            // URL, all captured atomically. Read the bearer and host-scope from
+            // that snapshot so a switch mid-request can't tear the (url, token)
+            // pair. Without the barrier (refresh client / tests) fall back to the
+            // live active account, preserving legacy behavior.
             scope.requestPipeline.intercept(HttpRequestPipeline.State) {
                 val path = context.url.buildString()
                 val isSkipPath = skipPaths.any { path.contains(it) }
-                if (!isSkipPath && plugin.isSameHostAsServer(context.url.host)) {
-                    val token = plugin.tokenManager.getAccessToken()
+                val snapshot = context.attributes.getOrNull(RequestIdentityKey)
+                val serverBaseUrl = snapshot?.baseUrl ?: plugin.serverUrlProvider?.getBaseUrl()
+                if (!isSkipPath && plugin.isSameHostAsServer(context.url.host, serverBaseUrl)) {
+                    // Explicit branch (not `?:`): a snapshot whose bearer is null must attach
+                    // nothing — a pending add-account probe before sign-in has no token yet, and
+                    // falling through to the live cache would send the ACTIVE account's bearer to
+                    // the arbitrary host being added.
+                    val token = if (snapshot != null) snapshot.bearer else plugin.tokenManager.getAccessToken()
                     if (token != null) {
                         context.headers.append(HttpHeaders.Authorization, "Bearer $token")
                     }
@@ -90,31 +104,41 @@ class AuthInterceptorPlugin private constructor(
                 // attach: never refresh a token and re-send it to a foreign host
                 // (e.g. a presigned CDN URL). For a non-base host, pass the
                 // original 401 straight through with no token on the retry.
-                if (!plugin.isSameHostAsServer(request.url.host)) {
+                val snapshot = request.attributes.getOrNull(RequestIdentityKey)
+                val serverBaseUrl = snapshot?.baseUrl ?: plugin.serverUrlProvider?.getBaseUrl()
+                if (!plugin.isSameHostAsServer(request.url.host, serverBaseUrl)) {
                     return@intercept originalCall
                 }
 
+                // A pending-identity request (add-account flow) has no keyed account to refresh, and
+                // its auth failures belong to the add flow's UI: pass the 401 through without a
+                // refresh and without the global session-expired signal, which would tear down the
+                // *active* account's session over another account's failed sign-in.
+                if (snapshot?.isPending == true) {
+                    return@intercept originalCall
+                }
+
+                // Session-expiry emissions below are scoped to the snapshot's account: a straggler
+                // request of a switched-away (retained, still-valid-in-roster) account must not tear
+                // down the live account's session over its own dead credentials.
                 val alreadyRetried = request.attributes.getOrNull(RetryFlag) == true
                 if (alreadyRetried) {
                     Logger.w("Auth") { "401 after retry - session expired" }
-                    plugin.tokenManager.emitSessionExpired()
+                    plugin.tokenManager.emitSessionExpired(snapshot?.accountId)
                     return@intercept originalCall
                 }
 
                 Logger.d("Auth") { "401 received, attempting token refresh" }
-                val refreshed = plugin.tokenManager.refreshAccessToken()
-                if (!refreshed) {
+                val newToken = plugin.tokenManager.refreshBearerFor(snapshot)
+                if (newToken == null) {
                     Logger.w("Auth") { "Token refresh failed - session expired" }
-                    plugin.tokenManager.emitSessionExpired()
+                    plugin.tokenManager.emitSessionExpired(snapshot?.accountId)
                     return@intercept originalCall
                 }
 
-                val newToken = plugin.tokenManager.getAccessToken()
                 request.headers {
                     remove(HttpHeaders.Authorization)
-                    if (newToken != null) {
-                        append(HttpHeaders.Authorization, "Bearer $newToken")
-                    }
+                    append(HttpHeaders.Authorization, "Bearer $newToken")
                 }
                 request.attributes.put(RetryFlag, true)
 

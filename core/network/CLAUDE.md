@@ -6,7 +6,7 @@ Ktor HttpClient, API service classes, SSE streaming client, auth interceptor. Al
 
 - **Ktor HttpClient factory** (`di/NetworkModule.kt`): Provides singleton `HttpClient(OkHttp)` with ContentNegotiation, Logging, HttpTimeout, HttpRequestRetry, and AuthInterceptorPlugin via Koin module.
 - **AuthInterceptorPlugin** (`client/AuthInterceptor.kt`): Custom Ktor plugin that injects `Authorization: Bearer` on outgoing requests and retries on 401 after refreshing tokens. Skips auth endpoints (`auth/login`, `auth/register`, `auth/refresh`, etc.).
-- **TokenManager interface** (`client/TokenManager.kt`): `getAccessToken()`, `setTokens()`, `refreshAccessToken()` (Mutex-guarded), `clearTokens()`, `sessionExpiredFlow`. Implemented in `:core:data`.
+- **TokenManager interface** (`client/TokenManager.kt`): `getAccessToken()`, `setTokens()`, `refreshAccessToken()` (single-flighted, epoch-guarded), `clearTokens()`, `sessionExpiredFlow`, plus the account-keyed `getAccessTokenFor()` / `selectAccount()` / `removeAccount()` / `refreshAccessTokenFor()`. Implemented in `:core:data`.
 - **ServerUrlProvider interface** (`client/ServerUrlProvider.kt`): Resolves the user-configured base URL. Implemented in `:core:data`.
 - **API services** (`api/`): One class per domain -- `AuthApi`, `ConversationsApi`, `MessagesApi`, `ChatStreamApi`, `FilesApi`, `AgentsApi`, `PresetsApi`, `PromptsApi`, `TagsApi`, `ShareApi`, `ConfigApi`, `EndpointsApi`, `BalanceApi`, `UserApi`, `SearchApi`. Each takes `HttpClient` as a constructor parameter, wired via Koin.
 - **SSE client** (`sse/`): `SseClient`, `SseEvent`, `SseEventParser`, `SseConnectionManager`.

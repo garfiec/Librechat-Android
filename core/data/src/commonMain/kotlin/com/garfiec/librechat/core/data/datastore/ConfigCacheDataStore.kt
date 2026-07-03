@@ -49,9 +49,16 @@ class ConfigCacheDataStore(
 
     suspend fun clear() {
         try {
-            // Logout keeps the server URL, but remove every server's config entry (at most one under
-            // single-active) so this stays correct even if identity has already flipped.
-            dataStore.edit { prefs -> prefs.removeScoped(BASES) }
+            // Scope to the logged-out server only: logout keeps the base URL, so serverId() still
+            // resolves to it. Other retained accounts may sit on different servers whose cached
+            // config must survive — a blanket wipe across all servers would strip a retained
+            // account's endpoints/models. Legacy bare (pre-keying) entries are dropped
+            // unconditionally.
+            val serverId = serverId()
+            dataStore.edit { prefs ->
+                serverId?.let { id -> BASES.forEach { prefs.remove(key(id, it)) } }
+                BASES.forEach { prefs.remove(stringPreferencesKey(it)) }
+            }
         } catch (e: Exception) {
             Logger.w(e) { "Failed to clear cached config" }
         }

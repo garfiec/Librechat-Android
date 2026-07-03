@@ -35,6 +35,25 @@ interface ConfigRepository {
     val detectedBackendVersion: StateFlow<String?>
 
     suspend fun validateServerUrl(url: String): Result<StartupConfig>
+
+    /**
+     * Validates that the request pipeline's current target is a LibreChat server WITHOUT
+     * publishing the fetched config to the in-memory state or the srv:-keyed disk cache.
+     * For add-account validation: the call runs under the pending server's request identity
+     * while the live account stays active, so [validateServerUrl]'s writes would surface the
+     * pending server's config to the live session and poison the live server's cache entry
+     * (the cache key derives from the live URL, not the probed one).
+     */
+    suspend fun probeServerUrl(): Result<StartupConfig>
+
+    /**
+     * Replaces the in-memory config state with the active server's cached entries (empty when
+     * none), leaving every server's disk cache untouched. Called after an account switch: the
+     * in-memory StateFlows are server-blind, so once the URL flips they still hold the outgoing
+     * server's config until this reseeds them from the incoming server's srv:-keyed cache.
+     */
+    suspend fun reloadForActiveServer()
+
     suspend fun fetchStartupConfig(): Result<StartupConfig>
     suspend fun fetchEndpoints(): Result<Map<String, EndpointConfig>>
     suspend fun fetchModels(): Result<Map<String, List<String>>>
