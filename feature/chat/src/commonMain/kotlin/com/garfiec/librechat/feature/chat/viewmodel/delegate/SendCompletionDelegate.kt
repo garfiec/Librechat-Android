@@ -145,9 +145,12 @@ class SendCompletionDelegate(
                 treeDelegate.finalizeChatDisplay(event)
             } else {
                 if (isComparison) {
-                    // Comparison's two responses are sibling messages the Final event doesn't
-                    // fully model, so keep the server reconcile to materialize both into the
-                    // tree (the panes were already finalized by comparisonDelegate.onFinal).
+                    // A comparison persists as ONE response message whose content parts carry
+                    // per-agent attribution (added agent suffixed ____N). The Final event doesn't
+                    // model that split, so reload from the server to materialize the attributed
+                    // message; ChatContent then renders each pane from its own parts, and reopen
+                    // rehydration reads the same attribution. (The live panes were already
+                    // finalized in memory by comparisonDelegate.onFinal.)
                     reloadConversation(conversationId)
                 } else {
                     // The Final event is authoritative (it echoes the server-adopted ids, PR
