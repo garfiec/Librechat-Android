@@ -54,6 +54,38 @@ class ComparisonDisplayTest {
     }
 
     @Test
+    fun `secondary pane re-points endpoint and icon so the avatar differs from primary`() {
+        val withPrimaryIcon = node(
+            Message(
+                messageId = "m1",
+                conversationId = "c1",
+                endpoint = "anthropic",
+                iconURL = "https://host/primary-avatar.png",
+                content = listOf(
+                    textPart("primary reply", agentId = "agent_a"),
+                    textPart("secondary reply", agentId = "agent_a____1"),
+                ),
+            ),
+        )
+        val primary = buildComparisonDisplayMessages(
+            listOf(withPrimaryIcon), secondary = false,
+            parallelMessageId = "m1", finalContent = null, senderName = "P",
+        )[0].message
+        // Primary keeps its own endpoint/icon.
+        assertThat(primary.endpoint).isEqualTo("anthropic")
+        assertThat(primary.iconURL).isEqualTo("https://host/primary-avatar.png")
+
+        val secondary = buildComparisonDisplayMessages(
+            listOf(withPrimaryIcon), secondary = true,
+            parallelMessageId = "m1", finalContent = null, senderName = "S",
+            secondaryEndpoint = "openAI", secondaryIconUrl = null,
+        )[0].message
+        // Secondary is re-pointed: endpoint swapped, primary's icon cleared (endpoint fallback).
+        assertThat(secondary.endpoint).isEqualTo("openAI")
+        assertThat(secondary.iconURL).isNull()
+    }
+
+    @Test
     fun `buildComparisonDisplayMessages falls back to buffer when pane has no parts`() {
         // A message attributed only to the added agent → primary pane has no parts,
         // so the captured streaming buffer is substituted.

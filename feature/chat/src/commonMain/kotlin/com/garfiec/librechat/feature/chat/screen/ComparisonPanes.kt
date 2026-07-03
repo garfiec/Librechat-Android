@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.feature.chat.components.ComparisonDualPane
 import com.garfiec.librechat.feature.chat.components.ComparisonTabBar
 import com.garfiec.librechat.feature.chat.components.MessageList
@@ -68,11 +69,32 @@ internal fun ComparisonPanes(
     }
     val secondarySenderName = viewModel.getSecondaryModelDisplayName()
         ?: comparisonState.secondaryModel ?: "Assistant"
+    val secondaryEndpoint = comparisonState.secondaryEndpoint ?: EndpointConstants.AGENTS
+    // Re-point the secondary bubble avatar at its own agent: the persisted parallel
+    // message only carries the primary's endpoint/iconURL. For an agents-endpoint
+    // secondary, resolve the agent's avatar; otherwise fall back to the endpoint icon.
+    val secondaryIconUrl = remember(
+        secondaryEndpoint,
+        comparisonState.secondaryModel,
+        uiState.agents,
+        uiState.serverUrl,
+    ) {
+        val model = comparisonState.secondaryModel
+        if (secondaryEndpoint == EndpointConstants.AGENTS && model != null) {
+            uiState.agents.find { it.id == model }?.avatarUrl?.let { url ->
+                if (url.startsWith("http")) url else "${uiState.serverUrl}$url"
+            }
+        } else {
+            null
+        }
+    }
     val secondaryDisplayMessages = remember(
         uiState.displayMessages,
         comparisonState.parallelMessageId,
         comparisonState.secondaryFinalContent,
         secondarySenderName,
+        secondaryEndpoint,
+        secondaryIconUrl,
     ) {
         buildComparisonDisplayMessages(
             uiState.displayMessages,
@@ -80,6 +102,8 @@ internal fun ComparisonPanes(
             comparisonState.parallelMessageId,
             comparisonState.secondaryFinalContent,
             secondarySenderName,
+            secondaryEndpoint = secondaryEndpoint,
+            secondaryIconUrl = secondaryIconUrl,
         )
     }
 
@@ -138,7 +162,6 @@ internal fun ComparisonPanes(
         )
     }
 
-    val secondaryEndpoint = comparisonState.secondaryEndpoint ?: "agents"
     val secondaryModelName = viewModel.getSecondaryModelDisplayName()
         ?: comparisonState.secondaryModel
         ?: stringResource(Res.string.select_model)
