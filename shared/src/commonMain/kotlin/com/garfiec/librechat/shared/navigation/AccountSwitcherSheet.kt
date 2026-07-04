@@ -61,10 +61,10 @@ import com.garfiec.librechat.shared.resources.remove
 import com.garfiec.librechat.shared.resources.remove_account
 import com.garfiec.librechat.shared.resources.remove_account_message
 import com.garfiec.librechat.shared.resources.remove_account_title
-import kotlin.math.abs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.abs
 
 /** Vertical drag past this distance (up or down) on the chip commits a round-robin switch. */
 private val SwipeSwitchThreshold = 40.dp
