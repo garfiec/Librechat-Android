@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.conversations.screen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -64,7 +65,7 @@ import org.koin.compose.viewmodel.koinViewModel
 // Hoisted: compiled once instead of per export event.
 private val ExportFileNameSanitizer = Regex("[^a-zA-Z0-9._-]")
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ConversationListScreen(
     onConversationClick: (String) -> Unit,
@@ -274,8 +275,7 @@ fun ConversationListScreen(
                             }
 
                             groupedConversations.forEach { (dateGroup, displayItems) ->
-                                // Date group header
-                                item(key = "header_$dateGroup") {
+                                stickyHeader(key = "header_$dateGroup") {
                                     DateGroupHeader(label = dateGroup)
                                 }
 

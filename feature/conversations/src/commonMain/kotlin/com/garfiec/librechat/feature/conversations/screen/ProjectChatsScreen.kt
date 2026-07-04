@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.conversations.screen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,7 +72,7 @@ import org.koin.core.parameter.parametersOf
 
 private val ExportFileNameSanitizer = Regex("[^a-zA-Z0-9._-]")
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProjectChatsScreen(
     projectId: String,
@@ -192,7 +193,7 @@ fun ProjectChatsScreen(
                 else -> {
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                         uiState.groupedConversations.forEach { (dateGroup, displayItems) ->
-                            item(key = "header_$dateGroup") { DateGroupHeader(label = dateGroup) }
+                            stickyHeader(key = "header_$dateGroup") { DateGroupHeader(label = dateGroup) }
                             items(
                                 items = displayItems,
                                 key = { it.conversationId },

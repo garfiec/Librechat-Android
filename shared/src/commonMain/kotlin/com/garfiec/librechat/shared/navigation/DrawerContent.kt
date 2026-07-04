@@ -238,7 +238,7 @@ fun DrawerContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DrawerContent(
     uiState: DrawerUiState,
@@ -309,6 +309,7 @@ fun DrawerContent(
         modifier = modifier
             .fillMaxHeight()
             .width(300.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(top = 16.dp),
@@ -697,17 +698,20 @@ fun DrawerContent(
                 }
 
                 uiState.groupedConversations.forEach { (dateGroup, displayItems) ->
-                    item(key = "header_$dateGroup") {
+                    stickyHeader(key = "header_$dateGroup") {
                         Text(
                             text = dateGroup,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(
-                                start = 16.dp,
-                                end = 16.dp,
-                                top = 12.dp,
-                                bottom = 4.dp,
-                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                .padding(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    top = 12.dp,
+                                    bottom = 4.dp,
+                                ),
                         )
                     }
 
