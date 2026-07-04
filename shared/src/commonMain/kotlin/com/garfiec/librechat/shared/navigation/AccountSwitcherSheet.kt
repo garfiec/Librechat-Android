@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,17 +32,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.ui.components.AvatarImage
+import com.garfiec.librechat.core.ui.components.avatarColorForSeed
 import com.garfiec.librechat.shared.resources.Res
 import com.garfiec.librechat.shared.resources.accounts
 import com.garfiec.librechat.shared.resources.add_account
 import com.garfiec.librechat.shared.resources.cancel
 import com.garfiec.librechat.shared.resources.cd_active_account
-import com.garfiec.librechat.shared.resources.cd_switch_account
 import com.garfiec.librechat.shared.resources.remove
 import com.garfiec.librechat.shared.resources.remove_account
 import com.garfiec.librechat.shared.resources.remove_account_message
@@ -53,12 +54,12 @@ import org.jetbrains.compose.resources.stringResource
 private val SwipeSwitchThreshold = 40.dp
 
 /**
- * The drawer-header account chip (Gmail-style): the active account's avatar + label + server host.
- * Tapping opens the roster sheet ([AccountSwitcherSheet]). Swiping up/down round-robins to the
- * adjacent account (like Gmail/YouTube profile swipe) via [onSwitchAdjacent] — passed +1 for a
- * swipe up (next) and -1 for a swipe down (previous); null disables the gesture (single account).
- * Rendered only while an account is resolved — the drawer isn't reachable from the auth flow, so
- * [account] is normally non-null.
+ * The drawer-footer account chip (Gmail-style): just the active account's avatar, tapped to open
+ * the roster sheet ([AccountSwitcherSheet]). Swiping up/down round-robins to the adjacent account
+ * (like Gmail/YouTube profile swipe) via [onSwitchAdjacent] — passed +1 for a swipe up (next) and
+ * -1 for a swipe down (previous); null disables the gesture (single account). Rendered only while
+ * an account is resolved — the drawer isn't reachable from the auth flow, so [account] is normally
+ * non-null.
  */
 @Composable
 fun AccountChip(
@@ -92,43 +93,18 @@ fun AccountChip(
     }
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp).then(swipeModifier),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = modifier.then(swipeModifier),
+        shape = CircleShape,
+        color = Color.Transparent,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AvatarImage(
-                imageUrl = account.avatarUrl,
-                size = 32.dp,
-                fallbackText = account.displayLabel,
-                contentDescription = null,
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = account.displayLabel,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = account.serverHost,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Icon(
-                imageVector = Icons.Outlined.UnfoldMore,
-                contentDescription = stringResource(Res.string.cd_switch_account),
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        AvatarImage(
+            imageUrl = account.avatarUrl,
+            size = 32.dp,
+            fallbackText = account.displayLabel,
+            fallbackBackgroundColor = avatarColorForSeed(account.accountId),
+            contentDescription = account.displayLabel,
+            modifier = Modifier.padding(6.dp),
+        )
     }
 }
 
@@ -225,6 +201,7 @@ private fun AccountRow(
             imageUrl = account.avatarUrl,
             size = 36.dp,
             fallbackText = account.displayLabel,
+            fallbackBackgroundColor = avatarColorForSeed(account.accountId),
             contentDescription = null,
         )
         Spacer(modifier = Modifier.width(16.dp))

@@ -160,26 +160,38 @@ fun DrawerContent(
         footerContent = {
             accounts.firstOrNull { it.isActive }?.let { active ->
                 Spacer(modifier = Modifier.height(8.dp))
-                AccountChip(
-                    account = active,
-                    onClick = { showAccountSheet = true },
-                    // Gmail/YouTube-style: swipe the chip up/down to round-robin accounts without
-                    // opening the sheet. Switches in place via the ViewModel so the user can swipe
-                    // through several accounts against the same open chip. The sheet path keeps the
-                    // drawer open too (the host no longer closes it on switch).
-                    // Disabled (null) with a single account.
-                    onSwitchAdjacent = if (accounts.size > 1) {
-                        { delta -> adjacentAccountId(accounts, delta)?.let(viewModel::switchAccount) }
-                    } else {
-                        null
-                    },
-                )
+                // Footer row: Settings (icon + label) on the left takes the width; the account
+                // avatar (icon only, tap to switch) sits on the right.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(end = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DrawerFooterItem(
+                        icon = Icons.Default.Settings,
+                        label = stringResource(Res.string.settings),
+                        onClick = onSettingsClick,
+                        modifier = Modifier.weight(1f),
+                    )
+                    AccountChip(
+                        account = active,
+                        onClick = { showAccountSheet = true },
+                        // Gmail/YouTube-style: swipe the avatar up/down to round-robin accounts
+                        // without opening the sheet. Switches in place via the ViewModel so the user
+                        // can swipe through several accounts against the same avatar. The sheet path
+                        // keeps the drawer open too (the host no longer closes it on switch).
+                        // Disabled (null) with a single account.
+                        onSwitchAdjacent = if (accounts.size > 1) {
+                            { delta -> adjacentAccountId(accounts, delta)?.let(viewModel::switchAccount) }
+                        } else {
+                            null
+                        },
+                    )
+                }
             }
         },
         onSearchQueryChange = viewModel::onSearchQueryChanged,
         onNewChat = onNewChat,
         onConversationClick = onConversationClick,
-        onSettingsClick = onSettingsClick,
         onAgentsClick = onAgentsClick,
         onFilesClick = onFilesClick,
         onSkillsClick = onSkillsClick,
@@ -245,13 +257,12 @@ fun DrawerContent(
     onSearchQueryChange: (String) -> Unit,
     onNewChat: () -> Unit,
     onConversationClick: (String) -> Unit,
-    onSettingsClick: () -> Unit,
     onAgentsClick: () -> Unit,
     onFilesClick: () -> Unit,
     onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
-    // Slot below the footer links (Settings, Files, …) — the stateful wrapper puts the account chip
-    // here so switching accounts sits at the bottom of the drawer, near Settings.
+    // Slot below the footer links (Files, Agents, …) — the stateful wrapper puts the Settings row
+    // and the account avatar here, at the bottom of the drawer.
     footerContent: (@Composable () -> Unit)? = null,
     onToggleFavorite: (DrawerConversationDisplayData) -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -766,11 +777,6 @@ fun DrawerContent(
             icon = Icons.Default.Folder,
             label = stringResource(Res.string.files),
             onClick = onFilesClick,
-        )
-        DrawerFooterItem(
-            icon = Icons.Default.Settings,
-            label = stringResource(Res.string.settings),
-            onClick = onSettingsClick,
         )
 
         footerContent?.invoke()

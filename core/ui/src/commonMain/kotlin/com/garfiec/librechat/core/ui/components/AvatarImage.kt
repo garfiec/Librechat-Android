@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
@@ -79,17 +80,26 @@ fun AvatarImage(
             )
         }
     } else {
+        // Letter fallback (no photo). When the caller supplies a background (e.g. a stable
+        // per-account color from avatarColorForSeed) pick black/white text by its luminance;
+        // otherwise fall back to the theme's primaryContainer pair.
+        val background = fallbackBackgroundColor ?: MaterialTheme.colorScheme.primaryContainer
+        val foreground = if (fallbackBackgroundColor != null) {
+            if (background.luminance() > 0.5f) Color.Black else Color.White
+        } else {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        }
         Box(
             modifier = modifier
                 .size(size)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(background),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = fallbackText.take(1).uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = foreground,
             )
         }
     }
