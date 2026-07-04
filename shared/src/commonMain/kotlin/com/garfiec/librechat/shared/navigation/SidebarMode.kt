@@ -2,6 +2,7 @@ package com.garfiec.librechat.shared.navigation
 
 sealed interface SidebarMode {
     data object Conversations : SidebarMode
+    data object Projects : SidebarMode
     data object Settings : SidebarMode
 }
 

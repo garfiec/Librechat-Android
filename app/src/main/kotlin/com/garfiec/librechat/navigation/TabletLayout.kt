@@ -41,6 +41,7 @@ import com.garfiec.librechat.feature.skills.navigation.SkillsList
 import com.garfiec.librechat.shared.navigation.MainNavDisplay
 import com.garfiec.librechat.shared.navigation.NavHostViewModel
 import com.garfiec.librechat.shared.navigation.Navigator
+import com.garfiec.librechat.shared.navigation.SidebarMode
 import com.garfiec.librechat.shared.navigation.SidebarScaffold
 import com.garfiec.librechat.shared.navigation.toRoute
 import kotlinx.coroutines.launch
@@ -79,6 +80,15 @@ fun TabletLayout(
     // Back press closes sidebar before navigating away
     BackHandler(enabled = isSidebarOpen) {
         navHostViewModel.setTabletSidebarOpen(false)
+    }
+
+    // Reset the sidebar to Conversations whenever it's closed, so reopening lands on recents and
+    // the Projects-mode back handler (in SidebarScaffold) can't stay armed while the sidebar is
+    // hidden off-screen and swallow back presses. Mirrors PhoneLayout's drawerState.isClosed reset.
+    LaunchedEffect(isSidebarOpen) {
+        if (!isSidebarOpen) {
+            navHostViewModel.setSidebarMode(SidebarMode.Conversations)
+        }
     }
 
     // Sync: when ViewModel state changes (e.g. hamburger button, back press), animate the

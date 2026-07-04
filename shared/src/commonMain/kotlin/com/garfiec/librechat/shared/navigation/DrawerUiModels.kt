@@ -23,20 +23,6 @@ data class DrawerConversationDisplayData(
 )
 
 /**
- * A Chat Project folder row in the drawer's Projects section (v0.8.7). When
- * [isExpanded], [inlineChats] holds the first page (capped) of the project's own
- * conversations shown inline; a "Show all" affordance routes to the full list.
- */
-@Immutable
-data class DrawerProjectFolder(
-    val id: String,
-    val name: String,
-    val conversationCount: Int,
-    val isExpanded: Boolean,
-    val inlineChats: List<DrawerConversationDisplayData>,
-)
-
-/**
  * One signed-in account as the drawer header chip + switcher sheet render it (multi-account,
  * issue #179). Mapped from the persisted roster; ordered active-first, then by recency.
  */

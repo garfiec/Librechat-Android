@@ -151,11 +151,6 @@ class SettingsDataStore(
         prefs[KEY_TABLET_SIDEBAR_GESTURE_ENABLED] ?: true
     }
 
-    /** Whether the drawer's Projects folder section is expanded. Default expanded. */
-    val projectsSectionExpanded: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_PROJECTS_SECTION_EXPANDED] ?: true
-    }
-
     val autoSendAfterStt: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_AUTO_SEND_AFTER_STT] ?: false
     }
@@ -359,12 +354,6 @@ class SettingsDataStore(
         }
     }
 
-    suspend fun setProjectsSectionExpanded(expanded: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[KEY_PROJECTS_SECTION_EXPANDED] = expanded
-        }
-    }
-
     suspend fun setTabletSidebarGestureEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_TABLET_SIDEBAR_GESTURE_ENABLED] = enabled
@@ -508,7 +497,6 @@ class SettingsDataStore(
         private val KEY_TTS_VOICE_NAME = stringPreferencesKey("tts_voice_name")
         private val KEY_TABLET_SIDEBAR_OPEN = booleanPreferencesKey("tablet_sidebar_open")
         private val KEY_TABLET_SIDEBAR_GESTURE_ENABLED = booleanPreferencesKey("tablet_sidebar_gesture_enabled")
-        private val KEY_PROJECTS_SECTION_EXPANDED = booleanPreferencesKey("projects_section_expanded")
         private val KEY_AUTO_SEND_AFTER_STT = booleanPreferencesKey("auto_send_after_stt")
         private val KEY_STT_ENGINE = stringPreferencesKey("stt_engine")
         private val KEY_STT_LANGUAGE = stringPreferencesKey("stt_language")

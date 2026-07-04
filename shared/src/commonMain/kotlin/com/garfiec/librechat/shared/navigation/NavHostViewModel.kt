@@ -55,11 +55,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-/** How many of a project's chats are shown inline under an expanded drawer folder. */
-private const val INLINE_PROJECT_CHATS_CAP = 8
 
 class NavHostViewModel(
     private val authRepository: AuthRepository,
@@ -116,39 +112,10 @@ class NavHostViewModel(
             DrawerActionMenuState(tags, canShare, supportsV087, supportsV087)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DrawerActionMenuState())
 
-    // Chat Projects (v0.8.7). Loaded lazily when the move-to-project picker / folder
-    // section opens; the server is the source of truth (no local cache).
+    // Chat Projects (v0.8.7). Loaded lazily when the move-to-project picker / Projects sidebar mode
+    // ([ProjectsSidebarContent]) opens; the server is the source of truth (no local cache).
     private val _projects = MutableStateFlow<List<ChatProject>>(emptyList())
     val projects: StateFlow<List<ChatProject>> = _projects.asStateFlow()
-
-    // Drawer folder-section expand state + per-project inline chats (first page, capped).
-    private val _expandedProjectIds = MutableStateFlow<Set<String>>(emptySet())
-    private val _projectInlineChats = MutableStateFlow<Map<String, List<Conversation>>>(emptyMap())
-
-    /** Drawer Projects section: folders with their (lazily-loaded) inline chats. */
-    val projectsSection: StateFlow<List<DrawerProjectFolder>> =
-        combine(
-            _projects,
-            _expandedProjectIds,
-            _projectInlineChats,
-            configRepository.endpointConfigs,
-            conversationListStateHolder.activeConversationId,
-        ) { projects, expanded, inlineChats, endpointConfigs, activeId ->
-            projects.map { project ->
-                val isExpanded = project.id in expanded
-                DrawerProjectFolder(
-                    id = project.id,
-                    name = project.name,
-                    conversationCount = project.conversationCount,
-                    isExpanded = isExpanded,
-                    inlineChats = if (isExpanded) {
-                        inlineChats[project.id].orEmpty().map { it.toDrawerDisplayData(activeId, endpointConfigs) }
-                    } else {
-                        emptyList()
-                    },
-                )
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // One-shot events for the drawer action menu (share-link copied, export-ready,
     // navigate-to-duplicate, errors). Reuses the conversation-list event type. extraBufferCapacity
@@ -172,17 +139,12 @@ class NavHostViewModel(
         onMutated = {},
     )
 
-    // Shared project CRUD (same delegate ProjectsViewModel uses). onDeleted also drops this drawer's
-    // per-folder view state (expanded set + inline chats) before reloading.
+    // Shared project CRUD (same delegate ProjectsViewModel uses).
     private val projectActions = ProjectActionsDelegate(
         scope = viewModelScope,
         projectRepository = projectRepository,
         onChanged = { loadProjects() },
-        onDeleted = { projectId ->
-            _expandedProjectIds.update { it - projectId }
-            _projectInlineChats.update { it - projectId }
-            loadProjects()
-        },
+        onDeleted = { loadProjects() },
         emitError = { _events.emit(ConversationListEvent.ShowError(it)) },
     )
 
@@ -245,12 +207,6 @@ class NavHostViewModel(
         )
 
     val tabletSidebarGestureEnabled: StateFlow<Boolean> = settingsDataStore.tabletSidebarGestureEnabled
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
-
-    // Drawer Projects section collapse state, persisted across sessions. Eagerly warmed so the
-    // section is resolved to its saved state by the time the drawer composes (no expand->collapse
-    // flash on cold start), matching tabletSidebarGestureEnabled.
-    val projectsSectionExpanded: StateFlow<Boolean> = settingsDataStore.projectsSectionExpanded
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     private val _sidebarMode = MutableStateFlow<SidebarMode>(SidebarMode.Conversations)
@@ -397,8 +353,6 @@ class NavHostViewModel(
         viewModelScope.launch {
             activeAccountProvider.accountTransitions().collect { transition ->
                 _projects.value = emptyList()
-                _expandedProjectIds.value = emptySet()
-                _projectInlineChats.value = emptyMap()
                 _sidebarMode.value = SidebarMode.Conversations
                 _selectedSettingsCategory.value = null
                 conversationListStateHolder.reset()
@@ -583,51 +537,11 @@ class NavHostViewModel(
     }
 
     /**
-     * Refresh the drawer Projects section after a conversation's project assignment changes:
-     * reload the folders (their conversationCount is now stale) and re-fetch the inline chats of
-     * any expanded folder (a chat may have moved into/out of one).
+     * Refresh the Projects mode after a conversation's project assignment changes: reload the
+     * folders, whose conversationCount is now stale.
      */
     private fun onProjectAssignmentChanged() {
         loadProjects()
-        _expandedProjectIds.value.forEach { projectId ->
-            viewModelScope.launch {
-                when (
-                    val result = conversationRepository.getConversationsForProject(
-                        projectId,
-                        limit = INLINE_PROJECT_CHATS_CAP,
-                    )
-                ) {
-                    is Result.Success -> _projectInlineChats.update { it + (projectId to result.data.conversations) }
-                    is Result.Error -> Logger.w(result.exception) { "Failed to refresh project chats" }
-                    is Result.Loading -> Unit
-                }
-            }
-        }
-    }
-
-    /** Expands/collapses a project folder, lazily loading its first inline page on expand. */
-    fun toggleProjectExpanded(projectId: String) {
-        val expanded = _expandedProjectIds.value
-        if (projectId in expanded) {
-            _expandedProjectIds.value = expanded - projectId
-            return
-        }
-        _expandedProjectIds.value = expanded + projectId
-        if (_projectInlineChats.value.containsKey(projectId)) return
-        viewModelScope.launch {
-            when (val result = conversationRepository.getConversationsForProject(projectId, limit = INLINE_PROJECT_CHATS_CAP)) {
-                is Result.Success -> _projectInlineChats.update { it + (projectId to result.data.conversations) }
-                is Result.Error -> Logger.w(result.exception) { "Failed to load project chats" }
-                is Result.Loading -> Unit
-            }
-        }
-    }
-
-    /** Collapses/expands the entire drawer Projects section, persisting the new state. */
-    fun toggleProjectsSection() {
-        viewModelScope.launch {
-            settingsDataStore.setProjectsSectionExpanded(!projectsSectionExpanded.value)
-        }
     }
 
     fun createProject(name: String) = projectActions.create(name)
