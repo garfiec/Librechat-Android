@@ -1,6 +1,11 @@
 package com.garfiec.librechat.shared.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +37,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -55,9 +62,11 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -85,7 +94,9 @@ import com.garfiec.librechat.shared.resources.Res
 import com.garfiec.librechat.shared.resources.agents
 import com.garfiec.librechat.shared.resources.bookmark
 import com.garfiec.librechat.shared.resources.cd_clear_search
+import com.garfiec.librechat.shared.resources.cd_collapse_section
 import com.garfiec.librechat.shared.resources.cd_conversation_actions
+import com.garfiec.librechat.shared.resources.cd_expand_section
 import com.garfiec.librechat.shared.resources.cd_search
 import com.garfiec.librechat.shared.resources.favorites
 import com.garfiec.librechat.shared.resources.files
@@ -96,6 +107,8 @@ import com.garfiec.librechat.shared.resources.projects
 import com.garfiec.librechat.shared.resources.remove_bookmark
 import com.garfiec.librechat.shared.resources.search_conversations_placeholder
 import com.garfiec.librechat.shared.resources.settings
+import com.garfiec.librechat.shared.resources.show_less
+import com.garfiec.librechat.shared.resources.show_more
 import com.garfiec.librechat.shared.resources.skills
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -106,6 +119,9 @@ private val ActiveIndicatorShape = RoundedCornerShape(2.dp)
 
 // Gap between the conversation row's bottom edge and the long-press menu's top edge.
 private val MenuVerticalGap = 4.dp
+
+// Favorites shown before the "Show more" toggle reveals the rest.
+private const val FavoritesPreviewCount = 5
 
 /**
  * Stateful DrawerContent that collects its own state from the ViewModel.
@@ -273,6 +289,12 @@ fun DrawerContent(
     var tagPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var exportPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var projectPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
+
+    // Favorites section view state: whether the whole section is collapsed, and (when expanded)
+    // whether it shows all favorites or just the top [FavoritesPreviewCount]. Saveable so the
+    // choice survives config changes and the drawer's carousel mode switches.
+    var favoritesCollapsed by rememberSaveable { mutableStateOf(false) }
+    var showAllFavorites by rememberSaveable { mutableStateOf(false) }
 
     // Invisible anchor that claims initial focus so the search field below
     // doesn't auto-focus and pop the keyboard when the drawer opens. Tapping
@@ -491,31 +513,10 @@ fun DrawerContent(
                 // section is hidden during search, where pinned rows instead surface in the results.
                 if (uiState.pinnedConversations.isNotEmpty() && uiState.searchQuery.isEmpty()) {
                     item(key = "pinned_header") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    start = 16.dp,
-                                    end = 16.dp,
-                                    top = 8.dp,
-                                    bottom = 4.dp,
-                                ),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PushPin,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = stringResource(Res.string.pinned),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.semantics { heading() },
-                            )
-                        }
+                        SectionHeader(
+                            icon = Icons.Default.PushPin,
+                            title = stringResource(Res.string.pinned),
+                        )
                     }
 
                     items(
@@ -536,48 +537,59 @@ fun DrawerContent(
 
                 // Favorites section — hidden entirely when BOOKMARKS.USE is denied so
                 // any locally-cached favorites from a prior permissive session don't leak.
+                // The header collapses the whole section; when expanded, only the top
+                // [FavoritesPreviewCount] show until "Show more" reveals the rest.
                 if (uiState.bookmarksEnabled && uiState.favoriteConversations.isNotEmpty() && uiState.searchQuery.isEmpty()) {
+                    val favorites = uiState.favoriteConversations
                     item(key = "favorites_header") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    start = 16.dp,
-                                    end = 16.dp,
-                                    top = 8.dp,
-                                    bottom = 4.dp,
-                                ),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = stringResource(Res.string.favorites),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.semantics { heading() },
-                            )
-                        }
-                    }
-
-                    items(
-                        items = uiState.favoriteConversations,
-                        key = { "fav_${it.conversationId}" },
-                        contentType = { "conversation" },
-                    ) { data ->
-                        renderConversationItem("fav_${data.conversationId}", data)
-                    }
-
-                    item(key = "favorites_divider") {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
+                        SectionHeader(
+                            icon = Icons.Default.Star,
+                            title = stringResource(Res.string.favorites),
+                            collapsed = favoritesCollapsed,
+                            onToggle = { favoritesCollapsed = !favoritesCollapsed },
                         )
+                    }
+
+                    // The whole body (preview rows + show-more + divider) lives in one item so it can
+                    // expand/collapse as a unit; the extra rows past the preview get their own nested
+                    // reveal. Favorites are a small curated set, so composing them eagerly is cheap.
+                    item(key = "favorites_body") {
+                        Column {
+                            AnimatedVisibility(
+                                visible = !favoritesCollapsed,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                Column {
+                                    favorites.take(FavoritesPreviewCount).forEach { data ->
+                                        renderConversationItem("fav_${data.conversationId}", data)
+                                    }
+
+                                    if (favorites.size > FavoritesPreviewCount) {
+                                        AnimatedVisibility(
+                                            visible = showAllFavorites,
+                                            enter = expandVertically() + fadeIn(),
+                                            exit = shrinkVertically() + fadeOut(),
+                                        ) {
+                                            Column {
+                                                favorites.drop(FavoritesPreviewCount).forEach { data ->
+                                                    renderConversationItem("fav_${data.conversationId}", data)
+                                                }
+                                            }
+                                        }
+                                        ShowMoreLessRow(
+                                            expanded = showAllFavorites,
+                                            onClick = { showAllFavorites = !showAllFavorites },
+                                        )
+                                    }
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -897,6 +909,95 @@ private fun DrawerConversationItem(
         // DropdownMenu position provider flips it above the row near the screen bottom and
         // clamps it within a margin, so it never clips off-screen.
         menuContent(with(density) { DpOffset(x = pressXpx.toDp(), y = MenuVerticalGap) })
+    }
+}
+
+/**
+ * Drawer section header (icon + title), shared by the Pinned and Favorites sections. With a non-null
+ * [onToggle] the whole row is tappable (a full 48dp touch target) and shows a trailing chevron that
+ * points down when expanded and right when collapsed; with a null [onToggle] it renders as a plain,
+ * non-interactive, compact header.
+ */
+@Composable
+private fun SectionHeader(
+    icon: ImageVector,
+    title: String,
+    collapsed: Boolean = false,
+    onToggle: (() -> Unit)? = null,
+) {
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (collapsed) -90f else 0f,
+        label = "SectionChevronRotation",
+    )
+    // The interactive header keeps its label/icon visually small but claims a 48dp-tall hit area so
+    // it's comfortably tappable; the static header stays compact so it doesn't waste vertical space.
+    val rowModifier = if (onToggle != null) {
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = stringResource(
+                    if (collapsed) Res.string.cd_expand_section else Res.string.cd_collapse_section,
+                ),
+                onClick = onToggle,
+            )
+            .padding(horizontal = 16.dp)
+    } else {
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+    }
+    Row(
+        modifier = rowModifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { heading() },
+        )
+        if (onToggle != null) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(18.dp)
+                    .rotate(chevronRotation),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/** Tappable "Show more"/"Show less" row that toggles a section between its preview and full list. */
+@Composable
+private fun ShowMoreLessRow(
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(if (expanded) Res.string.show_less else Res.string.show_more),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 

@@ -12,6 +12,10 @@
     <string name="project_unassigned">Unassigned</string>
     <string name="project_new">New project</string>
     <string name="no_conversations_found">No conversations found</string>
+    <string name="show_more">Show more</string>
+    <string name="show_less">Show less</string>
+    <string name="cd_collapse_section">Collapse section</string>
+    <string name="cd_expand_section">Expand section</string>
     <string name="remove_bookmark">Remove bookmark</string>
     <string name="bookmark">Bookmark</string>
     <string name="agents">Agents</string>
