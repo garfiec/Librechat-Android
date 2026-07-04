@@ -1,5 +1,6 @@
 package com.garfiec.librechat.shared.navigation
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -332,71 +333,116 @@ fun DrawerContent(
                 .focusable(),
         )
 
-        // "New Chat" button at top
-        Surface(
-            onClick = onNewChat,
+        // Search field is hidden by default and revealed by the toggle beside "New Chat". Seed the
+        // toggle from the current query so a restored search stays visible across recompositions.
+        var searchExpanded by remember { mutableStateOf(uiState.searchQuery.isNotEmpty()) }
+        val searchFocusRequester = remember { FocusRequester() }
+
+        // Focus the field (and pop the keyboard) only when the user opens search explicitly — the
+        // focusAnchor above still steals initial focus so opening the drawer doesn't do this.
+        LaunchedEffect(searchExpanded) {
+            if (searchExpanded) {
+                runCatching { searchFocusRequester.requestFocus() }
+            }
+        }
+
+        // "New Chat" button at top, with a search toggle to its right.
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
-            shape = ItemShape,
-            color = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                onClick = onNewChat,
+                modifier = Modifier.weight(1f),
+                shape = ItemShape,
+                color = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(Res.string.new_chat),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Collapsing clears the query so the list resets to its normal (unsearched) state.
+            Surface(
+                onClick = {
+                    searchExpanded = !searchExpanded
+                    if (!searchExpanded) onSearchQueryChange("")
+                },
+                shape = ItemShape,
+                color = if (searchExpanded) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                },
             ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(Res.string.new_chat),
-                    style = MaterialTheme.typography.titleSmall,
+                    imageVector = if (searchExpanded) Icons.Default.Close else Icons.Default.Search,
+                    contentDescription = stringResource(Res.string.cd_search),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(12.dp).size(20.dp),
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Search bar
-        OutlinedTextField(
-            value = uiState.searchQuery,
-            onValueChange = onSearchQueryChange,
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(Res.string.cd_search),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            },
-            trailingIcon = {
-                if (uiState.searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onSearchQueryChange("") }) {
+        // Search bar — revealed only when toggled on.
+        AnimatedVisibility(visible = searchExpanded) {
+            Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    leadingIcon = {
                         Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(Res.string.cd_clear_search),
+                            imageVector = Icons.Default.Search,
+                            contentDescription = stringResource(Res.string.cd_search),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp),
                         )
-                    }
-                }
-            },
-            placeholder = {
-                Text(
-                    text = stringResource(Res.string.search_conversations_placeholder),
-                    style = MaterialTheme.typography.bodySmall,
+                    },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { onSearchQueryChange("") }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(Res.string.cd_clear_search),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    },
+                    placeholder = {
+                        Text(
+                            text = stringResource(Res.string.search_conversations_placeholder),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    },
+                    singleLine = true,
+                    shape = ItemShape,
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .focusRequester(searchFocusRequester),
                 )
-            },
-            singleLine = true,
-            shape = ItemShape,
-            textStyle = MaterialTheme.typography.bodySmall,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-        )
+            }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
