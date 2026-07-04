@@ -1,5 +1,14 @@
 package com.garfiec.librechat.shared.navigation
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Column
@@ -29,10 +38,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,10 +61,26 @@ import com.garfiec.librechat.shared.resources.remove
 import com.garfiec.librechat.shared.resources.remove_account
 import com.garfiec.librechat.shared.resources.remove_account_message
 import com.garfiec.librechat.shared.resources.remove_account_title
+import kotlin.math.abs
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /** Vertical drag past this distance (up or down) on the chip commits a round-robin switch. */
 private val SwipeSwitchThreshold = 40.dp
+
+/**
+ * How far the avatar visually follows the finger during a swipe. Clamped well below
+ * [SwipeSwitchThreshold] so the chip nudges just enough to signal the gesture is live, then
+ * springs back on release.
+ */
+private val DragVisualLimit = 14.dp
+
+/** How far the avatar shrinks at the edge of a drag (1.0 = full size). */
+private const val MinDragScale = 0.7f
+
+/** How far the avatar fades at the edge of a drag (1.0 = fully opaque). */
+private const val MinDragAlpha = 0.75f
 
 /**
  * The drawer-footer account chip (Gmail-style): just the active account's avatar, tapped to open
@@ -68,13 +97,23 @@ fun AccountChip(
     modifier: Modifier = Modifier,
     onSwitchAdjacent: ((Int) -> Unit)? = null,
 ) {
+    // Visual offset the avatar follows during a drag (clamped to DragVisualLimit), springing back
+    // to rest on release. Declared unconditionally so the graphicsLayer below is stable even when
+    // the gesture is disabled (single account), where it simply stays at 0.
+    val dragOffsetY = remember { mutableFloatStateOf(0f) }
+    val scope = rememberCoroutineScope()
     val swipeModifier = if (onSwitchAdjacent != null) {
         val threshold = with(LocalDensity.current) { SwipeSwitchThreshold.toPx() }
+        val visualLimit = with(LocalDensity.current) { DragVisualLimit.toPx() }
         val currentOnSwitch by rememberUpdatedState(onSwitchAdjacent)
         Modifier.pointerInput(Unit) {
             var dragTotal = 0f
+            var settleJob: Job? = null
             detectVerticalDragGestures(
-                onDragStart = { dragTotal = 0f },
+                onDragStart = {
+                    settleJob?.cancel()
+                    dragTotal = 0f
+                },
                 onDragEnd = {
                     // Up (negative Y) = next; down (positive Y) = previous. Wraparound is the
                     // caller's job (it holds the account ordering).
@@ -82,9 +121,22 @@ fun AccountChip(
                         dragTotal <= -threshold -> currentOnSwitch(1)
                         dragTotal >= threshold -> currentOnSwitch(-1)
                     }
+                    settleJob = scope.launch {
+                        animate(
+                            initialValue = dragOffsetY.floatValue,
+                            targetValue = 0f,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        ) { value, _ -> dragOffsetY.floatValue = value }
+                    }
+                },
+                onDragCancel = {
+                    settleJob = scope.launch {
+                        animate(dragOffsetY.floatValue, 0f) { value, _ -> dragOffsetY.floatValue = value }
+                    }
                 },
             ) { change, dragAmount ->
                 dragTotal += dragAmount
+                dragOffsetY.floatValue = dragTotal.coerceIn(-visualLimit, visualLimit)
                 change.consume()
             }
         }
@@ -93,18 +145,43 @@ fun AccountChip(
     }
     Surface(
         onClick = onClick,
-        modifier = modifier.then(swipeModifier),
+        modifier = modifier
+            .graphicsLayer {
+                translationY = dragOffsetY.floatValue
+                // Shrink and fade toward the drag limit, tracking the spring-back on release.
+                val fraction = (abs(dragOffsetY.floatValue) / DragVisualLimit.toPx()).coerceIn(0f, 1f)
+                val scale = 1f - fraction * (1f - MinDragScale)
+                scaleX = scale
+                scaleY = scale
+                alpha = 1f - fraction * (1f - MinDragAlpha)
+            }
+            .then(swipeModifier),
         shape = CircleShape,
         color = Color.Transparent,
     ) {
-        AvatarImage(
-            imageUrl = account.avatarUrl,
-            size = 32.dp,
-            fallbackText = account.displayLabel,
-            fallbackBackgroundColor = avatarColorForSeed(account.accountId),
-            contentDescription = account.displayLabel,
-            modifier = Modifier.padding(6.dp),
-        )
+        AnimatedContent(
+            targetState = account,
+            // Morph only on a real account switch: keying on the id keeps an in-place update to the
+            // same account (e.g. a late-loading avatar) from triggering a spurious swap animation.
+            contentKey = { it.accountId },
+            // Expand + fade in the incoming avatar, shrink + fade out the outgoing one — the same
+            // vocabulary as the drag. Because this sits inside the drag graphicsLayer, the container's
+            // spring back to full size/opacity multiplies through, so the exit continues from the
+            // dragged scale/alpha rather than snapping back to full first.
+            transitionSpec = {
+                (scaleIn() + fadeIn()) togetherWith (scaleOut() + fadeOut())
+            },
+            label = "accountAvatar",
+        ) { acct ->
+            AvatarImage(
+                imageUrl = acct.avatarUrl,
+                size = 32.dp,
+                fallbackText = acct.displayLabel,
+                fallbackBackgroundColor = avatarColorForSeed(acct.accountId),
+                contentDescription = acct.displayLabel,
+                modifier = Modifier.padding(6.dp),
+            )
+        }
     }
 }
 
