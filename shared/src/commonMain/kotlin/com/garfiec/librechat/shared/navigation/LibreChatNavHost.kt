@@ -310,7 +310,6 @@ fun PhoneLayout(
                         navigator.navigate(Projects)
                     },
                     onSwitchAccount = { accountId ->
-                        scope.launch { drawerState.close() }
                         navHostViewModel.switchAccount(accountId)
                     },
                     onAddAccount = {

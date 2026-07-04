@@ -164,9 +164,9 @@ fun DrawerContent(
                     account = active,
                     onClick = { showAccountSheet = true },
                     // Gmail/YouTube-style: swipe the chip up/down to round-robin accounts without
-                    // opening the sheet. Switches in place via the ViewModel rather than the host's
-                    // onSwitchAccount (which also closes the drawer) — keeping the drawer open lets
-                    // the user swipe through several accounts without the jarring dismiss each time.
+                    // opening the sheet. Switches in place via the ViewModel so the user can swipe
+                    // through several accounts against the same open chip. The sheet path keeps the
+                    // drawer open too (the host no longer closes it on switch).
                     // Disabled (null) with a single account.
                     onSwitchAdjacent = if (accounts.size > 1) {
                         { delta -> adjacentAccountId(accounts, delta)?.let(viewModel::switchAccount) }
