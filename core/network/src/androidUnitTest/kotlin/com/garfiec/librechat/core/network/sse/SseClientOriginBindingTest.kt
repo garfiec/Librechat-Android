@@ -7,10 +7,12 @@ import com.garfiec.librechat.core.model.StreamEvent
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockEngineConfig
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.url
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -29,11 +31,22 @@ class SseClientOriginBindingTest {
     private val accountA = AccountId("srv-1:user-a")
     private val accountB = AccountId("srv-1:user-b")
 
+    // MockEngine defaults its dispatcher to Dispatchers.IO, which runs the handler on a real thread
+    // pool outside the test scheduler. While that real thread works, runTest sees an idle queue and
+    // fast-forwards virtual time — firing SseLineParser's 120s stall watchdog before the request
+    // ever completes, which aborts the attempt with a spurious SseStreamException. Pinning the
+    // engine to Dispatchers.Unconfined keeps the whole request inline on the test scheduler, so
+    // virtual time can never advance past a request that is still in flight.
     private fun failingTransportClient(onRequest: () -> Unit): HttpClient {
-        val engine = MockEngine {
-            onRequest()
-            respond("boom", HttpStatusCode.InternalServerError)
-        }
+        val engine = MockEngine(
+            MockEngineConfig().apply {
+                dispatcher = Dispatchers.Unconfined
+                addHandler {
+                    onRequest()
+                    respond("boom", HttpStatusCode.InternalServerError)
+                }
+            },
+        )
         return HttpClient(engine) {
             defaultRequest { url("https://a.example.com") }
         }
