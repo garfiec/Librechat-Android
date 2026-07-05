@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -345,6 +346,7 @@ fun DrawerContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(IntrinsicSize.Min)
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -380,6 +382,7 @@ fun DrawerContent(
                     searchExpanded = !searchExpanded
                     if (!searchExpanded) onSearchQueryChange("")
                 },
+                modifier = Modifier.fillMaxHeight(),
                 shape = ItemShape,
                 color = if (searchExpanded) {
                     MaterialTheme.colorScheme.secondaryContainer
@@ -387,12 +390,19 @@ fun DrawerContent(
                     MaterialTheme.colorScheme.surfaceContainerHighest
                 },
             ) {
-                Icon(
-                    imageVector = if (searchExpanded) Icons.Default.Close else Icons.Default.Search,
-                    contentDescription = stringResource(Res.string.cd_search),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(12.dp).size(20.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (searchExpanded) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = stringResource(Res.string.cd_search),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
 
