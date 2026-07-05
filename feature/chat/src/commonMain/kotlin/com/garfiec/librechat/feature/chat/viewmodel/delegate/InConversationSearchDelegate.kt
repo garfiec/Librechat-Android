@@ -1,11 +1,17 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.feature.chat.components.countMessageOccurrences
+import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.SearchFocusRequest
 import com.garfiec.librechat.feature.chat.viewmodel.SearchMatch
 
 class InConversationSearchDelegate(
     private val stateHandle: ChatStateHandle,
 ) {
+
+    /** Monotonic id so consecutive requests are never equal (see [SearchFocusRequest]). */
+    private var nextFocusRequestId = 0L
 
     fun openSearch() {
         stateHandle.update {
@@ -14,7 +20,7 @@ class InConversationSearchDelegate(
                 searchQuery = "",
                 searchMatchIndices = emptyList(),
                 currentSearchMatchIndex = 0,
-                searchScrollToIndex = null,
+                searchFocusRequest = null,
             )
         }
     }
@@ -26,7 +32,7 @@ class InConversationSearchDelegate(
                 searchQuery = "",
                 searchMatchIndices = emptyList(),
                 currentSearchMatchIndex = 0,
-                searchScrollToIndex = null,
+                searchFocusRequest = null,
             )
         }
     }
@@ -39,33 +45,25 @@ class InConversationSearchDelegate(
                     searchQuery = query,
                     searchMatchIndices = emptyList(),
                     currentSearchMatchIndex = 0,
-                    searchScrollToIndex = null,
+                    searchFocusRequest = null,
                 )
             }
             return
         }
 
-        val lowerQuery = query.lowercase()
+        // Occurrences are numbered by the shared render-order walk so the renderer
+        // resolves the exact same occurrence the delegate counted (SearchMatchEnumeration).
+        // Enumerate over the SAME parts the list renders: a parallel (Compare-Models) turn
+        // renders only its primary-agent parts — collapseParallelToPrimary in the single list
+        // and partsForPane(secondary=false) in the primary comparison pane — so counting the raw
+        // message would over-count the secondary agent's occurrences and desync the focus index
+        // (dead next/prev stops, wrong-occurrence highlight). The collapse maps 1:1, so
+        // messageIndex still aligns with displayMessages.
+        val renderedMessages = collapseParallelToPrimary(state.displayMessages)
         val allMatches = mutableListOf<SearchMatch>()
-
-        state.displayMessages.forEachIndexed { index, node ->
-            val message = node.message
-            val contentParts = message.content
-            val text = if (!contentParts.isNullOrEmpty()) {
-                contentParts.mapNotNull { part -> part.text ?: part.think }.joinToString("")
-            } else {
-                message.text
-            }
-            // Count occurrences in this message
-            val lowerText = text.lowercase()
-            var startIndex = 0
-            var occurrenceInMessage = 0
-            while (true) {
-                val foundIndex = lowerText.indexOf(lowerQuery, startIndex)
-                if (foundIndex < 0) break
-                allMatches.add(SearchMatch(messageIndex = index, occurrenceInMessage = occurrenceInMessage))
-                occurrenceInMessage++
-                startIndex = foundIndex + query.length
+        renderedMessages.forEachIndexed { index, node ->
+            repeat(countMessageOccurrences(node.message, query)) { occurrence ->
+                allMatches.add(SearchMatch(messageIndex = index, occurrenceInMessage = occurrence))
             }
         }
 
@@ -74,7 +72,7 @@ class InConversationSearchDelegate(
                 searchQuery = query,
                 searchMatchIndices = allMatches,
                 currentSearchMatchIndex = 0,
-                searchScrollToIndex = allMatches.firstOrNull()?.messageIndex,
+                searchFocusRequest = allMatches.firstOrNull()?.let { focusRequestFor(it) },
             )
         }
     }
@@ -86,7 +84,7 @@ class InConversationSearchDelegate(
         stateHandle.update {
             copy(
                 currentSearchMatchIndex = nextIndex,
-                searchScrollToIndex = searchMatchIndices[nextIndex].messageIndex,
+                searchFocusRequest = focusRequestFor(searchMatchIndices[nextIndex]),
             )
         }
     }
@@ -102,12 +100,17 @@ class InConversationSearchDelegate(
         stateHandle.update {
             copy(
                 currentSearchMatchIndex = prevIndex,
-                searchScrollToIndex = searchMatchIndices[prevIndex].messageIndex,
+                searchFocusRequest = focusRequestFor(searchMatchIndices[prevIndex]),
             )
         }
     }
 
     fun onSearchScrollHandled() {
-        stateHandle.update { copy(searchScrollToIndex = null) }
+        stateHandle.update { copy(searchFocusRequest = null) }
     }
+
+    private fun focusRequestFor(match: SearchMatch) = SearchFocusRequest(
+        messageIndex = match.messageIndex,
+        requestId = nextFocusRequestId++,
+    )
 }

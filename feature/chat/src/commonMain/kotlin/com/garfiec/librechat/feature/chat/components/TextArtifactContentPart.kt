@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
@@ -38,7 +39,7 @@ internal fun TextContentPart(
     useKatex: Boolean = false,
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
     if (text.isBlank()) return
 
@@ -59,8 +60,24 @@ internal fun TextContentPart(
         val versionMap = remember(segments) { groupArtifactVersions(segments) }
         val inlinePrefs = LocalInlineArtifactPrefs.current
         val openArtifact = LocalOpenArtifact.current
+        // Per-Text-segment occurrence base offsets (artifact content contributes none — see the
+        // SearchMatchEnumeration render-order contract). Computed once per (segments, query): the
+        // per-segment countMarkdownOccurrences re-parses markdown, so keeping it off recomposition matters.
+        val textOffsets = remember(segments, searchQuery) {
+            IntArray(segments.size).also { offsets ->
+                if (!searchQuery.isNullOrBlank()) {
+                    var acc = 0
+                    segments.forEachIndexed { i, segment ->
+                        offsets[i] = acc
+                        if (segment is ArtifactSegment.Text) {
+                            acc += countMarkdownOccurrences(segment.text, searchQuery)
+                        }
+                    }
+                }
+            }
+        }
         Column(modifier = modifier) {
-            segments.forEach { segment ->
+            segments.forEachIndexed { index, segment ->
                 when (segment) {
                     is ArtifactSegment.Text -> {
                         MarkdownContent(
@@ -69,7 +86,7 @@ internal fun TextContentPart(
                             fontSizeMultiplier,
                             useKatex,
                             searchQuery,
-                            searchFocusedOccurrence,
+                            searchFocusedOccurrence - textOffsets[index],
                             onFocusedOccurrencePosition,
                         )
                     }
@@ -92,8 +109,6 @@ internal fun TextContentPart(
                                     modifier = Modifier.fillMaxWidth(),
                                     fontSizeMultiplier = fontSizeMultiplier,
                                     searchQuery = searchQuery,
-                                    searchFocusedOccurrence = searchFocusedOccurrence,
-                                    onFocusedOccurrencePosition = onFocusedOccurrencePosition,
                                 )
                                 InlineArtifactStrategy.IntrinsicSvg -> InlineSvgArtifact(
                                     artifact = segment.artifact,

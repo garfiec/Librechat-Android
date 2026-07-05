@@ -196,7 +196,7 @@ private fun ChatMessageListPane(
         searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
         searchMatchIndices = uiState.searchMatchIndices,
         currentSearchMatchIndex = uiState.currentSearchMatchIndex,
-        searchScrollToIndex = uiState.searchScrollToIndex,
+        searchFocusRequest = uiState.searchFocusRequest,
         onSearchScrollHandle = viewModel::onSearchScrollHandled,
         bottomContentPadding = bottomContentPadding,
         topContentPadding = topContentPadding,

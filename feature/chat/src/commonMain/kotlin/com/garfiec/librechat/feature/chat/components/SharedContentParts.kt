@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.Attachment
@@ -46,7 +47,7 @@ internal fun ContentPartDispatcher(
     showImageDescriptions: Boolean = true,
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
     // When false, a `subagent` tool_call renders flat instead of as a trace card.
     // Set false while rendering a subagent's own nested parts (depth-1 guard).
     allowSubagentCard: Boolean = true,

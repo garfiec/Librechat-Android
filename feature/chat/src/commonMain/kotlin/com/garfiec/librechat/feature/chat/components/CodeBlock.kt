@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,11 +32,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -53,6 +57,12 @@ fun CodeBlock(
     code: String,
     language: String?,
     modifier: Modifier = Modifier,
+    // In-conversation search: overlays yellow/orange match spans on the syntax
+    // highlighting; when this block owns the focused occurrence, reports its
+    // rect (in the code Text's coordinates) for precise scroll positioning.
+    searchQuery: String? = null,
+    searchFocusedOccurrence: Int = -1,
+    onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
     var showCopied by remember { mutableStateOf(false) }
 
@@ -130,9 +140,23 @@ fun CodeBlock(
                 .horizontalScroll(rememberScrollState())
                 .padding(12.dp),
         ) {
-            val highlightedCode = remember(code, language) {
-                highlightSyntax(code, language?.lowercase())
+            val isDarkTheme = isSystemInDarkTheme()
+            val highlightedCode = remember(code, language, searchQuery, searchFocusedOccurrence, isDarkTheme) {
+                val syntax = highlightSyntax(code, language?.lowercase())
+                if (searchQuery.isNullOrBlank()) {
+                    syntax
+                } else {
+                    addSearchSpans(syntax, searchQuery, searchFocusedOccurrence, isDarkTheme)
+                }
             }
+            val focusedRange = remember(code, searchQuery, searchFocusedOccurrence) {
+                if (searchQuery.isNullOrBlank()) {
+                    null
+                } else {
+                    findOccurrenceRange(code, searchQuery, searchFocusedOccurrence)
+                }
+            }
+            var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
             Text(
                 text = highlightedCode,
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -140,6 +164,8 @@ fun CodeBlock(
                     fontSize = 13.sp,
                     lineHeight = 20.sp,
                 ),
+                onTextLayout = { layoutResult = it },
+                modifier = Modifier.reportFocusedMatchPosition(layoutResult, focusedRange, onFocusedMatchPosition),
             )
         }
     }

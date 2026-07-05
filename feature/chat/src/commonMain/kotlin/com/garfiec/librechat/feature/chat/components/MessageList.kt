@@ -1,6 +1,8 @@
 package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -35,9 +37,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -50,10 +55,14 @@ import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
+import com.garfiec.librechat.feature.chat.viewmodel.SearchFocusRequest
 import com.garfiec.librechat.feature.chat.viewmodel.SearchMatch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +104,7 @@ fun MessageList(
     searchQuery: String? = null,
     searchMatchIndices: List<SearchMatch> = emptyList(),
     currentSearchMatchIndex: Int = 0,
-    searchScrollToIndex: Int? = null,
+    searchFocusRequest: SearchFocusRequest? = null,
     onSearchScrollHandle: () -> Unit = {},
     // Scrollable bottom inset that keeps the latest content clear of the overlaid input bar. The
     // caller measures the actual bar height (which grows as queued ghost rows stack above the
@@ -191,22 +200,58 @@ fun MessageList(
     // or any other display-list change — only streaming and initial load.
     // ─────────────────────────────────────────────────────────────────
 
-    // Track whether we need a fine-tune scroll after the item scroll completes.
-    // When the focused occurrence's HighlightedTextSegment reports its layout position,
-    // we compare it against the viewport and animateScrollBy the delta if needed.
-    var pendingFineTuneScroll by remember { mutableStateOf(false) }
+    // ── Search focus scroll ───────────────────────────────────────────
+    // Two-phase, race-free jump to the focused search occurrence:
+    //   Phase 1: scrollToItem composes the target message (a LazyColumn item
+    //            composes fully even when taller than the viewport), like a
+    //            browser's instant find-in-page jump.
+    //   Phase 2: the focused segment reports its live LayoutCoordinates plus
+    //            the match's rect within it on every position pass (keyed
+    //            state, never a consumable flag — reports for a stale target
+    //            are simply ignored). Once a report matching the CURRENT
+    //            request exists, one animateScrollBy places the match on the
+    //            browser-style anchor line (~1/3 down the usable viewport).
+    var listCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var focusedMatchReport by remember { mutableStateOf<FocusedSearchMatchReport?>(null) }
     val currentOnSearchScrollHandled by rememberUpdatedState(onSearchScrollHandle)
 
-    // Scroll to search match when navigating prev/next
-    LaunchedEffect(searchScrollToIndex) {
-        val index = searchScrollToIndex
-        if (index != null && index in displayMessages.indices) {
-            pendingFineTuneScroll = true
-            listState.animateScrollToItem(index)
-            // After scroll completes, the focused segment will report its position
-            // via onGloballyPositioned, and the fine-tune scroll will happen there.
-            currentOnSearchScrollHandled()
+    // Drop the held LayoutCoordinates once search closes.
+    LaunchedEffect(searchQuery) {
+        if (searchQuery == null) focusedMatchReport = null
+    }
+
+    LaunchedEffect(searchFocusRequest) {
+        val request = searchFocusRequest ?: return@LaunchedEffect
+        if (request.messageIndex !in displayMessages.indices) return@LaunchedEffect
+
+        val viewportHeight = listState.layoutInfo.viewportSize.height.toFloat()
+        val anchorLine = topContentPaddingPx + (viewportHeight - topContentPaddingPx) / 3f
+
+        // Only jump when the target message isn't laid out yet; a far jump is expected to be
+        // instant. When it's already composed (next/prev within the same or a visible message),
+        // skip the jump so phase 2 animates straight to the match with no teleport-then-reverse.
+        val alreadyLaidOut = listState.layoutInfo.visibleItemsInfo.any { it.index == request.messageIndex }
+        if (!alreadyLaidOut) {
+            listState.scrollToItem(request.messageIndex, scrollOffset = -anchorLine.toInt())
         }
+
+        val report = withTimeoutOrNull(SEARCH_FOCUS_REPORT_TIMEOUT_MS) {
+            snapshotFlow { focusedMatchReport }
+                .first { it != null && it.matches(request) && it.coordinates.isAttached }
+        }
+
+        val listCoords = listCoordinates
+        if (report != null && listCoords != null && listCoords.isAttached && report.coordinates.isAttached) {
+            val matchTop = listCoords.localPositionOf(
+                report.coordinates,
+                Offset(0f, report.matchRect.top),
+            ).y
+            val delta = matchTop - anchorLine
+            if (abs(delta) > 1f) {
+                listState.animateScrollBy(delta, SearchFocusScrollSpec)
+            }
+        }
+        currentOnSearchScrollHandled()
     }
 
     // Determine the currently focused SearchMatch
@@ -341,6 +386,7 @@ fun MessageList(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .onGloballyPositioned { listCoordinates = it }
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
@@ -375,16 +421,16 @@ fun MessageList(
 
                 val isMatch = index in searchMatchMessageIndexSet
                 val isCurrent = currentSearchMatch != null && index == currentSearchMatch.messageIndex
-                // Determine which occurrence in this message is focused
-                val focusedOccurrenceInMessage = if (isCurrent) {
-                    currentSearchMatch?.occurrenceInMessage ?: -1
-                } else {
-                    -1
-                }
+                // Which occurrence within this message is focused (-1 when this isn't the current match).
+                val focusedOccurrenceInMessage = if (isCurrent) currentSearchMatch.occurrenceInMessage else -1
 
                 // Last message parses markdown synchronously; see [LocalImmediateMarkdown].
+                // Publish the focus-request nonce only around the current match so a collapsible
+                // block re-arms its auto-expand on every navigation (even back to the same match);
+                // non-current bubbles see 0L and don't recompose on navigation.
                 CompositionLocalProvider(
                     LocalImmediateMarkdown provides (index == displayMessages.lastIndex),
+                    LocalSearchFocusNonce provides if (isCurrent) searchFocusRequest?.requestId ?: 0L else 0L,
                 ) {
                 MessageBubble(
                     message = node.message,
@@ -436,29 +482,16 @@ fun MessageList(
                     isSearchMatch = isMatch,
                     isCurrentSearchMatch = isCurrent,
                     searchFocusedOccurrence = focusedOccurrenceInMessage,
-                    onFocusedOccurrencePosition = if (isCurrent) {
-                        { coordinates ->
-                            if (!pendingFineTuneScroll) return@MessageBubble
-                            pendingFineTuneScroll = false
-
-                            val layoutInfo = listState.layoutInfo
-                            val viewportTop = layoutInfo.viewportStartOffset.toFloat()
-                            val viewportBottom = layoutInfo.viewportEndOffset.toFloat()
-
-                            val segmentBounds = coordinates.boundsInRoot()
-                            val padding = 80f // Extra padding so the highlight isn't flush against edges
-                            // Push the focused match clear of the floating top bar, which overlays
-                            // the list's top edge (the list is full-bleed beneath it).
-                            val topInset = padding + topContentPaddingPx
-
-                            coroutineScope.launch {
-                                if (segmentBounds.top < viewportTop + topInset) {
-                                    // Segment is above or too close to the top of the viewport
-                                    listState.animateScrollBy(segmentBounds.top - viewportTop - topInset)
-                                } else if (segmentBounds.bottom > viewportBottom - padding) {
-                                    // Segment is below or too close to the bottom of the viewport
-                                    listState.animateScrollBy(segmentBounds.bottom - viewportBottom + padding)
-                                }
+                    onFocusedOccurrencePosition = if (isCurrent && searchQuery != null) {
+                        { coordinates, matchRect ->
+                            // Only record while a jump is pending; the focused node keeps reporting
+                            // on every later scroll pass, and consuming those would churn state.
+                            if (searchFocusRequest != null) {
+                                focusedMatchReport = FocusedSearchMatchReport(
+                                    requestId = searchFocusRequest.requestId,
+                                    coordinates = coordinates,
+                                    matchRect = matchRect,
+                                )
                             }
                         }
                     } else {
@@ -557,4 +590,27 @@ fun MessageList(
             }
         }
     }
+}
+
+/** How long phase 2 waits for the focused occurrence to report before settling for the message top. */
+private const val SEARCH_FOCUS_REPORT_TIMEOUT_MS = 500L
+
+private val SearchFocusScrollSpec = spring<Float>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow,
+)
+
+/**
+ * Latest reported position of the focused search occurrence: the reporting text node's
+ * [coordinates] (a live handle — queries return current geometry) and the match's
+ * bounding [matchRect] within that node. Tagged with the [requestId] that was live when it was
+ * emitted, so the scroll effect only ever acts on a report for the exact request it is serving
+ * (and never mistakes a stale report from a prior wrap-around jump for the current one).
+ */
+private class FocusedSearchMatchReport(
+    val requestId: Long,
+    val coordinates: LayoutCoordinates,
+    val matchRect: Rect,
+) {
+    fun matches(request: SearchFocusRequest): Boolean = requestId == request.requestId
 }

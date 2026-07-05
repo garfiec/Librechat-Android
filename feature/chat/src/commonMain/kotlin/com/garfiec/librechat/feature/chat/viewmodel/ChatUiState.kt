@@ -88,6 +88,17 @@ data class SearchMatch(
     val occurrenceInMessage: Int,
 )
 
+/**
+ * A request to scroll the message list to one specific search occurrence. [messageIndex] is the
+ * scroll target; [requestId] is a monotonic id that both makes repeat jumps to the same occurrence
+ * distinct (so the list's LaunchedEffect re-fires) and identifies the position report to act on.
+ */
+@Immutable
+data class SearchFocusRequest(
+    val messageIndex: Int,
+    val requestId: Long,
+)
+
 @Immutable
 data class RetryInfo(
     val attempt: Int,
@@ -309,8 +320,8 @@ data class ChatUiState(
     val searchQuery: String = "",
     val searchMatchIndices: List<SearchMatch> = emptyList(),
     val currentSearchMatchIndex: Int = 0,
-    /** The displayMessages index to scroll to when search match changes. Consumed by MessageList. */
-    val searchScrollToIndex: Int? = null,
+    /** The search occurrence to scroll to when the focused match changes. Consumed by MessageList. */
+    val searchFocusRequest: SearchFocusRequest? = null,
     // Tool toolbar state
     val enabledTools: Set<String> = emptySet(),
     // MCP server state

@@ -40,12 +40,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -93,7 +95,7 @@ actual fun MarkdownContent(
     useKatex: Boolean,
     searchQuery: String?,
     searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     immediate: Boolean,
     streaming: Boolean,
 ) {
@@ -107,10 +109,24 @@ actual fun MarkdownContent(
                 contentDescription = text
             },
     ) {
-        // Track occurrence offset across segments for focused highlighting
-        var occurrenceOffset = 0
+        // Per-segment occurrence base offsets, advanced via countSegmentOccurrences so they stay
+        // identical to the ViewModel-side numbering in SearchMatchEnumeration (mermaid blocks
+        // contribute nothing). Computed once per (segments, query), not every recomposition.
+        val segmentOffsets = remember(segments, searchQuery) {
+            IntArray(segments.size).also { offsets ->
+                if (!searchQuery.isNullOrBlank()) {
+                    var acc = 0
+                    segments.forEachIndexed { i, segment ->
+                        offsets[i] = acc
+                        acc += countSegmentOccurrences(segment, searchQuery)
+                    }
+                }
+            }
+        }
 
         segments.forEachIndexed { index, segment ->
+            val focusedInSegment = if (isSearchActive) searchFocusedOccurrence - segmentOffsets[index] else -1
+
             when (segment) {
                 is MarkdownSegment.CodeBlock -> {
                     if (index > 0) Spacer(modifier = Modifier.height(8.dp))
@@ -124,11 +140,10 @@ actual fun MarkdownContent(
                             code = segment.code,
                             language = segment.language,
                             modifier = Modifier.padding(vertical = 4.dp),
+                            searchQuery = if (isSearchActive) searchQuery else null,
+                            searchFocusedOccurrence = focusedInSegment,
+                            onFocusedMatchPosition = onFocusedOccurrencePosition,
                         )
-                    }
-                    // Code blocks can also contain matches; count them for offset tracking
-                    if (isSearchActive) {
-                        occurrenceOffset += countOccurrences(segment.code, searchQuery!!)
                     }
                     if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -143,22 +158,23 @@ actual fun MarkdownContent(
                 }
                 is MarkdownSegment.InlineLatexText -> {
                     Column {
+                        // Rebase again per Text run within the segment.
+                        var inlineOffset = 0
                         segment.segments.forEach { inlineSegment ->
                             when (inlineSegment) {
                                 is InlineSegment.Text -> {
                                     if (inlineSegment.text.isNotBlank()) {
                                         if (isSearchActive) {
-                                            val segmentOccurrences = countOccurrences(inlineSegment.text, searchQuery!!)
-                                            val focusedInSegment = searchFocusedOccurrence - occurrenceOffset
-                                            val hasFocus = focusedInSegment in 0 until segmentOccurrences
+                                            val runOccurrences = countOccurrences(inlineSegment.text, searchQuery)
+                                            val focusedInRun = focusedInSegment - inlineOffset
                                             HighlightedTextSegment(
                                                 content = inlineSegment.text,
                                                 searchQuery = searchQuery,
-                                                focusedOccurrence = focusedInSegment,
+                                                focusedOccurrence = focusedInRun,
                                                 fontSizeMultiplier = fontSizeMultiplier,
-                                                onPositioned = if (hasFocus) onFocusedOccurrencePosition else null,
+                                                onFocusedMatchPosition = onFocusedOccurrencePosition,
                                             )
-                                            occurrenceOffset += segmentOccurrences
+                                            inlineOffset += runOccurrences
                                         } else {
                                             MarkdownTextSegment(
                                                 content = inlineSegment.text,
@@ -187,26 +203,21 @@ actual fun MarkdownContent(
                         rows = segment.rows,
                         fontSizeMultiplier = fontSizeMultiplier,
                         modifier = Modifier.padding(vertical = 4.dp),
+                        searchQuery = if (isSearchActive) searchQuery else null,
+                        searchFocusedOccurrence = focusedInSegment,
+                        onFocusedMatchPosition = onFocusedOccurrencePosition,
                     )
-                    if (isSearchActive) {
-                        val tableText = (segment.headers + segment.rows.flatten()).joinToString(" ")
-                        occurrenceOffset += countOccurrences(tableText, searchQuery!!)
-                    }
                     if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                 }
                 is MarkdownSegment.TextBlock -> {
                     if (isSearchActive) {
-                        val segmentOccurrences = countOccurrences(segment.text, searchQuery!!)
-                        val focusedInSegment = searchFocusedOccurrence - occurrenceOffset
-                        val hasFocus = focusedInSegment in 0 until segmentOccurrences
                         HighlightedTextSegment(
                             content = segment.text,
                             searchQuery = searchQuery,
                             focusedOccurrence = focusedInSegment,
                             fontSizeMultiplier = fontSizeMultiplier,
-                            onPositioned = if (hasFocus) onFocusedOccurrencePosition else null,
+                            onFocusedMatchPosition = onFocusedOccurrencePosition,
                         )
-                        occurrenceOffset += segmentOccurrences
                     } else {
                         val hasCitations = remember(segment.text) {
                             segment.text.contains(CITATION_DETECT_REGEX)
@@ -229,56 +240,6 @@ actual fun MarkdownContent(
             }
         }
     }
-}
-
-/**
- * Renders a text segment with search highlight spans. When [onPositioned] is non-null
- * (meaning this segment contains the focused search occurrence), attaches an
- * [onGloballyPositioned] modifier so the parent can fine-tune scroll position.
- */
-@Composable
-private fun HighlightedTextSegment(
-    content: String,
-    searchQuery: String,
-    modifier: Modifier = Modifier,
-    focusedOccurrence: Int = -1,
-    fontSizeMultiplier: Float = 1.0f,
-    onPositioned: ((LayoutCoordinates) -> Unit)? = null,
-) {
-    val bodyStyle = MaterialTheme.typography.bodyLarge
-    val scaledStyle = bodyStyle.scaleFontSize(fontSizeMultiplier)
-    val isDarkTheme = isSystemInDarkTheme()
-    val highlighted = remember(content, searchQuery, focusedOccurrence, isDarkTheme) {
-        buildHighlightedString(content, searchQuery, focusedOccurrence, isDarkTheme)
-    }
-
-    val positionedModifier = if (onPositioned != null) {
-        Modifier.onGloballyPositioned { coordinates ->
-            onPositioned(coordinates)
-        }
-    } else {
-        Modifier
-    }
-
-    Text(
-        text = highlighted,
-        style = scaledStyle,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier
-            .fillMaxWidth()
-            .then(positionedModifier),
-    )
-}
-
-/**
- * Scales both fontSize and lineHeight of a TextStyle by the given multiplier.
- * Uses explicit .sp conversion to avoid TextUnit.Unspecified edge cases.
- */
-internal fun TextStyle.scaleFontSize(multiplier: Float): TextStyle {
-    if (multiplier == 1.0f) return this
-    val scaledFontSize = if (fontSize.isSpecified) (fontSize.value * multiplier).sp else fontSize
-    val scaledLineHeight = if (lineHeight.isSpecified) (lineHeight.value * multiplier).sp else lineHeight
-    return copy(fontSize = scaledFontSize, lineHeight = scaledLineHeight)
 }
 
 /**
@@ -349,6 +310,9 @@ private fun MarkdownTableWithFullscreen(
     rows: List<List<String>>,
     modifier: Modifier,
     fontSizeMultiplier: Float = 1.0f,
+    searchQuery: String? = null,
+    searchFocusedOccurrence: Int = -1,
+    onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
     var showFullscreen by remember { mutableStateOf(false) }
 
@@ -358,6 +322,9 @@ private fun MarkdownTableWithFullscreen(
             alignments = alignments,
             rows = rows,
             fontSizeMultiplier = fontSizeMultiplier,
+            searchQuery = searchQuery,
+            searchFocusedOccurrence = searchFocusedOccurrence,
+            onFocusedMatchPosition = onFocusedMatchPosition,
         )
 
         IconButton(
@@ -460,7 +427,11 @@ private fun MarkdownTable(
     rows: List<List<String>>,
     modifier: Modifier = Modifier,
     fontSizeMultiplier: Float = 1.0f,
+    searchQuery: String? = null,
+    searchFocusedOccurrence: Int = -1,
+    onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
+    val isSearchActive = !searchQuery.isNullOrBlank()
     val textColor = MaterialTheme.colorScheme.onSurface
     val headerBackground = MaterialTheme.colorScheme.surfaceContainerHigh
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
@@ -502,6 +473,27 @@ private fun MarkdownTable(
             .clip(MaterialTheme.shapes.small),
     ) {
         Column {
+            // Per-cell occurrence base offsets, headers-first then rows row-major — the same order
+            // as SearchMatchEnumeration's tableCellTexts. Computed once per (headers, rows, query).
+            val (headerOffsets, rowOffsets) = remember(headers, rows, searchQuery) {
+                val hOffsets = IntArray(headers.size)
+                val rOffsets = rows.map { IntArray(it.size) }
+                if (!searchQuery.isNullOrBlank()) {
+                    var acc = 0
+                    headers.forEachIndexed { i, header ->
+                        hOffsets[i] = acc
+                        acc += countOccurrences(header, searchQuery)
+                    }
+                    rows.forEachIndexed { r, row ->
+                        row.forEachIndexed { c, cell ->
+                            rOffsets[r][c] = acc
+                            acc += countOccurrences(cell, searchQuery)
+                        }
+                    }
+                }
+                hOffsets to rOffsets
+            }
+
             // Header row
             Row(
                 modifier = Modifier
@@ -523,6 +515,9 @@ private fun MarkdownTable(
                         cellWidth = columnWidths[colIndex],
                         paddingH = cellPaddingH,
                         paddingV = cellPaddingV,
+                        searchQuery = searchQuery,
+                        searchFocusedOccurrence = if (isSearchActive) searchFocusedOccurrence - headerOffsets[colIndex] else -1,
+                        onFocusedMatchPosition = onFocusedMatchPosition,
                     )
                 }
             }
@@ -549,6 +544,9 @@ private fun MarkdownTable(
                             cellWidth = columnWidths.getOrElse(colIndex) { columnWidths.last() },
                             paddingH = cellPaddingH,
                             paddingV = cellPaddingV,
+                            searchQuery = searchQuery,
+                            searchFocusedOccurrence = if (isSearchActive) searchFocusedOccurrence - rowOffsets[rowIndex][colIndex] else -1,
+                            onFocusedMatchPosition = onFocusedMatchPosition,
                         )
                     }
                 }
@@ -574,12 +572,28 @@ private fun TableCell(
     paddingH: Dp,
     paddingV: Dp,
     modifier: Modifier = Modifier,
+    searchQuery: String? = null,
+    searchFocusedOccurrence: Int = -1,
+    onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
     val textAlign = when (alignment) {
         TableCellAlignment.LEFT -> TextAlign.Start
         TableCellAlignment.CENTER -> TextAlign.Center
         TableCellAlignment.RIGHT -> TextAlign.End
     }
+
+    val isDarkTheme = isSystemInDarkTheme()
+    val display = remember(text, searchQuery, searchFocusedOccurrence, isDarkTheme) {
+        if (searchQuery.isNullOrBlank()) {
+            AnnotatedString(text)
+        } else {
+            buildHighlightedString(text, searchQuery, searchFocusedOccurrence, isDarkTheme)
+        }
+    }
+    val focusedRange = remember(text, searchQuery, searchFocusedOccurrence) {
+        if (searchQuery.isNullOrBlank()) null else findOccurrenceRange(text, searchQuery, searchFocusedOccurrence)
+    }
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
 
     Box(
         modifier = modifier
@@ -592,12 +606,18 @@ private fun TableCell(
         },
     ) {
         Text(
-            text = text,
+            text = display,
             style = style,
             color = color,
             textAlign = textAlign,
-            maxLines = 10,
+            // Only the cell holding the focused match needs full layout so its wrapped-line rect
+            // reports accurately (getBoundingBox clamps to laid-out lines). Every other cell — even
+            // while search is open — keeps the 10-line clamp so opening search doesn't balloon whole
+            // tables. focusedRange is non-null exactly for the focused cell.
+            maxLines = if (focusedRange != null) Int.MAX_VALUE else 10,
             overflow = TextOverflow.Ellipsis,
+            onTextLayout = { layoutResult = it },
+            modifier = Modifier.reportFocusedMatchPosition(layoutResult, focusedRange, onFocusedMatchPosition),
         )
     }
 }

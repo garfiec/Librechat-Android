@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,8 +45,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -114,7 +118,7 @@ actual fun MessageBubble(
     isSearchMatch: Boolean,
     isCurrentSearchMatch: Boolean,
     searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     useKatex: Boolean,
     chatLayoutStyle: String,
     showAvatars: Boolean,
@@ -157,7 +161,7 @@ private fun ThreadBubble(
     resolvedEndpoint: String?, tintEndpointIcon: Boolean,
     showImageDescriptions: Boolean, showActionsInitially: Boolean, searchQuery: String?,
     isSearchMatch: Boolean, isCurrentSearchMatch: Boolean, searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?, showAvatars: Boolean, showBubbles: Boolean,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?, showAvatars: Boolean, showBubbles: Boolean,
 ) {
     val isUser = message.isCreatedByUser
     var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
@@ -250,7 +254,7 @@ private fun TwoSidedBubble(
     resolvedEndpoint: String?, tintEndpointIcon: Boolean,
     showImageDescriptions: Boolean, showActionsInitially: Boolean, searchQuery: String?,
     isSearchMatch: Boolean, isCurrentSearchMatch: Boolean, searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?, showAvatars: Boolean, showBubbles: Boolean,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?, showAvatars: Boolean, showBubbles: Boolean,
 ) {
     val isUser = message.isCreatedByUser
     var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
@@ -355,7 +359,7 @@ actual fun ContentPartRenderer(
     part: MessageContentPart, modifier: Modifier, baseUrl: String, fontSizeMultiplier: Float,
     useKatex: Boolean, attachments: List<Attachment>,
     showImageDescriptions: Boolean, searchQuery: String?, searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
 ) {
     ContentPartDispatcher(
         part = part,
@@ -377,7 +381,7 @@ actual fun ContentPartRenderer(
 actual fun MarkdownContent(
     text: String, modifier: Modifier, fontSizeMultiplier: Float, useKatex: Boolean,
     searchQuery: String?, searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     immediate: Boolean,
     streaming: Boolean,
 ) {
@@ -404,8 +408,27 @@ actual fun MarkdownContent(
         ordered = bl.scale(fontSizeMultiplier), bullet = bl.scale(fontSizeMultiplier), list = bl.scale(fontSizeMultiplier),
     )
 
+    val isSearchActive = !searchQuery.isNullOrBlank()
+
     Column(modifier = modifier.fillMaxWidth()) {
+        // Per-segment occurrence base offsets, advanced via countSegmentOccurrences to stay
+        // identical to SearchMatchEnumeration's numbering (mirrors androidMain). Computed once
+        // per (segments, query), not every recomposition.
+        val segmentOffsets = remember(segments, searchQuery) {
+            IntArray(segments.size).also { offsets ->
+                if (!searchQuery.isNullOrBlank()) {
+                    var acc = 0
+                    segments.forEachIndexed { i, segment ->
+                        offsets[i] = acc
+                        acc += countSegmentOccurrences(segment, searchQuery)
+                    }
+                }
+            }
+        }
+
         segments.forEachIndexed { index, segment ->
+            val focusedInSegment = if (isSearchActive) searchFocusedOccurrence - segmentOffsets[index] else -1
+
             when (segment) {
                 is MarkdownSegment.CodeBlock -> {
                     if (index > 0) Spacer(modifier = Modifier.height(8.dp))
@@ -419,6 +442,9 @@ actual fun MarkdownContent(
                             code = segment.code,
                             language = segment.language,
                             modifier = Modifier.padding(vertical = 4.dp),
+                            searchQuery = if (isSearchActive) searchQuery else null,
+                            searchFocusedOccurrence = focusedInSegment,
+                            onFocusedMatchPosition = onFocusedOccurrencePosition,
                         )
                     }
                     if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
@@ -434,19 +460,34 @@ actual fun MarkdownContent(
                 }
                 is MarkdownSegment.InlineLatexText -> {
                     Column {
+                        // Rebase again per Text run within the segment.
+                        var inlineOffset = 0
                         segment.segments.forEach { inlineSegment ->
                             when (inlineSegment) {
                                 is InlineSegment.Text -> {
                                     if (inlineSegment.text.isNotBlank()) {
-                                        key(fontSizeMultiplier) {
-                                            CachedMarkdown(
+                                        if (isSearchActive) {
+                                            val runOccurrences = countOccurrences(inlineSegment.text, searchQuery)
+                                            val focusedInRun = focusedInSegment - inlineOffset
+                                            HighlightedTextSegment(
                                                 content = inlineSegment.text,
-                                                colors = colors,
-                                                typography = typography,
-                                                modifier = Modifier.fillMaxWidth(),
-                                                immediate = immediate,
-                                                streaming = streaming,
+                                                searchQuery = searchQuery,
+                                                focusedOccurrence = focusedInRun,
+                                                fontSizeMultiplier = fontSizeMultiplier,
+                                                onFocusedMatchPosition = onFocusedOccurrencePosition,
                                             )
+                                            inlineOffset += runOccurrences
+                                        } else {
+                                            key(fontSizeMultiplier) {
+                                                CachedMarkdown(
+                                                    content = inlineSegment.text,
+                                                    colors = colors,
+                                                    typography = typography,
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    immediate = immediate,
+                                                    streaming = streaming,
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -468,19 +509,32 @@ actual fun MarkdownContent(
                         rows = segment.rows,
                         fontSizeMultiplier = fontSizeMultiplier,
                         modifier = Modifier.padding(vertical = 4.dp),
+                        searchQuery = if (isSearchActive) searchQuery else null,
+                        searchFocusedOccurrence = focusedInSegment,
+                        onFocusedMatchPosition = onFocusedOccurrencePosition,
                     )
                     if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                 }
                 is MarkdownSegment.TextBlock -> {
-                    key(fontSizeMultiplier, index) {
-                        CachedMarkdown(
+                    if (isSearchActive) {
+                        HighlightedTextSegment(
                             content = segment.text,
-                            colors = colors,
-                            typography = typography,
-                            modifier = Modifier.fillMaxWidth(),
-                            immediate = immediate,
-                            streaming = streaming,
+                            searchQuery = searchQuery,
+                            focusedOccurrence = focusedInSegment,
+                            fontSizeMultiplier = fontSizeMultiplier,
+                            onFocusedMatchPosition = onFocusedOccurrencePosition,
                         )
+                    } else {
+                        key(fontSizeMultiplier, index) {
+                            CachedMarkdown(
+                                content = segment.text,
+                                colors = colors,
+                                typography = typography,
+                                modifier = Modifier.fillMaxWidth(),
+                                immediate = immediate,
+                                streaming = streaming,
+                            )
+                        }
                     }
                 }
             }
@@ -497,6 +551,9 @@ private fun IosMarkdownTableWithFullscreen(
     rows: List<List<String>>,
     modifier: Modifier = Modifier,
     fontSizeMultiplier: Float = 1.0f,
+    searchQuery: String? = null,
+    searchFocusedOccurrence: Int = -1,
+    onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
     var showFullscreen by remember { mutableStateOf(false) }
 
@@ -506,6 +563,9 @@ private fun IosMarkdownTableWithFullscreen(
             alignments = alignments,
             rows = rows,
             fontSizeMultiplier = fontSizeMultiplier,
+            searchQuery = searchQuery,
+            searchFocusedOccurrence = searchFocusedOccurrence,
+            onFocusedMatchPosition = onFocusedMatchPosition,
         )
 
         IconButton(
@@ -596,7 +656,11 @@ private fun IosMarkdownTable(
     rows: List<List<String>>,
     modifier: Modifier = Modifier,
     fontSizeMultiplier: Float = 1.0f,
+    searchQuery: String? = null,
+    searchFocusedOccurrence: Int = -1,
+    onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
+    val isSearchActive = !searchQuery.isNullOrBlank()
     val textColor = MaterialTheme.colorScheme.onSurface
     val headerBackground = MaterialTheme.colorScheme.surfaceContainerHigh
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
@@ -625,10 +689,36 @@ private fun IosMarkdownTable(
         modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).clip(MaterialTheme.shapes.small),
     ) {
         Column {
+            // Per-cell occurrence base offsets, headers-first then rows row-major — the same order
+            // as SearchMatchEnumeration's tableCellTexts. Computed once per (headers, rows, query).
+            val (headerOffsets, rowOffsets) = remember(headers, rows, searchQuery) {
+                val hOffsets = IntArray(headers.size)
+                val rOffsets = rows.map { IntArray(it.size) }
+                if (!searchQuery.isNullOrBlank()) {
+                    var acc = 0
+                    headers.forEachIndexed { i, header ->
+                        hOffsets[i] = acc
+                        acc += countOccurrences(header, searchQuery)
+                    }
+                    rows.forEachIndexed { r, row ->
+                        row.forEachIndexed { c, cell ->
+                            rOffsets[r][c] = acc
+                            acc += countOccurrences(cell, searchQuery)
+                        }
+                    }
+                }
+                hOffsets to rOffsets
+            }
             Row(modifier = Modifier.height(IntrinsicSize.Min).background(headerBackground)) {
                 headers.forEachIndexed { colIndex, header ->
                     if (colIndex > 0) VerticalDivider(color = dividerColor, modifier = Modifier.fillMaxHeight())
-                    TableCell(header, headerStyle, textColor, alignments.getOrElse(colIndex) { TableCellAlignment.LEFT }, columnWidths[colIndex], cellPaddingH, cellPaddingV)
+                    TableCell(
+                        header, headerStyle, textColor, alignments.getOrElse(colIndex) { TableCellAlignment.LEFT },
+                        columnWidths[colIndex], cellPaddingH, cellPaddingV,
+                        searchQuery = searchQuery,
+                        searchFocusedOccurrence = if (isSearchActive) searchFocusedOccurrence - headerOffsets[colIndex] else -1,
+                        onFocusedMatchPosition = onFocusedMatchPosition,
+                    )
                 }
             }
             HorizontalDivider(color = dividerColor, thickness = 1.dp)
@@ -636,7 +726,13 @@ private fun IosMarkdownTable(
                 Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                     row.forEachIndexed { colIndex, cell ->
                         if (colIndex > 0) VerticalDivider(color = dividerColor, modifier = Modifier.fillMaxHeight())
-                        TableCell(cell, bodyStyle, textColor, alignments.getOrElse(colIndex) { TableCellAlignment.LEFT }, columnWidths.getOrElse(colIndex) { columnWidths.last() }, cellPaddingH, cellPaddingV)
+                        TableCell(
+                            cell, bodyStyle, textColor, alignments.getOrElse(colIndex) { TableCellAlignment.LEFT },
+                            columnWidths.getOrElse(colIndex) { columnWidths.last() }, cellPaddingH, cellPaddingV,
+                            searchQuery = searchQuery,
+                            searchFocusedOccurrence = if (isSearchActive) searchFocusedOccurrence - rowOffsets[rowIndex][colIndex] else -1,
+                            onFocusedMatchPosition = onFocusedMatchPosition,
+                        )
                     }
                 }
                 if (rowIndex < rows.lastIndex) HorizontalDivider(color = dividerColor, thickness = Dp.Hairline)
@@ -649,7 +745,23 @@ private fun IosMarkdownTable(
 private fun TableCell(
     text: String, style: TextStyle, color: Color,
     alignment: TableCellAlignment, cellWidth: Dp, paddingH: Dp, paddingV: Dp, modifier: Modifier = Modifier,
+    searchQuery: String? = null,
+    searchFocusedOccurrence: Int = -1,
+    onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
+    val display = remember(text, searchQuery, searchFocusedOccurrence, isDarkTheme) {
+        if (searchQuery.isNullOrBlank()) {
+            AnnotatedString(text)
+        } else {
+            buildHighlightedString(text, searchQuery, searchFocusedOccurrence, isDarkTheme)
+        }
+    }
+    val focusedRange = remember(text, searchQuery, searchFocusedOccurrence) {
+        if (searchQuery.isNullOrBlank()) null else findOccurrenceRange(text, searchQuery, searchFocusedOccurrence)
+    }
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
     Box(
         modifier = modifier.width(cellWidth).padding(horizontal = paddingH, vertical = paddingV),
         contentAlignment = when (alignment) {
@@ -659,12 +771,19 @@ private fun TableCell(
         },
     ) {
         Text(
-            text = text, style = style, color = color, maxLines = 10, overflow = TextOverflow.Ellipsis,
+            text = display, style = style, color = color,
+            // Only the focused cell needs full layout so its wrapped-line rect reports accurately;
+            // every other cell keeps the 10-line clamp even while search is open, so opening search
+            // doesn't balloon whole tables. focusedRange is non-null exactly for the focused cell.
+            maxLines = if (focusedRange != null) Int.MAX_VALUE else 10,
+            overflow = TextOverflow.Ellipsis,
             textAlign = when (alignment) {
                 TableCellAlignment.LEFT -> TextAlign.Start
                 TableCellAlignment.CENTER -> TextAlign.Center
                 TableCellAlignment.RIGHT -> TextAlign.End
             },
+            onTextLayout = { layoutResult = it },
+            modifier = Modifier.reportFocusedMatchPosition(layoutResult, focusedRange, onFocusedMatchPosition),
         )
     }
 }

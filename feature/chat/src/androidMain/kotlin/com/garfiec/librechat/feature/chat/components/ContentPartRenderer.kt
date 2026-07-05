@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.content.MessageContentPart
@@ -17,7 +18,7 @@ actual fun ContentPartRenderer(
     showImageDescriptions: Boolean,
     searchQuery: String?,
     searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
 ) {
     ContentPartDispatcher(
         part = part,

@@ -24,6 +24,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.semantics.Role
@@ -42,6 +45,15 @@ import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+
+/**
+ * Monotonic id of the current in-conversation-search focus request (see `SearchFocusRequest`),
+ * provided by `MessageList` only around the current-match bubble (0L elsewhere, so unrelated
+ * bubbles never recompose on navigation). A collapsible block that holds the focused match keys
+ * its auto-expand on this so re-navigating to the *same* occurrence — even after the user manually
+ * collapsed it — re-opens the card; the plain occurrence index alone wouldn't change on a re-focus.
+ */
+internal val LocalSearchFocusNonce = compositionLocalOf { 0L }
 
 // ─── CollapsibleDisclosureCard ──────────────────────────────────────
 
@@ -60,9 +72,18 @@ private fun CollapsibleDisclosureCard(
     expandActionContentDescription: StringResource,
     collapseActionContentDescription: StringResource,
     modifier: Modifier = Modifier,
+    // Flips the card open when it becomes true (find-in-page expands folded regions);
+    // the user can still collapse it manually afterwards.
+    autoExpand: Boolean = false,
+    // Re-arms the auto-expand each time it changes, so navigating to a *different* focused match
+    // inside the same block re-opens it even if the user manually collapsed it after the last jump.
+    autoExpandKey: Any? = null,
     body: @Composable () -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(autoExpand, autoExpandKey) {
+        if (autoExpand) isExpanded = true
+    }
     val toggleContentDescription =
         stringResource(if (isExpanded) collapseActionContentDescription else expandActionContentDescription)
 
@@ -124,8 +145,14 @@ internal fun ThinkingContentPart(
     useKatex: Boolean = false,
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 ) {
+    // The focused occurrence index is already rebased to this part; when it falls
+    // inside the thinking text, pop the card open so the match can be scrolled to.
+    val containsFocusedMatch = remember(thinkingText, searchQuery, searchFocusedOccurrence) {
+        searchFocusedOccurrence >= 0 && !searchQuery.isNullOrBlank() &&
+            searchFocusedOccurrence < countMarkdownOccurrences(thinkingText, searchQuery)
+    }
     CollapsibleDisclosureCard(
         leadingIcon = Icons.Default.Psychology,
         leadingIconContentDescription = stringResource(Res.string.cd_thinking_indicator),
@@ -133,6 +160,12 @@ internal fun ThinkingContentPart(
         expandActionContentDescription = Res.string.cd_expand_thinking,
         collapseActionContentDescription = Res.string.cd_collapse_thinking,
         modifier = modifier,
+        autoExpand = containsFocusedMatch,
+        // Re-arm on every navigation: LocalSearchFocusNonce changes per focus request, so both
+        // moving to a different occurrence in this block AND returning to the same one (after a
+        // manual collapse) re-open the card — the rebased occurrence index alone wouldn't change
+        // on a re-focus of the same match.
+        autoExpandKey = LocalSearchFocusNonce.current,
     ) {
         MarkdownContent(
             thinkingText,

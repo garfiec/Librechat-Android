@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
@@ -42,7 +43,7 @@ expect fun MessageBubble(
     isSearchMatch: Boolean = false,
     isCurrentSearchMatch: Boolean = false,
     searchFocusedOccurrence: Int = -1,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
     useKatex: Boolean = false,
     chatLayoutStyle: String = ChatLayoutConstants.THREAD,
     showAvatars: Boolean = true,
@@ -61,7 +62,7 @@ expect fun ContentPartRenderer(
     showImageDescriptions: Boolean = true,
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
 )
 
 /** Platform-specific markdown content rendering. */
@@ -73,7 +74,7 @@ expect fun MarkdownContent(
     useKatex: Boolean = false,
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)? = null,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
     immediate: Boolean = false,
     streaming: Boolean = false,
 )

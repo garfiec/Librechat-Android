@@ -27,8 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.Message
@@ -179,7 +181,7 @@ internal fun MessageContentAndActions(
     isSearchMatch: Boolean,
     isCurrentSearchMatch: Boolean,
     searchFocusedOccurrence: Int,
-    onFocusedOccurrencePosition: ((LayoutCoordinates) -> Unit)?,
+    onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     showActions: Boolean,
     siblingIndex: Int,
     siblingCount: Int,
@@ -239,7 +241,24 @@ internal fun MessageContentAndActions(
 
             val contentParts = message.content
             if (!contentParts.isNullOrEmpty()) {
-                contentParts.forEach { part ->
+                // Occurrence indices are message-wide (SearchMatchEnumeration): rebase them
+                // per part so each part resolves the focused occurrence within itself. The focused
+                // message contains the query by definition, so the fast-path bail never triggers —
+                // compute each part's starting offset once (not on every recomposition, which would
+                // re-parse every part's markdown each animateScrollBy frame).
+                val partOffsets = remember(contentParts, searchQuery, isCurrentSearchMatch) {
+                    val offsets = IntArray(contentParts.size)
+                    if (isCurrentSearchMatch && !searchQuery.isNullOrBlank()) {
+                        var acc = 0
+                        contentParts.forEachIndexed { i, part ->
+                            offsets[i] = acc
+                            acc += countPartOccurrences(part, searchQuery)
+                        }
+                    }
+                    offsets
+                }
+                contentParts.forEachIndexed { index, part ->
+                    val focusedInPart = if (isCurrentSearchMatch) searchFocusedOccurrence - partOffsets[index] else -1
                     ContentPartRenderer(
                         part = part,
                         baseUrl = baseUrl,
@@ -248,7 +267,7 @@ internal fun MessageContentAndActions(
                         attachments = message.attachments.orEmpty(),
                         showImageDescriptions = showImageDescriptions,
                         searchQuery = if (isSearchMatch) searchQuery else null,
-                        searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
+                        searchFocusedOccurrence = focusedInPart,
                         onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
                         modifier = Modifier.padding(vertical = 2.dp),
                     )
