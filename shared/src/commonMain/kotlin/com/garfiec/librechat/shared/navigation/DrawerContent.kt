@@ -66,6 +66,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -116,6 +117,12 @@ import org.koin.compose.viewmodel.koinViewModel
 // Pre-computed shapes to avoid creating new ones per item per frame
 private val ItemShape = RoundedCornerShape(8.dp)
 private val ActiveIndicatorShape = RoundedCornerShape(2.dp)
+
+// Pulls a tappable drawer row in from the edges and clips its ripple to [ItemShape], so every row
+// reads as the same inset, rounded button instead of a full-bleed rectangular highlight. Apply
+// before .clickable so the indication is bounded by the rounded shape.
+private fun Modifier.drawerRowShape(): Modifier =
+    padding(horizontal = 4.dp, vertical = 1.dp).clip(ItemShape)
 
 // Gap between the conversation row's bottom edge and the long-press menu's top edge.
 private val MenuVerticalGap = 4.dp
@@ -739,8 +746,9 @@ private fun DrawerProjectsEntry(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .drawerRowShape()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -808,6 +816,7 @@ private fun DrawerConversationItem(
                 .padding(horizontal = 4.dp, vertical = 1.dp)
                 .fillMaxWidth()
                 .background(backgroundColor, ItemShape)
+                .clip(ItemShape)
                 .combinedClickable(
                     role = Role.Button,
                     onClick = onClick,
@@ -935,6 +944,7 @@ private fun SectionHeader(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
+            .drawerRowShape()
             .clickable(
                 role = Role.Button,
                 onClickLabel = stringResource(
@@ -942,7 +952,7 @@ private fun SectionHeader(
                 ),
                 onClick = onToggle,
             )
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 12.dp)
     } else {
         Modifier
             .fillMaxWidth()
@@ -989,8 +999,9 @@ private fun ShowMoreLessRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .drawerRowShape()
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -1011,8 +1022,9 @@ private fun DrawerFooterItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .drawerRowShape()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
