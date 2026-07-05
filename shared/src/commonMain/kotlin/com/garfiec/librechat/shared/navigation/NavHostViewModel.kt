@@ -52,9 +52,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class NavHostViewModel(
@@ -231,6 +233,18 @@ class NavHostViewModel(
     val tabletSidebarGestureEnabled: StateFlow<Boolean> = settingsDataStore.tabletSidebarGestureEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    // Drawer "Library" tab is optimistic local state (instant toggle) with DataStore as a write-behind
+    // cache: hydrated once in init and written on change. Null = not yet hydrated; the drawer shows
+    // Chats for the brief window until the persisted value loads, and the seed's update { it ?: ... }
+    // lets a tap in that window win over the incoming persisted value.
+    private val _drawerLibraryTab = MutableStateFlow<DrawerTab?>(null)
+    val drawerLibraryTab: StateFlow<DrawerTab?> = _drawerLibraryTab.asStateFlow()
+
+    fun setDrawerLibraryTab(tab: DrawerTab) {
+        _drawerLibraryTab.value = tab
+        viewModelScope.launch { settingsDataStore.setDrawerLibraryTab(tab.toStorageString()) }
+    }
+
     private val _sidebarMode = MutableStateFlow<SidebarMode>(SidebarMode.Conversations)
     val sidebarMode: StateFlow<SidebarMode> = _sidebarMode.asStateFlow()
 
@@ -323,6 +337,10 @@ class NavHostViewModel(
     )
 
     init {
+        viewModelScope.launch {
+            val persisted = DrawerTab.fromString(settingsDataStore.drawerLibraryTab.first())
+            _drawerLibraryTab.update { it ?: persisted }
+        }
         viewModelScope.launch {
             try {
                 // Wait for the server URL's async warm-up before any startup network work, so a

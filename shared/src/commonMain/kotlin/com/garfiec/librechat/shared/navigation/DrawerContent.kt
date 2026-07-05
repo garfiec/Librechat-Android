@@ -151,9 +151,6 @@ private val MenuVerticalGap = 4.dp
 // Favorites shown before the "Show more" toggle reveals the rest.
 private const val FavoritesPreviewCount = 5
 
-// The drawer body's two segmented-toggle modes: the recents history vs. the project folders.
-private enum class DrawerTab { Chats, Projects }
-
 /**
  * Stateful DrawerContent that collects its own state from the ViewModel.
  */
@@ -175,6 +172,7 @@ fun DrawerContent(
     val projects by viewModel.projects.collectAsStateWithLifecycle()
     val inlineProjectChats by viewModel.inlineProjectChats.collectAsStateWithLifecycle()
     val accounts by viewModel.accounts.collectAsStateWithLifecycle()
+    val libraryTab by viewModel.drawerLibraryTab.collectAsStateWithLifecycle()
 
     // Account switcher: the header chip opens the roster sheet; remove asks for confirmation.
     // Switch/add callbacks come from the host (they also close the drawer); remove goes straight to
@@ -242,6 +240,8 @@ fun DrawerContent(
         onMoveToProject = viewModel::moveConversationToProject,
         onCreateProjectAndAssign = viewModel::createProjectAndAssign,
         onOpenProjectsIndex = onOpenProjectsIndex,
+        selectedTab = libraryTab ?: DrawerTab.Chats,
+        onSelectTab = viewModel::setDrawerLibraryTab,
         inlineProjectChats = inlineProjectChats,
         onToggleProject = viewModel::toggleProjectExpanded,
         onCreateProject = viewModel::createProject,
@@ -310,6 +310,9 @@ fun DrawerContent(
     // Projects tab (segmented toggle above the list): the folder list + inline chat accordion, plus
     // an escape hatch to the full-page projects index for advanced controls.
     onOpenProjectsIndex: () -> Unit = {},
+    // Persisted Chats/Projects toggle selection (controlled by the caller).
+    selectedTab: DrawerTab = DrawerTab.Chats,
+    onSelectTab: (DrawerTab) -> Unit = {},
     inlineProjectChats: InlineProjectChatsState = InlineProjectChatsState(),
     onToggleProject: (String) -> Unit = {},
     onCreateProject: (String) -> Unit = {},
@@ -331,10 +334,6 @@ fun DrawerContent(
     var tagPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var exportPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var projectPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
-
-    // Which mode the segmented toggle above the list selects (folder browsing lives in
-    // [DrawerProjectsList], which owns its own menu/dialog state).
-    var selectedTab by rememberSaveable { mutableStateOf(DrawerTab.Chats) }
 
     // Favorites section view state: whether the whole section is collapsed, and (when expanded)
     // whether it shows all favorites or just the top [FavoritesPreviewCount]. Saveable so the
@@ -510,7 +509,7 @@ fun DrawerContent(
                 )
                 DrawerTabToggle(
                     selectedTab = selectedTab,
-                    onSelect = { selectedTab = it },
+                    onSelect = onSelectTab,
                 )
             }
             // Keep the folder counts fresh whenever the user opens the Projects tab.

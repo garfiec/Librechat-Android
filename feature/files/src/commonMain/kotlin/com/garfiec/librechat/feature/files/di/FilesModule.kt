@@ -15,6 +15,7 @@ val filesModule = module {
             fileRepository = get(),
             fileReader = get(),
             serverDataStore = get(),
+            settingsDataStore = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }

@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.files.viewmodel
 
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.feature.files.platform.FileReader
@@ -12,6 +13,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -29,6 +31,12 @@ class FilesViewModelTest {
     private val fileRepository = mockk<FileRepository>(relaxed = true)
     private val fileReader = mockk<FileReader>(relaxed = true)
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
+    private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+
+    // In-memory backing for the persisted sort/view-mode so setters round-trip through the flows.
+    private val filesViewModeFlow = MutableStateFlow<String?>(null)
+    private val filesSortFieldFlow = MutableStateFlow<String?>(null)
+    private val filesSortOrderFlow = MutableStateFlow<String?>(null)
 
     private lateinit var viewModel: FilesViewModel
 
@@ -64,6 +72,14 @@ class FilesViewModelTest {
         Dispatchers.setMain(testDispatcher)
         coEvery { fileRepository.getFiles() } returns Result.Success(testFiles)
         every { serverDataStore.getBaseUrl() } returns "https://chat.example.com"
+        every { settingsDataStore.filesViewMode } returns filesViewModeFlow
+        every { settingsDataStore.filesSortField } returns filesSortFieldFlow
+        every { settingsDataStore.filesSortOrder } returns filesSortOrderFlow
+        coEvery { settingsDataStore.setFilesViewMode(any()) } answers { filesViewModeFlow.value = firstArg() }
+        coEvery { settingsDataStore.setFilesSort(any(), any()) } answers {
+            filesSortFieldFlow.value = firstArg()
+            filesSortOrderFlow.value = secondArg()
+        }
     }
 
     @After
@@ -75,6 +91,7 @@ class FilesViewModelTest {
         fileRepository = fileRepository,
         fileReader = fileReader,
         serverDataStore = serverDataStore,
+        settingsDataStore = settingsDataStore,
         ioDispatcher = testDispatcher,
     )
 
@@ -320,6 +337,27 @@ class FilesViewModelTest {
     }
 
     @Test
+    fun `toggleViewMode persists the new mode`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleViewMode()
+        advanceUntilIdle()
+
+        coVerify { settingsDataStore.setFilesViewMode(FileViewMode.GRID.toStorageString()) }
+    }
+
+    @Test
+    fun `persisted view mode hydrates initial state`() = runTest {
+        filesViewModeFlow.value = FileViewMode.GRID.toStorageString()
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.viewMode).isEqualTo(FileViewMode.GRID)
+    }
+
+    @Test
     fun `setSort updates sort field and order`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -330,6 +368,49 @@ class FilesViewModelTest {
         val state = viewModel.uiState.value
         assertThat(state.sortField).isEqualTo(FileSortField.NAME)
         assertThat(state.sortOrder).isEqualTo(FileSortOrder.ASCENDING)
+    }
+
+    @Test
+    fun `setSort persists the field and order`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.setSort(FileSortField.NAME, FileSortOrder.ASCENDING)
+        advanceUntilIdle()
+
+        coVerify {
+            settingsDataStore.setFilesSort(
+                FileSortField.NAME.toStorageString(),
+                FileSortOrder.ASCENDING.toStorageString(),
+            )
+        }
+    }
+
+    @Test
+    fun `persisted sort hydrates initial state`() = runTest {
+        filesSortFieldFlow.value = FileSortField.NAME.toStorageString()
+        filesSortOrderFlow.value = FileSortOrder.ASCENDING.toStorageString()
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.sortField).isEqualTo(FileSortField.NAME)
+        assertThat(state.sortOrder).isEqualTo(FileSortOrder.ASCENDING)
+    }
+
+    @Test
+    fun `filter is not persisted across sessions`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.setFilter(FileTypeFilter.IMAGES)
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.selectedFilter).isEqualTo(FileTypeFilter.IMAGES)
+
+        // A fresh ViewModel (new app session) starts back at ALL — the filter was never persisted.
+        val next = createViewModel()
+        advanceUntilIdle()
+        assertThat(next.uiState.value.selectedFilter).isEqualTo(FileTypeFilter.ALL)
     }
 
     @Test

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,21 +38,61 @@ enum class FileTypeFilter(val label: String) {
     VIDEO("Video"),
 }
 
+// Stored strings are decoupled from the constant names so renaming a constant can't orphan a saved
+// preference (matches StarredModelsDisplay/ContextBarPlacement/etc. in :core:data).
 enum class FileSortField(val label: String) {
     NAME("Name"),
     DATE("Date"),
     SIZE("Size"),
-    TYPE("Type"),
+    TYPE("Type");
+
+    companion object {
+        fun fromString(value: String?): FileSortField = when (value) {
+            "name" -> NAME
+            "size" -> SIZE
+            "type" -> TYPE
+            else -> DATE
+        }
+    }
+
+    fun toStorageString(): String = when (this) {
+        NAME -> "name"
+        DATE -> "date"
+        SIZE -> "size"
+        TYPE -> "type"
+    }
 }
 
 enum class FileSortOrder {
     ASCENDING,
-    DESCENDING,
+    DESCENDING;
+
+    companion object {
+        fun fromString(value: String?): FileSortOrder =
+            if (value == "ascending") ASCENDING else DESCENDING
+    }
+
+    fun toStorageString(): String = when (this) {
+        ASCENDING -> "ascending"
+        DESCENDING -> "descending"
+    }
 }
 
 enum class FileViewMode {
     LIST,
-    GRID,
+    GRID;
+
+    companion object {
+        fun fromString(value: String?): FileViewMode = when (value) {
+            "grid" -> GRID
+            else -> LIST
+        }
+    }
+
+    fun toStorageString(): String = when (this) {
+        LIST -> "list"
+        GRID -> "grid"
+    }
 }
 
 @Immutable
@@ -78,13 +120,21 @@ class FilesViewModel(
     private val fileRepository: FileRepository,
     private val fileReader: FileReader,
     private val serverDataStore: ServerDataStore,
+    private val settingsDataStore: SettingsDataStore,
     private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _files = MutableStateFlow<List<FileObject>>(emptyList())
+
+    // Type filter is session-local (resets to All on relaunch, by design).
     private val _selectedFilter = MutableStateFlow(FileTypeFilter.ALL)
-    private val _sortField = MutableStateFlow(FileSortField.DATE)
-    private val _sortOrder = MutableStateFlow(FileSortOrder.DESCENDING)
+
+    // Sort and view mode are optimistic local state (the UI source of truth) written through to
+    // DataStore and hydrated from it once in init. They start null ("not yet hydrated"): the default
+    // is shown for the brief window until the persisted value loads, and the seed uses
+    // update { it ?: ... } so a change made in that window wins over the incoming persisted value.
+    private val _sort = MutableStateFlow<SortSpec?>(null)
+    private val _viewMode = MutableStateFlow<FileViewMode?>(null)
 
     private val _transientState = MutableStateFlow(TransientState())
 
@@ -99,24 +149,25 @@ class FilesViewModel(
     private val displayList: Flow<DisplayList> = combine(
         _files,
         _selectedFilter,
-        _sortField,
-        _sortOrder,
-    ) { files, filter, sortField, sortOrder ->
+        _sort,
+    ) { files, filter, sortOrNull ->
+        val sort = sortOrNull ?: DefaultSort
         val filtered = filterFiles(files, filter)
-        val sorted = sortFiles(filtered, sortField, sortOrder)
+        val sorted = sortFiles(filtered, sort.field, sort.order)
         DisplayList(
             files = sorted.map { file -> displayDataCache.getOrPut(file.fileId) { file.toDisplayData() } },
             hasFiles = files.isNotEmpty(),
             filter = filter,
-            sortField = sortField,
-            sortOrder = sortOrder,
+            sortField = sort.field,
+            sortOrder = sort.order,
         )
     }
 
     val uiState: StateFlow<FilesUiState> = combine(
         displayList,
         _transientState,
-    ) { list, transient ->
+        _viewMode,
+    ) { list, transient, mode ->
         FilesUiState(
             displayFiles = list.files,
             isLoading = transient.isLoading,
@@ -134,7 +185,7 @@ class FilesViewModel(
             previewFile = transient.previewFile,
             mediaPreview = transient.mediaPreview,
             hasFiles = list.hasFiles,
-            viewMode = transient.viewMode,
+            viewMode = mode ?: FileViewMode.LIST,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -143,6 +194,15 @@ class FilesViewModel(
     )
 
     init {
+        viewModelScope.launch {
+            val field = FileSortField.fromString(settingsDataStore.filesSortField.first())
+            val order = FileSortOrder.fromString(settingsDataStore.filesSortOrder.first())
+            _sort.update { it ?: SortSpec(field, order) }
+        }
+        viewModelScope.launch {
+            val mode = FileViewMode.fromString(settingsDataStore.filesViewMode.first())
+            _viewMode.update { it ?: mode }
+        }
         loadFiles()
     }
 
@@ -305,18 +365,21 @@ class FilesViewModel(
     }
 
     fun setSort(field: FileSortField, order: FileSortOrder) {
-        _sortField.value = field
-        _sortOrder.value = order
+        _sort.value = SortSpec(field, order)
+        viewModelScope.launch {
+            settingsDataStore.setFilesSort(field.toStorageString(), order.toStorageString())
+        }
     }
 
     fun toggleViewMode() {
-        updateTransient {
-            copy(
-                viewMode = when (viewMode) {
-                    FileViewMode.LIST -> FileViewMode.GRID
-                    FileViewMode.GRID -> FileViewMode.LIST
-                },
-            )
+        // Read-then-set is synchronous here (no async gap), so back-to-back taps can't lose a toggle.
+        val next = when (_viewMode.value ?: FileViewMode.LIST) {
+            FileViewMode.LIST -> FileViewMode.GRID
+            FileViewMode.GRID -> FileViewMode.LIST
+        }
+        _viewMode.value = next
+        viewModelScope.launch {
+            settingsDataStore.setFilesViewMode(next.toStorageString())
         }
     }
 
@@ -578,6 +641,11 @@ private data class DisplayList(
     val sortOrder: FileSortOrder,
 )
 
+/** Sort field + order as one unit so a sort change is a single atomic emission. */
+private data class SortSpec(val field: FileSortField, val order: FileSortOrder)
+
+private val DefaultSort = SortSpec(FileSortField.DATE, FileSortOrder.DESCENDING)
+
 private data class TransientState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -590,5 +658,4 @@ private data class TransientState(
     val selectedFileIds: Set<String> = emptySet(),
     val previewFile: FilePreviewDisplayData? = null,
     val mediaPreview: MediaPreviewState? = null,
-    val viewMode: FileViewMode = FileViewMode.LIST,
 )

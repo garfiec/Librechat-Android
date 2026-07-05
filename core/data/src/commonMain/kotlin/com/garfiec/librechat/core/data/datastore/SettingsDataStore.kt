@@ -179,6 +179,31 @@ class SettingsDataStore(
         prefs[KEY_CHAT_LAYOUT_STYLE] ?: "thread"
     }
 
+    // Unlike the typed enum prefs above (StarredModelsDisplay, ContextBarPlacement, …), these are
+    // exposed as raw String and mapped in the caller: their enums (FileSortField/FileViewMode in
+    // :feature:files, DrawerTab in :shared) are UI-domain types that can't be imported down into
+    // :core:data. Keep the enum<->string mapping in the ViewModel — don't "harmonize" by moving them.
+
+    /** Files screen list/grid toggle, stored as the FileViewMode storage string; null until first set. */
+    val filesViewMode: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_FILES_VIEW_MODE]
+    }
+
+    /** Files screen sort field, stored as the FileSortField storage string; null until first set. */
+    val filesSortField: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_FILES_SORT_FIELD]
+    }
+
+    /** Files screen sort order, stored as the FileSortOrder storage string; null until first set. */
+    val filesSortOrder: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_FILES_SORT_ORDER]
+    }
+
+    /** Drawer "Library" toggle, stored as the DrawerTab storage string; null until first set. */
+    val drawerLibraryTab: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_DRAWER_LIBRARY_TAB]
+    }
+
     val showAvatars: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_SHOW_AVATARS] ?: true
     }
@@ -402,6 +427,25 @@ class SettingsDataStore(
         }
     }
 
+    suspend fun setFilesViewMode(mode: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FILES_VIEW_MODE] = mode
+        }
+    }
+
+    suspend fun setFilesSort(field: String, order: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FILES_SORT_FIELD] = field
+            prefs[KEY_FILES_SORT_ORDER] = order
+        }
+    }
+
+    suspend fun setDrawerLibraryTab(tab: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DRAWER_LIBRARY_TAB] = tab
+        }
+    }
+
     suspend fun setShowAvatars(show: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_SHOW_AVATARS] = show
@@ -504,6 +548,10 @@ class SettingsDataStore(
         private val KEY_TTS_VOICE = stringPreferencesKey("tts_voice")
         private val KEY_TTS_CACHING = booleanPreferencesKey("tts_caching")
         private val KEY_CHAT_LAYOUT_STYLE = stringPreferencesKey("chat_layout_style")
+        private val KEY_FILES_VIEW_MODE = stringPreferencesKey("files_view_mode")
+        private val KEY_FILES_SORT_FIELD = stringPreferencesKey("files_sort_field")
+        private val KEY_FILES_SORT_ORDER = stringPreferencesKey("files_sort_order")
+        private val KEY_DRAWER_LIBRARY_TAB = stringPreferencesKey("drawer_library_tab")
         private val KEY_SHOW_AVATARS = booleanPreferencesKey("show_avatars")
         private val KEY_SHOW_BUBBLES = booleanPreferencesKey("show_bubbles")
         private val KEY_INLINE_ARTIFACT_MERMAID = booleanPreferencesKey("inline_artifact_mermaid")
