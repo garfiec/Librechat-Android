@@ -548,13 +548,19 @@ fun DrawerContent(
                 // [FavoritesPreviewCount] show until "Show more" reveals the rest.
                 if (uiState.bookmarksEnabled && uiState.favoriteConversations.isNotEmpty() && uiState.searchQuery.isEmpty()) {
                     val favorites = uiState.favoriteConversations
-                    item(key = "favorites_header") {
-                        SectionHeader(
-                            icon = Icons.Default.Star,
-                            title = stringResource(Res.string.favorites),
-                            collapsed = favoritesCollapsed,
-                            onToggle = { favoritesCollapsed = !favoritesCollapsed },
-                        )
+                    stickyHeader(key = "favorites_header") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow),
+                        ) {
+                            SectionHeader(
+                                icon = Icons.Default.Star,
+                                title = stringResource(Res.string.favorites),
+                                collapsed = favoritesCollapsed,
+                                onToggle = { favoritesCollapsed = !favoritesCollapsed },
+                            )
+                        }
                     }
 
                     // The whole body (preview rows + show-more + divider) lives in one item so it can
