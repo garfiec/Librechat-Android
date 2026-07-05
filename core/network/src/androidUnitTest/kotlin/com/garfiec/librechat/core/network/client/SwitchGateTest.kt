@@ -30,14 +30,14 @@ class SwitchGateTest {
         override val isAuthenticated: Boolean get() = liveToken != null
         override suspend fun getAccessToken(): String? = liveToken
         override suspend fun setTokens(accessToken: String, refreshToken: String) = Unit
-        override suspend fun refreshAccessToken(): Boolean = false
+        override suspend fun refreshAccessToken(): RefreshResult = RefreshResult.HardExpired
         override suspend fun clearTokens() = Unit
         override suspend fun getAccessTokenFor(accountId: String): String? = keyed[accountId]
         override suspend fun getStagedAccessToken(): String? = null
         override suspend fun clearStagedTokens() = Unit
         override suspend fun selectAccount(accountId: String) = Unit
         override suspend fun removeAccount(accountId: String) = Unit
-        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean = false
+        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult = RefreshResult.HardExpired
         override suspend fun onAccountResolved(accountId: String) = Unit
         override suspend fun onAccountCleared() = Unit
         override fun emitSessionExpired(expiredAccountId: String?) = Unit

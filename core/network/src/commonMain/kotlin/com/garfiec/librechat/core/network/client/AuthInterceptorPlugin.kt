@@ -129,20 +129,29 @@ class AuthInterceptorPlugin private constructor(
                 }
 
                 Logger.d("Auth") { "401 received, attempting token refresh" }
-                val newToken = plugin.tokenManager.refreshBearerFor(snapshot)
-                if (newToken == null) {
-                    Logger.w("Auth") { "Token refresh failed - session expired" }
-                    plugin.tokenManager.emitSessionExpired(snapshot?.accountId)
-                    return@intercept originalCall
+                when (val refresh = plugin.tokenManager.refreshBearerFor(snapshot)) {
+                    is BearerResult.Refreshed -> {
+                        request.headers {
+                            remove(HttpHeaders.Authorization)
+                            append(HttpHeaders.Authorization, "Bearer ${refresh.token}")
+                        }
+                        request.attributes.put(RetryFlag, true)
+                        execute(request)
+                    }
+                    BearerResult.Expired -> {
+                        // Hard failure: the session is gone. Route the (snapshot's) account to re-auth.
+                        Logger.w("Auth") { "Token refresh failed - session expired" }
+                        plugin.tokenManager.emitSessionExpired(snapshot?.accountId)
+                        originalCall
+                    }
+                    BearerResult.Transient -> {
+                        // Recoverable failure (network/5xx/malformed/server false-negative). Do NOT
+                        // emit session-expired — fail just this request and keep the user signed in so
+                        // a later request (or relaunch) recovers instead of a spurious logout.
+                        Logger.w("Auth") { "Token refresh transient failure - keeping session" }
+                        originalCall
+                    }
                 }
-
-                request.headers {
-                    remove(HttpHeaders.Authorization)
-                    append(HttpHeaders.Authorization, "Bearer $newToken")
-                }
-                request.attributes.put(RetryFlag, true)
-
-                execute(request)
             }
         }
     }

@@ -24,7 +24,7 @@ class AuthInterceptorTest {
 
     private class FakeTokenManager(
         private var accessToken: String? = "initial-token",
-        private var refreshSucceeds: Boolean = true,
+        private var refreshOutcome: RefreshResult = RefreshResult.Refreshed,
         private var refreshedToken: String = "refreshed-token",
     ) : TokenManager {
         var refreshCallCount = 0
@@ -39,14 +39,10 @@ class AuthInterceptorTest {
             this.accessToken = accessToken
         }
 
-        override suspend fun refreshAccessToken(): Boolean {
+        override suspend fun refreshAccessToken(): RefreshResult {
             refreshCallCount++
-            return if (refreshSucceeds) {
-                accessToken = refreshedToken
-                true
-            } else {
-                false
-            }
+            if (refreshOutcome == RefreshResult.Refreshed) accessToken = refreshedToken
+            return refreshOutcome
         }
 
         override suspend fun clearTokens() {
@@ -65,7 +61,7 @@ class AuthInterceptorTest {
             accessToken = null
         }
 
-        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean =
+        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult =
             refreshAccessToken()
 
         override suspend fun onAccountResolved(accountId: String) = Unit
@@ -145,7 +141,7 @@ class AuthInterceptorTest {
     fun `refreshes token on 401 and retries`() = runTest {
         val tokenManager = FakeTokenManager(
             accessToken = "expired-token",
-            refreshSucceeds = true,
+            refreshOutcome = RefreshResult.Refreshed,
             refreshedToken = "new-token",
         )
         var requestCount = 0
@@ -174,7 +170,7 @@ class AuthInterceptorTest {
     fun `emits session expired when refresh fails`() = runTest {
         val tokenManager = FakeTokenManager(
             accessToken = "expired-token",
-            refreshSucceeds = false,
+            refreshOutcome = RefreshResult.HardExpired,
         )
 
         val engine = MockEngine {
@@ -189,10 +185,30 @@ class AuthInterceptorTest {
     }
 
     @Test
+    fun `transient refresh failure does not emit session expired`() = runTest {
+        // A recoverable refresh failure (network/5xx/malformed/server false-negative) must NOT log the
+        // user out — the request fails but the session is kept so a later attempt can recover.
+        val tokenManager = FakeTokenManager(
+            accessToken = "expired-token",
+            refreshOutcome = RefreshResult.Transient,
+        )
+
+        val engine = MockEngine {
+            respond("Unauthorized", HttpStatusCode.Unauthorized)
+        }
+        val client = createClient(tokenManager, engine)
+
+        val response = client.get("https://example.com/api/data")
+        assertThat(response.status).isEqualTo(HttpStatusCode.Unauthorized)
+        assertThat(tokenManager.refreshCallCount).isEqualTo(1)
+        assertThat(tokenManager.sessionExpiredCount).isEqualTo(0)
+    }
+
+    @Test
     fun `returns 401 when refreshed token is also expired`() = runTest {
         val tokenManager = FakeTokenManager(
             accessToken = "expired-token",
-            refreshSucceeds = true,
+            refreshOutcome = RefreshResult.Refreshed,
             refreshedToken = "still-expired",
         )
 
@@ -284,7 +300,7 @@ class AuthInterceptorTest {
 
     @Test
     fun `does not refresh-and-retry token to a foreign host on 401`() = runTest {
-        val tokenManager = FakeTokenManager(accessToken = "my-token", refreshSucceeds = true)
+        val tokenManager = FakeTokenManager(accessToken = "my-token", refreshOutcome = RefreshResult.Refreshed)
         var requestCount = 0
 
         val engine = MockEngine {
@@ -308,7 +324,7 @@ class AuthInterceptorTest {
     fun `empty base url falls back to attach-always and exercises 401 retry`() = runTest {
         val tokenManager = FakeTokenManager(
             accessToken = "expired-token",
-            refreshSucceeds = true,
+            refreshOutcome = RefreshResult.Refreshed,
             refreshedToken = "new-token",
         )
         var requestCount = 0
@@ -355,7 +371,7 @@ class AuthInterceptorTest {
     fun `pending-identity request carries the staged bearer and its 401 passes through untouched`() = runTest {
         // Add-account flow: the pending snapshot routes URL + bearer; a 401 must neither refresh any
         // account nor emit the global session-expired signal (which would tear down the live account).
-        val tokenManager = FakeTokenManager(accessToken = "live-a-token", refreshSucceeds = true)
+        val tokenManager = FakeTokenManager(accessToken = "live-a-token", refreshOutcome = RefreshResult.Refreshed)
         var requestCount = 0
         var capturedAuth: String? = null
         var capturedHost: String? = null
@@ -394,7 +410,7 @@ class AuthInterceptorTest {
         // The store decides whether a scoped expiry still matters (it suppresses non-active
         // accounts); the plugin's contract is to pass the snapshot's account along, never a blanket
         // global signal.
-        val tokenManager = FakeTokenManager(accessToken = "a-token", refreshSucceeds = false)
+        val tokenManager = FakeTokenManager(accessToken = "a-token", refreshOutcome = RefreshResult.HardExpired)
         val engine = MockEngine { respond("Unauthorized", HttpStatusCode.Unauthorized) }
         val gate = SwitchGate(
             activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("acct-a"))),

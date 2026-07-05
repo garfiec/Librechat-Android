@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.common.identity.AccountState.Resolved
 import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.deriveAccountId
 import com.garfiec.librechat.core.common.identity.deriveServerId
+import com.garfiec.librechat.core.network.client.RefreshResult
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
@@ -142,14 +143,14 @@ class AccountRegistryTest {
         override val isAuthenticated: Boolean = false
         override suspend fun getAccessToken(): String? = null
         override suspend fun setTokens(accessToken: String, refreshToken: String) {}
-        override suspend fun refreshAccessToken(): Boolean = false
+        override suspend fun refreshAccessToken(): RefreshResult = RefreshResult.HardExpired
         override suspend fun clearTokens() {}
         override suspend fun getAccessTokenFor(accountId: String): String? = null
         override suspend fun getStagedAccessToken(): String? = null
         override suspend fun clearStagedTokens() {}
         override suspend fun selectAccount(accountId: String) { selected = accountId }
         override suspend fun removeAccount(accountId: String) {}
-        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean = false
+        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult = RefreshResult.HardExpired
         override suspend fun onAccountResolved(accountId: String) {}
         override suspend fun onAccountCleared() { cleared = true }
         override fun emitSessionExpired(expiredAccountId: String?) {}

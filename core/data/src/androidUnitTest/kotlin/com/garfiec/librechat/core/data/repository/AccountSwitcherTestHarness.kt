@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.AccountScopedPrefsPurger
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.network.client.RefreshResult
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import io.mockk.mockk
@@ -33,7 +34,7 @@ internal class RecordingTokenManager : TokenManager {
     override suspend fun setTokens(accessToken: String, refreshToken: String) {
         stagedAccess = accessToken
     }
-    override suspend fun refreshAccessToken(): Boolean = false
+    override suspend fun refreshAccessToken(): RefreshResult = RefreshResult.HardExpired
     override suspend fun clearTokens() {}
     override suspend fun getAccessTokenFor(accountId: String): String? = null
     override suspend fun getStagedAccessToken(): String? = stagedAccess
@@ -46,7 +47,7 @@ internal class RecordingTokenManager : TokenManager {
     override suspend fun removeAccount(accountId: String) {
         removedAccounts += accountId
     }
-    override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean = false
+    override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult = RefreshResult.HardExpired
     override suspend fun onAccountResolved(accountId: String) {
         resolvedAccount = accountId
         stagedAccess = null

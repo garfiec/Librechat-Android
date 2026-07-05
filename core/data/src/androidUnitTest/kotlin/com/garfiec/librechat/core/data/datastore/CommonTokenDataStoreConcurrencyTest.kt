@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.datastore
 
+import com.garfiec.librechat.core.network.client.RefreshResult
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -25,6 +26,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.Test
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CommonTokenDataStoreConcurrencyTest {
@@ -136,9 +138,10 @@ class CommonTokenDataStoreConcurrencyTest {
             release.complete(Unit)
             advanceUntilIdle()
 
-            // The refresh detects the epoch bump from clearTokens and discards its result (returns
-            // false), so it can never resurrect the cleared session. Final state: logged out.
-            assertThat(refreshJob.await()).isFalse()
+            // The refresh detects the epoch bump from clearTokens and discards its result (a
+            // Transient outcome — a teardown owns the routing, so it never re-emits session-expired),
+            // so it can never resurrect the cleared session. Final state: logged out.
+            assertThat(refreshJob.await()).isEqualTo(RefreshResult.Transient)
             assertThat(store.persistedAccess()).isNull()
             assertThat(store.persistedRefresh()).isNull()
             assertThat(store.removeCount).isEqualTo(1)
@@ -190,7 +193,7 @@ class CommonTokenDataStoreConcurrencyTest {
 
             val result = store.refreshAccessToken()
 
-            assertThat(result).isTrue()
+            assertThat(result).isEqualTo(RefreshResult.Refreshed)
             assertThat(store.writeLog).hasSize(1)
             assertThat(store.writeLog.single().first).isEqualTo("fresh-access")
             assertThat(store.persistedAccess()).isEqualTo("fresh-access")
@@ -212,9 +215,230 @@ class CommonTokenDataStoreConcurrencyTest {
             assertThat(store.removeCount).isEqualTo(1)
 
             // Without a refresh token in storage the refresh should short-circuit
-            // false without touching the network — and without deadlocking on a
+            // HardExpired without touching the network — and without deadlocking on a
             // mutex that clearTokens already released.
             val result = store.refreshAccessToken()
-            assertThat(result).isFalse()
+            assertThat(result).isEqualTo(RefreshResult.HardExpired)
+        }
+
+    @Test
+    fun `a persistent refresh 401 retries the full budget then classifies HardExpired`() =
+        runTest(UnconfinedTestDispatcher()) {
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                // text/html 401, exactly like the backend's "Refresh token expired or not found".
+                respond(
+                    content = "Refresh token expired or not found for this user",
+                    status = HttpStatusCode.Unauthorized,
+                    headers = headersOf("Content-Type", "text/html"),
+                )
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.HardExpired)
+            assertThat(requestCount).isEqualTo(3)
+            // A hard-expired refresh does NOT clear the stored tokens: a relaunch may still recover,
+            // and the session-expired routing (not this store) owns navigation to re-auth.
+            assertThat(store.persistedRefresh()).isEqualTo("initial-refresh")
+        }
+
+    @Test
+    fun `a refresh 401 that clears on a retry recovers without logging out`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The exact "occasional logout" scenario: a transient server session-lookup miss returns
+            // 401, then the very next attempt with the same token succeeds. Retrying absorbs it.
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                if (requestCount == 1) {
+                    respond("transient miss", HttpStatusCode.Unauthorized, headersOf("Content-Type", "text/html"))
+                } else {
+                    respond(
+                        content = """{"token":"recovered-access"}""",
+                        status = HttpStatusCode.OK,
+                        headers = jsonHeaders,
+                    )
+                }
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.Refreshed)
+            assertThat(requestCount).isEqualTo(2)
+            assertThat(store.persistedAccess()).isEqualTo("recovered-access")
+        }
+
+    @Test
+    fun `a persistent 5xx retries the full budget then classifies Transient`() =
+        runTest(UnconfinedTestDispatcher()) {
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                respond("boom", HttpStatusCode.InternalServerError, headersOf("Content-Type", "text/html"))
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            // A server 5xx is recoverable — keep the session (no logout) and leave tokens intact.
+            assertThat(result).isEqualTo(RefreshResult.Transient)
+            assertThat(requestCount).isEqualTo(3)
+            assertThat(store.persistedRefresh()).isEqualTo("initial-refresh")
+        }
+
+    @Test
+    fun `a 2xx with an unparseable body is transient, not a spurious refresh`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // A proxy interstitial: HTTP 200 but an HTML body. The body-deserialization failure is
+            // recoverable, not a dead session, so it is classified transient and retried.
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                respond("<html>login</html>", HttpStatusCode.OK, headersOf("Content-Type", "text/html"))
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.Transient)
+            assertThat(requestCount).isEqualTo(3)
+            assertThat(store.persistedAccess()).isEqualTo("initial-access")
+        }
+
+    @Test
+    fun `a hard rejection on any attempt classifies HardExpired even if the last attempt is transient`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // A genuinely-dead session that 401s, then hits a 5xx blip on the final attempt, must still
+            // route to re-auth — not be masked as Transient by the last attempt.
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                if (requestCount < 3) {
+                    respond("expired", HttpStatusCode.Unauthorized, headersOf("Content-Type", "text/html"))
+                } else {
+                    respond("boom", HttpStatusCode.InternalServerError, headersOf("Content-Type", "text/html"))
+                }
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.HardExpired)
+            assertThat(requestCount).isEqualTo(3)
+        }
+
+    @Test
+    fun `a transport failure is terminal-Transient and does not retry under the flight lock`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // A hung/unreachable server (POST throws) must NOT re-POST twice more while holding the
+            // per-account flight lock — one attempt, then keep the session.
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                throw IOException("connection reset")
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.Transient)
+            assertThat(requestCount).isEqualTo(1)
+            assertThat(store.persistedRefresh()).isEqualTo("initial-refresh")
+        }
+
+    @Test
+    fun `a transport failure after a 401 still classifies HardExpired`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // A confirmed-dead session (401) followed by the server going unreachable must still route
+            // to re-auth, not be downgraded to Transient by the transport error.
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                if (requestCount == 1) {
+                    respond("expired", HttpStatusCode.Unauthorized, headersOf("Content-Type", "text/html"))
+                } else {
+                    throw IOException("connection reset")
+                }
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.HardExpired)
+            assertThat(requestCount).isEqualTo(2)
+        }
+
+    @Test
+    fun `a 429 with a Retry-After beyond the cap stops instead of hammering`() =
+        runTest(UnconfinedTestDispatcher()) {
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                respond(
+                    content = "slow down",
+                    status = HttpStatusCode.TooManyRequests,
+                    headers = headersOf("Retry-After", "60"),
+                )
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            // Retry-After (60s) exceeds our max backoff, so we back off fully by not re-POSTing.
+            assertThat(result).isEqualTo(RefreshResult.Transient)
+            assertThat(requestCount).isEqualTo(1)
+        }
+
+    @Test
+    fun `a 429 is retried and recovers on the next attempt`() =
+        runTest(UnconfinedTestDispatcher()) {
+            var requestCount = 0
+            val engine = mockEngine {
+                requestCount++
+                if (requestCount == 1) {
+                    respond(
+                        content = "slow down",
+                        status = HttpStatusCode.TooManyRequests,
+                        headers = headersOf("Retry-After", "1"),
+                    )
+                } else {
+                    respond("""{"token":"post-429-access"}""", HttpStatusCode.OK, headers = jsonHeaders)
+                }
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.Refreshed)
+            assertThat(requestCount).isEqualTo(2)
+            assertThat(store.persistedAccess()).isEqualTo("post-429-access")
+        }
+
+    @Test
+    fun `a successful refresh persists the rotated refresh token from Set-Cookie`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val engine = mockEngine {
+                respond(
+                    content = """{"token":"rotated-access"}""",
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(
+                        "Content-Type" to listOf(ContentType.Application.Json.toString()),
+                        "Set-Cookie" to listOf("refreshToken=rotated-refresh; HttpOnly; Path=/"),
+                    ),
+                )
+            }
+            val store = FakeTokenDataStore(mockRefreshClient(engine))
+
+            val result = store.refreshAccessToken()
+
+            assertThat(result).isEqualTo(RefreshResult.Refreshed)
+            assertThat(store.persistedAccess()).isEqualTo("rotated-access")
+            // The backend rotates on every refresh; the new token must replace the old one on disk so
+            // the next refresh doesn't send a now-dead token.
+            assertThat(store.persistedRefresh()).isEqualTo("rotated-refresh")
         }
 }

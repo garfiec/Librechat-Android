@@ -6,21 +6,24 @@ import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.response.RefreshResponse
 import com.garfiec.librechat.core.network.client.CookieHelper
+import com.garfiec.librechat.core.network.client.RefreshResult
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
 import com.garfiec.librechat.core.network.client.TokenManager
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.concurrent.Volatile
+import kotlin.random.Random
 
 /**
  * Account-keyed secure token store. Tokens are namespaced by account
@@ -266,76 +269,211 @@ abstract class CommonTokenDataStore(
         }
     }
 
-    override suspend fun refreshAccessToken(): Boolean =
+    override suspend fun refreshAccessToken(): RefreshResult =
         // The live active account, against the live base URL (the refresh client's defaultRequest).
         performRefresh(accountKey = activeAccountKey, absoluteRefreshUrl = null)
 
-    override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean =
+    override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult =
         // URL-pinned: post to an absolute URL so a concurrent server switch can't redirect this
         // account's refresh token to another server.
         performRefresh(accountKey = accountId, absoluteRefreshUrl = "${baseUrl.trimTrailingSlash()}$REFRESH_PATH")
 
-    private suspend fun performRefresh(accountKey: String?, absoluteRefreshUrl: String?): Boolean =
+    /**
+     * Refresh [accountKey]'s tokens with a bounded retry loop, classifying the outcome so a caller can
+     * tell a hard-expired session (route to re-auth) from a transient failure (keep the session).
+     *
+     * The whole loop runs under the per-account flight lock: same-account refreshes stay single-flight
+     * across every retry+backoff, so a queued 401 waits and then reads the freshly-rotated token
+     * instead of re-POSTing a spent one. [stateMutex] is still taken only for the brief epoch read and
+     * the commit — never across a POST or a backoff delay — so a switch/logout never stalls behind a
+     * slow or retrying refresh.
+     *
+     * A refresh 401 is **not** treated as immediately terminal: the backend returns the same `401`
+     * ("Refresh token expired or not found") for a transiently-missed session (replica lag / lookup
+     * hiccup) as for a genuinely-expired one, and the app relaunch that "fixes" such a logout proves
+     * the token was fine — so an auth rejection is retried with backoff. The budget is classified
+     * [HardExpired] if **any** attempt saw an auth rejection (a dead session must route to re-auth even
+     * if a later attempt hit a transient blip); a purely transient run (5xx / rate-limit) stays
+     * [Transient] so the session is kept. A transport failure (server unreachable) is terminal-Transient
+     * rather than retried, so the flight lock is not held across repeated full request timeouts.
+     */
+    private suspend fun performRefresh(accountKey: String?, absoluteRefreshUrl: String?): RefreshResult =
         flightFor(accountKey).withLock {
-            // Capture the slot's epoch BEFORE the stored-token read, so any teardown of THIS slot that
-            // races the POST below is detected (and its result discarded) with no lock held across the
-            // network call. Under stateMutex only for the map read — released before the POST.
-            val epochAtStart = stateMutex.withLock { epochOf(accountKey) }
-            val storedRefreshToken = readValue(refreshKey(accountKey))
-            if (storedRefreshToken.isNullOrBlank()) {
-                Diag.w(
-                    "Auth",
-                    origin = LogOrigin.CLIENT,
-                    attrs = mapOf("event" to "session_expired", "reason" to "no_refresh_token"),
-                ) { "No refresh token available" }
-                return@withLock false
-            }
+            // Any auth rejection ⇒ a genuinely dead session ⇒ route to re-auth, even if a later attempt
+            // hit a transient blip; a purely transient run (5xx / rate-limit / transport) keeps the
+            // session. This fold is the terminal classification for every non-Success exit of the loop.
+            var sawHardRejection = false
+            fun settle(): RefreshResult =
+                if (sawHardRejection) RefreshResult.HardExpired else RefreshResult.Transient
+            repeat(MAX_REFRESH_ATTEMPTS) { attempt ->
+                // Capture the slot's epoch BEFORE the stored-token read, so any teardown of THIS slot
+                // that races the POST below is detected (and its result discarded) with no lock held
+                // across the network call. Re-read each attempt: a teardown or a sibling that landed
+                // between retries must be seen.
+                val epochAtStart = stateMutex.withLock { epochOf(accountKey) }
+                val storedRefreshToken = readValue(refreshKey(accountKey))
+                if (storedRefreshToken.isNullOrBlank()) {
+                    // Attempt 0 with no token = no session at all → hard. A LATER attempt losing the
+                    // token means a teardown (logout/removal) landed mid-loop and already owns the
+                    // routing → Transient, so we don't double-emit session-expired over it.
+                    return@withLock if (attempt == 0) {
+                        Diag.w(
+                            "Auth",
+                            origin = LogOrigin.CLIENT,
+                            attrs = mapOf("event" to "session_expired", "reason" to "no_refresh_token"),
+                        ) { "No refresh token available" }
+                        RefreshResult.HardExpired
+                    } else {
+                        RefreshResult.Transient
+                    }
+                }
 
-            try {
-                val httpResponse: HttpResponse = refreshClient.value
-                    .post(absoluteRefreshUrl ?: REFRESH_PATH) {
-                        header("Cookie", "refreshToken=$storedRefreshToken")
-                        setBody(mapOf("refreshToken" to storedRefreshToken))
+                val delayMillis: Long =
+                    when (val outcome = attemptRefresh(accountKey, epochAtStart, storedRefreshToken, absoluteRefreshUrl)) {
+                        RefreshAttempt.Success -> return@withLock RefreshResult.Refreshed
+                        // A teardown/re-authentication owns the routing for this slot; never double-emit
+                        // a session-expired from here and never re-persist over it.
+                        RefreshAttempt.Discarded -> return@withLock RefreshResult.Transient
+                        RefreshAttempt.KeystoreCleared -> return@withLock RefreshResult.HardExpired
+                        // Server unreachable: retrying now only holds the flight lock across another full
+                        // request timeout; stop. A session already confirmed dead by a prior 401 still
+                        // routes to re-auth; otherwise keep the session (a later request/relaunch recovers).
+                        RefreshAttempt.TransportError -> return@withLock settle()
+                        RefreshAttempt.AuthRejected -> {
+                            sawHardRejection = true
+                            retryBackoffMillis(attempt)
+                        }
+                        RefreshAttempt.Retryable -> retryBackoffMillis(attempt)
+                        is RefreshAttempt.RateLimited -> {
+                            val wait = outcome.retryAfterMillis
+                            // Honor the server's Retry-After when we can wait it out under the flight
+                            // lock; if it exceeds our cap, stop retrying (keep the session) rather than
+                            // re-POSTing while still rate-limited.
+                            if (wait != null && wait > REFRESH_RETRY_MAX_DELAY_MS) {
+                                return@withLock RefreshResult.Transient
+                            }
+                            wait ?: retryBackoffMillis(attempt)
+                        }
                     }
 
-                val body: RefreshResponse = httpResponse.body()
-                val newRefreshToken = CookieHelper.extractRefreshToken(httpResponse.headers)
-                    ?: storedRefreshToken
+                if (attempt < MAX_REFRESH_ATTEMPTS - 1) delay(delayMillis)
+            }
+            // Budget exhausted with no terminal outcome; classify by whether any attempt was rejected.
+            settle()
+        }
 
-                commitRefresh(accountKey, epochAtStart, body.token, newRefreshToken)
-            } catch (e: ClientRequestException) {
-                Diag.w(
-                    "Auth",
-                    origin = LogOrigin.SERVER,
-                    throwable = e,
-                    attrs = mapOf(
-                        "event" to "refresh_failed",
-                        "status" to e.response.status.value.toString(),
-                    ),
-                ) { "Auth error during token refresh" }
-                invalidateRefresh(accountKey, epochAtStart)
-                false
-            } catch (e: Exception) {
-                if (isKeystoreException(e)) {
-                    Diag.e(
-                        "Auth",
-                        origin = LogOrigin.CLIENT,
-                        throwable = e,
-                        attrs = mapOf("event" to "keystore_corruption"),
-                    ) { "Keystore corruption—clearing tokens" }
-                    onKeystoreCorruption()
-                    invalidateRefresh(accountKey, epochAtStart)
-                } else {
+    /** One refresh POST + classification. Caller owns the flight lock and the retry/backoff loop. */
+    private suspend fun attemptRefresh(
+        accountKey: String?,
+        epochAtStart: Int,
+        storedRefreshToken: String,
+        absoluteRefreshUrl: String?,
+    ): RefreshAttempt =
+        try {
+            val httpResponse: HttpResponse = refreshClient.value
+                .post(absoluteRefreshUrl ?: REFRESH_PATH) {
+                    header("Cookie", "refreshToken=$storedRefreshToken")
+                    setBody(mapOf("refreshToken" to storedRefreshToken))
+                }
+            // The refresh client has no response validator, so a non-2xx returns here instead of
+            // throwing — inspect the status directly rather than relying on a deserialization failure.
+            val status = httpResponse.status.value
+            when {
+                status in 200..299 -> handleSuccess(accountKey, epochAtStart, httpResponse, storedRefreshToken)
+                status == 401 || status == 403 -> {
                     Diag.w(
                         "Auth",
-                        origin = LogOrigin.NETWORK,
-                        throwable = e,
-                        attrs = mapOf("event" to "refresh_failed"),
-                    ) { "Error during token refresh" }
+                        origin = LogOrigin.SERVER,
+                        attrs = mapOf("event" to "refresh_rejected", "status" to status.toString()),
+                    ) { "Auth rejected during token refresh" }
+                    RefreshAttempt.AuthRejected
                 }
-                false
+                status == 429 -> {
+                    val retryAfter = parseRetryAfterMillis(httpResponse)
+                    Diag.w(
+                        "Auth",
+                        origin = LogOrigin.SERVER,
+                        attrs = mapOf("event" to "refresh_rate_limited", "status" to "429"),
+                    ) { "Refresh rate-limited" }
+                    RefreshAttempt.RateLimited(retryAfter)
+                }
+                else -> {
+                    Diag.w(
+                        "Auth",
+                        origin = LogOrigin.SERVER,
+                        attrs = mapOf("event" to "refresh_transient", "status" to status.toString()),
+                    ) { "Transient server error during token refresh" }
+                    RefreshAttempt.Retryable
+                }
+            }
+        } catch (e: Exception) {
+            if (isKeystoreException(e)) {
+                Diag.e(
+                    "Auth",
+                    origin = LogOrigin.CLIENT,
+                    throwable = e,
+                    attrs = mapOf("event" to "keystore_corruption"),
+                ) { "Keystore corruption—clearing tokens" }
+                onKeystoreCorruption()
+                invalidateRefresh(accountKey, epochAtStart)
+                RefreshAttempt.KeystoreCleared
+            } else {
+                // Transport failure (timeout / connection reset / DNS): the server is unreachable, so
+                // immediately re-POSTing under the flight lock won't help. Keep the session (don't log
+                // out) and let a later request / relaunch recover.
+                Diag.w(
+                    "Auth",
+                    origin = LogOrigin.NETWORK,
+                    throwable = e,
+                    attrs = mapOf("event" to "refresh_transport_error"),
+                ) { "Network error during token refresh" }
+                RefreshAttempt.TransportError
             }
         }
+
+    /** Parse a `Retry-After` header (delta-seconds form only) into millis; null when absent/unparseable. */
+    private fun parseRetryAfterMillis(httpResponse: HttpResponse): Long? =
+        httpResponse.headers[HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()?.let { it * 1000 }
+
+    /** Parse + commit a 2xx refresh. A malformed body or a discarded commit is not a hard failure. */
+    private suspend fun handleSuccess(
+        accountKey: String?,
+        epochAtStart: Int,
+        httpResponse: HttpResponse,
+        storedRefreshToken: String,
+    ): RefreshAttempt {
+        val body: RefreshResponse = try {
+            httpResponse.body()
+        } catch (e: Exception) {
+            // A 2xx whose body isn't the expected JSON (e.g. an HTML interstitial from a proxy).
+            // Recoverable, not a dead session.
+            Diag.w(
+                "Auth",
+                origin = LogOrigin.SERVER,
+                throwable = e,
+                attrs = mapOf("event" to "refresh_malformed"),
+            ) { "Refresh response body not parseable" }
+            return RefreshAttempt.Retryable
+        }
+        // The backend rotates the refresh token on every successful refresh and returns the new one
+        // via Set-Cookie; persist it. A 2xx without a rotated cookie means the server didn't rotate
+        // (reuse path) — the stored token stays valid, so retain it rather than dropping the slot.
+        val rotated = CookieHelper.extractRefreshToken(httpResponse.headers)
+        if (rotated == null) {
+            Diag.d("Auth", origin = LogOrigin.SERVER) { "Refresh 2xx without rotated cookie; retaining stored token" }
+        }
+        return if (commitRefresh(accountKey, epochAtStart, body.token, rotated ?: storedRefreshToken)) {
+            RefreshAttempt.Success
+        } else {
+            RefreshAttempt.Discarded
+        }
+    }
+
+    /** Equal-jitter exponential backoff between refresh retries, capped (half fixed + half random). */
+    private fun retryBackoffMillis(attempt: Int): Long {
+        val exp = (REFRESH_RETRY_BASE_DELAY_MS shl attempt).coerceAtMost(REFRESH_RETRY_MAX_DELAY_MS)
+        return exp / 2 + Random.nextLong(exp / 2 + 1)
+    }
 
     /** Persist a successful refresh — unless a teardown changed the epoch while the POST was in flight. */
     private suspend fun commitRefresh(
@@ -394,6 +532,30 @@ abstract class CommonTokenDataStore(
 
     protected open fun isKeystoreException(e: Exception): Boolean = false
 
+    /** Classification of a single refresh POST, consumed by [performRefresh]'s retry loop. */
+    private sealed interface RefreshAttempt {
+        /** 2xx parsed + committed. Terminal → [RefreshResult.Refreshed]. */
+        data object Success : RefreshAttempt
+
+        /** A teardown/re-auth of this slot landed mid-POST; the commit was dropped. Terminal → Transient. */
+        data object Discarded : RefreshAttempt
+
+        /** Keystore corruption cleared the slot. Terminal → HardExpired. */
+        data object KeystoreCleared : RefreshAttempt
+
+        /** 401/403 — the session was rejected. Retried (may be a transient server false-negative). */
+        data object AuthRejected : RefreshAttempt
+
+        /** A received 5xx / malformed-2xx response. Retried with local backoff. */
+        data object Retryable : RefreshAttempt
+
+        /** 429 with the server's requested delay (ms), when present. Retried honoring it. */
+        data class RateLimited(val retryAfterMillis: Long?) : RefreshAttempt
+
+        /** Transport failure (server unreachable). Terminal → Transient, so we don't retry under the lock. */
+        data object TransportError : RefreshAttempt
+    }
+
     companion object {
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_REFRESH_TOKEN = "refresh_token"
@@ -402,5 +564,10 @@ abstract class CommonTokenDataStore(
 
         /** [flights] key for the bare (null-account) refresh path. */
         private const val BARE_FLIGHT_KEY = ""
+
+        /** Total refresh attempts (initial + retries) before a persistent failure is classified. */
+        private const val MAX_REFRESH_ATTEMPTS = 3
+        private const val REFRESH_RETRY_BASE_DELAY_MS = 300L
+        private const val REFRESH_RETRY_MAX_DELAY_MS = 2_000L
     }
 }

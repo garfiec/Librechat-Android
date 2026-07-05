@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.datastore
 
+import com.garfiec.librechat.core.network.client.RefreshResult
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -411,7 +412,7 @@ class CommonTokenDataStoreAccountKeyingTest {
 
         val ok = store.refreshAccessToken()
 
-        assertThat(ok).isTrue()
+        assertThat(ok).isEqualTo(RefreshResult.Refreshed)
         assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access-refreshed")
         assertThat(store.getAccessToken()).isEqualTo("A-access-refreshed")
     }
@@ -451,7 +452,7 @@ class CommonTokenDataStoreAccountKeyingTest {
 
         val ok = store.refreshAccessTokenFor("acctB", "https://b.example.com")
 
-        assertThat(ok).isTrue()
+        assertThat(ok).isEqualTo(RefreshResult.Refreshed)
         assertThat(requestedUrl).startsWith("https://b.example.com/api/auth/refresh")
         assertThat(store.store[accessKey("acctB")]).isEqualTo("B-access-refreshed")
         // acctB is not the active account, so the cached bearer (A's) is untouched.

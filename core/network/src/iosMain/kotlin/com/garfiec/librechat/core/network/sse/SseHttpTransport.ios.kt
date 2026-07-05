@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.network.sse
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.network.client.BearerResult
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
@@ -118,14 +119,23 @@ actual class SseHttpTransport(
                     // Refresh the snapshot's account (keyed + URL-pinned), never the live active one;
                     // an expiry is likewise scoped to the snapshot's account, so a switched-away
                     // stream's dead credentials can't tear down the live account's session.
-                    val refreshedToken = tokenManager.refreshBearerFor(snapshot)
-                    if (refreshedToken == null) {
-                        Logger.w("SSE-iOS") { "token refresh failed — session expired" }
-                        tokenManager.emitSessionExpired(snapshot.accountId)
-                        throw e
+                    when (val refresh = tokenManager.refreshBearerFor(snapshot)) {
+                        is BearerResult.Refreshed -> {
+                            token = refresh.token
+                            // loop to retry with new token
+                        }
+                        BearerResult.Expired -> {
+                            Logger.w("SSE-iOS") { "token refresh failed — session expired" }
+                            tokenManager.emitSessionExpired(snapshot.accountId)
+                            throw e
+                        }
+                        BearerResult.Transient -> {
+                            // Recoverable refresh failure — surface the stream error without tearing
+                            // down the session; a fresh stream attempt can recover.
+                            Logger.w("SSE-iOS") { "token refresh transient — not logging out" }
+                            throw e
+                        }
                     }
-                    token = refreshedToken
-                    // loop to retry with new token
                 } else {
                     throw e
                 }

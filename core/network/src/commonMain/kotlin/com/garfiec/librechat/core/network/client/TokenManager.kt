@@ -2,12 +2,23 @@ package com.garfiec.librechat.core.network.client
 
 import kotlinx.coroutines.flow.SharedFlow
 
+/**
+ * Outcome of a token refresh, so a caller can tell a **hard** failure (the session is genuinely gone
+ * — route to re-auth) from a **transient** one (network blip, 5xx, a malformed response, or a server
+ * session-lookup false-negative) that must NOT log the user out. The refresh implementation retries
+ * transient failures — and a first-seen auth rejection, since the backend returns the same `401` for a
+ * transiently-missed session as for a truly-expired one — with backoff before settling on
+ * [HardExpired]. A [Transient] result leaves the stored tokens intact so a later attempt (or an app
+ * relaunch) can still recover.
+ */
+enum class RefreshResult { Refreshed, HardExpired, Transient }
+
 interface TokenManager {
     /** Non-suspend check — returns true when an access token is cached in memory. */
     val isAuthenticated: Boolean
     suspend fun getAccessToken(): String?
     suspend fun setTokens(accessToken: String, refreshToken: String)
-    suspend fun refreshAccessToken(): Boolean
+    suspend fun refreshAccessToken(): RefreshResult
 
     /**
      * Full teardown of the active session — keyed tokens, any bare staging keys, and the persisted
@@ -63,7 +74,7 @@ interface TokenManager {
      * account. Distinct from [refreshAccessToken], which refreshes the live active account against the
      * live base URL.
      */
-    suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): Boolean
+    suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult
 
     /**
      * Bind token storage to [accountId] once identity resolves (login, cold-start restore, upgrade).
