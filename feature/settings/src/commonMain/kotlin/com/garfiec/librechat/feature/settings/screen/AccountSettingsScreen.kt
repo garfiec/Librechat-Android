@@ -1,6 +1,6 @@
 package com.garfiec.librechat.feature.settings.screen
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -156,6 +155,13 @@ fun AccountSettingsContent(
                     onRetry = viewModel::retry,
                 )
             }
+            // Sign out — grouped with the profile it acts on, kept out of the Danger Zone.
+            item(key = "sign_out") {
+                SignOutButton(
+                    isDeleting = uiState.isDeletingAccount,
+                    onLogoutClick = { showLogoutDialog = true },
+                )
+            }
 
             // Balance section
             item(key = "balance_header") {
@@ -216,17 +222,17 @@ fun AccountSettingsContent(
                 }
             }
 
-            // Danger zone
-            item(key = "danger_header") {
-                SectionHeader(stringResource(Res.string.section_danger_zone))
-            }
-            item(key = "danger_actions") {
-                DangerZone(
-                    isDeleting = uiState.isDeletingAccount,
-                    allowAccountDeletion = uiState.allowAccountDeletion,
-                    onLogoutClick = { showLogoutDialog = true },
-                    onDeleteClick = { showDeleteDialog = true },
-                )
+            // Danger zone — destructive, irreversible actions only.
+            if (uiState.allowAccountDeletion) {
+                item(key = "danger_header") {
+                    SectionHeader(stringResource(Res.string.section_danger_zone))
+                }
+                item(key = "danger_actions") {
+                    DangerZone(
+                        isDeleting = uiState.isDeletingAccount,
+                        onDeleteClick = { showDeleteDialog = true },
+                    )
+                }
             }
 
             // Bottom spacing
@@ -394,38 +400,46 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun DangerZone(
+private fun SignOutButton(
     isDeleting: Boolean,
-    allowAccountDeletion: Boolean,
     onLogoutClick: () -> Unit,
-    onDeleteClick: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    // Sign out closes out the profile group; the divider below it separates the
+    // whole Profile section (info + sign out) from Balance.
+    Column {
         OutlinedButton(
             onClick = onLogoutClick,
             enabled = !isDeleting,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(stringResource(Res.string.action_sign_out))
         }
-        if (allowAccountDeletion) {
-            Button(
-                onClick = onDeleteClick,
-                enabled = !isDeleting,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                ),
-            ) {
-                Text(stringResource(Res.string.delete_account))
-            }
-        }
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+private fun DangerZone(
+    isDeleting: Boolean,
+    onDeleteClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onDeleteClick,
+        enabled = !isDeleting,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.error,
+        ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.error.copy(alpha = if (isDeleting) 0.12f else 1f),
+        ),
+    ) {
+        Text(stringResource(Res.string.delete_account))
     }
 }
 

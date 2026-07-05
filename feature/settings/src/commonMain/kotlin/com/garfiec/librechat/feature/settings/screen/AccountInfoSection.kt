@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,27 +50,21 @@ internal fun AccountInfoSection(
             avatarUrl = user.avatar,
             onAvatarClick = onAvatarClick,
         )
-        profileLoadError != null -> Column {
-            ErrorBanner(message = profileLoadError, onRetry = onRetry)
-            HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
-        }
+        profileLoadError != null -> ErrorBanner(message = profileLoadError, onRetry = onRetry)
         else -> {
             val loadingDescription = stringResource(Res.string.cd_loading_profile)
-            Column {
-                Row(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 24.dp),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .semantics { contentDescription = loadingDescription },
-                        strokeWidth = 2.dp,
-                    )
-                }
-                HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+                        .size(24.dp)
+                        .semantics { contentDescription = loadingDescription },
+                    strokeWidth = 2.dp,
+                )
             }
         }
     }
@@ -84,64 +77,61 @@ private fun AccountInfo(
     avatarUrl: String?,
     onAvatarClick: () -> Unit,
 ) {
-    Column {
-        Row(
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .size(48.dp)
+                .clip(CircleShape),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            onClick = onAvatarClick,
         ) {
-            Surface(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                onClick = onAvatarClick,
-            ) {
-                if (avatarUrl != null) {
-                    AsyncImage(
-                        model = avatarUrl,
-                        contentDescription = stringResource(Res.string.cd_user_avatar),
-                        modifier = Modifier.size(48.dp),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.padding(12.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                if (name.isNotBlank()) {
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (email.isNotBlank()) {
-                    Text(
-                        text = email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            IconButton(onClick = onAvatarClick) {
+            if (avatarUrl != null) {
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = stringResource(Res.string.cd_user_avatar),
+                    modifier = Modifier.size(48.dp),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
                 Icon(
-                    imageVector = Icons.Default.CameraAlt,
-                    contentDescription = stringResource(Res.string.cd_change_avatar),
-                    modifier = Modifier.size(20.dp),
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.padding(12.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
             }
         }
-        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            if (name.isNotBlank()) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (email.isNotBlank()) {
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        IconButton(onClick = onAvatarClick) {
+            Icon(
+                imageVector = Icons.Default.CameraAlt,
+                contentDescription = stringResource(Res.string.cd_change_avatar),
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
