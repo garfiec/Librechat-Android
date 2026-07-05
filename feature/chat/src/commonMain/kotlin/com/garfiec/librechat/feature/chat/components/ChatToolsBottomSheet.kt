@@ -112,7 +112,6 @@ fun ChatToolsBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp),
         ) {
             // Top section: Camera, Photos, Files, Server cards — hidden when the selected
@@ -120,7 +119,9 @@ fun ChatToolsBottomSheet(
             // attaches an already-uploaded file by reference (no re-upload).
             if (gates.fileUploadEnabled) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     AttachmentOptionCard(
@@ -162,7 +163,7 @@ fun ChatToolsBottomSheet(
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -177,7 +178,9 @@ fun ChatToolsBottomSheet(
                 ContextUsageExpandableGauge(
                     usage = sheetContextUsage,
                     tokenUsage = tokenUsage,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 8.dp),
                 )
             }
 
@@ -186,11 +189,12 @@ fun ChatToolsBottomSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .sheetRowRipple()
                         .clickable {
                             onOpenModelSelector()
                             onDismiss()
                         }
-                        .padding(vertical = 12.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -226,11 +230,12 @@ fun ChatToolsBottomSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .sheetRowRipple()
                         .clickable {
                             onOpenModelParameters()
                             onDismiss()
                         }
-                        .padding(vertical = 12.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -259,7 +264,7 @@ fun ChatToolsBottomSheet(
                 }
             }
 
-            HorizontalDivider()
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             Spacer(modifier = Modifier.height(8.dp))
 
             // Tool toggle items — ephemeral tools are hidden for the agents endpoint
@@ -294,8 +299,9 @@ fun ChatToolsBottomSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .sheetRowRipple()
                         .clickable { showMcpServers = !showMcpServers }
-                        .padding(vertical = 12.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -360,8 +366,9 @@ private fun ToolToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .sheetRowRipple()
             .clickable(onClick = onToggle)
-            .padding(vertical = 12.dp)
+            .padding(horizontal = 12.dp, vertical = 12.dp)
             .semantics {
                 contentDescription = if (isEnabled) {
                     "$title enabled"
@@ -454,8 +461,9 @@ private fun McpServerToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .sheetRowRipple()
             .clickable(onClick = onToggle)
-            .padding(vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Connection status indicator

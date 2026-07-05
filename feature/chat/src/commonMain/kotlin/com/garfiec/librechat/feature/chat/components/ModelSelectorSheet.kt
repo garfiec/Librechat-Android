@@ -242,9 +242,7 @@ fun ModelSelectorSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.weight(1f),
             ) {
                 // Optional "Starred" section at the very top (mobile-only). Starred items
                 // are duplicated here — they still render in their own groups below.
@@ -306,7 +304,7 @@ fun ModelSelectorSheet(
                     }
                     if (starredDisplay == StarredModelsDisplay.TOP) {
                         item(key = "starred_divider") {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                         }
                     }
                 }
@@ -417,8 +415,14 @@ private fun EndpointGroupHeader(
             // `clickable(enabled = false)` still consumes touch events and
             // announces "disabled" to TalkBack/VoiceOver. Only the inner
             // SetApiKeyChip remains interactive in that branch.
-            .then(if (needsKey) Modifier else Modifier.clickable(onClick = onToggle))
-            .padding(vertical = 8.dp),
+            .then(
+                if (needsKey) {
+                    Modifier.padding(horizontal = 4.dp)
+                } else {
+                    Modifier.sheetRowRipple().clickable(onClick = onToggle)
+                },
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Disabled icon + label use Material's standard 0.38 disabled alpha. The
@@ -509,8 +513,9 @@ private fun LazyItemScope.ModelListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .sheetRowRipple()
             .clickable(onClick = onClick)
-            .padding(vertical = verticalPadding, horizontal = 8.dp)
+            .padding(vertical = verticalPadding, horizontal = 12.dp)
             .animateItem(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -555,8 +560,9 @@ private fun LazyItemScope.AgentListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .sheetRowRipple()
             .clickable(onClick = onClick)
-            .padding(vertical = verticalPadding, horizontal = 8.dp)
+            .padding(vertical = verticalPadding, horizontal = 12.dp)
             .animateItem(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
