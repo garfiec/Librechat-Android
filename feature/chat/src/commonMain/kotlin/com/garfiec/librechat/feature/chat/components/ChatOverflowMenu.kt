@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.model.usage.ContextUsage
@@ -81,6 +82,7 @@ internal fun ChatOverflowMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(16.dp),
+        offset = DpOffset(x = 0.dp, y = 8.dp),
     ) {
         if (conversationId != null) {
             DropdownMenuItem(
