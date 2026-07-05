@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.components
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.content.AgentToolCall
 import com.garfiec.librechat.feature.chat.util.resolveAttachmentUrl
@@ -37,6 +38,27 @@ private val IMAGE_GEN_CONTAINS = listOf(
 internal fun isImageGenToolCall(toolNameLower: String): Boolean {
     if (toolNameLower in IMAGE_GEN_EXACT_NAMES) return true
     return IMAGE_GEN_CONTAINS.any { toolNameLower.contains(it) }
+}
+
+/** Bash-flavored code tool calls, whose `code` arg is a shell command (web `BashCall`). */
+private val BASH_TOOL_NAMES = setOf(
+    ToolConstants.BASH_TOOL,
+    ToolConstants.BASH_PROGRAMMATIC_TOOL_CALLING,
+)
+
+internal fun isBashToolCall(toolNameLower: String): Boolean = toolNameLower in BASH_TOOL_NAMES
+
+/**
+ * True for tool calls that render as the code-execution card: the code interpreter, `execute_code`,
+ * the bash tool, and programmatic tool-calling (Python/bash). Matches upstream ExecuteCode/BashCall
+ * routing. `run_tools_with_code`/`run_tools_with_bash` don't contain "execute", so they're matched
+ * by exact name.
+ */
+internal fun isCodeExecutionToolCall(toolNameLower: String): Boolean {
+    if (toolNameLower.contains(ToolConstants.CODE_INTERPRETER) || toolNameLower.contains("execute")) {
+        return true
+    }
+    return toolNameLower == ToolConstants.PROGRAMMATIC_TOOL_CALLING || toolNameLower in BASH_TOOL_NAMES
 }
 
 // --- Parsing helpers ---

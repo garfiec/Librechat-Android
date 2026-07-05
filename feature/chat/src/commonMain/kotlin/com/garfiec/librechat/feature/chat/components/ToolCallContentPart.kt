@@ -60,7 +60,8 @@ internal fun ToolCallDispatcher(
     // Subagent tool_call → collapsible trace card (v0.8.6). Live progress comes
     // from LocalSubagentProgress (keyed by the parent tool_call id); persisted
     // `subagentContent` (reload) takes precedence inside the card. Depth-1:
-    // nested parts pass allowSubagentCard=false so this never recurses.
+    // nested parts pass allowSubagentCard=false so this never recurses. Nested parts
+    // render their own attachments, so this branch keeps its pass-through return.
     if (allowSubagentCard && toolNameLower == ToolConstants.SUBAGENT) {
         val toolCallId = toolCall?.id
         val liveTrace = toolCallId?.let { LocalSubagentProgress.current[it] }
@@ -75,51 +76,83 @@ internal fun ToolCallDispatcher(
         return
     }
 
-    when {
-        toolNameLower.contains("search") -> {
-            val results = remember(output) { parseWebSearchResults(output) }
-            if (results.isNotEmpty()) {
-                WebSearchResultList(results = results, modifier = modifier)
-            } else {
-                GenericToolCallCard(toolName, toolCall?.function?.arguments, output, modifier)
+    val isImageGen = isImageGenToolCall(toolNameLower)
+
+    // The card, then (for every non-image-gen tool) the files this tool call generated. Web passes
+    // each tool call's attachments to every tool component; ToolCallAttachments skips the non-file
+    // pseudo-types. Image-gen already consumes its attachment as the generated image.
+    Column(modifier = modifier) {
+        val cardModifier = Modifier.fillMaxWidth()
+        when {
+            toolNameLower.startsWith(ToolConstants.LC_TRANSFER_TO_PREFIX) -> {
+                val target = toolName.substring(ToolConstants.LC_TRANSFER_TO_PREFIX.length).ifBlank { toolName }
+                AgentHandoffCard(
+                    handoff = AgentHandoff(fromAgent = null, toAgent = target, reason = null),
+                    modifier = cardModifier,
+                )
+            }
+            // file_search / retrieval carry their sources in an attachment payload the mobile model
+            // doesn't parse yet — route to the generic card, not the web-search list.
+            toolNameLower != ToolConstants.FILE_SEARCH &&
+                toolNameLower != ToolConstants.RETRIEVAL &&
+                toolNameLower.contains("search") -> {
+                val results = remember(output) { parseWebSearchResults(output) }
+                if (results.isNotEmpty()) {
+                    WebSearchResultList(results = results, modifier = cardModifier)
+                } else {
+                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                }
+            }
+            isCodeExecutionToolCall(toolNameLower) -> {
+                val result = remember(toolCall, toolNameLower) {
+                    parseCodeExecution(toolCall)?.let { r ->
+                        if (r.language == null && isBashToolCall(toolNameLower)) r.copy(language = "bash") else r
+                    }
+                }
+                if (result != null) {
+                    CodeExecutionCard(result = result, modifier = cardModifier)
+                } else {
+                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                }
+            }
+            toolNameLower.contains("memory") -> {
+                val artifact = remember(output) { parseMemoryArtifact(output) }
+                if (artifact != null) {
+                    MemoryArtifactCard(artifact = artifact, modifier = cardModifier)
+                } else {
+                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                }
+            }
+            toolNameLower.contains("mcp") -> {
+                val resources = remember(output) { parseMcpResources(output) }
+                if (resources.isNotEmpty()) {
+                    McpResourceCarousel(resources = resources, modifier = cardModifier)
+                } else {
+                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                }
+            }
+            isImageGen -> {
+                val imageResult = remember(toolCall, baseUrl, attachments) {
+                    parseImageGenResult(toolCall, baseUrl, attachments)
+                }
+                ImageGenCard(result = imageResult, showDescription = showImageDescriptions, modifier = cardModifier)
+            }
+            toolNameLower.contains("log") -> {
+                val logContent = remember(toolCall) { parseLogContent(toolCall) }
+                LogContentCard(log = logContent, modifier = cardModifier)
+            }
+            else -> {
+                GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
             }
         }
-        toolNameLower.contains(ToolConstants.CODE_INTERPRETER) || toolNameLower.contains("execute") -> {
-            val result = remember(toolCall) { parseCodeExecution(toolCall) }
-            if (result != null) {
-                CodeExecutionCard(result = result, modifier = modifier)
-            } else {
-                GenericToolCallCard(toolName, toolCall?.function?.arguments, output, modifier)
-            }
-        }
-        toolNameLower.contains("memory") -> {
-            val artifact = remember(output) { parseMemoryArtifact(output) }
-            if (artifact != null) {
-                MemoryArtifactCard(artifact = artifact, modifier = modifier)
-            } else {
-                GenericToolCallCard(toolName, toolCall?.function?.arguments, output, modifier)
-            }
-        }
-        toolNameLower.contains("mcp") -> {
-            val resources = remember(output) { parseMcpResources(output) }
-            if (resources.isNotEmpty()) {
-                McpResourceCarousel(resources = resources, modifier = modifier)
-            } else {
-                GenericToolCallCard(toolName, toolCall?.function?.arguments, output, modifier)
-            }
-        }
-        isImageGenToolCall(toolNameLower) -> {
-            val imageResult = remember(toolCall, baseUrl, attachments) {
-                parseImageGenResult(toolCall, baseUrl, attachments)
-            }
-            ImageGenCard(result = imageResult, showDescription = showImageDescriptions, modifier = modifier)
-        }
-        toolNameLower.contains("log") -> {
-            val logContent = remember(toolCall) { parseLogContent(toolCall) }
-            LogContentCard(log = logContent, modifier = modifier)
-        }
-        else -> {
-            GenericToolCallCard(toolName, toolCall?.function?.arguments, output, modifier)
+
+        if (!isImageGen) {
+            ToolCallAttachments(
+                attachments = attachments,
+                toolCallId = toolCall?.id,
+                baseUrl = baseUrl,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
 }

@@ -1511,6 +1511,7 @@ class ChatViewModel(
             when (val result = userRepository.getUser()) {
                 is Result.Success -> {
                     val user = result.data
+                    cachedUserId = user.id
                     _uiState.update {
                         it.copy(
                             userName = user.name ?: user.username,
@@ -1523,6 +1524,28 @@ class ChatViewModel(
                 }
                 is Result.Loading -> { /* no-op */ }
             }
+        }
+    }
+
+    // Cached so tapping several generated-file chips doesn't re-fetch the user each time.
+    private var cachedUserId: String? = null
+
+    /**
+     * Downloads a generated tool-call file's bytes (authenticated) for the file-chip share action;
+     * null on failure. Backs [com.garfiec.librechat.feature.chat.components.LocalAttachmentDownloader].
+     * Mirrors `ConversationMediaViewModel.downloadFileBytes`.
+     */
+    suspend fun downloadFileBytes(fileId: String): ByteArray? {
+        val userId = cachedUserId
+            ?: (userRepository.getUser() as? Result.Success)?.data?.id?.also { cachedUserId = it }
+            ?: return null
+        return when (val result = fileRepository.downloadFile(userId, fileId)) {
+            is Result.Success -> result.data
+            is Result.Error -> {
+                Logger.e(result.exception) { "Failed to download file $fileId: ${result.message}" }
+                null
+            }
+            is Result.Loading -> null
         }
     }
 

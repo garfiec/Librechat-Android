@@ -259,6 +259,16 @@
     <!-- Message files -->
     <string name="file_fallback">File</string>
 
+    <!-- Tool-call generated-file attachments -->
+    <string name="attachment_fallback">Attachment</string>
+    <string name="cd_download_attachment">Download %1$s</string>
+    <string name="pdf_document">PDF Document</string>
+    <string name="pdf_load_failed">Couldn\'t load PDF</string>
+    <string name="pdf_page_failed">Couldn\'t render this page</string>
+    <string name="cd_share_pdf">Share PDF</string>
+    <string name="cd_open_pdf">Open PDF</string>
+    <string name="retry">Retry</string>
+
     <!-- Model selector sheet -->
     <string name="cd_selected">Selected</string>
     <string name="cd_public_agent">Public agent</string>

@@ -32,7 +32,7 @@ actual fun rememberShareImage(): (url: String) -> Unit = { url -> shareUrl(url) 
 actual fun rememberShareFile(): (bytes: ByteArray, filename: String, mime: String?) -> Unit {
     val scope = rememberCoroutineScope()
     return remember(scope) {
-        { bytes, filename, _ -> scope.launch { shareFile(bytes, filename) } }
+        { bytes, filename, mime -> scope.launch { shareFile(bytes, filename, mime) } }
     }
 }
 
@@ -51,8 +51,8 @@ private fun shareUrl(url: String) {
 // The NSData copy and disk write are sized by the file, so they run off the main thread; only the
 // UIKit presentation hops back to main.
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-private suspend fun shareFile(bytes: ByteArray, filename: String) {
-    val tempPath = NSTemporaryDirectory() + sanitizeFilename(filename)
+private suspend fun shareFile(bytes: ByteArray, filename: String, mime: String?) {
+    val tempPath = NSTemporaryDirectory() + ensureExtension(sanitizeFilename(filename), mime)
     val wrote = withContext(Dispatchers.Default) {
         bytes.toNSData().writeToFile(tempPath, atomically = true)
     }
@@ -71,8 +71,29 @@ private suspend fun shareFile(bytes: ByteArray, filename: String) {
 private fun sanitizeFilename(filename: String): String =
     filename.substringAfterLast('/').substringAfterLast('\\').ifBlank { "file" }
 
+/**
+ * Ensures the temp filename carries an extension so the iOS share sheet / receiving apps can infer
+ * the type (a PDF whose display name lacks `.pdf` otherwise shares as an unrecognized blob). If the
+ * name already has an extension it's left alone; otherwise one is derived from the MIME subtype
+ * (`application/pdf` → `pdf`).
+ */
+private fun ensureExtension(filename: String, mime: String?): String {
+    if (filename.contains('.')) return filename
+    val ext = mime?.substringAfterLast('/', "")
+        ?.substringBefore(';')
+        ?.substringBefore('+')
+        ?.takeIf { it.isNotBlank() && it.all { c -> c.isLetterOrDigit() } }
+        ?: return filename
+    return "$filename.$ext"
+}
+
+/**
+ * Copies this [ByteArray] into an [NSData]. The `isEmpty()` guard is load-bearing:
+ * `pinned.addressOf(0)` on an empty array is an out-of-bounds access. Shared so callers that hand
+ * bytes to UIKit/PDFKit APIs don't each re-implement (and each risk dropping) the empty guard.
+ */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-private fun ByteArray.toNSData(): NSData {
+fun ByteArray.toNSData(): NSData {
     if (isEmpty()) return NSData()
     return usePinned { pinned ->
         NSData.create(bytes = pinned.addressOf(0), length = size.toULong())

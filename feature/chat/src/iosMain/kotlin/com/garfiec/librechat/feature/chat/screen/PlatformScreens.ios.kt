@@ -170,6 +170,7 @@ actual fun ChatScreen(
         mediaPreview = uiState.mediaPreview,
         onOpenMedia = viewModel::openMedia,
         onCloseMedia = viewModel::closeMedia,
+        onDownloadAttachment = viewModel::downloadFileBytes,
     ) {
     Scaffold(
         modifier = modifier.imePadding(),

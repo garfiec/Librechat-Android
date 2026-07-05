@@ -2,6 +2,12 @@ package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.ui.media.MediaActionBar
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
@@ -33,14 +39,23 @@ fun ChatRoot(
     mediaPreview: MediaPreviewState?,
     onOpenMedia: (url: String) -> Unit,
     onCloseMedia: () -> Unit,
+    onDownloadAttachment: suspend (fileId: String) -> ByteArray?,
     content: @Composable () -> Unit,
 ) {
+    // Hosted here (not in the VM) so the tapped PDF card can scroll off-screen without dismissing
+    // the viewer. rememberSaveable so the open preview survives configuration changes (rotation);
+    // the opener just records the request and the overlay re-downloads + renders below.
+    var pdfRequest by rememberSaveable(stateSaver = PdfRequestSaver) { mutableStateOf<PdfRequest?>(null) }
+    val openPdf = remember { { fileId: String, filename: String -> pdfRequest = PdfRequest(fileId, filename) } }
+
     CompositionLocalProvider(
         LocalInlineArtifactPrefs provides inlineArtifactPrefs,
         LocalMermaidRenderCache provides mermaidRenderCache,
         LocalParsedMarkdownCache provides parsedMarkdownCache,
         LocalSubagentProgress provides subagentProgress,
         LocalChatMediaViewer provides onOpenMedia,
+        LocalAttachmentDownloader provides onDownloadAttachment,
+        LocalOpenPdf provides openPdf,
     ) {
         content()
 
@@ -72,5 +87,23 @@ fun ChatRoot(
                 },
             )
         }
+
+        pdfRequest?.let { req ->
+            PdfPreviewOverlay(
+                fileId = req.fileId,
+                filename = req.filename,
+                onDownload = onDownloadAttachment,
+                onDismiss = { pdfRequest = null },
+            )
+        }
     }
 }
+
+/** The file the PDF preview overlay should open. */
+private data class PdfRequest(val fileId: String, val filename: String)
+
+/** Saves [PdfRequest] across configuration changes as a `[fileId, filename]` pair (empty = null). */
+private val PdfRequestSaver = listSaver<PdfRequest?, String>(
+    save = { req -> req?.let { listOf(it.fileId, it.filename) } ?: emptyList() },
+    restore = { list -> list.takeIf { it.size == 2 }?.let { PdfRequest(it[0], it[1]) } },
+)

@@ -108,7 +108,7 @@ fun MessageFiles(
  * Inline image preview that can be tapped to open fullscreen.
  */
 @Composable
-private fun MessageImagePreview(
+internal fun MessageImagePreview(
     imageUrl: String,
     altText: String,
     modifier: Modifier = Modifier,
@@ -166,26 +166,39 @@ private fun MessageImagePreview(
 
 /**
  * A chip that shows a non-image file with an icon and filename.
+ *
+ * When [onClick] is non-null the chip is tappable (e.g. to download + share a generated file);
+ * [isLoading] swaps the leading icon for a spinner while that action is in flight.
  */
 @Composable
-private fun FileChip(
+internal fun FileChip(
     filename: String,
     type: String?,
     modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = fileTypeIcon(type),
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(
+                imageVector = fileTypeIcon(type),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = filename,

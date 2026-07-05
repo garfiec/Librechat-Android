@@ -1,9 +1,9 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
-import com.garfiec.librechat.feature.chat.util.finalMessages
 import com.garfiec.librechat.feature.chat.util.mergeFinalMessagesInMemory
 import com.garfiec.librechat.feature.chat.util.resolvedResponseMessage
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
@@ -99,7 +99,13 @@ class MessageTreeDelegate(
      * ignore the return value.
      */
     fun finalizeChatDisplay(event: StreamEvent.Final): List<Message> {
-        val finalMessages = event.finalMessages()
+        // Defensive: upstream 0.8.7 sets responseMessage.attachments before saving, but the app
+        // supports a backend version range. If the Final payload omitted a file that streamed in
+        // via `attachment` SSE events, fold it back in (by fileId) so it survives the reload — the
+        // streamed list is about to be cleared in the update below. Cheap insurance.
+        val streamedAttachments = stateHandle.state.streamingAttachments
+        val response = event.resolvedResponseMessage()?.let { mergeStreamedAttachments(it, streamedAttachments) }
+        val finalMessages = listOfNotNull(event.requestMessage, response)
         // Retiring the streaming bubble (clearing the streaming fields) and swapping in the
         // finalized message MUST be ONE update: with a Main.immediate StateFlow every write is
         // observed, so two updates leave a frame where the bubble is gone but the reply isn't
@@ -127,11 +133,25 @@ class MessageTreeDelegate(
             )
         }
         if (finalMessages.isEmpty()) return emptyList()
-        val response = event.resolvedResponseMessage()
         val request = event.requestMessage
             ?: response?.parentMessageId?.let { parentId ->
                 stateHandle.state.messages.firstOrNull { it.messageId == parentId }
             }
         return listOfNotNull(request, response)
     }
+}
+
+/**
+ * Upserts [streamed] attachments into [message] by `fileId`, keeping the server's copy on
+ * conflict. Only fills gaps — when the Final payload already carried every streamed file, the
+ * message is returned unchanged. Attachments with no fileId are skipped (can't be deduped, and
+ * generated files always carry one).
+ */
+internal fun mergeStreamedAttachments(message: Message, streamed: List<Attachment>): Message {
+    if (streamed.isEmpty()) return message
+    val existing = message.attachments.orEmpty()
+    val existingIds = existing.mapNotNull { it.fileId }.toHashSet()
+    val toAdd = streamed.filter { it.fileId != null && it.fileId !in existingIds }
+    if (toAdd.isEmpty()) return message
+    return message.copy(attachments = existing + toAdd)
 }

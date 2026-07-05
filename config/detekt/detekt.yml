@@ -125,7 +125,7 @@ coroutines:
 Compose:
   CompositionLocalAllowlist:
     active: true
-    allowedCompositionLocals: LocalChatMediaViewer,LocalImmediateMarkdown,LocalInlineArtifactPrefs,LocalMermaidRenderCache,LocalOpenArtifact,LocalParsedMarkdownCache,LocalSearchFocusNonce,LocalSubagentProgress
+    allowedCompositionLocals: LocalAttachmentDownloader,LocalChatMediaViewer,LocalImmediateMarkdown,LocalInlineArtifactPrefs,LocalMermaidRenderCache,LocalOpenArtifact,LocalOpenPdf,LocalParsedMarkdownCache,LocalSearchFocusNonce,LocalSubagentProgress
 
 # detekt-koin rule overrides (defaults ship in plugin jar; buildUponDefaultConfig = true)
 koin-rules:
