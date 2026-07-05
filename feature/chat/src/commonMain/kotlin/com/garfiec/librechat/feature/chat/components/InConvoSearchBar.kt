@@ -1,46 +1,51 @@
 package com.garfiec.librechat.feature.chat.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filter
+import com.garfiec.librechat.feature.chat.resources.cd_close_search
+import com.garfiec.librechat.feature.chat.resources.cd_next_match
+import com.garfiec.librechat.feature.chat.resources.cd_previous_match
+import com.garfiec.librechat.feature.chat.resources.cd_search_in_conversation
+import com.garfiec.librechat.feature.chat.resources.hint_find_in_conversation
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Search overlay bar for finding text within the current conversation.
- * Shows a text field with match counter, up/down navigation arrows, and close button.
+ * In-conversation search rendered as a single inset, rounded floating capsule. Built on
+ * [FloatingBarChip] so it shares the fill + border of the floating top-bar chips and composer input,
+ * inset with side margins. Holds the query field, match counter, up/down navigation, and close.
  */
-@OptIn(FlowPreview::class)
 @Composable
 fun InConvoSearchBar(
     query: String,
@@ -53,49 +58,44 @@ fun InConvoSearchBar(
     modifier: Modifier = Modifier,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
 
-    // Auto-dismiss keyboard after user stops typing for 400ms (if query is non-blank).
-    // This lets the user see highlighted search results without the keyboard blocking the view.
-    LaunchedEffect(Unit) {
-        snapshotFlow { query }
-            .debounce(400L)
-            .filter { it.isNotBlank() }
-            .collect { keyboardController?.hide() }
-    }
+    // Focus the field on appear so search is type-ready. Guarded because requestFocus can throw if the
+    // node isn't placed yet during the caller's enter transition; a miss just degrades to tap-to-focus.
+    LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 4.dp,
+    FloatingBarChip(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .heightIn(min = 48.dp)
+                .padding(start = 16.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+
             val searchCd = stringResource(Res.string.cd_search_in_conversation)
-            OutlinedTextField(
+            BasicTextField(
                 value = query,
                 onValueChange = onQueryChange,
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
-                    .semantics {
-                        contentDescription = searchCd
-                    },
-                placeholder = {
-                    Text(
-                        text = stringResource(Res.string.hint_find_in_conversation),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                },
-                textStyle = MaterialTheme.typography.bodyMedium,
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    .focusRequester(focusRequester)
+                    .semantics { contentDescription = searchCd },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
                 ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
@@ -103,12 +103,22 @@ fun InConvoSearchBar(
                         if (totalMatches > 0) onNextMatch()
                     },
                 ),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = stringResource(Res.string.hint_find_in_conversation),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Match counter
             if (query.isNotBlank()) {
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (totalMatches > 0) {
                         "${currentMatchIndex + 1}/$totalMatches"
@@ -120,7 +130,6 @@ fun InConvoSearchBar(
                 )
             }
 
-            // Previous match
             IconButton(
                 onClick = onPreviousMatch,
                 enabled = totalMatches > 0,
@@ -136,7 +145,6 @@ fun InConvoSearchBar(
                 )
             }
 
-            // Next match
             IconButton(
                 onClick = onNextMatch,
                 enabled = totalMatches > 0,
@@ -152,8 +160,13 @@ fun InConvoSearchBar(
                 )
             }
 
-            // Close search
-            IconButton(onClick = onClose) {
+            IconButton(
+                onClick = {
+                    // Drop the keyboard now so it doesn't linger through the exit animation.
+                    keyboardController?.hide()
+                    onClose()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(Res.string.cd_close_search),
