@@ -12,11 +12,12 @@ import com.garfiec.librechat.core.ui.components.PlatformBackHandler
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Sidebar scaffold that switches between the Conversations, Projects, and Settings modes with an
- * [AnimatedContent] horizontal slide — a carousel where the sub-modes (Projects/Settings) enter
- * from the right and return to Conversations by sliding back. On Android the system back button
- * pops Projects → Conversations (see [BackHandler]); on platforms without a system back (iOS) the
- * in-mode back arrow does the same.
+ * Sidebar scaffold that switches between the Conversations and Settings modes with an
+ * [AnimatedContent] horizontal slide — a carousel where the Settings sub-mode enters from the right
+ * and returns to Conversations by sliding back. On Android the system back button pops Settings →
+ * Conversations (see [PlatformBackHandler]); on platforms without a system back (iOS) the in-mode
+ * back arrow does the same. Projects live inline in the Conversations drawer (a segmented toggle),
+ * not as a carousel mode.
  */
 @Composable
 fun SidebarScaffold(
@@ -28,7 +29,6 @@ fun SidebarScaffold(
     onFilesClick: () -> Unit,
     onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenProject: (projectId: String, projectName: String) -> Unit = { _, _ -> },
     onOpenProjectsIndex: () -> Unit = {},
     onSwitchAccount: (String) -> Unit = {},
     onAddAccount: () -> Unit = {},
@@ -69,18 +69,9 @@ fun SidebarScaffold(
                     onAgentsClick = onAgentsClick,
                     onFilesClick = onFilesClick,
                     onSkillsClick = onSkillsClick,
-                    onOpenProjects = { viewModel.setSidebarMode(SidebarMode.Projects) },
+                    onOpenProjectsIndex = onOpenProjectsIndex,
                     onSwitchAccount = onSwitchAccount,
                     onAddAccount = onAddAccount,
-                )
-            }
-            is SidebarMode.Projects -> {
-                ProjectsSidebarContent(
-                    onBackToConversations = {
-                        viewModel.setSidebarMode(SidebarMode.Conversations)
-                    },
-                    onOpenProject = onOpenProject,
-                    onOpenProjectsIndex = onOpenProjectsIndex,
                 )
             }
             is SidebarMode.Settings -> {

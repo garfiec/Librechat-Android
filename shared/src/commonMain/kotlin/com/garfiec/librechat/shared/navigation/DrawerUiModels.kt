@@ -23,6 +23,18 @@ data class DrawerConversationDisplayData(
 )
 
 /**
+ * Inline project-chat accordion state for the drawer's Projects tab: which project is expanded
+ * (null = none), its network-loaded chats mapped to the drawer row type, and a loading flag.
+ * Single-expand, so only the open project's chats are held.
+ */
+@Immutable
+data class InlineProjectChatsState(
+    val expandedProjectId: String? = null,
+    val conversations: List<DrawerConversationDisplayData> = emptyList(),
+    val isLoading: Boolean = false,
+)
+
+/**
  * One signed-in account as the drawer header chip + switcher sheet render it (multi-account,
  * issue #179). Mapped from the persisted roster; ordered active-first, then by recency.
  */

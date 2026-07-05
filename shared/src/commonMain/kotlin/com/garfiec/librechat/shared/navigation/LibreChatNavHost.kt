@@ -301,10 +301,6 @@ fun PhoneLayout(
                         scope.launch { drawerState.close() }
                         navigator.navigate(SkillsList)
                     },
-                    onOpenProject = { projectId, projectName ->
-                        scope.launch { drawerState.close() }
-                        navigator.navigate(ProjectChats(projectId, projectName))
-                    },
                     onOpenProjectsIndex = {
                         scope.launch { drawerState.close() }
                         navigator.navigate(Projects)

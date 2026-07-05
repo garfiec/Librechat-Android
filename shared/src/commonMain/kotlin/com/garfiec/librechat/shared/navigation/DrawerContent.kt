@@ -13,6 +13,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -33,18 +35,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -54,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +93,9 @@ import com.garfiec.librechat.core.ui.components.EndpointIcon
 import com.garfiec.librechat.feature.conversations.components.ConversationActionDialogs
 import com.garfiec.librechat.feature.conversations.components.ConversationActionEffects
 import com.garfiec.librechat.feature.conversations.components.ConversationActionsMenu
+import com.garfiec.librechat.feature.conversations.components.ProjectActionsMenu
+import com.garfiec.librechat.feature.conversations.components.ProjectDeleteDialog
+import com.garfiec.librechat.feature.conversations.components.ProjectNameDialog
 import com.garfiec.librechat.feature.conversations.components.ProjectPicker
 import com.garfiec.librechat.feature.conversations.components.TagPicker
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
@@ -100,12 +108,17 @@ import com.garfiec.librechat.shared.resources.cd_collapse_section
 import com.garfiec.librechat.shared.resources.cd_conversation_actions
 import com.garfiec.librechat.shared.resources.cd_expand_section
 import com.garfiec.librechat.shared.resources.cd_search
+import com.garfiec.librechat.shared.resources.chats
 import com.garfiec.librechat.shared.resources.favorites
 import com.garfiec.librechat.shared.resources.files
+import com.garfiec.librechat.shared.resources.library
 import com.garfiec.librechat.shared.resources.new_chat
 import com.garfiec.librechat.shared.resources.no_conversations_found
 import com.garfiec.librechat.shared.resources.pinned
+import com.garfiec.librechat.shared.resources.project_new
+import com.garfiec.librechat.shared.resources.project_unassigned
 import com.garfiec.librechat.shared.resources.projects
+import com.garfiec.librechat.shared.resources.projects_all
 import com.garfiec.librechat.shared.resources.remove_bookmark
 import com.garfiec.librechat.shared.resources.search_conversations_placeholder
 import com.garfiec.librechat.shared.resources.settings
@@ -119,6 +132,13 @@ import org.koin.compose.viewmodel.koinViewModel
 private val ItemShape = RoundedCornerShape(8.dp)
 private val ActiveIndicatorShape = RoundedCornerShape(2.dp)
 
+// Sliding pill toggle: the rounded track, its slightly-tighter moving thumb, and each icon+label
+// cell's fixed size (equal widths so the thumb offset is a whole-cell step).
+private val PillTrackShape = RoundedCornerShape(12.dp)
+private val PillThumbShape = RoundedCornerShape(8.dp)
+private val DrawerTabCellWidth = 88.dp
+private val DrawerTabCellHeight = 34.dp
+
 // Pulls a tappable drawer row in from the edges and clips its ripple to [ItemShape], so every row
 // reads as the same inset, rounded button instead of a full-bleed rectangular highlight. Apply
 // before .clickable so the indication is bounded by the rounded shape.
@@ -130,6 +150,9 @@ private val MenuVerticalGap = 4.dp
 
 // Favorites shown before the "Show more" toggle reveals the rest.
 private const val FavoritesPreviewCount = 5
+
+// The drawer body's two segmented-toggle modes: the recents history vs. the project folders.
+private enum class DrawerTab { Chats, Projects }
 
 /**
  * Stateful DrawerContent that collects its own state from the ViewModel.
@@ -143,13 +166,14 @@ fun DrawerContent(
     onFilesClick: () -> Unit,
     onSkillsClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenProjects: () -> Unit = {},
+    onOpenProjectsIndex: () -> Unit = {},
     onSwitchAccount: (String) -> Unit = {},
     onAddAccount: () -> Unit = {},
     viewModel: NavHostViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.drawerUiState.collectAsStateWithLifecycle()
     val projects by viewModel.projects.collectAsStateWithLifecycle()
+    val inlineProjectChats by viewModel.inlineProjectChats.collectAsStateWithLifecycle()
     val accounts by viewModel.accounts.collectAsStateWithLifecycle()
 
     // Account switcher: the header chip opens the roster sheet; remove asks for confirmation.
@@ -217,7 +241,12 @@ fun DrawerContent(
         onLoadProjects = viewModel::loadProjects,
         onMoveToProject = viewModel::moveConversationToProject,
         onCreateProjectAndAssign = viewModel::createProjectAndAssign,
-        onOpenProjects = onOpenProjects,
+        onOpenProjectsIndex = onOpenProjectsIndex,
+        inlineProjectChats = inlineProjectChats,
+        onToggleProject = viewModel::toggleProjectExpanded,
+        onCreateProject = viewModel::createProject,
+        onRenameProject = viewModel::renameProject,
+        onDeleteProject = viewModel::deleteProject,
         onShare = viewModel::shareConversation,
         onDuplicate = { id, title -> viewModel.duplicateConversation(id, title) },
         onUpdateTags = { data, tags -> viewModel.updateConversationTags(data.conversationId, data.tags, tags) },
@@ -278,9 +307,14 @@ fun DrawerContent(
     onLoadProjects: () -> Unit = {},
     onMoveToProject: (String, String?) -> Unit = { _, _ -> },
     onCreateProjectAndAssign: (String, String) -> Unit = { _, _ -> },
-    // Swaps the sidebar to the Projects mode ([ProjectsSidebarContent]) via SidebarScaffold, rather
-    // than navigating to the full-page index — see the Projects entry below.
-    onOpenProjects: () -> Unit = {},
+    // Projects tab (segmented toggle above the list): the folder list + inline chat accordion, plus
+    // an escape hatch to the full-page projects index for advanced controls.
+    onOpenProjectsIndex: () -> Unit = {},
+    inlineProjectChats: InlineProjectChatsState = InlineProjectChatsState(),
+    onToggleProject: (String) -> Unit = {},
+    onCreateProject: (String) -> Unit = {},
+    onRenameProject: (String, String) -> Unit = { _, _ -> },
+    onDeleteProject: (String) -> Unit = {},
     onShare: (String) -> Unit = {},
     onDuplicate: (String, String) -> Unit = { _, _ -> },
     onUpdateTags: (DrawerConversationDisplayData, List<String>) -> Unit = { _, _ -> },
@@ -297,6 +331,10 @@ fun DrawerContent(
     var tagPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var exportPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var projectPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
+
+    // Which mode the segmented toggle above the list selects (folder browsing lives in
+    // [DrawerProjectsList], which owns its own menu/dialog state).
+    var selectedTab by rememberSaveable { mutableStateOf(DrawerTab.Chats) }
 
     // Favorites section view state: whether the whole section is collapsed, and (when expanded)
     // whether it shows all favorites or just the top [FavoritesPreviewCount]. Saveable so the
@@ -449,7 +487,42 @@ fun DrawerContent(
             }
         }
 
+        // Chats / Projects toggle above the list — shown only where projects are supported. When
+        // hidden (older server / no permission) the drawer is always the recents list.
+        val projectsTabAvailable = uiState.projectsEnabled
+        if (projectsTabAvailable) {
+            Spacer(modifier = Modifier.height(8.dp))
+            // Section heading + a compact icon pill that slides between the recents and projects
+            // views (the label names the whole section; the pill toggles what the list shows).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(Res.string.library),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { heading() },
+                )
+                DrawerTabToggle(
+                    selectedTab = selectedTab,
+                    onSelect = { selectedTab = it },
+                )
+            }
+            // Keep the folder counts fresh whenever the user opens the Projects tab.
+            val currentOnLoadProjects by rememberUpdatedState(onLoadProjects)
+            LaunchedEffect(selectedTab) {
+                if (selectedTab == DrawerTab.Projects) currentOnLoadProjects()
+            }
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
+
+        val showProjectsTab = projectsTabAvailable && selectedTab == DrawerTab.Projects
 
         // Conversation list with favorites section and date groups
         val listState = rememberLazyListState()
@@ -515,15 +588,16 @@ fun DrawerContent(
             }
         }
 
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.weight(1f),
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
+        if (!showProjectsTab) {
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.weight(1f),
             ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                 // Pinned section (v0.8.7) — pinned conversations surfaced above favorites. This is
                 // their canonical home: when shown, they're filtered out of the date-grouped buckets
                 // (see ConversationListStateHolder.withoutPinned) so they don't appear twice. The
@@ -669,7 +743,20 @@ fun DrawerContent(
                         }
                     }
                 }
+                }
             }
+        } else {
+            DrawerProjectsList(
+                projects = projects,
+                inlineProjectChats = inlineProjectChats,
+                onToggleProject = onToggleProject,
+                onOpenProjectsIndex = onOpenProjectsIndex,
+                onCreateProject = onCreateProject,
+                onRenameProject = onRenameProject,
+                onDeleteProject = onDeleteProject,
+                renderChat = renderConversationItem,
+                modifier = Modifier.weight(1f),
+            )
         }
 
         // Bottom section: divider + footer links
@@ -677,10 +764,6 @@ fun DrawerContent(
             modifier = Modifier.padding(horizontal = 12.dp),
             color = MaterialTheme.colorScheme.outlineVariant,
         )
-
-        if (uiState.projectsEnabled) {
-            DrawerProjectsEntry(onClick = onOpenProjects)
-        }
 
         if (uiState.agentsEnabled) {
             DrawerFooterItem(
@@ -756,36 +839,321 @@ fun DrawerContent(
     }
 }
 
-/** Drawer entry that swaps the sidebar to the Projects mode ([ProjectsSidebarContent]). */
+/**
+ * Sliding-pill toggle for the drawer's two list modes: a rounded track holding two equal-width
+ * icon+label cells (chat / workspaces) with a highlighted thumb that animates between them. Sits
+ * inline to the right of the section heading; tapping a cell selects that mode.
+ */
 @Composable
-private fun DrawerProjectsEntry(onClick: () -> Unit) {
+private fun DrawerTabToggle(
+    selectedTab: DrawerTab,
+    onSelect: (DrawerTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val thumbOffsetFraction by animateFloatAsState(
+        targetValue = if (selectedTab == DrawerTab.Chats) 0f else 1f,
+        label = "DrawerTabThumb",
+    )
+    Box(
+        modifier = modifier
+            .clip(PillTrackShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(3.dp)
+            .height(DrawerTabCellHeight),
+    ) {
+        // Moving highlight behind the active cell; offset by a whole cell for the selected side.
+        Box(
+            modifier = Modifier
+                .width(DrawerTabCellWidth)
+                .fillMaxHeight()
+                .offset(x = DrawerTabCellWidth * thumbOffsetFraction)
+                .clip(PillThumbShape)
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+        )
+        Row {
+            DrawerTabToggleCell(
+                icon = Icons.AutoMirrored.Filled.Chat,
+                label = stringResource(Res.string.chats),
+                selected = selectedTab == DrawerTab.Chats,
+                onClick = { onSelect(DrawerTab.Chats) },
+            )
+            DrawerTabToggleCell(
+                icon = Icons.Default.Workspaces,
+                label = stringResource(Res.string.projects),
+                selected = selectedTab == DrawerTab.Projects,
+                onClick = { onSelect(DrawerTab.Projects) },
+            )
+        }
+    }
+}
+
+/** One icon+label cell of [DrawerTabToggle]; its tint flips when it becomes the selected side. */
+@Composable
+private fun DrawerTabToggleCell(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val contentColor = if (selected) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .drawerRowShape()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .width(DrawerTabCellWidth)
+            .fillMaxHeight()
+            .clip(PillThumbShape)
+            .clickable(role = Role.Tab, onClick = onClick),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Default.Folder,
+            imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+            tint = contentColor,
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = stringResource(Res.string.projects),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            maxLines = 1,
         )
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    }
+}
+
+/**
+ * The Projects tab of the drawer — an inline folder browser reached via the pill toggle. Lists the
+ * Unassigned bucket + project folders; tapping a folder
+ * expands its chats inline (single-expand accordion via [onToggleProject]) rendered through
+ * [renderChat] so the rows and their long-press actions match the recents list. Owns its own
+ * create/rename/delete dialog state; [onOpenProjectsIndex] is the escape hatch to the full-page index.
+ */
+@Composable
+private fun DrawerProjectsList(
+    projects: List<ChatProject>,
+    inlineProjectChats: InlineProjectChatsState,
+    onToggleProject: (String) -> Unit,
+    onOpenProjectsIndex: () -> Unit,
+    onCreateProject: (String) -> Unit,
+    onRenameProject: (String, String) -> Unit,
+    onDeleteProject: (String) -> Unit,
+    renderChat: @Composable (String, DrawerConversationDisplayData) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var menuOpenId by remember { mutableStateOf<String?>(null) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<ChatProject?>(null) }
+    var deleteTarget by remember { mutableStateOf<ChatProject?>(null) }
+
+    // Expanded body for the open folder: a spinner while its page loads, an empty note, or the chat
+    // rows. Single-expand, so inlineProjectChats always holds the currently open folder's chats.
+    val expandedChats: @Composable (String) -> Unit = { projectId ->
+        when {
+            inlineProjectChats.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                }
+            }
+            inlineProjectChats.conversations.isEmpty() -> {
+                Text(
+                    text = stringResource(Res.string.no_conversations_found),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+            else -> {
+                inlineProjectChats.conversations.forEach { data ->
+                    renderChat("projchat_${projectId}_${data.conversationId}", data)
+                }
+            }
+        }
+    }
+
+    LazyColumn(modifier = modifier.fillMaxWidth()) {
+        // Action row: link to the full-page index (advanced controls) + create a new folder.
+        item(key = "projects_actions") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(onClick = onOpenProjectsIndex) {
+                    Text(
+                        text = stringResource(Res.string.projects_all),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+                IconButton(onClick = { showCreateDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(Res.string.project_new),
+                    )
+                }
+            }
+        }
+
+        item(key = "proj_unassigned") {
+            val unassignedLabel = stringResource(Res.string.project_unassigned)
+            ProjectFolderAccordion(
+                name = unassignedLabel,
+                conversationCount = null,
+                expanded = inlineProjectChats.expandedProjectId == ChatProject.UNASSIGNED,
+                onToggle = { onToggleProject(ChatProject.UNASSIGNED) },
+                menuContent = null,
+                expandedContent = { expandedChats(ChatProject.UNASSIGNED) },
+            )
+        }
+
+        item(key = "projects_divider") {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+        }
+
+        items(items = projects, key = { it.id }) { folder ->
+            ProjectFolderAccordion(
+                name = folder.name,
+                conversationCount = folder.conversationCount,
+                expanded = inlineProjectChats.expandedProjectId == folder.id,
+                onToggle = { onToggleProject(folder.id) },
+                menuContent = {
+                    IconButton(onClick = { menuOpenId = folder.id }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = null)
+                    }
+                    ProjectActionsMenu(
+                        expanded = menuOpenId == folder.id,
+                        onDismiss = { menuOpenId = null },
+                        onOpen = {
+                            if (inlineProjectChats.expandedProjectId != folder.id) {
+                                onToggleProject(folder.id)
+                            }
+                        },
+                        onRename = { renameTarget = folder },
+                        onDelete = { deleteTarget = folder },
+                    )
+                },
+                expandedContent = { expandedChats(folder.id) },
+            )
+        }
+    }
+
+    if (showCreateDialog) {
+        ProjectNameDialog(
+            title = stringResource(Res.string.project_new),
+            initialName = "",
+            onConfirm = {
+                onCreateProject(it)
+                showCreateDialog = false
+            },
+            onDismiss = { showCreateDialog = false },
         )
+    }
+
+    renameTarget?.let { target ->
+        ProjectNameDialog(
+            title = target.name,
+            initialName = target.name,
+            onConfirm = {
+                onRenameProject(target.id, it)
+                renameTarget = null
+            },
+            onDismiss = { renameTarget = null },
+        )
+    }
+
+    deleteTarget?.let { target ->
+        ProjectDeleteDialog(
+            projectName = target.name,
+            onConfirm = {
+                onDeleteProject(target.id)
+                deleteTarget = null
+            },
+            onDismiss = { deleteTarget = null },
+        )
+    }
+}
+
+/**
+ * A project folder row that expands/collapses its chats inline (accordion) in the Projects tab. The
+ * chevron points down when open and right when collapsed; [menuContent] is the optional trailing
+ * overflow (null for the Unassigned bucket), and [expandedContent] renders the chats when open.
+ */
+@Composable
+private fun ProjectFolderAccordion(
+    name: String,
+    conversationCount: Int?,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    expandedContent: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    menuContent: (@Composable () -> Unit)? = null,
+) {
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 0f else -90f,
+        label = "ProjectChevronRotation",
+    )
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawerRowShape()
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (conversationCount != null) {
+                Text(
+                    text = conversationCount.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (menuContent != null) {
+                Box { menuContent() }
+            }
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(18.dp)
+                    .rotate(chevronRotation),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            // Slight indent nests the chats under their folder.
+            Column(modifier = Modifier.padding(start = 12.dp)) {
+                expandedContent()
+            }
+        }
     }
 }
 

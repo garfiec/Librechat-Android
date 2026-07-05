@@ -5,6 +5,8 @@
 
     <!-- Drawer -->
     <string name="new_chat">New chat</string>
+    <string name="library">Library</string>
+    <string name="chats">Chats</string>
     <string name="favorites">Favorites</string>
     <string name="pinned">Pinned</string>
     <string name="projects">Projects</string>

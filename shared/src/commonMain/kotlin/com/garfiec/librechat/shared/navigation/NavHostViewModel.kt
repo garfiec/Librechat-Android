@@ -112,10 +112,32 @@ class NavHostViewModel(
             DrawerActionMenuState(tags, canShare, supportsV087, supportsV087)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DrawerActionMenuState())
 
-    // Chat Projects (v0.8.7). Loaded lazily when the move-to-project picker / Projects sidebar mode
-    // ([ProjectsSidebarContent]) opens; the server is the source of truth (no local cache).
+    // Chat Projects (v0.8.7). Loaded lazily for the move-to-project picker and the drawer's Projects
+    // tab folder list; the server is the source of truth (no local cache).
     private val _projects = MutableStateFlow<List<ChatProject>>(emptyList())
     val projects: StateFlow<List<ChatProject>> = _projects.asStateFlow()
+
+    // Inline project-chat accordion for the drawer Projects tab. Network-direct per project (Room
+    // can't filter by project — see ProjectChatsViewModel), single-expand: only the open project's
+    // chats are held. Mapped to the drawer row type against the active id + endpoint configs so the
+    // rows match the recents list.
+    private val _expandedProjectId = MutableStateFlow<String?>(null)
+    private val _expandedProjectChats = MutableStateFlow<List<Conversation>>(emptyList())
+    private val _expandedProjectLoading = MutableStateFlow(false)
+
+    val inlineProjectChats: StateFlow<InlineProjectChatsState> = combine(
+        _expandedProjectId,
+        _expandedProjectChats,
+        _expandedProjectLoading,
+        conversationListStateHolder.activeConversationId,
+        configRepository.endpointConfigs,
+    ) { expandedId, convos, loading, activeId, configs ->
+        InlineProjectChatsState(
+            expandedProjectId = expandedId,
+            conversations = convos.map { it.toDrawerDisplayData(activeId, configs) },
+            isLoading = loading,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InlineProjectChatsState())
 
     // One-shot events for the drawer action menu (share-link copied, export-ready,
     // navigate-to-duplicate, errors). Reuses the conversation-list event type. extraBufferCapacity
@@ -353,6 +375,9 @@ class NavHostViewModel(
         viewModelScope.launch {
             activeAccountProvider.accountTransitions().collect { transition ->
                 _projects.value = emptyList()
+                _expandedProjectId.value = null
+                _expandedProjectChats.value = emptyList()
+                _expandedProjectLoading.value = false
                 _sidebarMode.value = SidebarMode.Conversations
                 _selectedSettingsCategory.value = null
                 conversationListStateHolder.reset()
@@ -488,6 +513,33 @@ class NavHostViewModel(
         }
     }
 
+    /**
+     * Toggles the inline accordion for [projectId] in the drawer's Projects tab. Expanding loads that
+     * project's chats network-direct (single-expand: the previously open project collapses); tapping
+     * the open project collapses it. [ChatProject.UNASSIGNED] is a valid id (loose chats).
+     */
+    fun toggleProjectExpanded(projectId: String) {
+        if (_expandedProjectId.value == projectId) {
+            _expandedProjectId.value = null
+            _expandedProjectChats.value = emptyList()
+            return
+        }
+        _expandedProjectId.value = projectId
+        _expandedProjectChats.value = emptyList()
+        _expandedProjectLoading.value = true
+        viewModelScope.launch {
+            val result = conversationRepository.getConversationsForProject(projectId = projectId)
+            // The user may have collapsed or opened another folder while this was in flight.
+            if (_expandedProjectId.value != projectId) return@launch
+            when (result) {
+                is Result.Success -> _expandedProjectChats.value = result.data.conversations
+                is Result.Error -> Logger.w(result.exception) { "Failed to load project chats" }
+                is Result.Loading -> Unit
+            }
+            _expandedProjectLoading.value = false
+        }
+    }
+
     /** Loads the user's projects for the move-to-project picker. */
     fun loadProjects() {
         viewModelScope.launch {
@@ -548,7 +600,14 @@ class NavHostViewModel(
 
     fun renameProject(projectId: String, name: String) = projectActions.rename(projectId, name)
 
-    fun deleteProject(projectId: String) = projectActions.delete(projectId)
+    fun deleteProject(projectId: String) {
+        // Collapse the inline accordion if the deleted project was open, so its stale chats clear.
+        if (_expandedProjectId.value == projectId) {
+            _expandedProjectId.value = null
+            _expandedProjectChats.value = emptyList()
+        }
+        projectActions.delete(projectId)
+    }
 
     fun deleteConversation(id: String) = conversationActions.deleteConversation(id)
 
