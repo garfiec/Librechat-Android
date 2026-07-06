@@ -71,7 +71,7 @@ fun StreamingToolCallCard(
         ),
         shape = RoundedCornerShape(8.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -81,7 +81,8 @@ fun StreamingToolCallCard(
                         } else {
                             Modifier
                         },
-                    ),
+                    )
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -129,7 +130,7 @@ fun StreamingToolCallCard(
                 enter = expandVertically(),
                 exit = shrinkVertically(),
             ) {
-                Column {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(Res.string.tool_call_output),

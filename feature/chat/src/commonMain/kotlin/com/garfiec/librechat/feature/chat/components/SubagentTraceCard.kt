@@ -88,12 +88,13 @@ internal fun SubagentTraceCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         shape = RoundedCornerShape(8.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 32.dp)
                     .clickable { isExpanded = !isExpanded }
+                    .padding(12.dp)
                     .semantics {
                         role = Role.Button
                         contentDescription = toggleCd
@@ -129,7 +130,7 @@ internal fun SubagentTraceCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     parts.forEach { part ->
                         Spacer(modifier = Modifier.padding(top = 6.dp))
                         ContentPartDispatcher(

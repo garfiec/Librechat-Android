@@ -140,13 +140,14 @@ internal fun GenericToolCallCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         shape = RoundedCornerShape(8.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column {
             val toolCallCd =
                 stringResource(if (isExpanded) Res.string.cd_collapse_tool_call else Res.string.cd_expand_tool_call, toolName)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
+                    .padding(12.dp)
                     .semantics {
                         role = Role.Button
                         contentDescription = toolCallCd
@@ -174,7 +175,7 @@ internal fun GenericToolCallCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     if (!args.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(

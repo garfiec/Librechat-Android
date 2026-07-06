@@ -63,11 +63,12 @@ fun LogContentCard(
         ),
         shape = RoundedCornerShape(8.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
+                    .padding(12.dp)
                     .semantics {
                         role = Role.Button
                         contentDescription = if (isExpanded) {
@@ -104,7 +105,7 @@ fun LogContentCard(
                 enter = expandVertically(),
                 exit = shrinkVertically(),
             ) {
-                Column {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = log.content,
