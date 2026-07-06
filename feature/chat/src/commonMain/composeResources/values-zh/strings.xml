@@ -92,8 +92,6 @@
     <!-- Content descriptions - Code -->
     <string name="cd_copy_code">复制代码</string>
     <string name="cd_copied">已复制</string>
-    <string name="action_copy_code">复制</string>
-    <string name="action_copied">已复制！</string>
     <string name="cd_code_execution_result">代码执行结果</string>
     <string name="cd_exit_code_success">退出码 0（成功）</string>
     <string name="cd_exit_code_failure">退出码 %1$d（失败）</string>

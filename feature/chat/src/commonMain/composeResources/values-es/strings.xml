@@ -92,8 +92,6 @@
     <!-- Content descriptions - Code -->
     <string name="cd_copy_code">Copiar código</string>
     <string name="cd_copied">Copiado</string>
-    <string name="action_copy_code">Copiar</string>
-    <string name="action_copied">¡Copiado!</string>
     <string name="cd_code_execution_result">Resultado de la ejecución de código</string>
     <string name="cd_exit_code_success">Código de salida 0 (correcto)</string>
     <string name="cd_exit_code_failure">Código de salida %1$d (error)</string>

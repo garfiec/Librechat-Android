@@ -92,8 +92,6 @@
     <!-- Content descriptions - Code -->
     <string name="cd_copy_code">نسخ الكود</string>
     <string name="cd_copied">تم النسخ</string>
-    <string name="action_copy_code">نسخ</string>
-    <string name="action_copied">تم النسخ!</string>
     <string name="cd_code_execution_result">نتيجة تنفيذ الكود</string>
     <string name="cd_exit_code_success">رمز الخروج 0 (نجاح)</string>
     <string name="cd_exit_code_failure">رمز الخروج %1$d (فشل)</string>

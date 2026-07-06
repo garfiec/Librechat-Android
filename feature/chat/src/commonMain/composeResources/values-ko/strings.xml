@@ -92,8 +92,6 @@
     <!-- Content descriptions - Code -->
     <string name="cd_copy_code">코드 복사</string>
     <string name="cd_copied">복사됨</string>
-    <string name="action_copy_code">복사</string>
-    <string name="action_copied">복사됨!</string>
     <string name="cd_code_execution_result">코드 실행 결과</string>
     <string name="cd_exit_code_success">종료 코드 0 (성공)</string>
     <string name="cd_exit_code_failure">종료 코드 %1$d (실패)</string>

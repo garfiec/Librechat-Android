@@ -92,8 +92,6 @@
     <!-- Content descriptions - Code -->
     <string name="cd_copy_code">コードをコピー</string>
     <string name="cd_copied">コピー済み</string>
-    <string name="action_copy_code">コピー</string>
-    <string name="action_copied">コピーしました！</string>
     <string name="cd_code_execution_result">コードの実行結果</string>
     <string name="cd_exit_code_success">終了コード 0（成功）</string>
     <string name="cd_exit_code_failure">終了コード %1$d（失敗）</string>

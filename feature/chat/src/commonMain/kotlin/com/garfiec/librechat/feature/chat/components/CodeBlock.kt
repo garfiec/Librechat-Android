@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -108,27 +107,15 @@ fun CodeBlock(
                     transitionSpec = { fadeIn() togetherWith fadeOut() },
                     label = "copy_button",
                 ) { copied ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                            contentDescription = stringResource(if (copied) Res.string.cd_copied else Res.string.cd_copy_code),
-                            tint = if (copied) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(if (copied) Res.string.action_copied else Res.string.action_copy_code),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (copied) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
-                    }
+                    Icon(
+                        imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                        contentDescription = stringResource(if (copied) Res.string.cd_copied else Res.string.cd_copy_code),
+                        tint = if (copied) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
                 }
             }
         }
