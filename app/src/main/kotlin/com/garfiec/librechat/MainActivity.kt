@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
@@ -47,7 +48,12 @@ import com.garfiec.librechat.core.ui.theme.LibreChatTheme
 import com.garfiec.librechat.feature.chat.ShareIntentConsumer
 import com.garfiec.librechat.feature.chat.SharedContent
 import com.garfiec.librechat.navigation.LibreChatNavHost
+import com.garfiec.librechat.navigation.toDeepLinkUri
+import com.garfiec.librechat.shared.navigation.DeepLinkResolution
+import com.garfiec.librechat.shared.navigation.DeepLinks
 import org.koin.android.ext.android.inject
+
+private const val KEY_PENDING_DEEP_LINK = "pending_deep_link"
 
 class MainActivity : ComponentActivity() {
 
@@ -70,7 +76,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        handleIntent(intent)
+        // Only process the launch intent on a genuinely fresh start. On recreation (rotation,
+        // theme/locale change, restore) it is still sticky; re-processing would re-fire the deep link
+        // and yank the user back to it. Instead restore any not-yet-consumed link (see onSaveInstanceState):
+        // if the nav host hadn't composed to consume it before a recreation — e.g. a config change during
+        // the theme/locale warm-up gate below — it would otherwise be lost, since deepLinkUri isn't saved
+        // state and the back stack has nothing to restore yet. A consumed link was already nulled.
+        if (savedInstanceState == null) {
+            handleIntent(intent)
+        } else {
+            deepLinkUri = savedInstanceState.getString(KEY_PENDING_DEEP_LINK)?.toUri()
+        }
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
             val isConnected by connectivityObserver.isConnected.collectAsStateWithLifecycle(initialValue = true)
@@ -160,8 +176,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // Preserve a link that hasn't been placed on the back stack yet, so a recreation during the
+        // warm-up gate doesn't drop it (restored in onCreate). A consumed link is already null.
+        deepLinkUri?.let { outState.putString(KEY_PENDING_DEEP_LINK, it.toString()) }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Keep getIntent() pointing at the latest intent so a later recreation doesn't re-read a stale one.
+        setIntent(intent)
         handleIntent(intent)
     }
 
@@ -177,20 +202,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleDeepLink(intent: Intent) {
         intent.data?.let { uri ->
-            if (uri.scheme == "librechat" && uri.host in KNOWN_DEEP_LINK_HOSTS) {
+            if (uri.scheme != DeepLinks.SCHEME) return@let
+            // Same resolver the nav host uses — the accept decision and the routing decision can't
+            // drift because they're one source of truth. Anything it doesn't route is dropped here.
+            if (DeepLinks.resolve(uri.toDeepLinkUri()) is DeepLinkResolution.None) {
+                Logger.w { "Ignoring unhandled deep link: $uri" }
+            } else {
                 deepLinkUri = uri
-            } else if (uri.scheme == "librechat") {
-                Logger.w { "Ignoring deep link with unknown host: ${uri.host}" }
             }
         }
-    }
-
-    companion object {
-        /** Hosts accepted by the librechat:// deep link scheme. */
-        private val KNOWN_DEEP_LINK_HOSTS = setOf("conversation", "oauth")
-
-        /** MongoDB ObjectID: exactly 24 lowercase hex characters. */
-        val CONVERSATION_ID_REGEX = Regex("^[a-f0-9]{24}$")
     }
 
     private fun handleShareIntent(intent: Intent) {

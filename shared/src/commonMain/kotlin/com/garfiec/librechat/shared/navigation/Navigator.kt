@@ -73,6 +73,18 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
         backStack.add(ServerUrl)
     }
 
+    /**
+     * Cold-start deep link handled while logged out: show [route] atop an auth base, so the target
+     * (e.g. a device-scoped artifact shortcut, viewable logged out) is reached deterministically and
+     * backing out of it lands on login rather than a half-initialized logged-out screen. The shared
+     * host's initial auth redirect is skipped when a deep link is pending, so this owns that setup.
+     */
+    fun navigateToDeepLinkLoggedOut(route: NavKey) {
+        backStack.clear()
+        backStack.add(ServerUrl)
+        backStack.add(route)
+    }
+
     /** Clear back stack and navigate to chat (auth complete). */
     fun navigateToChat() {
         backStack.clear()

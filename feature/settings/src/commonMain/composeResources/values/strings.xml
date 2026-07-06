@@ -518,4 +518,10 @@
     <string name="role_skills_share">Share skills</string>
     <string name="role_skills_share_public">Share skills publicly</string>
     <string name="role_skills_save">Save</string>
+
+    <!-- Home-screen artifact shortcuts -->
+    <string name="artifact_shortcuts_title">Home-screen shortcuts</string>
+    <string name="artifact_shortcuts_empty">No artifacts pinned to the home screen yet.</string>
+    <string name="artifact_shortcuts_disabled_message">This artifact shortcut was removed.</string>
+    <string name="cd_artifact_shortcut_delete">Delete shortcut</string>
 </resources>

@@ -28,8 +28,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.data.repository.ArtifactShortcutRepository
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+import org.koin.compose.koinInject
 
 /**
  * Android preview surface — a `WebView` hosting the artifact's rendered HTML.
@@ -150,6 +154,29 @@ actual fun rememberShareArtifact(): (Artifact) -> Unit {
     return remember(context) {
         { artifact ->
             scope.launch { ArtifactDownloadHelper.share(context = context, artifact = artifact) }
+        }
+    }
+}
+
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+actual fun rememberAddArtifactToHomeScreen(): ((artifact: Artifact, label: String, emoji: String?) -> Unit)? {
+    val context = LocalContext.current
+    val repository = koinInject<ArtifactShortcutRepository>()
+    val scope = rememberCoroutineScope()
+    return remember(context, repository) {
+        { artifact, label, emoji ->
+            val shortcut = buildArtifactShortcut(
+                id = Uuid.random().toString(),
+                label = label,
+                emoji = emoji,
+                artifact = artifact,
+            )
+            // The snapshot is persisted from the launcher's pin-confirmation callback (see
+            // requestPinArtifactShortcut), so declining the system prompt leaves no orphan row.
+            scope.launch {
+                requestPinArtifactShortcut(context, shortcut) { repository.save(it) }
+            }
         }
     }
 }

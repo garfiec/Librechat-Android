@@ -38,9 +38,17 @@ Conversations are integrated into the drawer body. Agents, Files, and Settings a
 
 ## Deep Linking
 
-- Scheme: `librechat://conversation/{conversationId}`
-- Handled in `MainActivity.handleDeepLink()` and forwarded to this module's `LibreChatNavHost`
-- `onNewIntent` handles deep links when app is already running
+- Scheme `librechat://`. Hosts: `conversation/{id}`, `artifact/{uuid}`, `oauth` (cookie-consumed; see below).
+- **Single source of truth**: `DeepLinks.resolve()` in `:shared/commonMain` maps a URI to a
+  `DeepLinkResolution` (`Route(target, requiresAuth)` / `Consumed` / `None`). Add a new deep link by
+  adding one branch there — do NOT reintroduce a per-host allowlist here.
+- `MainActivity.handleDeepLink()` calls the resolver to accept/drop the intent (via the Android
+  `Uri → DeepLinkUri` adapter in `DeepLinkUriAdapter.kt`), then forwards to this module's
+  `LibreChatNavHost`, which resolves again to place the target on the back stack.
+- `requiresAuth` links (conversation) redirect to login when logged out; non-auth links (device-scoped
+  artifact) open logged-out. `oauth` is `Consumed` — its token returns via cookie read by the login
+  screen (`checkOAuthResult`), so the link only brings the app forward.
+- `onNewIntent` handles deep links when the app is already running.
 
 ## Connectivity
 

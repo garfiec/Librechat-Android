@@ -19,6 +19,7 @@ import com.garfiec.librechat.feature.chat.components.artifact.InlineArtifactView
 import com.garfiec.librechat.feature.chat.components.artifact.InlineMarkdownArtifact
 import com.garfiec.librechat.feature.chat.components.artifact.InlineSvgArtifact
 import com.garfiec.librechat.feature.chat.components.artifact.InlineSvgSurface
+import com.garfiec.librechat.feature.chat.components.artifact.LocalAddArtifactToHomeScreen
 import com.garfiec.librechat.feature.chat.components.artifact.LocalInlineArtifactPrefs
 import com.garfiec.librechat.feature.chat.components.artifact.LocalMermaidRenderCache
 import com.garfiec.librechat.feature.chat.components.artifact.LocalOpenArtifact
@@ -60,6 +61,7 @@ internal fun TextContentPart(
         val versionMap = remember(segments) { groupArtifactVersions(segments) }
         val inlinePrefs = LocalInlineArtifactPrefs.current
         val openArtifact = LocalOpenArtifact.current
+        val addToHomeScreen = LocalAddArtifactToHomeScreen.current
         // Per-Text-segment occurrence base offsets (artifact content contributes none — see the
         // SearchMatchEnumeration render-order contract). Computed once per (segments, query): the
         // per-segment countMarkdownOccurrences re-parses markdown, so keeping it off recomposition matters.
@@ -126,6 +128,7 @@ internal fun TextContentPart(
                                 artifact = segment.artifact,
                                 onClick = { openArtifact?.invoke(segment.artifact, versions) },
                                 versionCount = versions.size,
+                                onAddToHomeScreen = addToHomeScreen?.let { add -> { add(segment.artifact) } },
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))

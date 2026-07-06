@@ -16,9 +16,11 @@ import com.garfiec.librechat.feature.chat.components.artifact.Artifact
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactPanel
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactViewerHandoff
 import com.garfiec.librechat.feature.chat.components.artifact.LocalOpenArtifact
+import com.garfiec.librechat.feature.chat.components.artifact.ProvideAddArtifactToHomeScreen
 import com.garfiec.librechat.feature.chat.prompts.PromptEditorScreen
 import com.garfiec.librechat.feature.chat.prompts.PromptsLibraryScreen
 import com.garfiec.librechat.feature.chat.screen.ArtifactFullscreenScreen
+import com.garfiec.librechat.feature.chat.screen.ArtifactShortcutViewerScreen
 import com.garfiec.librechat.feature.chat.screen.ChatScreen
 import com.garfiec.librechat.feature.chat.screen.ConversationMediaScreen
 import com.garfiec.librechat.feature.chat.screen.NewChatScreen
@@ -55,6 +57,13 @@ import org.koin.compose.koinInject
  * (potentially large) content is handed off in-memory via [ArtifactViewerHandoff].
  */
 @Serializable data class ArtifactFullscreen(val identifier: String, val version: Int) : ChatRoute
+
+/**
+ * Viewer for a home-screen-pinned artifact, opened by tapping its launcher icon
+ * (`librechat://artifact/{snapshotId}`). Unlike [ArtifactFullscreen] it loads a self-contained Room
+ * snapshot by [snapshotId], so it survives cold start / process death and works while logged out.
+ */
+@Serializable data class ArtifactShortcutViewer(val snapshotId: String) : ChatRoute
 
 fun EntryProviderScope<NavKey>.chatEntries(
     onNavigate: (NavKey) -> Unit,
@@ -111,9 +120,19 @@ fun EntryProviderScope<NavKey>.chatEntries(
         }
     }
     entry<ArtifactFullscreen> { key ->
-        ArtifactFullscreenScreen(
-            identifier = key.identifier,
-            version = key.version,
+        // Provider present so the fullscreen viewer's toolbar can pin the artifact too.
+        ProvideAddArtifactToHomeScreen {
+            ArtifactFullscreenScreen(
+                identifier = key.identifier,
+                version = key.version,
+                onBack = onBack,
+            )
+        }
+    }
+    entry<ArtifactShortcutViewer> { key ->
+        // No pin provider here: a launcher-opened artifact can't be re-pinned from its own screen.
+        ArtifactShortcutViewerScreen(
+            snapshotId = key.snapshotId,
             onBack = onBack,
         )
     }
@@ -171,17 +190,21 @@ private fun ProvideOpenArtifact(
         }
     }
 
-    CompositionLocalProvider(LocalOpenArtifact provides openArtifact) {
-        content()
-    }
+    // Wrap both the content and the screen-root sheet so the pin action reaches inline cards and the
+    // bottom-sheet viewer alike (no-op on platforms without a pin action).
+    ProvideAddArtifactToHomeScreen {
+        CompositionLocalProvider(LocalOpenArtifact provides openArtifact) {
+            content()
+        }
 
-    sheetRequest?.let { req ->
-        ArtifactPanel(
-            artifact = req.artifact,
-            versions = req.versions,
-            onDismiss = { sheetRequest = null },
-            onExpandFullscreen = openFullscreen,
-        )
+        sheetRequest?.let { req ->
+            ArtifactPanel(
+                artifact = req.artifact,
+                versions = req.versions,
+                onDismiss = { sheetRequest = null },
+                onExpandFullscreen = openFullscreen,
+            )
+        }
     }
 }
 
@@ -193,5 +216,6 @@ val chatSerializersModule = SerializersModule {
         subclass(PromptEditor::class, PromptEditor.serializer())
         subclass(ConversationMedia::class, ConversationMedia.serializer())
         subclass(ArtifactFullscreen::class, ArtifactFullscreen.serializer())
+        subclass(ArtifactShortcutViewer::class, ArtifactShortcutViewer.serializer())
     }
 }

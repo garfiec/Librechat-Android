@@ -21,6 +21,7 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.koin.android)
+            implementation(libs.androidx.core.ktx)
             implementation(libs.media3.exoplayer)
             implementation(libs.media3.ui)
             implementation(libs.media3.datasource)

@@ -75,3 +75,7 @@ actual fun rememberShareArtifact(): (Artifact) -> Unit = remember {
         )
     }
 }
+
+// iOS has no API to place a home-screen launcher icon, so the affordance is unavailable.
+@Composable
+actual fun rememberAddArtifactToHomeScreen(): ((artifact: Artifact, label: String, emoji: String?) -> Unit)? = null

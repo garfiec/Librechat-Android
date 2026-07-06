@@ -96,6 +96,7 @@ private const val HYGIENE_UNRECORDED = "__unrecorded__"
 fun LibreChatNavHost(
     modifier: Modifier = Modifier,
     appLocaleTag: String? = null,
+    hasPendingDeepLink: Boolean = false,
     navHostViewModel: NavHostViewModel = koinViewModel(),
     content: (@Composable (Navigator, NavHostViewModel, Modifier) -> Unit)? = null,
 ) {
@@ -105,10 +106,19 @@ fun LibreChatNavHost(
     val backStack = rememberNavBackStack(navigationSavedStateConfig, NewChat())
     val navigator = Navigator(backStack)
 
-    // Redirect to auth if not logged in (on first composition only).
+    // Redirect to auth if not logged in — once per saved-state lifecycle, NOT on every recreation.
+    // LaunchedEffect(Unit) restarts on each Activity recreation (config change / process-death restore,
+    // see the hygiene note below), but by then the back stack is already restored — possibly to a
+    // logged-out-viewable deep-link target (an artifact viewer atop the auth base). Re-firing would
+    // clear() that away, so a rememberSaveable latch makes this run only on a genuinely fresh start.
+    // Also skipped while a deep link is pending: the deep-link handler owns the initial stack then.
+    var initialAuthRedirectDone by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        if (!navHostViewModel.isLoggedIn.value) {
-            navigator.navigateToAuth()
+        if (!initialAuthRedirectDone) {
+            initialAuthRedirectDone = true
+            if (!navHostViewModel.isLoggedIn.value && !hasPendingDeepLink) {
+                navigator.navigateToAuth()
+            }
         }
     }
 
@@ -256,6 +266,7 @@ fun PhoneLayout(
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
     val banners by navHostViewModel.banners.collectAsStateWithLifecycle()
     val dismissedBannerIds by navHostViewModel.dismissedBannerIds.collectAsStateWithLifecycle()
 
@@ -268,7 +279,11 @@ fun PhoneLayout(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = !navigator.isInAuthFlow,
+        // The drawer is an authenticated surface (conversations, account, settings). Require a session,
+        // not just "not in the auth flow" — a logged-out deep link (e.g. an artifact viewer atop the
+        // auth base) leaves a non-auth route on top, and without this its edge-swipe would open the
+        // drawer over a session-less state.
+        gesturesEnabled = isLoggedIn && !navigator.isInAuthFlow,
         drawerContent = {
             ModalDrawerSheet(drawerState = drawerState) {
                 SidebarScaffold(

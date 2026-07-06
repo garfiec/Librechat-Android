@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountTree
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +33,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.garfiec.librechat.core.model.artifactTypeLabel
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -41,6 +44,7 @@ fun ArtifactButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     versionCount: Int = 1,
+    onAddToHomeScreen: (() -> Unit)? = null,
 ) {
     Card(
         onClick = onClick,
@@ -72,7 +76,7 @@ fun ArtifactButton(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = artifactTypeSubtitle(artifact.type),
+                    text = artifactTypeLabel(artifact.type),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                     maxLines = 1,
@@ -96,6 +100,16 @@ fun ArtifactButton(
                     )
                 }
             }
+            if (onAddToHomeScreen != null) {
+                IconButton(onClick = onAddToHomeScreen, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen,
+                        contentDescription = stringResource(Res.string.cd_add_artifact_to_home_screen),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.OpenInNew,
@@ -115,15 +129,4 @@ private fun artifactTypeIcon(type: String): ImageVector =
         ArtifactType.SVG -> Icons.Default.Image
         ArtifactType.MARKDOWN -> Icons.AutoMirrored.Filled.Article
         ArtifactType.PLAIN, ArtifactType.CODE -> Icons.Default.Code
-    }
-
-private fun artifactTypeSubtitle(type: String): String =
-    when (ArtifactType.from(type)) {
-        ArtifactType.MERMAID -> "Mermaid Diagram"
-        ArtifactType.REACT -> "React Component"
-        ArtifactType.SVG -> "SVG Image"
-        ArtifactType.MARKDOWN -> "Markdown Document"
-        ArtifactType.HTML -> "HTML Page"
-        ArtifactType.PLAIN -> "Plain Text"
-        ArtifactType.CODE -> "Code"
     }

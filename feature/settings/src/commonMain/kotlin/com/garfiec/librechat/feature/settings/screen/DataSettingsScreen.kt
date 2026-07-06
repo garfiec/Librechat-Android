@@ -52,6 +52,7 @@ fun DataSettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToArchive: () -> Unit,
     onNavigateToSharedLinks: () -> Unit,
+    onNavigateToArtifactShortcuts: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -76,6 +77,7 @@ fun DataSettingsScreen(
         DataSettingsContent(
             onNavigateToArchive = onNavigateToArchive,
             onNavigateToSharedLinks = onNavigateToSharedLinks,
+            onNavigateToArtifactShortcuts = onNavigateToArtifactShortcuts,
             snackbarHostState = snackbarHostState,
             modifier = Modifier
                 .fillMaxSize()
@@ -92,6 +94,7 @@ fun DataSettingsScreen(
 fun DataSettingsContent(
     onNavigateToArchive: () -> Unit,
     onNavigateToSharedLinks: () -> Unit,
+    onNavigateToArtifactShortcuts: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: SettingsViewModel = koinViewModel(),
@@ -181,6 +184,7 @@ fun DataSettingsContent(
             item(key = "data_extra_actions") {
                 DataExtraActions(
                     onSharedLinksClick = onNavigateToSharedLinks,
+                    onArtifactShortcutsClick = onNavigateToArtifactShortcuts,
                     onClearCacheClick = { showClearCacheDialog = true },
                     isCacheClearing = uiState.isCacheClearing,
                     onRevokeKeysClick = { showRevokeKeysDialog = true },
@@ -314,6 +318,7 @@ private fun SectionHeader(title: String) {
 @Composable
 private fun DataExtraActions(
     onSharedLinksClick: () -> Unit,
+    onArtifactShortcutsClick: () -> Unit,
     onClearCacheClick: () -> Unit,
     isCacheClearing: Boolean,
     onRevokeKeysClick: () -> Unit,
@@ -337,6 +342,25 @@ private fun DataExtraActions(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(Res.string.shared_links))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+
+            // Home-screen artifact shortcuts
+            OutlinedButton(
+                onClick = onArtifactShortcutsClick,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(Res.string.artifact_shortcuts_title))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,

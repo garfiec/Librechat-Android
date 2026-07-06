@@ -17,6 +17,7 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.koin.android)
+            implementation(libs.androidx.core.ktx)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.koin.test)

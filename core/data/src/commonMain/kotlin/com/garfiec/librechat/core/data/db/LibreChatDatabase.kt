@@ -9,12 +9,14 @@ import androidx.room.TypeConverters
 import com.garfiec.librechat.core.data.db.converter.Converters
 import com.garfiec.librechat.core.data.db.dao.AccountClaimDao
 import com.garfiec.librechat.core.data.db.dao.AgentDao
+import com.garfiec.librechat.core.data.db.dao.ArtifactShortcutDao
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.dao.ConversationTagDao
 import com.garfiec.librechat.core.data.db.dao.DraftDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.db.dao.PresetDao
 import com.garfiec.librechat.core.data.db.entity.AgentEntity
+import com.garfiec.librechat.core.data.db.entity.ArtifactShortcutEntity
 import com.garfiec.librechat.core.data.db.entity.ConversationEntity
 import com.garfiec.librechat.core.data.db.entity.ConversationTagEntity
 import com.garfiec.librechat.core.data.db.entity.DraftEntity
@@ -29,8 +31,9 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
         PresetEntity::class,
         ConversationTagEntity::class,
         DraftEntity::class,
+        ArtifactShortcutEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -42,6 +45,8 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
         // (referenced-text excerpts). Bundled into a single hop because none shipped as a released
         // DB version — there is no in-the-wild v6 to migrate through.
         AutoMigration(from = 5, to = 6),
+        // 6 -> 7 adds the device-scoped artifact_shortcuts table (home-screen artifact snapshots).
+        AutoMigration(from = 6, to = 7),
     ],
 )
 @TypeConverters(Converters::class)
@@ -54,6 +59,7 @@ abstract class LibreChatDatabase : RoomDatabase() {
     abstract fun conversationTagDao(): ConversationTagDao
     abstract fun draftDao(): DraftDao
     abstract fun accountClaimDao(): AccountClaimDao
+    abstract fun artifactShortcutDao(): ArtifactShortcutDao
 }
 
 // Room KSP auto-generates the actual implementations for each platform

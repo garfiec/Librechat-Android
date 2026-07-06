@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Fullscreen
@@ -46,6 +47,7 @@ import com.garfiec.librechat.feature.chat.components.CodeBlock
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.artifact_view_preview
 import com.garfiec.librechat.feature.chat.resources.artifact_view_source
+import com.garfiec.librechat.feature.chat.resources.cd_add_artifact_to_home_screen
 import com.garfiec.librechat.feature.chat.resources.cd_close
 import com.garfiec.librechat.feature.chat.resources.cd_fullscreen
 import com.garfiec.librechat.feature.chat.resources.cd_share_artifact
@@ -70,6 +72,15 @@ expect fun ArtifactPreviewSurface(
  */
 @Composable
 expect fun rememberShareArtifact(): (Artifact) -> Unit
+
+/**
+ * Returns an action that pins [Artifact] to the device home screen as a launcher shortcut, or `null`
+ * on platforms that can't place home-screen icons (iOS). The action snapshots the artifact into local
+ * storage and requests the pin; [label]/[emoji] come from the confirmation dialog. Distributed to call
+ * sites (viewer toolbar, inline card) via [LocalAddArtifactToHomeScreen] — invoked once here.
+ */
+@Composable
+expect fun rememberAddArtifactToHomeScreen(): ((artifact: Artifact, label: String, emoji: String?) -> Unit)?
 
 private enum class ArtifactTab { CODE, PREVIEW }
 
@@ -154,6 +165,9 @@ internal fun ArtifactViewer(
 
     val isDarkTheme = isSurfaceDark()
     val shareArtifact = rememberShareArtifact()
+    // Null unless a home-screen-pin provider is in scope (Android chat/media entries). The shortcut
+    // viewer itself doesn't provide it, so a pinned artifact can't be re-pinned from its own screen.
+    val addToHomeScreen = LocalAddArtifactToHomeScreen.current
 
     ArtifactViewerBody(
         artifact = currentArtifact,
@@ -170,6 +184,7 @@ internal fun ArtifactViewer(
         onExpand = { onExpand?.invoke(currentArtifact) },
         onClose = onClose,
         onShare = { shareArtifact(currentArtifact) },
+        onAddToHomeScreen = addToHomeScreen?.let { add -> { add(currentArtifact) } },
         modifier = modifier,
     )
 }
@@ -190,6 +205,7 @@ private fun ArtifactViewerBody(
     onExpand: () -> Unit,
     onClose: () -> Unit,
     onShare: () -> Unit,
+    onAddToHomeScreen: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -232,6 +248,7 @@ private fun ArtifactViewerBody(
                 canExpand = canExpand,
                 onExpand = onExpand,
                 onShare = onShare,
+                onAddToHomeScreen = onAddToHomeScreen,
             )
         }
 
@@ -277,6 +294,7 @@ private fun RowScope.ArtifactActionButtons(
     canExpand: Boolean,
     onExpand: () -> Unit,
     onShare: () -> Unit,
+    onAddToHomeScreen: (() -> Unit)?,
 ) {
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
     // Source/preview toggle for previewable artifacts.
@@ -288,6 +306,15 @@ private fun RowScope.ArtifactActionButtons(
                 contentDescription = stringResource(
                     if (toCode) Res.string.artifact_view_source else Res.string.artifact_view_preview,
                 ),
+                tint = tint,
+            )
+        }
+    }
+    if (onAddToHomeScreen != null) {
+        IconButton(onClick = onAddToHomeScreen) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen,
+                contentDescription = stringResource(Res.string.cd_add_artifact_to_home_screen),
                 tint = tint,
             )
         }

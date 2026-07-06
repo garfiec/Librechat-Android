@@ -313,6 +313,17 @@
     <!-- Artifacts -->
     <string name="cd_open_artifact">Open artifact</string>
     <string name="cd_share_artifact">Share artifact</string>
+    <string name="cd_add_artifact_to_home_screen">Add to Home screen</string>
+    <string name="add_to_home_screen_dialog_title">Add to Home screen</string>
+    <string name="add_to_home_screen_dialog_name_label">Name</string>
+    <string name="add_to_home_screen_dialog_emoji_label">Emoji</string>
+    <string name="add_to_home_screen_icon_label">Icon</string>
+    <string name="add_to_home_screen_icon_auto">Auto</string>
+    <string name="add_to_home_screen_icon_custom">Custom</string>
+    <string name="cd_icon_preview">Icon preview</string>
+    <string name="artifact_shortcut_unavailable">This artifact is no longer available.</string>
+    <string name="add_to_home_screen_confirm">Add</string>
+    <string name="artifact_shortcut_back">Back</string>
     <string name="cd_previous_version">Previous version</string>
     <string name="cd_next_version">Next version</string>
     <string name="artifact_version">v%1$d/%2$d</string>

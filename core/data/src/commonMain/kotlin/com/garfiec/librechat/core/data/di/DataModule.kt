@@ -23,6 +23,8 @@ import com.garfiec.librechat.core.data.repository.AgentToolsRepository
 import com.garfiec.librechat.core.data.repository.AgentToolsRepositoryImpl
 import com.garfiec.librechat.core.data.repository.ApiKeyRepository
 import com.garfiec.librechat.core.data.repository.ApiKeyRepositoryImpl
+import com.garfiec.librechat.core.data.repository.ArtifactShortcutRepository
+import com.garfiec.librechat.core.data.repository.ArtifactShortcutRepositoryImpl
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.AuthRepositoryImpl
 import com.garfiec.librechat.core.data.repository.BalanceRepository
@@ -104,6 +106,7 @@ val dataModule = module {
     single { get<LibreChatDatabase>().conversationTagDao() }
     single { get<LibreChatDatabase>().draftDao() }
     single { get<LibreChatDatabase>().accountClaimDao() }
+    single { get<LibreChatDatabase>().artifactShortcutDao() }
 
     // --- Account identity (row-tenancy) ---
 
@@ -276,6 +279,13 @@ val dataModule = module {
         DraftRepositoryImpl(
             draftDao = get(),
             activeAccountProvider = get(),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
+
+    single<ArtifactShortcutRepository> {
+        ArtifactShortcutRepositoryImpl(
+            dao = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }
