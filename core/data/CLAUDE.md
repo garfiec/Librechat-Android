@@ -53,7 +53,12 @@ Interactive sign-in (`setTokens`) **stages** the pair under the bare keys and dr
 `onAccountResolved` re-homes it into the account's keyed slot. This makes a re-login while another
 account is active unable to corrupt/leak into that account's slot.
 
-Wrap `EncryptedSharedPreferences` in try/catch -- some OEM devices have broken Keystore implementations. On `KeyStoreException`, clear tokens and force re-login.
+Wrap `EncryptedSharedPreferences` access in try/catch -- some OEM devices have broken Keystore
+implementations. `TokenDataStore` recovers in place rather than crashing: a single undecryptable entry
+is dropped (other retained accounts stay logged in), a broken keyset is wiped and rebuilt with a fresh
+master key, and if even a rebuild can't produce a working store it degrades to an in-memory session for
+the process. Construction never throws into `startKoin`. The next request then 401s and routes to
+re-login through the normal expired-session flow.
 
 ### DataModule Bindings
 

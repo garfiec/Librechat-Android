@@ -55,6 +55,7 @@ actual val dataPlatformModule: Module = module {
         ensureDirectoryExists(datastoreDir)
         val path = "$datastoreDir/$DATASTORE_FILE_NAME.preferences_pb"
         PreferenceDataStoreFactory.createWithPath(
+            corruptionHandler = settingsCorruptionHandler(),
             produceFile = { path.toPath() },
         )
     }
