@@ -70,7 +70,12 @@ class ModelSelectionDelegateTest {
     private fun newHandle(scope: CoroutineScope, state: ChatUiState = ChatUiState()) =
         ChatStateHandle(stateFlow = MutableStateFlow(state), scope = scope)
 
-    private fun newDelegate(handle: ChatStateHandle, initialAgentId: String? = null) = ModelSelectionDelegate(
+    private fun newDelegate(
+        handle: ChatStateHandle,
+        initialAgentId: String? = null,
+        initialEndpoint: String? = null,
+        initialModel: String? = null,
+    ) = ModelSelectionDelegate(
         stateHandle = handle,
         configRepository = configRepository,
         agentRepository = agentRepository,
@@ -78,6 +83,8 @@ class ModelSelectionDelegateTest {
         settingsDataStore = settingsDataStore,
         permissionGate = permissionGate,
         initialAgentId = initialAgentId,
+        initialEndpoint = initialEndpoint,
+        initialModel = initialModel,
     )
 
     private fun allowAgents() {
@@ -434,6 +441,33 @@ class ModelSelectionDelegateTest {
     }
 
     // ── Group C: seedInitialSelection precedence + race determinism ──────────
+
+    @Test
+    fun seedModelOverrideWinsOverLastUsed() = runTest {
+        // A home-screen model shortcut passes an explicit (endpoint, model) that must win over a
+        // stored last-used, mirroring the agent override's tier-0 precedence.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle, initialEndpoint = "openAI", initialModel = "gpt-4o")
+        lastUsedEndpoint.value = "anthropic"
+        lastUsedModel.value = "claude-3.5-sonnet"
+        availableModels.value = mapOf(
+            "openAI" to listOf("gpt-4o"),
+            "anthropic" to listOf("claude-3.5-sonnet"),
+        )
+
+        delegate.seedInitialSelection(isNewConversation = true)
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
+        assertThat(handle.state.selectedModel).isEqualTo("gpt-4o")
+
+        // A later agents-loaded emission must not clobber the explicitly-launched model.
+        delegate.agentsLoaded.value = true
+        advanceUntilIdle()
+        assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
+        assertThat(handle.state.selectedModel).isEqualTo("gpt-4o")
+    }
 
     @Test
     fun seedLastUsedValidSeededWhenModelsArriveFirst() = runTest {

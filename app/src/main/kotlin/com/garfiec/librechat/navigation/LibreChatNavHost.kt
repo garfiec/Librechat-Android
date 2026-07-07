@@ -60,6 +60,10 @@ fun LibreChatNavHost(
                         !loggedIn -> navigator.navigateToDeepLinkLoggedOut(target)
                         // Switching chats replaces the current chat entry so back returns to NewChat.
                         target is Chat -> target.conversationId?.let { navigator.navigateToChat(it) }
+                        // Model shortcut: NewChat carries an endpoint/model payload. Go through top-level
+                        // nav so it replaces a bare landing NewChat (dedup-by-value) and re-seeds even
+                        // when already on the landing.
+                        target is NewChat -> navigator.navigateToTopLevel(target)
                         // Otherwise push, de-duping a repeat tap of the same target.
                         navigator.currentRoute != target -> navigator.navigate(target)
                     }

@@ -28,6 +28,9 @@ actual val chatPlatformModule: Module = module {
             initialAgentId = params.values.getOrNull(1) as String?,
             // [2] isTemporary route flag (temp-chat data-at-rest guard); absent on non-temp callers.
             initialIsTemporary = params.values.getOrNull(2) as? Boolean ?: false,
+            // [3] initialEndpoint, [4] initialModel — model-shortcut pre-select; absent otherwise.
+            initialEndpoint = params.values.getOrNull(3) as String?,
+            initialModel = params.values.getOrNull(4) as String?,
             agentRepository = get(),
             chatRepository = get(),
             messageRepository = get(),

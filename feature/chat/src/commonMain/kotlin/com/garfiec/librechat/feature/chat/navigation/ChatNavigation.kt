@@ -34,8 +34,15 @@ import org.koin.compose.koinInject
 
 /** [agentId] (when non-null) is the agent to pre-select for the new chat — set when
  *  starting a chat from an agent's detail/marketplace card so the new chat opens on
- *  that agent rather than falling back to last-used/first-agent/first-model. */
-@Serializable data class NewChat(val agentId: String? = null) : ChatRoute
+ *  that agent rather than falling back to last-used/first-agent/first-model.
+ *  [endpoint]/[model] pre-select a concrete model instead (home-screen model shortcut /
+ *  quick action); they ride on the route so a payload-carrying NewChat replaces a bare
+ *  landing NewChat (dedup-by-value) and re-seeds even when already on the landing. */
+@Serializable data class NewChat(
+    val agentId: String? = null,
+    val endpoint: String? = null,
+    val model: String? = null,
+) : ChatRoute
 
 /**
  * [isTemporary] marks a conversation the user started as a temporary chat. It rides on the
@@ -83,6 +90,8 @@ fun EntryProviderScope<NavKey>.chatEntries(
     entry<NewChat> { key ->
         NewChatScreen(
             initialAgentId = key.agentId,
+            initialEndpoint = key.endpoint,
+            initialModel = key.model,
             onConversationStart = { conversationId, isTemporary ->
                 onNavigateToChat(conversationId, isTemporary)
             },

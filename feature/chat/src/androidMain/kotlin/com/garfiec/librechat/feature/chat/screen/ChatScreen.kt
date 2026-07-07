@@ -46,6 +46,8 @@ actual fun ChatScreen(
     conversationId: String?,
     isTemporaryRoute: Boolean,
     initialAgentId: String?,
+    initialEndpoint: String?,
+    initialModel: String?,
     onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)?,
     onNavigateToConversation: ((String) -> Unit)?,
     onOpenDrawer: (() -> Unit)?,
@@ -56,7 +58,9 @@ actual fun ChatScreen(
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
     val viewModel: ChatViewModel =
-        koinViewModel { parametersOf(conversationId, initialAgentId, isTemporaryRoute) }
+        koinViewModel {
+            parametersOf(conversationId, initialAgentId, isTemporaryRoute, initialEndpoint, initialModel)
+        }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val shareLinkUrl by viewModel.shareLinkUrl.collectAsStateWithLifecycle()

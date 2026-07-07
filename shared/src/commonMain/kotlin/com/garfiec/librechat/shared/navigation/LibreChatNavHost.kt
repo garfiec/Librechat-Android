@@ -50,6 +50,7 @@ import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
 import com.garfiec.librechat.feature.auth.navigation.authEntries
 import com.garfiec.librechat.feature.auth.navigation.isAddAccountFlowRoute
 import com.garfiec.librechat.feature.chat.navigation.Chat
+import com.garfiec.librechat.feature.chat.navigation.ModelShortcutBus
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
 import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
@@ -120,6 +121,18 @@ fun LibreChatNavHost(
                 navigator.navigateToAuth()
             }
         }
+    }
+
+    // iOS home-screen quick action: the Swift handler pushes the tapped (endpoint, model) onto the
+    // bus; open a NewChat pre-selected on it. Deferred until logged in so a cold launch from a quick
+    // action lands the model once auth resolves. Android sets this bus never — it deep-links instead.
+    val modelShortcutBus = koinInject<ModelShortcutBus>()
+    val pendingModelShortcut by modelShortcutBus.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingModelShortcut, isLoggedIn) {
+        val ref = pendingModelShortcut ?: return@LaunchedEffect
+        if (!isLoggedIn) return@LaunchedEffect
+        navigator.navigateToTopLevel(NewChat(endpoint = ref.endpoint, model = ref.model))
+        modelShortcutBus.consume()
     }
 
     // Track active conversation from nav back stack

@@ -9,10 +9,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
+import com.garfiec.librechat.core.model.ModelRef
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +25,11 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlin.concurrent.Volatile
 
 class SettingsDataStore(
@@ -122,6 +129,24 @@ class SettingsDataStore(
     val lastUsedEndpoint: Flow<String?> = scopedString(::endpointKey)
 
     val lastUsedModel: Flow<String?> = scopedString(::modelKey)
+
+    /**
+     * The account's most-used endpoint/model pairs, ranked by send count (recency breaks ties),
+     * capped to [limit]. Backs the home-screen app shortcuts / quick actions. Emits nothing while
+     * the account is Warming (so a one-shot consumer waits for the real value) and an empty list
+     * once resolved-but-logged-out, so a shortcut publisher clears its entries on sign-out.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun topUsedModels(limit: Int): Flow<List<ModelRef>> =
+        activeAccountProvider.state.flatMapLatest { state ->
+            when (state) {
+                AccountState.Warming -> emptyFlow()
+                is AccountState.Resolved ->
+                    state.id?.let { id ->
+                        dataStore.data.map { prefs -> rankUsage(prefs[usageKey(id.value)], limit) }
+                    } ?: flowOf(emptyList())
+            }
+        }
 
     val dismissKeyboardOnSend: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_DISMISS_KEYBOARD_ON_SEND] ?: true
@@ -349,6 +374,73 @@ class SettingsDataStore(
 
     private fun modelKey(accountId: String) = accountScopedKey(accountId, LAST_USED_MODEL)
 
+    private fun usageKey(accountId: String) = accountScopedKey(accountId, MODEL_USAGE)
+
+    /**
+     * Records one "used" tick for [endpoint]/[model] — called once per message sent, the true
+     * usage signal (a passively auto-restored model that's never chatted with must not climb the
+     * ranking). Read-modify-write of the account-scoped counts map; a monotonically increasing
+     * [UsageEntry.seq] provides the recency tie-break and bounds map growth via [MAX_USAGE_ENTRIES].
+     */
+    suspend fun incrementModelUsage(endpoint: String, model: String) {
+        if (endpoint.isBlank() || model.isBlank()) return
+        // Await account resolution instead of snapshotting it: the first send right after a fresh
+        // login can fire before the active account has re-homed (the bearer is already staged, so the
+        // chat POST succeeds), and a snapshot read would hit null and drop that usage silently. Only
+        // reached from the send path, which implies a logged-in account, so this resolves promptly.
+        val accountId = activeAccountProvider.awaitResolvedAccount().value
+        val key = usageKey(accountId)
+        // The mutation is a durable write; keep it off the caller's cancellation so a ViewModel
+        // teardown mid-edit (e.g. the new-chat → Chat(id) handoff) can't drop the recorded tick.
+        withContext(NonCancellable) {
+            dataStore.edit { prefs ->
+                val current = decodeUsage(prefs[key])
+                val nextSeq = (current.values.maxOfOrNull { it.seq } ?: 0L) + 1
+                val composite = usageCompositeKey(endpoint, model)
+                val incremented = current[composite]?.let { it.copy(count = it.count + 1, seq = nextSeq) }
+                    ?: UsageEntry(count = 1, seq = nextSeq)
+                val merged = current + (composite to incremented)
+                // Keep the map bounded: retain the strongest entries by the same (count, recency) order
+                // the ranking uses, so a long tail of one-off models can't grow the pref without limit.
+                val trimmed = if (merged.size > MAX_USAGE_ENTRIES) {
+                    merged.entries
+                        .sortedWith(compareByDescending<Map.Entry<String, UsageEntry>> { it.value.count }
+                            .thenByDescending { it.value.seq })
+                        .take(MAX_USAGE_ENTRIES)
+                        .associate { it.toPair() }
+                } else {
+                    merged
+                }
+                prefs[key] = usageJson.encodeToString(trimmed)
+            }
+        }
+    }
+
+    private fun usageCompositeKey(endpoint: String, model: String) =
+        "$endpoint$USAGE_KEY_SEPARATOR$model"
+
+    /** Tolerant decode — a malformed/absent blob yields an empty map, never a crash. */
+    private fun decodeUsage(raw: String?): Map<String, UsageEntry> =
+        raw?.let { runCatching { usageJson.decodeFromString<Map<String, UsageEntry>>(it) }.getOrNull() }
+            ?: emptyMap()
+
+    /** Decode + rank by (count desc, recency desc), take [limit], split composite keys to [ModelRef]. */
+    private fun rankUsage(raw: String?, limit: Int): List<ModelRef> =
+        decodeUsage(raw).entries
+            .sortedWith(
+                compareByDescending<Map.Entry<String, UsageEntry>> { it.value.count }
+                    .thenByDescending { it.value.seq },
+            )
+            .take(limit)
+            .mapNotNull { (composite, _) ->
+                val sep = composite.indexOf(USAGE_KEY_SEPARATOR)
+                if (sep <= 0 || sep >= composite.lastIndex) {
+                    null
+                } else {
+                    ModelRef(composite.substring(0, sep), composite.substring(sep + 1))
+                }
+            }
+
     suspend fun setTtsSource(source: String) {
         dataStore.edit { prefs ->
             prefs[KEY_TTS_SOURCE] = source
@@ -534,6 +626,9 @@ class SettingsDataStore(
         private val KEY_SELECTED_VOICE_ID = stringPreferencesKey("selected_voice_id")
         private const val LAST_USED_ENDPOINT = "last_used_endpoint"
         private const val LAST_USED_MODEL = "last_used_model"
+        private const val MODEL_USAGE = "model_usage"
+        private const val MAX_USAGE_ENTRIES = 50
+        private const val USAGE_KEY_SEPARATOR = '\u0000'
         private val KEY_DISMISS_KEYBOARD_ON_SEND = booleanPreferencesKey("dismiss_keyboard_on_send")
         private val KEY_TTS_SOURCE = stringPreferencesKey("tts_source")
         private val KEY_TTS_SPEECH_RATE = floatPreferencesKey("tts_speech_rate")
@@ -565,3 +660,9 @@ class SettingsDataStore(
         private val KEY_ENABLED_TOOLS = stringPreferencesKey("enabled_tools")
     }
 }
+
+/** Per-model usage record: total send [count], plus a monotonic [seq] for the recency tie-break. */
+@Serializable
+private data class UsageEntry(val count: Int, val seq: Long)
+
+private val usageJson = Json { ignoreUnknownKeys = true }

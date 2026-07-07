@@ -38,7 +38,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -51,6 +54,9 @@ import com.garfiec.librechat.navigation.LibreChatNavHost
 import com.garfiec.librechat.navigation.toDeepLinkUri
 import com.garfiec.librechat.shared.navigation.DeepLinkResolution
 import com.garfiec.librechat.shared.navigation.DeepLinks
+import com.garfiec.librechat.shortcuts.ModelShortcuts
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 private const val KEY_PENDING_DEEP_LINK = "pending_deep_link"
@@ -87,6 +93,21 @@ class MainActivity : ComponentActivity() {
         } else {
             deepLinkUri = savedInstanceState.getString(KEY_PENDING_DEEP_LINK)?.toUri()
         }
+
+        // Keep home-screen model shortcuts in sync with the account's most-used models. The flow
+        // emits an empty list once the account resolves logged-out, which clears the shortcuts.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settingsDataStore.topUsedModels(ModelShortcuts.maxCount)
+                    // The backing flow re-emits on every settings write; only republish when the
+                    // ranked list actually changes to avoid redundant main-thread setDynamicShortcuts IPC.
+                    .distinctUntilChanged()
+                    .collect { models ->
+                        ModelShortcuts.publish(this@MainActivity, models)
+                    }
+            }
+        }
+
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
             val isConnected by connectivityObserver.isConnected.collectAsStateWithLifecycle(initialValue = true)

@@ -99,6 +99,10 @@ import kotlin.uuid.Uuid
 class ChatViewModel(
     initialConversationId: String? = null,
     initialAgentId: String? = null,
+    /** Explicit (endpoint, model) to pre-select on a new chat — set when launched from a home-screen
+     *  model shortcut / quick action. Null for normal new chats. Mutually exclusive with an agent. */
+    initialEndpoint: String? = null,
+    initialModel: String? = null,
     /** True when this Chat(id) entry is a temporary chat. Rides on the Chat route so it
      *  survives process death: a restored entry re-initializes temp-aware and never persists the
      *  server-hidden conversation to Room. SECURITY: temp-chat data-at-rest guard — see init. */
@@ -175,6 +179,8 @@ class ChatViewModel(
         settingsDataStore = settingsDataStore,
         permissionGate = permissionGate,
         initialAgentId = initialAgentId,
+        initialEndpoint = initialEndpoint,
+        initialModel = initialModel,
     )
     private val keyStatusDelegate = EndpointKeyStatusDelegate(
         stateHandle = stateHandle,
@@ -1140,6 +1146,14 @@ class ChatViewModel(
         if ((messageText.isBlank() && !hasFiles) || _uiState.value.isStreaming) return
         // Guard passed: safe to clear the composer for a live send without risking message loss.
         if (clearComposerOnSend) clearComposer()
+
+        // Count one "used" tick for the picked model — the real usage signal for the most-used
+        // ranking behind home-screen shortcuts. Fires on every dispatched send (live or a drained
+        // queue item, since both land here). Agents are excluded: their selection is an opaque
+        // agentId, which would surface as an unreadable shortcut label.
+        if (spec.endpoint != EndpointConstants.AGENTS && !spec.model.isNullOrBlank()) {
+            viewModelScope.launch { settingsDataStore.incrementModelUsage(spec.endpoint, spec.model) }
+        }
 
         val conversationId = _uiState.value.conversationId
         val lastMessageId = _uiState.value.displayMessages.lastOrNull()?.message?.messageId

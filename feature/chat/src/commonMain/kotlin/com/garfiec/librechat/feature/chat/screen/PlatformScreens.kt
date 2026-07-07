@@ -12,6 +12,10 @@ expect fun ChatScreen(
      *  VM temp-aware so it never persists the server-hidden conversation. See Chat.isTemporary. */
     isTemporaryRoute: Boolean = false,
     initialAgentId: String? = null,
+    /** Explicit (endpoint, model) to pre-select on a new chat — set when launched from a
+     *  home-screen model shortcut / quick action. Mutually exclusive with [initialAgentId]. */
+    initialEndpoint: String? = null,
+    initialModel: String? = null,
     onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)? = null,
     onNavigateToConversation: ((String) -> Unit)? = null,
     onOpenDrawer: (() -> Unit)? = null,
@@ -32,12 +36,15 @@ expect fun ChatScreen(
 )
 
 /** Platform-specific new chat screen. [initialAgentId], when non-null, pre-selects
- *  that agent for the new chat (set when starting from an agent detail/card). */
+ *  that agent for the new chat (set when starting from an agent detail/card).
+ *  [initialEndpoint]/[initialModel] pre-select a concrete model (home-screen shortcut). */
 @Composable
 expect fun NewChatScreen(
     onConversationStart: (conversationId: String, isTemporary: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     initialAgentId: String? = null,
+    initialEndpoint: String? = null,
+    initialModel: String? = null,
     onOpenDrawer: (() -> Unit)? = null,
     onNavigateToPromptsLibrary: (() -> Unit)? = null,
     onAttachFromServer: () -> Unit = {},

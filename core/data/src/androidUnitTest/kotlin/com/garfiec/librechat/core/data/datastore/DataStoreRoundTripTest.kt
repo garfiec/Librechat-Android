@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
+import com.garfiec.librechat.core.model.ModelRef
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
@@ -209,6 +210,102 @@ class DataStoreRoundTripTest {
         assertThat(emissions.last()).isEqualTo("gpt-4o")
 
         job.cancel()
+    }
+
+    // --- SettingsDataStore: model usage ranking (home-screen shortcuts) ---
+
+    @Test
+    fun settingsDataStore_modelUsage_ranksByCountDescending() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-usage-rank")
+        val store = settingsStore(ds)
+
+        repeat(3) { store.incrementModelUsage("openAI", "gpt-4o") }
+        store.incrementModelUsage("anthropic", "claude-3.5-sonnet")
+        repeat(2) { store.incrementModelUsage("openAI", "gpt-4o-mini") }
+
+        assertThat(store.topUsedModels(10).first())
+            .containsExactly(
+                ModelRef("openAI", "gpt-4o"),
+                ModelRef("openAI", "gpt-4o-mini"),
+                ModelRef("anthropic", "claude-3.5-sonnet"),
+            )
+            .inOrder()
+    }
+
+    @Test
+    fun settingsDataStore_modelUsage_tieBrokenByRecency() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-usage-tie")
+        val store = settingsStore(ds)
+
+        store.incrementModelUsage("openAI", "gpt-4o")
+        store.incrementModelUsage("anthropic", "claude-3.5-sonnet")
+
+        // Equal counts → the more recently used ranks first.
+        assertThat(store.topUsedModels(10).first())
+            .containsExactly(
+                ModelRef("anthropic", "claude-3.5-sonnet"),
+                ModelRef("openAI", "gpt-4o"),
+            )
+            .inOrder()
+    }
+
+    @Test
+    fun settingsDataStore_modelUsage_respectsLimit() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-usage-limit")
+        val store = settingsStore(ds)
+
+        repeat(3) { store.incrementModelUsage("openAI", "gpt-4o") }
+        repeat(2) { store.incrementModelUsage("openAI", "gpt-4o-mini") }
+        store.incrementModelUsage("anthropic", "claude-3.5-sonnet")
+
+        assertThat(store.topUsedModels(2).first())
+            .containsExactly(
+                ModelRef("openAI", "gpt-4o"),
+                ModelRef("openAI", "gpt-4o-mini"),
+            )
+            .inOrder()
+    }
+
+    @Test
+    fun settingsDataStore_modelUsage_customEndpointWithSpaceRoundTrips() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-usage-space")
+        val store = settingsStore(ds)
+
+        // The composite storage key must survive endpoints/models containing spaces.
+        store.incrementModelUsage("My Custom Endpoint", "some model v1")
+
+        assertThat(store.topUsedModels(5).first())
+            .containsExactly(ModelRef("My Custom Endpoint", "some model v1"))
+    }
+
+    @Test
+    fun settingsDataStore_modelUsage_blankInputsIgnored() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-usage-blank")
+        val store = settingsStore(ds)
+
+        store.incrementModelUsage("", "gpt-4o")
+        store.incrementModelUsage("openAI", "")
+
+        assertThat(store.topUsedModels(5).first()).isEmpty()
+    }
+
+    @Test
+    fun settingsDataStore_modelUsage_recordedWhileWarming_landsOnResolve() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-usage-warming")
+        val provider = InMemoryActiveAccountProvider() // starts Warming (mirrors a fresh post-login send)
+        val store = SettingsDataStore(ds, provider, CoroutineScope(testDispatcher), testDispatcher)
+
+        // The very first send can fire before the account has re-homed. The write must await
+        // resolution rather than snapshot a null id and silently drop the usage tick.
+        val recorded = launch { store.incrementModelUsage("anthropic", "claude-sonnet-5") }
+        advanceUntilIdle()
+        assertThat(recorded.isActive).isTrue() // still awaiting resolution, not dropped
+
+        provider.set(AccountId("srv:acctY"))
+        recorded.join() // resolution unblocks the awaited write; join past the DataStore commit
+
+        assertThat(store.topUsedModels(5).first())
+            .containsExactly(ModelRef("anthropic", "claude-sonnet-5"))
     }
 
     @Test

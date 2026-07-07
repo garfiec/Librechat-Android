@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.di
 
 import com.garfiec.librechat.core.common.di.KoinQualifiers
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactViewerHandoff
+import com.garfiec.librechat.feature.chat.navigation.ModelShortcutBus
 import com.garfiec.librechat.feature.chat.prompts.PromptEditorViewModel
 import com.garfiec.librechat.feature.chat.prompts.PromptsViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.ConversationMediaViewModel
@@ -17,6 +18,7 @@ val chatModule = module {
     single { NewChatSelectionHandoff() }
     single { ServerFileSelectionHandoff() }
     single { ArtifactViewerHandoff() }
+    single { ModelShortcutBus() }
     viewModelOf(::PromptsViewModel)
     // Koin's constructor-DSL (`viewModelOf`) wires every argument via `get()` and cannot read
     // values passed through `parametersOf`. This VM receives its `initialGroupId` from the

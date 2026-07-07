@@ -3,6 +3,7 @@ package com.garfiec.librechat.shared.navigation
 import androidx.navigation3.runtime.NavKey
 import com.garfiec.librechat.feature.chat.navigation.ArtifactShortcutViewer
 import com.garfiec.librechat.feature.chat.navigation.Chat
+import com.garfiec.librechat.feature.chat.navigation.NewChat
 
 /**
  * Platform-neutral view of an incoming `librechat://` URI, so [DeepLinks.resolve] — the routing
@@ -73,10 +74,20 @@ object DeepLinks {
             ?.let { DeepLinkResolution.Route(ArtifactShortcutViewer(it), requiresAuth = false) }
             ?: DeepLinkResolution.None
 
+        // Home-screen model shortcut (librechat://model?endpoint=<endpoint>&model=<model>): the payload
+        // rides on the NewChat route so it replaces a bare landing NewChat (dedup-by-value) and re-seeds
+        // even when already on the landing. Auth-required — a model preselect is useless without a session.
+        "model" -> {
+            val endpoint = uri.query["endpoint"]
+            val model = uri.query["model"]
+            if (!endpoint.isNullOrBlank() && !model.isNullOrBlank()) {
+                DeepLinkResolution.Route(NewChat(endpoint = endpoint, model = model), requiresAuth = true)
+            } else {
+                DeepLinkResolution.None
+            }
+        }
+
         // OAuth redirect (librechat://oauth): token comes back via cookie, not the URI — see [Consumed].
-        // A model-shortcut host would slot in here as a query-param Route, e.g.:
-        //   "model" -> uri.query["model"]?.let {
-        //       Route(NewChat(endpoint = uri.query["endpoint"], model = it), requiresAuth = true) } ?: None
         "oauth" -> DeepLinkResolution.Consumed
 
         else -> DeepLinkResolution.None

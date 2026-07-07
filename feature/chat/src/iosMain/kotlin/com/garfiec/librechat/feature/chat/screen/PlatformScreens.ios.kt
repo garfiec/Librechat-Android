@@ -73,6 +73,8 @@ actual fun ChatScreen(
     conversationId: String?,
     isTemporaryRoute: Boolean,
     initialAgentId: String?,
+    initialEndpoint: String?,
+    initialModel: String?,
     onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)?,
     onNavigateToConversation: ((String) -> Unit)?,
     onOpenDrawer: (() -> Unit)?,
@@ -83,7 +85,9 @@ actual fun ChatScreen(
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
     val viewModel: ChatViewModel =
-        koinViewModel { parametersOf(conversationId, initialAgentId, isTemporaryRoute) }
+        koinViewModel {
+            parametersOf(conversationId, initialAgentId, isTemporaryRoute, initialEndpoint, initialModel)
+        }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
@@ -588,6 +592,8 @@ actual fun NewChatScreen(
     onConversationStart: (conversationId: String, isTemporary: Boolean) -> Unit,
     modifier: Modifier,
     initialAgentId: String?,
+    initialEndpoint: String?,
+    initialModel: String?,
     onOpenDrawer: (() -> Unit)?,
     onNavigateToPromptsLibrary: (() -> Unit)?,
     onAttachFromServer: () -> Unit,
@@ -596,6 +602,8 @@ actual fun NewChatScreen(
     ChatScreen(
         modifier = modifier,
         initialAgentId = initialAgentId,
+        initialEndpoint = initialEndpoint,
+        initialModel = initialModel,
         onConversationStart = onConversationStart,
         onOpenDrawer = onOpenDrawer,
         onNavigateToPromptsLibrary = onNavigateToPromptsLibrary,

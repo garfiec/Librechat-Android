@@ -38,6 +38,8 @@ class ModelSelectionDelegate(
     private val settingsDataStore: SettingsDataStore,
     private val permissionGate: PermissionGate,
     initialAgentId: String? = null,
+    initialEndpoint: String? = null,
+    initialModel: String? = null,
 ) {
 
     /**
@@ -49,6 +51,20 @@ class ModelSelectionDelegate(
      * clobber-guard in [refilterModels] never sees it).
      */
     private var pendingAgentOverride: String? = initialAgentId?.takeIf { it.isNotBlank() }
+
+    /**
+     * Tier-0 explicit (endpoint, model) passed from the start-chat navigation — set when a chat is
+     * launched from a home-screen model shortcut / quick action. Same one-shot, authoritative
+     * semantics as [pendingAgentOverride] (they're mutually exclusive: a route carries an agent id
+     * OR a concrete model). Trusted directly rather than validated, mirroring the agent override —
+     * a shortcut points at a recently-used model, so it's applied even if the config hasn't loaded.
+     */
+    private var pendingModelOverride: Pair<String, String>? =
+        if (!initialEndpoint.isNullOrBlank() && !initialModel.isNullOrBlank()) {
+            initialEndpoint to initialModel
+        } else {
+            null
+        }
 
     /**
      * Cached last-used endpoint/model from DataStore, kept in sync by
@@ -337,6 +353,38 @@ class ModelSelectionDelegate(
         )
     }
 
+    /**
+     * Tier-0 seeding: applies an explicit agent or concrete (endpoint, model) passed from the
+     * start-chat navigation — an agent detail/card, or a home-screen model shortcut / quick action.
+     * Authoritative and one-shot: cleared after applying so later seeder emissions don't re-pin it,
+     * and trusted directly (no validation) since it was just chosen. Returns true when an override
+     * was applied so [applySeed] can stop.
+     *
+     * CRITICAL: also pins [lastAppliedLastUsed] to the CURRENT last-used so the re-sync in [applySeed]
+     * (`lastUsed != lastAppliedLastUsed`) does NOT fire on the next emission (e.g. when the agents
+     * list finishes loading) and clobber the override back to a last-used value. A genuinely NEW
+     * last-used picked later still differs from this pinned value, so the re-sync still follows it.
+     */
+    private fun applyPendingOverride(lastUsed: Pair<String, String>?): Boolean {
+        pendingAgentOverride?.let { agentId ->
+            pendingAgentOverride = null
+            lastAppliedLastUsed = lastUsed
+            // Hold this explicit agent across the transient empty-agents window until the populated
+            // list arrives (see [holdAgentForPopulate]); without it the next (agentsLoaded=true,
+            // agents=[]) emission would score the agent INVALID/PENDING and clobber it to a config model.
+            holdAgentForPopulate = true
+            applySelection(EndpointConstants.AGENTS, agentId, reason = "tier0-agentOverride")
+            return true
+        }
+        pendingModelOverride?.let { (endpoint, model) ->
+            pendingModelOverride = null
+            lastAppliedLastUsed = lastUsed
+            applySelection(endpoint, model, reason = "tier0-modelOverride")
+            return true
+        }
+        return false
+    }
+
     private fun applySeed(input: SeedInputs) {
         val filtered = filterModelsByEndpoint(input.rawModels, input.endpointConfigs)
         val state = stateHandle.state
@@ -347,29 +395,10 @@ class ModelSelectionDelegate(
             null
         }
 
-        // Tier 0: an explicit agent passed from the start-chat navigation wins over
-        // everything (last-used / first-agent / first-model). Authoritative + one-shot:
-        // apply the agents endpoint + this agent id directly (the agent was just
-        // selected/created, so trust the id even if the agents list hasn't loaded it
-        // yet — the chat sends the right agent_id and the label resolves once it does).
-        // Cleared after applying so subsequent seeder emissions don't re-pin it.
-        // CRITICAL: also pin [lastAppliedLastUsed] to the CURRENT last-used so the
-        // last-used re-sync below (`lastUsed != lastAppliedLastUsed`) does NOT fire on
-        // the next emission (e.g. when the agents list finishes loading) and clobber
-        // the agent back to a non-agent last-used model. A genuinely NEW last-used
-        // picked later still differs from this pinned value, so the re-sync correctly
-        // follows an explicit later choice.
-        pendingAgentOverride?.let { agentId ->
-            pendingAgentOverride = null
-            lastAppliedLastUsed = lastUsed
-            // Hold this explicit agent across the transient empty-agents window until the
-            // populated list arrives (see [holdAgentForPopulate]); without it the next
-            // (agentsLoaded=true, agents=[]) emission would score the agent INVALID/PENDING
-            // and clobber it to a config model.
-            holdAgentForPopulate = true
-            applySelection(EndpointConstants.AGENTS, agentId, reason = "tier0-agentOverride")
-            return
-        }
+        // Tier 0: an explicit agent or concrete model passed from the start-chat navigation wins
+        // over everything (last-used / first-agent / first-model). One-shot — see [applyPendingOverride].
+        if (applyPendingOverride(lastUsed)) return
+
         val lastUsedSelectability = lastUsed?.let {
             selectability(it.first, it.second, filtered, input.endpointConfigs, input.agents, input.agentsLoaded)
         }
