@@ -178,6 +178,7 @@ class ChatViewModel(
         mcpRepository = mcpRepository,
         settingsDataStore = settingsDataStore,
         permissionGate = permissionGate,
+        connectivityObserver = connectivityObserver,
         initialAgentId = initialAgentId,
         initialEndpoint = initialEndpoint,
         initialModel = initialModel,

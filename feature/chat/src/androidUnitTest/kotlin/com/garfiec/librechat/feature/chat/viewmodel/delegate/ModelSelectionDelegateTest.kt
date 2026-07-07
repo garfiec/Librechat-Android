@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.AgentRepository
@@ -67,6 +68,14 @@ class ModelSelectionDelegateTest {
     }
     private val permissionGate = mockk<PermissionGate>(relaxed = true)
 
+    // Fake connectivity: tests drive offline→online transitions via [isConnected].value.
+    // Starts connected so the observer's initial current-state emission is never a
+    // transition (mirrors the real observer, which emits the current state on collect).
+    private val isConnected = MutableStateFlow(true)
+    private val connectivityObserver = mockk<ConnectivityObserver>(relaxed = true).also {
+        every { it.isConnected } returns isConnected
+    }
+
     private fun newHandle(scope: CoroutineScope, state: ChatUiState = ChatUiState()) =
         ChatStateHandle(stateFlow = MutableStateFlow(state), scope = scope)
 
@@ -82,6 +91,7 @@ class ModelSelectionDelegateTest {
         mcpRepository = mcpRepository,
         settingsDataStore = settingsDataStore,
         permissionGate = permissionGate,
+        connectivityObserver = connectivityObserver,
         initialAgentId = initialAgentId,
         initialEndpoint = initialEndpoint,
         initialModel = initialModel,
@@ -435,6 +445,77 @@ class ModelSelectionDelegateTest {
         delegate.loadAgents(isNewConversation = false)
         advanceUntilIdle()
         delegate.retryAgentsIfFailed(isNewConversation = false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { agentRepository.getAgents() }
+    }
+
+    @Test
+    fun agentsLoadFailedRetriesOnConnectivityRegained() = runTest {
+        // The cold-start-failure fix: a failed load auto-retries on an offline→online
+        // transition, so the user doesn't have to open the selector to recover.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle)
+        allowAgents()
+        isConnected.value = true
+        coEvery { agentRepository.getAgents() } returns Result.Error(RuntimeException("boom"))
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+        assertThat(handle.state.agents).isEmpty()
+
+        // Network drops then recovers; the offline→online transition re-fetches.
+        coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
+        isConnected.value = false
+        advanceUntilIdle()
+        isConnected.value = true
+        advanceUntilIdle()
+
+        assertThat(handle.state.agents).hasSize(1)
+        assertThat(handle.state.error).isNull()
+        coVerify(exactly = 2) { agentRepository.getAgents() }
+    }
+
+    @Test
+    fun agentsLoadFailedDoesNotRetryWhileStayingConnected() = runTest {
+        // Transition-detection guard: a failure while already online (server unreachable /
+        // DNS broken) must NOT retry without an offline→online transition — otherwise a
+        // persistently-connected-but-failing device would spin a tight retry loop.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle)
+        allowAgents()
+        isConnected.value = true
+        coEvery { agentRepository.getAgents() } returns Result.Error(RuntimeException("boom"))
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+
+        // Stays connected the whole time — no transition, so no auto-retry.
+        isConnected.value = true
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { agentRepository.getAgents() }
+    }
+
+    @Test
+    fun successfulLoadDoesNotRetryOnLaterReconnect() = runTest {
+        // A successful load must not leave a reconnect observer running — a later
+        // offline→online transition must not trigger a needless re-fetch.
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope)
+        val delegate = newDelegate(handle)
+        allowAgents()
+        isConnected.value = true
+        coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
+
+        delegate.loadAgents(isNewConversation = false)
+        advanceUntilIdle()
+
+        isConnected.value = false
+        advanceUntilIdle()
+        isConnected.value = true
         advanceUntilIdle()
 
         coVerify(exactly = 1) { agentRepository.getAgents() }

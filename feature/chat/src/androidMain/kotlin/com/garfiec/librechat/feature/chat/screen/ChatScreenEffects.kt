@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.screen
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +53,7 @@ internal fun ChatScreenEffects(
             snackbarHostState.showSnackbar(
                 message = error,
                 actionLabel = "Dismiss",
+                duration = SnackbarDuration.Long,
             )
             viewModel.dismissError()
         }

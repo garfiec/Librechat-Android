@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
+import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.AgentRepository
@@ -37,6 +38,7 @@ class ModelSelectionDelegate(
     private val mcpRepository: McpRepository,
     private val settingsDataStore: SettingsDataStore,
     private val permissionGate: PermissionGate,
+    private val connectivityObserver: ConnectivityObserver,
     initialAgentId: String? = null,
     initialEndpoint: String? = null,
     initialModel: String? = null,
@@ -157,6 +159,14 @@ class ModelSelectionDelegate(
      * launching a duplicate concurrent fetch while one is still running.
      */
     private var agentsLoadJob: Job? = null
+
+    /**
+     * The connectivity observer that retries the agent fetch when the device comes
+     * back online after a failed load. Started from [loadAgents]'s error branch and
+     * cancelled on success; self-cancels once a reconnect retry fires. See
+     * [scheduleAgentsRetryOnReconnect].
+     */
+    private var connectivityRetryJob: Job? = null
 
     /**
      * The last-used (endpoint, model) pair this delegate last applied as the
@@ -621,6 +631,11 @@ class ModelSelectionDelegate(
             }
             when (val result = agentRepository.getAgents()) {
                 is Result.Success -> {
+                    // A selector-open recovery (or a plain success) makes any pending
+                    // reconnect observer moot — cancel it so it can't fire a duplicate
+                    // retry after we already have the list.
+                    connectivityRetryJob?.cancel()
+                    connectivityRetryJob = null
                     // Set agentsLoaded BEFORE publishing the agent list so the
                     // seeder emission carrying the agents already sees the flag —
                     // otherwise tier 2 could fall through to a config model in the
@@ -645,6 +660,7 @@ class ModelSelectionDelegate(
                     agentsLoadFailed = true
                     stateHandle.update { copy(error = AGENTS_LOAD_ERROR) }
                     agentsLoaded.value = true
+                    scheduleAgentsRetryOnReconnect(isNewConversation)
                 }
                 is Result.Loading -> return@launch
             }
@@ -667,6 +683,38 @@ class ModelSelectionDelegate(
     fun retryAgentsIfFailed(isNewConversation: Boolean) {
         if (agentsLoadFailed && agentsLoadJob?.isActive != true) {
             loadAgents(isNewConversation)
+        }
+    }
+
+    /**
+     * Observes connectivity after a failed load and re-fetches agents on the first
+     * offline→online transition, so a cold-start failure (network/DNS not up yet)
+     * recovers on its own instead of waiting for the user to open the model selector.
+     *
+     * Transition-detection (not "retry whenever connected") is deliberate: it fires
+     * once per reconnect rather than looping while online-but-server-unreachable.
+     * [wasConnected] starts null so the observer's initial current-state emission is
+     * never mistaken for a transition. The observer self-cancels after firing; if the
+     * retry fails again it re-enters [loadAgents]'s error branch and re-schedules a
+     * fresh one.
+     *
+     * Known limit: the Android observer keys on NET_CAPABILITY_INTERNET, so a
+     * "connected but DNS broken" failure produces no offline→online transition — the
+     * selector-open [retryAgentsIfFailed] still covers that case.
+     */
+    private fun scheduleAgentsRetryOnReconnect(isNewConversation: Boolean) {
+        connectivityRetryJob?.cancel()
+        connectivityRetryJob = stateHandle.scope.launch {
+            var wasConnected: Boolean? = null
+            connectivityObserver.isConnected.collect { connected ->
+                val recovered = wasConnected == false && connected
+                wasConnected = connected
+                if (recovered) {
+                    retryAgentsIfFailed(isNewConversation)
+                    connectivityRetryJob?.cancel()
+                    connectivityRetryJob = null
+                }
+            }
         }
     }
 
