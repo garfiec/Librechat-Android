@@ -37,6 +37,7 @@ import com.garfiec.librechat.core.network.client.ServerUrlReadyPlugin
 import com.garfiec.librechat.core.network.client.SwitchBarrierPlugin
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
+import com.garfiec.librechat.core.network.client.applyBrowserDefaults
 import com.garfiec.librechat.core.network.sse.SseClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngineFactory
@@ -44,7 +45,6 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.takeFrom
 import io.ktor.serialization.kotlinx.json.json
@@ -110,11 +110,7 @@ val networkModule = module {
                 socketTimeoutMillis = Long.MAX_VALUE
             }
             defaultRequest {
-                val baseUrl = serverUrlProvider.getBaseUrl()
-                if (baseUrl.isNotEmpty()) {
-                    url.takeFrom(baseUrl)
-                }
-                headers.append(HttpHeaders.UserAgent, LibreChatHttpClient.BROWSER_USER_AGENT)
+                applyBrowserDefaults(serverUrlProvider)
             }
         }
     }
