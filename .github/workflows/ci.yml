@@ -173,6 +173,11 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: ${{ runner.os }}-konan-
 
+      # Exercises the real iOS Koin graph (iOS actuals) on the simulator arch — the
+      # first automated check of iOS DI. The ubuntu `test` job can't run K/N tests.
+      - name: iOS Koin graph test
+        run: ./gradlew :shared:iosSimulatorArm64Test
+
       # The Kotlin framework is built by the Xcode "Compile Kotlin Framework" build
       # phase (./gradlew :shared:embedAndSignAppleFrameworkForXcode) — no separate
       # link step needed. Direct integration; see iosApp/README.md.
