@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.QueueHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ComposerSnapshot
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedEditSession
@@ -32,7 +33,7 @@ class MessageQueueDelegateTest {
     private val droppedCounts = mutableListOf<Int>()
     private val activeAccount = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("srv:user-1")))
     private val delegate = MessageQueueDelegate(
-        stateHandle = stateHandle,
+        handle = QueueHandle(stateHandle),
         activeAccountProvider = activeAccount,
         sendWithSpec = { spec, awaitSettle ->
             sent.add(spec)
@@ -56,10 +57,12 @@ class MessageQueueDelegateTest {
     /** Puts the delegate's state into queued-edit mode (an item pulled out into the composer). */
     private fun enterEditMode(original: QueuedMessage = spec("edited")) {
         stateFlow.value = stateFlow.value.copy(
-            editingQueuedItem = QueuedEditSession(
-                original = original,
-                originalIndex = 0,
-                stashed = ComposerSnapshot(text = "", endpoint = "openAI", model = null),
+            composer = stateFlow.value.composer.copy(
+                editingQueuedItem = QueuedEditSession(
+                    original = original,
+                    originalIndex = 0,
+                    stashed = ComposerSnapshot(text = "", endpoint = "openAI", model = null),
+                ),
             ),
         )
     }
@@ -264,7 +267,9 @@ class MessageQueueDelegateTest {
     fun `drained spec retains its queue-time config after state changes`() {
         delegate.enqueue(spec("a", model = "gpt-4"))
         // Mutate live state after queueing — must not retro-edit the queued snapshot.
-        stateFlow.value = stateFlow.value.copy(selectedModel = "claude", selectedEndpoint = "anthropic")
+        stateFlow.value = stateFlow.value.copy(
+            selection = stateFlow.value.selection.copy(selectedModel = "claude", selectedEndpoint = "anthropic"),
+        )
 
         delegate.drainNext()
 
@@ -320,7 +325,7 @@ class MessageQueueDelegateTest {
         val warmingSent = mutableListOf<QueuedMessage>()
         val warmingDropped = mutableListOf<Int>()
         val warmingDelegate = MessageQueueDelegate(
-            stateHandle = stateHandle,
+            handle = QueueHandle(stateHandle),
             activeAccountProvider = warming,
             sendWithSpec = { spec, _ -> warmingSent.add(spec) },
             onQueuedDropped = { warmingDropped.add(it) },

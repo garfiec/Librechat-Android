@@ -1,20 +1,23 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
+import com.garfiec.librechat.feature.chat.viewmodel.TtsHandle
+import com.garfiec.librechat.feature.chat.viewmodel.VoiceHandle
 
 /**
- * Factory that creates platform-specific delegates once the ChatStateHandle is available.
+ * Factory that creates platform-specific delegates once the narrowed handles are available.
  * This is necessary because delegates need the ViewModel's state handle and coroutine scope,
- * which aren't available until the ViewModel is constructed.
+ * which aren't available until the ViewModel is constructed. Each delegate gets only the
+ * narrowed handle it may write through.
  */
 interface PlatformDelegateFactory {
-    fun createFileHandler(stateHandle: ChatStateHandle): PlatformFileHandler
+    fun createFileHandler(handle: ErrorOnlyHandle): PlatformFileHandler
     fun createVoiceInput(
-        stateHandle: ChatStateHandle,
+        handle: VoiceHandle,
         onTranscriptionComplete: () -> Unit,
     ): PlatformVoiceInput
     fun createTts(
-        stateHandle: ChatStateHandle,
+        handle: TtsHandle,
         getMessageText: (String) -> String,
     ): PlatformTts
     fun createShareConsumer(): PlatformShareConsumer

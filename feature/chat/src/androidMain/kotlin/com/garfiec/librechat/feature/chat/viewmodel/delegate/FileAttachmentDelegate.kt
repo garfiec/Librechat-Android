@@ -13,7 +13,7 @@ import com.garfiec.librechat.feature.chat.util.fixFilenameExtension
 import com.garfiec.librechat.feature.chat.util.guessMimeType
 import com.garfiec.librechat.feature.chat.util.reEncodeImageIfNeeded
 import com.garfiec.librechat.feature.chat.util.resolveFileName
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 class FileAttachmentDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: ErrorOnlyHandle,
     private val appContext: Context,
     private val fileRepository: FileRepository,
     private val ioDispatcher: CoroutineDispatcher,
@@ -69,14 +69,14 @@ class FileAttachmentDelegate(
 
         _attachedFiles.update { currentList -> currentList + pendingFile }
 
-        stateHandle.scope.launch(ioDispatcher) {
+        handle.scope.launch(ioDispatcher) {
             try {
                 // Read file bytes
                 val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 if (bytes == null) {
                     Logger.e { "uploadFile: could not read bytes from URI: $uri" }
                     markUploadFailed(uri)
-                    stateHandle.update { copy(error = "Failed to upload $filename: Could not read file") }
+                    handle.setError("Failed to upload $filename: Could not read file")
                     return@launch
                 }
 
@@ -155,7 +155,7 @@ class FileAttachmentDelegate(
                 val fileId = UUID.randomUUID().toString()
 
                 // Upload to server with context about current endpoint/model
-                val state = stateHandle.state
+                val state = handle.state
                 val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
                 Logger.d { "uploadFile: sending to server -- fileId=$fileId, endpoint=${state.selectedEndpoint}, model=${state.selectedModel}, isAgent=$isAgent, mimeType=$mimeType, filename=$uploadFilename" }
                 val result = fileRepository.uploadFile(
@@ -206,9 +206,7 @@ class FileAttachmentDelegate(
                                 }
                             }
                         }
-                        stateHandle.update {
-                            copy(error = "Failed to upload $filename: ${result.message ?: "Unknown error"}")
-                        }
+                        handle.setError("Failed to upload $filename: ${result.message ?: "Unknown error"}")
                     }
                     is Result.Loading -> {
                         Logger.w { "uploadFile: unexpected Result.Loading received for $filename" }
@@ -221,7 +219,7 @@ class FileAttachmentDelegate(
             } catch (e: Exception) {
                 Logger.e(e) { "uploadFile: unexpected exception for $filename" }
                 markUploadFailed(uri)
-                stateHandle.update { copy(error = "Failed to upload $filename: ${e.message}") }
+                handle.setError("Failed to upload $filename: ${e.message}")
             }
         }
     }

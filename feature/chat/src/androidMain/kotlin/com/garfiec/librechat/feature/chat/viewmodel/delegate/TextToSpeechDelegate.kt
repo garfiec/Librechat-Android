@@ -8,7 +8,7 @@ import android.speech.tts.UtteranceProgressListener
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.SpeechRepository
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.TtsHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 class TextToSpeechDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: TtsHandle,
     private val appContext: Context,
     private val speechRepository: SpeechRepository,
     private val settingsDataStore: SettingsDataStore,
@@ -41,26 +41,22 @@ class TextToSpeechDelegate(
                 ttsEngine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) = Unit
                     override fun onDone(utteranceId: String?) {
-                        stateHandle.update { copy(currentlyReadingMessageId = null) }
+                        handle.update { voice = voice.copy(currentlyReadingMessageId = null) }
                     }
 
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
-                        stateHandle.update {
-                            copy(
-                                currentlyReadingMessageId = null,
-                                error = "Text-to-speech playback error",
-                            )
+                        handle.update {
+                            voice = voice.copy(currentlyReadingMessageId = null)
+                            error = "Text-to-speech playback error"
                         }
                     }
                 })
                 onReady()
             } else {
-                stateHandle.update {
-                    copy(
-                        currentlyReadingMessageId = null,
-                        error = "Text-to-speech engine not available on this device",
-                    )
+                handle.update {
+                    voice = voice.copy(currentlyReadingMessageId = null)
+                    error = "Text-to-speech engine not available on this device"
                 }
             }
         }
@@ -68,7 +64,7 @@ class TextToSpeechDelegate(
 
     fun readAloud(messageId: String) {
         // If already reading this message, stop
-        if (stateHandle.state.currentlyReadingMessageId == messageId) {
+        if (handle.state.currentlyReadingMessageId == messageId) {
             stopReading()
             return
         }
@@ -79,9 +75,9 @@ class TextToSpeechDelegate(
         val text = getMessageText(messageId)
         if (text.isBlank()) return
 
-        stateHandle.update { copy(currentlyReadingMessageId = messageId) }
+        handle.update { voice = voice.copy(currentlyReadingMessageId = messageId) }
 
-        stateHandle.scope.launch {
+        handle.scope.launch {
             val source = settingsDataStore.ttsSource.first()
             if (source == "server") {
                 readAloudViaServer(text)
@@ -134,21 +130,19 @@ class TextToSpeechDelegate(
                             // delete are blocking, so hand them to ioDispatcher.
                             setOnCompletionListener { mp ->
                                 serverTtsPlayer = null
-                                stateHandle.update { copy(currentlyReadingMessageId = null) }
-                                stateHandle.scope.launch(ioDispatcher) {
+                                handle.update { voice = voice.copy(currentlyReadingMessageId = null) }
+                                handle.scope.launch(ioDispatcher) {
                                     mp.release()
                                     tempFile.delete()
                                 }
                             }
                             setOnErrorListener { mp, _, _ ->
                                 serverTtsPlayer = null
-                                stateHandle.update {
-                                    copy(
-                                        currentlyReadingMessageId = null,
-                                        error = "Server TTS playback failed",
-                                    )
+                                handle.update {
+                                    voice = voice.copy(currentlyReadingMessageId = null)
+                                    error = "Server TTS playback failed"
                                 }
-                                stateHandle.scope.launch(ioDispatcher) {
+                                handle.scope.launch(ioDispatcher) {
                                     mp.release()
                                     tempFile.delete()
                                 }
@@ -161,20 +155,16 @@ class TextToSpeechDelegate(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    stateHandle.update {
-                        copy(
-                            currentlyReadingMessageId = null,
-                            error = "Server TTS playback failed: ${e.message}",
-                        )
+                    handle.update {
+                        voice = voice.copy(currentlyReadingMessageId = null)
+                        error = "Server TTS playback failed: ${e.message}"
                     }
                 }
             }
             is Result.Error -> {
-                stateHandle.update {
-                    copy(
-                        currentlyReadingMessageId = null,
-                        error = result.message ?: "Server TTS request failed",
-                    )
+                handle.update {
+                    voice = voice.copy(currentlyReadingMessageId = null)
+                    error = result.message ?: "Server TTS request failed"
                 }
             }
             is Result.Loading -> { /* no-op */ }
@@ -188,7 +178,7 @@ class TextToSpeechDelegate(
             it.release()
         }
         serverTtsPlayer = null
-        stateHandle.update { copy(currentlyReadingMessageId = null) }
+        handle.update { voice = voice.copy(currentlyReadingMessageId = null) }
     }
 
     /**
@@ -201,14 +191,14 @@ class TextToSpeechDelegate(
      */
     fun maybeAutoReadResponse(responseText: String) {
         // Don't auto-read if the user has already started typing
-        if (stateHandle.state.inputText.isNotBlank()) return
+        if (handle.state.inputText.isNotBlank()) return
 
-        stateHandle.scope.launch {
+        handle.scope.launch {
             val autoRead = settingsDataStore.autoReadEnabled.first()
             if (!autoRead) return@launch
 
             val syntheticId = "auto_read_${System.currentTimeMillis()}"
-            stateHandle.update { copy(currentlyReadingMessageId = syntheticId) }
+            handle.update { voice = voice.copy(currentlyReadingMessageId = syntheticId) }
 
             val source = settingsDataStore.ttsSource.first()
             if (source == "server") {

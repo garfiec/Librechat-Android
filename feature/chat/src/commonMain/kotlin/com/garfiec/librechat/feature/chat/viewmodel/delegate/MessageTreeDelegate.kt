@@ -7,7 +7,7 @@ import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.mergeFinalMessagesInMemory
 import com.garfiec.librechat.feature.chat.util.resolvedResponseMessage
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.MessageTreeHandle
 
 /**
  * Owns the message-tree branch state and the in-place streaming anchor — the parts
@@ -16,13 +16,13 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
  * display path. Also owns the temporary-chat toggle and the in-memory finalize
  * ([finalizeChatDisplay]) that drives the gap-free completion view.
  *
- * Pure state transforms over [ChatStateHandle] — no repositories, no coroutines.
+ * Pure state transforms over [MessageTreeHandle] — no repositories, no coroutines.
  * The streaming-anchor invariant lives here (see [anchorStreamTo]); the send/edit
  * paths call into this delegate to truncate the path so the trailing streaming
  * bubble renders as the pending child of the right branch.
  */
 class MessageTreeDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: MessageTreeHandle,
 ) {
 
     fun switchBranch(parentMessageId: String, siblingIndex: Int) {
@@ -32,19 +32,19 @@ class MessageTreeDelegate(
         // displayMessages WITHOUT the leaf — un-truncating the path and dropping the
         // streaming reply back to the end. editMessage/regenerateMessage are likewise
         // gated on isStreaming; this closes the same gap for sibling navigation.
-        if (stateHandle.state.isStreaming) return
+        if (handle.state.isStreaming) return
         // Only mutate the branch selection; the observeMessages/activeBranches combine in
         // loadConversation recomputes displayMessages off the Main thread in response, so the
         // tree walk no longer runs synchronously on this UI click path.
-        stateHandle.update {
-            val newBranches = activeBranches.toMutableMap()
+        handle.update {
+            val newBranches = content.activeBranches.toMutableMap()
             newBranches[parentMessageId] = siblingIndex
             // The sibling we're switching to has a different message history, so the seeded context
             // gauge no longer describes it. Clear it (we're !isStreaming here, so no live SSE to
             // disturb) and let observeContextProjection re-project once displayMessages rebuilds with
             // the new tail. sameWindowAs() ignores the tail, so without this the stale numerator
             // would linger until the next send.
-            copy(activeBranches = newBranches, contextUsage = null)
+            content = content.copy(activeBranches = newBranches, contextUsage = null)
         }
     }
 
@@ -66,9 +66,9 @@ class MessageTreeDelegate(
      * stream completes.
      */
     fun anchorStreamTo(parentMessageId: String) {
-        stateHandle.update {
-            copy(
-                displayMessages = buildActiveMessagePath(messages, activeBranches, parentMessageId),
+        handle.update {
+            content = content.copy(
+                displayMessages = buildActiveMessagePath(content.messages, content.activeBranches, parentMessageId),
             )
         }
     }
@@ -77,8 +77,8 @@ class MessageTreeDelegate(
         // Only togglable before the conversation exists. Once a temporary chat is
         // active the toggle is a read-only indicator — the server already created
         // it temporary, so flipping it off here would be misleading.
-        if (stateHandle.state.conversationId != null) return
-        stateHandle.update { copy(isTemporaryChat = !isTemporaryChat) }
+        if (handle.state.conversationId != null) return
+        handle.update { conversation = conversation.copy(isTemporaryChat = !conversation.isTemporaryChat) }
     }
 
     /**
@@ -103,22 +103,25 @@ class MessageTreeDelegate(
         // supports a backend version range. If the Final payload omitted a file that streamed in
         // via `attachment` SSE events, fold it back in (by fileId) so it survives the reload — the
         // streamed list is about to be cleared in the update below. Cheap insurance.
-        val streamedAttachments = stateHandle.state.streamingAttachments
+        val streamedAttachments = handle.state.streamingAttachments
         val response = event.resolvedResponseMessage()?.let { mergeStreamedAttachments(it, streamedAttachments) }
         val finalMessages = listOfNotNull(event.requestMessage, response)
         // Retiring the streaming bubble (clearing the streaming fields) and swapping in the
         // finalized message MUST be ONE update: with a Main.immediate StateFlow every write is
         // observed, so two updates leave a frame where the bubble is gone but the reply isn't
         // in displayMessages yet — the completion flash. (Comparison chats clear in handleFinal.)
-        stateHandle.update {
+        handle.update {
             val mergedMessages = if (finalMessages.isEmpty()) {
-                messages
+                content.messages
             } else {
-                mergeFinalMessagesInMemory(messages, finalMessages)
+                mergeFinalMessagesInMemory(content.messages, finalMessages)
             }
-            copy(
+            // Retire the streaming bubble and swap in the finalized message in ONE slice copy —
+            // all these fields live in `content`, so this stays a single StateFlow emission and
+            // the completion-flash invariant holds structurally.
+            content = content.copy(
                 messages = mergedMessages,
-                displayMessages = buildActiveMessagePath(mergedMessages, activeBranches),
+                displayMessages = buildActiveMessagePath(mergedMessages, content.activeBranches),
                 screenState = ChatScreenState.ACTIVE,
                 isStreaming = false,
                 streamingContent = "",
@@ -135,7 +138,7 @@ class MessageTreeDelegate(
         if (finalMessages.isEmpty()) return emptyList()
         val request = event.requestMessage
             ?: response?.parentMessageId?.let { parentId ->
-                stateHandle.state.messages.firstOrNull { it.messageId == parentId }
+                handle.state.messages.firstOrNull { it.messageId == parentId }
             }
         return listOfNotNull(request, response)
     }

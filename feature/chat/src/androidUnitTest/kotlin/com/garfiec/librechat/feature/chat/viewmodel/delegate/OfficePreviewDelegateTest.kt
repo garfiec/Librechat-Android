@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.OfficePreviewHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
@@ -22,7 +23,7 @@ class OfficePreviewDelegateTest {
     private fun delegate(): OfficePreviewDelegate {
         val flow = MutableStateFlow(ChatUiState())
         val handle = ChatStateHandle(flow, CoroutineScope(TestScope().coroutineContext))
-        return OfficePreviewDelegate(handle, mockk<FileRepository>())
+        return OfficePreviewDelegate(OfficePreviewHandle(handle), mockk<FileRepository>())
     }
 
     private val docMime = "application/vnd.librechat.docx-preview"

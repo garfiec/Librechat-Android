@@ -1,7 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.VoiceHandle
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.launch
 import platform.AVFAudio.AVAudioEngine
@@ -23,7 +23,7 @@ import platform.Speech.SFSpeechRecognizerAuthorizationStatus
  * for real-time on-device speech recognition.
  */
 class IosVoiceInput(
-    private val stateHandle: ChatStateHandle,
+    private val handle: VoiceHandle,
     private val onTranscriptionComplete: () -> Unit,
 ) : PlatformVoiceInput {
 
@@ -36,8 +36,8 @@ class IosVoiceInput(
 
     @OptIn(ExperimentalForeignApi::class)
     override fun startRecording() {
-        log.d { "startRecording() called, isRecording=${stateHandle.state.isRecording}" }
-        if (stateHandle.state.isRecording) return
+        log.d { "startRecording() called, isRecording=${handle.state.isRecording}" }
+        if (handle.state.isRecording) return
 
         // Check authorization
         val authStatus = SFSpeechRecognizer.authorizationStatus()
@@ -48,10 +48,10 @@ class IosVoiceInput(
                 SFSpeechRecognizer.requestAuthorization { status ->
                     log.d { "Authorization callback: status=$status" }
                     if (status == SFSpeechRecognizerAuthorizationStatus.SFSpeechRecognizerAuthorizationStatusAuthorized) {
-                        stateHandle.scope.launch { beginRecording() }
+                        handle.scope.launch { beginRecording() }
                     } else {
                         log.w { "Speech recognition permission denied" }
-                        stateHandle.update { copy(error = "Speech recognition permission denied") }
+                        handle.setError("Speech recognition permission denied")
                     }
                 }
                 return
@@ -62,7 +62,7 @@ class IosVoiceInput(
             }
             else -> {
                 log.w { "Speech recognition not available, authStatus=$authStatus" }
-                stateHandle.update { copy(error = "Speech recognition not available. Check Settings > Privacy > Speech Recognition.") }
+                handle.setError("Speech recognition not available. Check Settings > Privacy > Speech Recognition.")
                 return
             }
         }
@@ -79,7 +79,7 @@ class IosVoiceInput(
             if (!available) {
                 val msg = "Speech recognition not available on this device (locale: ${locale.languageCode}). This feature requires a real device."
                 log.w { msg }
-                stateHandle.update { copy(error = msg) }
+                handle.setError(msg)
                 return
             }
             speechRecognizer = recognizer
@@ -108,19 +108,23 @@ class IosVoiceInput(
                 if (result != null) {
                     val text = result.bestTranscription.formattedString
                     log.d { "Recognition result: '$text', isFinal=${result.isFinal()}" }
-                    stateHandle.update { copy(inputText = text) }
+                    handle.update { composer = composer.copy(inputText = text) }
 
                     if (result.isFinal()) {
                         log.d { "Final result received, stopping" }
                         cleanupAudio()
-                        stateHandle.update { copy(isRecording = false) }
+                        handle.update { voice = voice.copy(isRecording = false) }
                     }
                 }
                 if (error != null) {
-                    log.e { "Recognition error: ${error.localizedDescription}, isRecording=${stateHandle.state.isRecording}" }
-                    if (stateHandle.state.isRecording) {
+                    log.e { "Recognition error: ${error.localizedDescription}, isRecording=${handle.state.isRecording}" }
+                    if (handle.state.isRecording) {
                         cleanupAudio()
-                        stateHandle.update { copy(isRecording = false, error = "Speech recognition error: ${error.localizedDescription}") }
+                        val message = "Speech recognition error: ${error.localizedDescription}"
+                        handle.update {
+                            voice = voice.copy(isRecording = false)
+                            this.error = message
+                        }
                     }
                 }
             }
@@ -144,35 +148,38 @@ class IosVoiceInput(
             engine.startAndReturnError(null)
             log.d { "Audio engine started, setting isRecording=true" }
 
-            stateHandle.update { copy(isRecording = true) }
+            handle.update { voice = voice.copy(isRecording = true) }
         } catch (e: Exception) {
             log.e(e) { "Failed to start recording: ${e.message}" }
             cleanupAudio()
-            stateHandle.update { copy(error = "Could not start recording: ${e.message}") }
+            handle.setError("Could not start recording: ${e.message}")
         }
     }
 
     override fun stopRecording() {
-        if (!stateHandle.state.isRecording) return
+        if (!handle.state.isRecording) return
 
         // End the recognition request so we get the final result
         recognitionRequest?.endAudio()
         cleanupAudio()
-        stateHandle.update { copy(isRecording = false) }
+        handle.update { voice = voice.copy(isRecording = false) }
     }
 
     override fun cancelRecording() {
         recognitionTask?.cancel()
         cleanupAudio()
-        stateHandle.update { copy(isRecording = false, inputText = "") }
+        handle.update {
+            voice = voice.copy(isRecording = false)
+            composer = composer.copy(inputText = "")
+        }
     }
 
     override fun onDeviceSpeechResult(transcribedText: String) {
         if (transcribedText.isBlank()) return
-        val currentInput = stateHandle.state.inputText
+        val currentInput = handle.state.inputText
         val separator = if (currentInput.isNotBlank() && !currentInput.endsWith(" ")) " " else ""
-        stateHandle.update {
-            copy(inputText = currentInput + separator + transcribedText)
+        handle.update {
+            composer = composer.copy(inputText = currentInput + separator + transcribedText)
         }
     }
 

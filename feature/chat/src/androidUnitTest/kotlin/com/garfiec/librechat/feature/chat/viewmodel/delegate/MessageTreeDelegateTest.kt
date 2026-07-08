@@ -5,7 +5,9 @@ import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.MessageTreeHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
+import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +38,7 @@ class MessageTreeDelegateTest {
     private fun delegateWith(state: ChatUiState): Pair<MessageTreeDelegate, MutableStateFlow<ChatUiState>> {
         val flow = MutableStateFlow(state)
         val handle = ChatStateHandle(flow, CoroutineScope(Dispatchers.Unconfined))
-        return MessageTreeDelegate(handle) to flow
+        return MessageTreeDelegate(MessageTreeHandle(handle)) to flow
     }
 
     @Test
@@ -44,9 +46,11 @@ class MessageTreeDelegateTest {
         val optimistic = message("u1", text = "hi", isUser = true)
         val (delegate, flow) = delegateWith(
             ChatUiState(
-                messages = listOf(optimistic),
-                displayMessages = buildActiveMessagePath(listOf(optimistic)),
-                isStreaming = true,
+                content = MessagesState(
+                    messages = listOf(optimistic),
+                    displayMessages = buildActiveMessagePath(listOf(optimistic)),
+                    isStreaming = true,
+                ),
             ),
         )
 
@@ -71,8 +75,10 @@ class MessageTreeDelegateTest {
         val optimistic = message("u2", parentId = "a1", isUser = true)
         val (delegate, flow) = delegateWith(
             ChatUiState(
-                messages = listOf(priorUser, priorAi, optimistic),
-                isStreaming = true,
+                content = MessagesState(
+                    messages = listOf(priorUser, priorAi, optimistic),
+                    isStreaming = true,
+                ),
             ),
         )
 
@@ -94,7 +100,7 @@ class MessageTreeDelegateTest {
     fun `finalizeChatDisplay with no final messages is a no-op`() {
         val optimistic = message("u1", isUser = true)
         val (delegate, flow) = delegateWith(
-            ChatUiState(messages = listOf(optimistic), isStreaming = true),
+            ChatUiState(content = MessagesState(messages = listOf(optimistic), isStreaming = true)),
         )
 
         delegate.finalizeChatDisplay(StreamEvent.Final())

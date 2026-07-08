@@ -3,7 +3,7 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.SpeechRepository
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.TtsHandle
 import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ private const val MIN_SPEECH_RATE = 0.0f
 private const val MAX_SPEECH_RATE = 1.0f
 
 class IosTts(
-    private val stateHandle: ChatStateHandle,
+    private val handle: TtsHandle,
     private val speechRepository: SpeechRepository,
     private val settingsDataStore: SettingsDataStore,
     private val getMessageText: (String) -> String,
@@ -35,7 +35,7 @@ class IosTts(
             synthesizer: AVSpeechSynthesizer,
             didFinishSpeechUtterance: AVSpeechUtterance,
         ) {
-            stateHandle.update { copy(currentlyReadingMessageId = null) }
+            handle.update { voice = voice.copy(currentlyReadingMessageId = null) }
         }
 
         @ObjCSignatureOverride
@@ -43,7 +43,7 @@ class IosTts(
             synthesizer: AVSpeechSynthesizer,
             didCancelSpeechUtterance: AVSpeechUtterance,
         ) {
-            stateHandle.update { copy(currentlyReadingMessageId = null) }
+            handle.update { voice = voice.copy(currentlyReadingMessageId = null) }
         }
     }
 
@@ -52,7 +52,7 @@ class IosTts(
     }
 
     override fun readAloud(messageId: String) {
-        if (stateHandle.state.currentlyReadingMessageId == messageId) {
+        if (handle.state.currentlyReadingMessageId == messageId) {
             stopReading()
             return
         }
@@ -62,9 +62,9 @@ class IosTts(
         val text = getMessageText(messageId)
         if (text.isBlank()) return
 
-        stateHandle.update { copy(currentlyReadingMessageId = messageId) }
+        handle.update { voice = voice.copy(currentlyReadingMessageId = messageId) }
 
-        stateHandle.scope.launch {
+        handle.scope.launch {
             val source = settingsDataStore.ttsSource.first()
             if (source == "server") {
                 readAloudViaServer(text)
@@ -97,11 +97,9 @@ class IosTts(
                 readAloudViaDevice(text, rate, pitch)
             }
             is Result.Error -> {
-                stateHandle.update {
-                    copy(
-                        currentlyReadingMessageId = null,
-                        error = result.message ?: "Server TTS request failed",
-                    )
+                handle.update {
+                    voice = voice.copy(currentlyReadingMessageId = null)
+                    error = result.message ?: "Server TTS request failed"
                 }
             }
             is Result.Loading -> { /* no-op */ }
@@ -112,18 +110,18 @@ class IosTts(
         if (synthesizer.isSpeaking()) {
             synthesizer.stopSpeakingAtBoundary(AVSpeechBoundary.AVSpeechBoundaryImmediate)
         }
-        stateHandle.update { copy(currentlyReadingMessageId = null) }
+        handle.update { voice = voice.copy(currentlyReadingMessageId = null) }
     }
 
     override fun maybeAutoReadResponse(responseText: String) {
-        if (stateHandle.state.inputText.isNotBlank()) return
+        if (handle.state.inputText.isNotBlank()) return
 
-        stateHandle.scope.launch {
+        handle.scope.launch {
             val autoRead = settingsDataStore.autoReadEnabled.first()
             if (!autoRead) return@launch
 
             val syntheticId = "auto_read_${NSDate().timeIntervalSince1970().toLong()}"
-            stateHandle.update { copy(currentlyReadingMessageId = syntheticId) }
+            handle.update { voice = voice.copy(currentlyReadingMessageId = syntheticId) }
 
             val source = settingsDataStore.ttsSource.first()
             if (source == "server") {

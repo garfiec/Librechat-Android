@@ -6,14 +6,14 @@ import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.SubagentPhase
 import com.garfiec.librechat.core.model.content.AgentToolCall
 import com.garfiec.librechat.core.model.content.MessageContentPart
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.SubagentHandle
 import com.garfiec.librechat.feature.chat.viewmodel.SubagentTrace
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
 /**
  * Folds live `on_subagent_update` SSE envelopes (v0.8.6 subagents) into a
- * per-parent-tool-call [SubagentTrace] buffer in [ChatStateHandle], so the chat
+ * per-parent-tool-call [SubagentTrace] buffer in the chat state, so the chat
  * UI can show a child agent's reasoning / tool calls / text as it streams.
  *
  * Correlation mirrors the web client (useStepHandler): prefer the envelope's
@@ -34,7 +34,7 @@ import kotlinx.serialization.json.JsonElement
  * delegate only owns the live path.
  */
 class SubagentTraceDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: SubagentHandle,
     private val json: Json,
 ) {
 
@@ -52,15 +52,15 @@ class SubagentTraceDelegate(
         runToToolCallId.clear()
         claimedToolCallIds.clear()
         pendingByRunId.clear()
-        stateHandle.update { copy(subagentProgress = emptyMap()) }
+        handle.update { subagents = subagents.copy(subagentProgress = emptyMap()) }
     }
 
     /** Marks the trace for a resolved parent tool_call complete (stops accumulation). */
     fun onParentToolCallResolved(toolCallId: String) {
-        val existing = stateHandle.state.subagentProgress[toolCallId] ?: return
+        val existing = handle.state.subagentProgress[toolCallId] ?: return
         if (existing.isComplete) return
-        stateHandle.update {
-            copy(subagentProgress = subagentProgress + (toolCallId to existing.copy(isComplete = true)))
+        handle.update {
+            subagents = subagents.copy(subagentProgress = subagents.subagentProgress + (toolCallId to existing.copy(isComplete = true)))
         }
     }
 
@@ -98,7 +98,7 @@ class SubagentTraceDelegate(
             return explicit
         }
         // Fallback: oldest unclaimed subagent tool_call in the active stream.
-        val candidate = stateHandle.state.activeToolCalls.firstOrNull {
+        val candidate = handle.state.activeToolCalls.firstOrNull {
             it.name.equals(ToolConstants.SUBAGENT, ignoreCase = true) && it.id !in claimedToolCallIds
         } ?: return null
         if (runId != null) runToToolCallId[runId] = candidate.id
@@ -107,7 +107,7 @@ class SubagentTraceDelegate(
     }
 
     private fun applyToTrace(toolCallId: String, event: StreamEvent.SubagentUpdate) {
-        val current = stateHandle.state.subagentProgress[toolCallId] ?: SubagentTrace(
+        val current = handle.state.subagentProgress[toolCallId] ?: SubagentTrace(
             parentToolCallId = toolCallId,
             subagentRunId = event.subagentRunId,
         )
@@ -116,9 +116,9 @@ class SubagentTraceDelegate(
         val isTerminal = SubagentPhase.isTerminal(event.phase)
         val nextParts = event.inner?.let { foldInner(current.parts, it) } ?: current.parts
 
-        stateHandle.update {
-            copy(
-                subagentProgress = subagentProgress + (
+        handle.update {
+            subagents = subagents.copy(
+                subagentProgress = subagents.subagentProgress + (
                     toolCallId to current.copy(
                         subagentRunId = current.subagentRunId ?: event.subagentRunId,
                         subagentType = event.subagentType ?: current.subagentType,

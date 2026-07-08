@@ -5,7 +5,9 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.SearchHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
+import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
 import com.garfiec.librechat.feature.chat.viewmodel.SearchMatch
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,7 +26,7 @@ class InConversationSearchDelegateTest {
 
     private val stateFlow = MutableStateFlow(ChatUiState())
     private val stateHandle = ChatStateHandle(stateFlow, TestScope())
-    private val delegate = InConversationSearchDelegate(stateHandle)
+    private val delegate = InConversationSearchDelegate(SearchHandle(stateHandle))
 
     private val state get() = stateFlow.value
 
@@ -36,7 +38,7 @@ class InConversationSearchDelegateTest {
     )
 
     private fun seed(vararg texts: String) {
-        stateFlow.value = ChatUiState(displayMessages = texts.map { node(it) })
+        stateFlow.value = ChatUiState(content = MessagesState(displayMessages = texts.map { node(it) }))
     }
 
     /** A parallel (Compare-Models) message: a primary-agent part plus an added-agent (`____1`) part. */
@@ -58,7 +60,7 @@ class InConversationSearchDelegateTest {
     fun `parallel turn counts only the primary agent's occurrences`() {
         // The single/primary list renders only the primary-agent parts (collapseParallelToPrimary),
         // so the secondary "foo foo" must NOT inflate the match list or shift occurrence indices.
-        stateFlow.value = ChatUiState(displayMessages = listOf(parallelNode("foo", "foo foo")))
+        stateFlow.value = ChatUiState(content = MessagesState(displayMessages = listOf(parallelNode("foo", "foo foo"))))
         delegate.onSearchQueryChanged("foo")
 
         assertThat(state.searchMatchIndices).containsExactly(

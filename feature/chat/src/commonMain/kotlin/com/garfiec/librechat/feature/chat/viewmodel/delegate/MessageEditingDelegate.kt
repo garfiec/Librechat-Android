@@ -8,7 +8,7 @@ import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.MessageEditingHandle
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
@@ -24,7 +24,7 @@ import kotlin.uuid.Uuid
  * the new-message send path and TTS); they're injected as [runWhenSendReady] / [getMessageText].
  */
 class MessageEditingDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: MessageEditingHandle,
     private val chatRepository: ChatRepository,
     private val messageRepository: MessageRepository,
     private val treeDelegate: MessageTreeDelegate,
@@ -35,9 +35,9 @@ class MessageEditingDelegate(
 ) {
 
     fun editMessage(messageId: String, newText: String) {
-        if (newText.isBlank() || stateHandle.state.isStreaming) return
+        if (newText.isBlank() || handle.state.isStreaming) return
 
-        val originalMessage = stateHandle.state.messages.find { it.messageId == messageId } ?: return
+        val originalMessage = handle.state.messages.find { it.messageId == messageId } ?: return
 
         runWhenSendReady {
             if (originalMessage.isCreatedByUser) {
@@ -62,7 +62,7 @@ class MessageEditingDelegate(
         // mergeFinalMessagesInMemory for temp chats (which never touch Room).
         val optimisticMessage = Message(
             messageId = Uuid.random().toString(),
-            conversationId = stateHandle.state.conversationId ?: "",
+            conversationId = handle.state.conversationId ?: "",
             parentMessageId = parentMessageId,
             text = newText,
             isCreatedByUser = true,
@@ -70,11 +70,11 @@ class MessageEditingDelegate(
             createdAt = Clock.System.now().toString(),
             files = originalMessage.files,
         )
-        stateHandle.update {
-            val updatedMessages = messages + optimisticMessage
-            copy(
+        handle.update {
+            val updatedMessages = content.messages + optimisticMessage
+            content = content.copy(
                 messages = updatedMessages,
-                displayMessages = buildActiveMessagePath(updatedMessages, activeBranches, optimisticMessage.messageId),
+                displayMessages = buildActiveMessagePath(updatedMessages, content.activeBranches, optimisticMessage.messageId),
             )
         }
 
@@ -89,7 +89,7 @@ class MessageEditingDelegate(
     }
 
     private fun editAiMessage(aiMessage: Message) {
-        val parentUserMessage = stateHandle.state.messages.find {
+        val parentUserMessage = handle.state.messages.find {
             it.messageId == aiMessage.parentMessageId
         } ?: return
 
@@ -99,7 +99,7 @@ class MessageEditingDelegate(
         // the old one. The web client seeds the placeholder with the edited content
         // for a transient preview; we don't (the regenerated server response is
         // authoritative on Final either way).
-        if (stateHandle.state.conversationId == null) return
+        if (handle.state.conversationId == null) return
         treeDelegate.anchorStreamTo(parentUserMessage.messageId)
         launchSend(
             text = parentUserMessage.text,
@@ -113,12 +113,12 @@ class MessageEditingDelegate(
     }
 
     fun regenerateMessage(messageId: String) {
-        if (stateHandle.state.isStreaming) return
+        if (handle.state.isStreaming) return
 
-        val aiMessage = stateHandle.state.messages.find { it.messageId == messageId } ?: return
+        val aiMessage = handle.state.messages.find { it.messageId == messageId } ?: return
         if (aiMessage.isCreatedByUser) return
 
-        val parentUserMessage = stateHandle.state.messages.find {
+        val parentUserMessage = handle.state.messages.find {
             it.messageId == aiMessage.parentMessageId
         } ?: return
 
@@ -138,12 +138,12 @@ class MessageEditingDelegate(
     }
 
     fun continueGeneration() {
-        if (stateHandle.state.isStreaming) return
-        val lastAiMessage = stateHandle.state.displayMessages.lastOrNull {
+        if (handle.state.isStreaming) return
+        val lastAiMessage = handle.state.displayMessages.lastOrNull {
             !it.message.isCreatedByUser
         } ?: return
 
-        val parentUserMessage = stateHandle.state.messages.find {
+        val parentUserMessage = handle.state.messages.find {
             it.messageId == lastAiMessage.message.parentMessageId
         } ?: return
 
@@ -190,7 +190,7 @@ class MessageEditingDelegate(
     ) {
         streamingManager.prepareForStreaming(isEdit = true)
 
-        val state = stateHandle.state
+        val state = handle.state
         val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
         val webSearchEnabled = state.modelParameters.webSearch
         val ephemeralAgent = requestBuilder.buildEphemeralAgent()
@@ -226,34 +226,34 @@ class MessageEditingDelegate(
 
     fun startEditing(messageId: String) {
         val text = getMessageText(messageId)
-        stateHandle.update { copy(editingMessageId = messageId, editingText = text) }
+        handle.update { editing = editing.copy(editingMessageId = messageId, editingText = text) }
     }
 
     fun onEditTextChanged(text: String) {
-        stateHandle.update { copy(editingText = text) }
+        handle.update { editing = editing.copy(editingText = text) }
     }
 
     fun cancelEditing() {
-        stateHandle.update { copy(editingMessageId = null, editingText = "") }
+        handle.update { editing = editing.copy(editingMessageId = null, editingText = "") }
     }
 
     fun submitEdit() {
-        val messageId = stateHandle.state.editingMessageId ?: return
-        val newText = stateHandle.state.editingText.trim()
+        val messageId = handle.state.editingMessageId ?: return
+        val newText = handle.state.editingText.trim()
         if (newText.isBlank()) return
 
-        stateHandle.update { copy(editingMessageId = null, editingText = "") }
+        handle.update { editing = editing.copy(editingMessageId = null, editingText = "") }
         editMessage(messageId, newText)
     }
 
     fun saveEditOnly() {
-        val messageId = stateHandle.state.editingMessageId ?: return
-        val conversationId = stateHandle.state.conversationId ?: return
-        val newText = stateHandle.state.editingText.trim()
+        val messageId = handle.state.editingMessageId ?: return
+        val conversationId = handle.state.conversationId ?: return
+        val newText = handle.state.editingText.trim()
         if (newText.isBlank()) return
 
-        stateHandle.update { copy(editingMessageId = null, editingText = "") }
-        stateHandle.scope.launch {
+        handle.update { editing = editing.copy(editingMessageId = null, editingText = "") }
+        handle.scope.launch {
             messageRepository.updateMessageText(conversationId, messageId, newText)
         }
     }

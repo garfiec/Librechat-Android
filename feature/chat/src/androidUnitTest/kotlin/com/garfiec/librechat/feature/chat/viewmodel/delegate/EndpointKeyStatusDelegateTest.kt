@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.model.endpoint.KeyInvalidation
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.endpoint.fromWire
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.EndpointKeyHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
@@ -61,7 +62,7 @@ class EndpointKeyStatusDelegateTest {
     fun unsetWhenGetKeyExpiryReturnsNull() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(mapOf("openAI" to EndpointConfig(userProvide = true)))
@@ -74,7 +75,7 @@ class EndpointKeyStatusDelegateTest {
     fun setWithFutureIsoTimestamp() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         val future = (Clock.System.now() + 1.days).toString()
         coEvery { keyRepository.fetchKeyState("openAI") } returns
             Result.Success(KeyState.fromWire(future, Clock.System.now()).state)
@@ -93,7 +94,7 @@ class EndpointKeyStatusDelegateTest {
     fun expiredWhenIsoTimestampInPast() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         val past = (Clock.System.now() - 1.days).toString()
         coEvery { keyRepository.fetchKeyState("openAI") } returns
             Result.Success(KeyState.fromWire(past, Clock.System.now()).state)
@@ -108,7 +109,7 @@ class EndpointKeyStatusDelegateTest {
     fun setNeverExpiresWhenWireValueIsNeverLiteral() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState("openAI") } returns
             Result.Success(KeyState.Set(expiresAt = null, neverExpires = true, wire = "never"))
 
@@ -126,7 +127,7 @@ class EndpointKeyStatusDelegateTest {
     fun userProvideUrlOnlyEndpointStillTrackedAsNeedsKey() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(
@@ -141,7 +142,7 @@ class EndpointKeyStatusDelegateTest {
     fun builtInEndpointsAbsentFromResultMap() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(
@@ -159,7 +160,7 @@ class EndpointKeyStatusDelegateTest {
     fun azureEndpointResolvesToAzureOpenAiKeyName() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState("azureOpenAI") } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(
@@ -175,7 +176,7 @@ class EndpointKeyStatusDelegateTest {
     fun networkErrorOnFirstLoadFallsBackToUnset() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns
             Result.Error(RuntimeException("server unavailable"))
 
@@ -196,7 +197,7 @@ class EndpointKeyStatusDelegateTest {
         // last-known value rather than demoting it to Unset/CTA.
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
 
         val future = (Clock.System.now() + 1.days).toString()
         val resolvedSet = KeyState.Set(
@@ -225,7 +226,7 @@ class EndpointKeyStatusDelegateTest {
     fun loadingStatePushedOptimisticallyBeforeFanOut() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
 
         // Stub never returns until we explicitly advance the scheduler so we can
         // observe the optimistic Loading state mid-fan-out.
@@ -248,7 +249,7 @@ class EndpointKeyStatusDelegateTest {
     fun emptyConfigsClearsExistingStates() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(mapOf("openAI" to EndpointConfig(userProvide = true)))
@@ -263,7 +264,7 @@ class EndpointKeyStatusDelegateTest {
     fun keyInvalidationByNameTriggersRecompute() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(mapOf("openAI" to EndpointConfig(userProvide = true)))
@@ -279,7 +280,7 @@ class EndpointKeyStatusDelegateTest {
     fun keyInvalidationForUnrelatedEndpointDoesNotTriggerRecompute() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(mapOf("openAI" to EndpointConfig(userProvide = true)))
@@ -296,7 +297,7 @@ class EndpointKeyStatusDelegateTest {
     fun keyInvalidationAllAlwaysRefreshes() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         delegate.recomputeFor(mapOf("openAI" to EndpointConfig(userProvide = true)))
@@ -314,7 +315,7 @@ class EndpointKeyStatusDelegateTest {
         // it had entries, and must skip the state write entirely if already empty.
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
 
         // Seed with a non-empty map.
@@ -336,7 +337,7 @@ class EndpointKeyStatusDelegateTest {
         // Otherwise the user's just-saved key would not be reflected snappily.
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
 
         // First call: suspend indefinitely so the fan-out is in-flight when the
         // invalidation arrives.
@@ -376,7 +377,7 @@ class EndpointKeyStatusDelegateTest {
         // Loading; resolved Set/Expired/Unset values are preserved.
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(scope)
-        val delegate = EndpointKeyStatusDelegate(handle, keyRepository)
+        val delegate = EndpointKeyStatusDelegate(EndpointKeyHandle(handle), keyRepository)
 
         val future = (Clock.System.now() + 1.days).toString()
         coEvery { keyRepository.fetchKeyState("openAI") } returns

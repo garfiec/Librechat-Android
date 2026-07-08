@@ -19,7 +19,7 @@ import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionHandle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 private const val AGENTS_LOAD_ERROR = "Could not load available agents"
 
 class ModelSelectionDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: ModelSelectionHandle,
     private val configRepository: ConfigRepository,
     private val agentRepository: AgentRepository,
     private val mcpRepository: McpRepository,
@@ -200,7 +200,7 @@ class ModelSelectionDelegate(
             configRepository.availableModels.value,
             configRepository.endpointConfigs.value,
         )
-        stateHandle.update { copy(availableModels = filtered) }
+        handle.update { selection = selection.copy(availableModels = filtered) }
 
         // Don't validate against an empty models list — models haven't
         // loaded yet. When they arrive this method will be called again.
@@ -224,8 +224,8 @@ class ModelSelectionDelegate(
         // that selectedModel is actually one of the loaded agent IDs.
         // When modelsForEndpoint is absent (still loading), skip the check
         // rather than clobber the selection.
-        val currentEndpoint = stateHandle.state.selectedEndpoint
-        val currentModel = stateHandle.state.selectedModel
+        val currentEndpoint = handle.state.selectedEndpoint
+        val currentModel = handle.state.selectedModel
         val modelsForEndpoint = filtered[currentEndpoint]
         val selectionValid = currentModel != null &&
             (modelsForEndpoint == null || currentModel in modelsForEndpoint)
@@ -249,7 +249,7 @@ class ModelSelectionDelegate(
                 // re-runs refilterModels on success to un-stick this.
                 when {
                     !agentsLoaded.value -> return
-                    stateHandle.state.agents.any { it.id == lastModel } -> true
+                    handle.state.agents.any { it.id == lastModel } -> true
                     else -> false
                 }
             } else {
@@ -265,8 +265,8 @@ class ModelSelectionDelegate(
                         "endpoint" to lastEndpoint,
                     ),
                 ) { "refilterModels corrective fallback → last-used" }
-                stateHandle.update {
-                    copy(
+                handle.update {
+                    selection = selection.copy(
                         selectedEndpoint = lastEndpoint,
                         selectedModel = lastModel,
                     )
@@ -285,8 +285,8 @@ class ModelSelectionDelegate(
                     "endpoint" to firstEndpoint.key,
                 ),
             ) { "refilterModels corrective fallback → first model" }
-            stateHandle.update {
-                copy(
+            handle.update {
+                selection = selection.copy(
                     selectedEndpoint = firstEndpoint.key,
                     selectedModel = firstEndpoint.value.firstOrNull(),
                 )
@@ -312,7 +312,7 @@ class ModelSelectionDelegate(
      *   3. first available config model
      */
     fun seedInitialSelection(isNewConversation: Boolean) {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             combine(
                 settingsDataStore.lastUsedEndpoint,
                 settingsDataStore.lastUsedModel,
@@ -353,7 +353,7 @@ class ModelSelectionDelegate(
      * the seeder and lets it fall through past the agents tier.
      */
     private fun agentsInput(): Flow<AgentsInput> = combine(
-        stateHandle.stateFlow.map { it.agents to it.conversationId }.distinctUntilChanged(),
+        handle.stateFlow.map { it.agents to it.conversationId }.distinctUntilChanged(),
         agentsLoaded,
     ) { agentsAndConvId, loaded ->
         AgentsInput(
@@ -397,7 +397,7 @@ class ModelSelectionDelegate(
 
     private fun applySeed(input: SeedInputs) {
         val filtered = filterModelsByEndpoint(input.rawModels, input.endpointConfigs)
-        val state = stateHandle.state
+        val state = handle.state
 
         val lastUsed = if (input.lastEndpoint != null && input.lastModel != null) {
             input.lastEndpoint to input.lastModel
@@ -516,10 +516,10 @@ class ModelSelectionDelegate(
     }
 
     private fun applySelection(endpoint: String, model: String?, reason: String) {
-        val previous = stateHandle.state
+        val previous = handle.state
         val changed = previous.selectedEndpoint != endpoint || previous.selectedModel != model
-        stateHandle.update {
-            copy(selectedEndpoint = endpoint, selectedModel = model)
+        handle.update {
+            selection = selection.copy(selectedEndpoint = endpoint, selectedModel = model)
         }
         if (changed) {
             Diag.d(
@@ -597,8 +597,8 @@ class ModelSelectionDelegate(
     )
 
     fun onModelSelected(endpoint: String, model: String) {
-        stateHandle.update {
-            copy(
+        handle.update {
+            selection = selection.copy(
                 selectedEndpoint = endpoint,
                 selectedModel = model,
             )
@@ -606,7 +606,7 @@ class ModelSelectionDelegate(
         // Keep cached values in sync so refilterModels uses the latest choice
         cachedLastUsedEndpoint = endpoint
         cachedLastUsedModel = model
-        stateHandle.scope.launch {
+        handle.scope.launch {
             settingsDataStore.setLastUsedModel(endpoint, model)
         }
     }
@@ -619,7 +619,7 @@ class ModelSelectionDelegate(
      */
     fun loadAgents(isNewConversation: Boolean) {
         agentsLoadFailed = false
-        agentsLoadJob = stateHandle.scope.launch {
+        agentsLoadJob = handle.scope.launch {
             // Skip the fetch entirely when the role denies AGENTS.USE; otherwise
             // the server would return 403 and we'd have to decide whether it's a
             // genuine 403 (rate limit, tenancy) vs. permission denial.
@@ -641,15 +641,13 @@ class ModelSelectionDelegate(
                     // otherwise tier 2 could fall through to a config model in the
                     // one-emission window before the flag flips.
                     agentsLoaded.value = true
-                    stateHandle.update {
-                        copy(
-                            agents = result.data,
-                            // A successful retry must not leave the failure banner from
-                            // the attempt it just recovered next to the populated list.
-                            // Clear only our own message — the error slot is shared
-                            // with other delegates.
-                            error = error.takeUnless { it == AGENTS_LOAD_ERROR },
-                        )
+                    handle.update {
+                        selection = selection.copy(agents = result.data)
+                        // A successful retry must not leave the failure banner from
+                        // the attempt it just recovered next to the populated list.
+                        // Clear only our own message — the error slot is shared
+                        // with other delegates.
+                        error = error.takeUnless { it == AGENTS_LOAD_ERROR }
                     }
                 }
                 is Result.Error -> {
@@ -658,7 +656,7 @@ class ModelSelectionDelegate(
                     // when the user next opens the selector. The AccountKeyedCache only
                     // stores successes, so the retry genuinely re-hits the network.
                     agentsLoadFailed = true
-                    stateHandle.update { copy(error = AGENTS_LOAD_ERROR) }
+                    handle.setError(AGENTS_LOAD_ERROR)
                     agentsLoaded.value = true
                     scheduleAgentsRetryOnReconnect(isNewConversation)
                 }
@@ -704,7 +702,7 @@ class ModelSelectionDelegate(
      */
     private fun scheduleAgentsRetryOnReconnect(isNewConversation: Boolean) {
         connectivityRetryJob?.cancel()
-        connectivityRetryJob = stateHandle.scope.launch {
+        connectivityRetryJob = handle.scope.launch {
             var wasConnected: Boolean? = null
             connectivityObserver.isConnected.collect { connected ->
                 val recovered = wasConnected == false && connected
@@ -719,7 +717,7 @@ class ModelSelectionDelegate(
     }
 
     fun loadMcpServers() {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (val serversResult = mcpRepository.listServers()) {
                 is Result.Success -> {
                     val servers = serversResult.data
@@ -730,8 +728,8 @@ class ModelSelectionDelegate(
                         val status = statusMap[server.name]
                         server.copy(isConnected = status?.isConnected ?: false)
                     }
-                    stateHandle.update {
-                        copy(mcpServers = enriched.map { it.toDisplayData() })
+                    handle.update {
+                        selection = selection.copy(mcpServers = enriched.map { it.toDisplayData() })
                     }
                 }
                 is Result.Error -> {
@@ -743,46 +741,46 @@ class ModelSelectionDelegate(
     }
 
     fun toggleMcpServer(serverName: String) {
-        val current = stateHandle.state.selectedMcpServerNames
+        val current = handle.state.selectedMcpServerNames
         val updated = if (serverName in current) current - serverName else current + serverName
-        stateHandle.update { copy(selectedMcpServerNames = updated) }
-        stateHandle.scope.launch { settingsDataStore.setSelectedMcpServers(updated) }
+        handle.update { selection = selection.copy(selectedMcpServerNames = updated) }
+        handle.scope.launch { settingsDataStore.setSelectedMcpServers(updated) }
     }
 
     fun toggleTool(toolName: String) {
         if (toolName == ToolConstants.WEB_SEARCH) {
             // Web search is backed by modelParameters.webSearch (single source of truth).
-            val current = stateHandle.state.modelParameters.webSearch
-            stateHandle.update {
-                copy(modelParameters = modelParameters.copy(webSearch = !current))
+            val current = handle.state.modelParameters.webSearch
+            handle.update {
+                selection = selection.copy(modelParameters = selection.modelParameters.copy(webSearch = !current))
             }
         } else if (toolName == ToolConstants.URL_CONTEXT) {
             // URL context (Google-only) is backed by modelParameters.urlContext, like web search.
-            val current = stateHandle.state.modelParameters.urlContext
-            stateHandle.update {
-                copy(modelParameters = modelParameters.copy(urlContext = !current))
+            val current = handle.state.modelParameters.urlContext
+            handle.update {
+                selection = selection.copy(modelParameters = selection.modelParameters.copy(urlContext = !current))
             }
-        } else if (toolName == ToolConstants.CODE_INTERPRETER && !stateHandle.state.isCodeInterpreterAvailable) {
+        } else if (toolName == ToolConstants.CODE_INTERPRETER && !handle.state.isCodeInterpreterAvailable) {
             // Code interpreter is not available on this server; ignore toggle attempt.
             return
         } else {
-            val current = stateHandle.state.enabledTools
+            val current = handle.state.enabledTools
             val updated = if (toolName in current) current - toolName else current + toolName
-            stateHandle.update { copy(enabledTools = updated) }
-            stateHandle.scope.launch { settingsDataStore.setEnabledTools(updated) }
+            handle.update { selection = selection.copy(enabledTools = updated) }
+            handle.scope.launch { settingsDataStore.setEnabledTools(updated) }
         }
     }
 
     fun showModelParameters() {
-        stateHandle.update { copy(showModelParameters = true) }
+        handle.update { selection = selection.copy(showModelParameters = true) }
     }
 
     fun hideModelParameters() {
-        stateHandle.update { copy(showModelParameters = false) }
+        handle.update { selection = selection.copy(showModelParameters = false) }
     }
 
     fun updateModelParameters(parameters: ModelParameters) {
-        stateHandle.update { copy(modelParameters = parameters) }
+        handle.update { selection = selection.copy(modelParameters = parameters) }
     }
 }
 

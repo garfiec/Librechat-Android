@@ -13,7 +13,7 @@ import com.garfiec.librechat.feature.chat.util.secondaryAgentId
 import com.garfiec.librechat.feature.chat.util.stripAgentIdSuffix
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ComparisonHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ComparisonState
 import com.garfiec.librechat.feature.chat.viewmodel.resolveEndpointDispatch
 import kotlinx.coroutines.launch
@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
  * server interleaves both agents' deltas on one stream (distinguished via [isSecondaryEvent]).
  */
 class ComparisonModeDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: ComparisonHandle,
     private val messageRepository: MessageRepository,
     /** Reloads the conversation from the server after branching (VM-owned Room observer). */
     private val reloadConversation: (String) -> Unit,
@@ -45,21 +45,25 @@ class ComparisonModeDelegate(
 
     /** Toggles comparison mode on/off, inheriting the primary endpoint/model when enabling. */
     fun toggleComparison() {
-        val current = stateHandle.state.comparisonState
-        if (current.isEnabled) {
+        val snapshot = handle.state
+        if (snapshot.comparisonState.isEnabled) {
             primaryBuffer.clear()
             secondaryBuffer.clear()
-            stateHandle.update { copy(comparisonState = ComparisonState()) }
+            handle.update { comparisonState = ComparisonState() }
         } else {
-            stateHandle.update {
-                copy(
-                    comparisonState = ComparisonState(
-                        isEnabled = true,
-                        secondaryEndpoint = selectedEndpoint,
-                        secondaryModel = selectedModel,
-                    ),
-                    // When enabling on LANDING, switch to ACTIVE so comparison tabs render
-                    screenState = if (screenState == ChatScreenState.LANDING) ChatScreenState.ACTIVE else screenState,
+            handle.update {
+                comparisonState = ComparisonState(
+                    isEnabled = true,
+                    secondaryEndpoint = snapshot.selectedEndpoint,
+                    secondaryModel = snapshot.selectedModel,
+                )
+                // When enabling on LANDING, switch to ACTIVE so comparison tabs render
+                content = content.copy(
+                    screenState = if (content.screenState == ChatScreenState.LANDING) {
+                        ChatScreenState.ACTIVE
+                    } else {
+                        content.screenState
+                    },
                 )
             }
         }
@@ -67,20 +71,20 @@ class ComparisonModeDelegate(
 
     /** Updates the secondary model selection for comparison mode. */
     fun setSecondaryModel(endpoint: String, model: String) {
-        val comparison = stateHandle.state.comparisonState
+        val comparison = handle.state.comparisonState
         if (!comparison.isEnabled) return
-        stateHandle.update {
-            copy(comparisonState = comparison.copy(secondaryEndpoint = endpoint, secondaryModel = model))
+        handle.update {
+            comparisonState = comparison.copy(secondaryEndpoint = endpoint, secondaryModel = model)
         }
     }
 
     /** Resolves a display-friendly name for the secondary model. */
     fun getSecondaryModelDisplayName(): String? {
-        val comparison = stateHandle.state.comparisonState
+        val comparison = handle.state.comparisonState
         val endpoint = comparison.secondaryEndpoint ?: return null
         val model = comparison.secondaryModel ?: return null
         return if (endpoint == EndpointConstants.AGENTS) {
-            stateHandle.state.agents.find { it.id == model }?.name ?: model
+            handle.state.agents.find { it.id == model }?.name ?: model
         } else {
             model
         }
@@ -95,7 +99,7 @@ class ComparisonModeDelegate(
      * `getKeyExpiry` GET — keeps the chat-send hot path off the network.
      */
     fun buildAddedConvo(parentMessageId: String? = null): AddedConversation? {
-        val state = stateHandle.state
+        val state = handle.state
         val comparison = state.comparisonState
         if (!comparison.isEnabled) return null
         val endpoint = comparison.secondaryEndpoint ?: return null
@@ -131,17 +135,21 @@ class ComparisonModeDelegate(
     fun rehydrateFromMessage(message: Message) {
         val secondaryId = secondaryAgentId(message) ?: return
         val (endpoint, model) = resolveSecondarySelection(secondaryId)
-        stateHandle.update {
-            copy(
-                comparisonState = ComparisonState(
-                    isEnabled = true,
-                    secondaryEndpoint = endpoint,
-                    secondaryModel = model,
-                    primaryAgentId = primaryAgentId(message),
-                    secondaryAgentId = secondaryId,
-                    parallelMessageId = message.messageId,
-                ),
-                screenState = if (screenState == ChatScreenState.LANDING) ChatScreenState.ACTIVE else screenState,
+        handle.update {
+            comparisonState = ComparisonState(
+                isEnabled = true,
+                secondaryEndpoint = endpoint,
+                secondaryModel = model,
+                primaryAgentId = primaryAgentId(message),
+                secondaryAgentId = secondaryId,
+                parallelMessageId = message.messageId,
+            )
+            content = content.copy(
+                screenState = if (content.screenState == ChatScreenState.LANDING) {
+                    ChatScreenState.ACTIVE
+                } else {
+                    content.screenState
+                },
             )
         }
     }
@@ -164,24 +172,22 @@ class ComparisonModeDelegate(
      * No-ops when comparison is disabled, so callers can invoke it unconditionally.
      */
     fun onSendStart() {
-        if (!stateHandle.state.comparisonState.isEnabled) return
+        if (!handle.state.comparisonState.isEnabled) return
         primaryBuffer.clear()
         secondaryBuffer.clear()
-        stateHandle.update {
-            copy(
-                comparisonState = comparisonState.copy(
-                    primaryIsStreaming = true,
-                    secondaryIsStreaming = true,
-                    primaryStreamingContent = "",
-                    secondaryStreamingContent = "",
-                    primaryActiveToolCalls = emptyList(),
-                    secondaryActiveToolCalls = emptyList(),
-                    primaryAgentId = null,
-                    secondaryAgentId = null,
-                    parallelMessageId = null,
-                    primaryFinalContent = null,
-                    secondaryFinalContent = null,
-                ),
+        handle.update {
+            comparisonState = comparisonState.copy(
+                primaryIsStreaming = true,
+                secondaryIsStreaming = true,
+                primaryStreamingContent = "",
+                secondaryStreamingContent = "",
+                primaryActiveToolCalls = emptyList(),
+                secondaryActiveToolCalls = emptyList(),
+                primaryAgentId = null,
+                secondaryAgentId = null,
+                parallelMessageId = null,
+                primaryFinalContent = null,
+                secondaryFinalContent = null,
             )
         }
     }
@@ -192,7 +198,7 @@ class ComparisonModeDelegate(
      * otherwise — including when comparison is disabled, leaving the standard path intact.
      */
     fun routeEvent(event: StreamEvent): Boolean {
-        if (!stateHandle.state.comparisonState.isEnabled) return false
+        if (!handle.state.comparisonState.isEnabled) return false
         return when (event) {
             // Thinking and content deltas both feed the same pane buffer in comparison mode.
             is StreamEvent.ContentDelta -> { routeTextDelta(event.agentId, event.chunk); true }
@@ -206,26 +212,22 @@ class ComparisonModeDelegate(
     private fun routeTextDelta(agentId: String?, chunk: String) {
         if (isSecondaryEvent(agentId)) {
             secondaryBuffer.append(chunk)
-            stateHandle.update {
-                copy(
-                    comparisonState = comparisonState.copy(
-                        secondaryStreamingContent = secondaryBuffer.toString(),
-                        secondaryIsStreaming = true,
-                        secondaryAgentId = comparisonState.secondaryAgentId ?: agentId,
-                    ),
+            handle.update {
+                comparisonState = comparisonState.copy(
+                    secondaryStreamingContent = secondaryBuffer.toString(),
+                    secondaryIsStreaming = true,
+                    secondaryAgentId = comparisonState.secondaryAgentId ?: agentId,
                 )
             }
         } else {
             primaryBuffer.append(chunk)
-            stateHandle.update {
-                copy(
-                    comparisonState = comparisonState.copy(
-                        primaryStreamingContent = primaryBuffer.toString(),
-                        primaryIsStreaming = true,
-                        primaryAgentId = comparisonState.primaryAgentId ?: agentId,
-                    ),
-                    streamingContent = primaryBuffer.toString(),
+            handle.update {
+                comparisonState = comparisonState.copy(
+                    primaryStreamingContent = primaryBuffer.toString(),
+                    primaryIsStreaming = true,
+                    primaryAgentId = comparisonState.primaryAgentId ?: agentId,
                 )
+                content = content.copy(streamingContent = primaryBuffer.toString())
             }
         }
     }
@@ -233,19 +235,15 @@ class ComparisonModeDelegate(
     private fun routeToolCallStart(event: StreamEvent.ToolCallStart) {
         val newToolCall = ActiveToolCall(id = event.toolCallId, name = event.toolName, input = event.input)
         if (isSecondaryEvent(event.agentId)) {
-            stateHandle.update {
-                copy(
-                    comparisonState = comparisonState.copy(
-                        secondaryActiveToolCalls = comparisonState.secondaryActiveToolCalls + newToolCall,
-                    ),
+            handle.update {
+                comparisonState = comparisonState.copy(
+                    secondaryActiveToolCalls = comparisonState.secondaryActiveToolCalls + newToolCall,
                 )
             }
         } else {
-            stateHandle.update {
-                copy(
-                    comparisonState = comparisonState.copy(
-                        primaryActiveToolCalls = comparisonState.primaryActiveToolCalls + newToolCall,
-                    ),
+            handle.update {
+                comparisonState = comparisonState.copy(
+                    primaryActiveToolCalls = comparisonState.primaryActiveToolCalls + newToolCall,
                 )
             }
         }
@@ -253,18 +251,18 @@ class ComparisonModeDelegate(
 
     private fun routeToolCallComplete(event: StreamEvent.ToolCallComplete) {
         if (isSecondaryEvent(event.agentId)) {
-            stateHandle.update {
+            handle.update {
                 val updated = comparisonState.secondaryActiveToolCalls.map { tc ->
                     if (tc.id == event.toolCallId) tc.copy(isComplete = true, output = event.output) else tc
                 }
-                copy(comparisonState = comparisonState.copy(secondaryActiveToolCalls = updated))
+                comparisonState = comparisonState.copy(secondaryActiveToolCalls = updated)
             }
         } else {
-            stateHandle.update {
+            handle.update {
                 val updated = comparisonState.primaryActiveToolCalls.map { tc ->
                     if (tc.id == event.toolCallId) tc.copy(isComplete = true, output = event.output) else tc
                 }
-                copy(comparisonState = comparisonState.copy(primaryActiveToolCalls = updated))
+                comparisonState = comparisonState.copy(primaryActiveToolCalls = updated)
             }
         }
     }
@@ -276,17 +274,15 @@ class ComparisonModeDelegate(
      * panes stay readable.
      */
     fun endStreaming(clearContent: Boolean = false) {
-        if (!stateHandle.state.comparisonState.isEnabled) return
-        stateHandle.update {
-            copy(
-                comparisonState = comparisonState.copy(
-                    primaryIsStreaming = false,
-                    secondaryIsStreaming = false,
-                    primaryActiveToolCalls = emptyList(),
-                    secondaryActiveToolCalls = emptyList(),
-                    primaryStreamingContent = if (clearContent) "" else comparisonState.primaryStreamingContent,
-                    secondaryStreamingContent = if (clearContent) "" else comparisonState.secondaryStreamingContent,
-                ),
+        if (!handle.state.comparisonState.isEnabled) return
+        handle.update {
+            comparisonState = comparisonState.copy(
+                primaryIsStreaming = false,
+                secondaryIsStreaming = false,
+                primaryActiveToolCalls = emptyList(),
+                secondaryActiveToolCalls = emptyList(),
+                primaryStreamingContent = if (clearContent) "" else comparisonState.primaryStreamingContent,
+                secondaryStreamingContent = if (clearContent) "" else comparisonState.secondaryStreamingContent,
             )
         }
     }
@@ -296,19 +292,17 @@ class ComparisonModeDelegate(
      * content and records the parallel response message id for branch-from-comparison.
      */
     fun onFinal(parallelMessageId: String?) {
-        stateHandle.update {
-            copy(
-                comparisonState = comparisonState.copy(
-                    primaryIsStreaming = false,
-                    secondaryIsStreaming = false,
-                    primaryStreamingContent = "",
-                    secondaryStreamingContent = "",
-                    primaryActiveToolCalls = emptyList(),
-                    secondaryActiveToolCalls = emptyList(),
-                    parallelMessageId = parallelMessageId,
-                    primaryFinalContent = primaryBuffer.toString(),
-                    secondaryFinalContent = secondaryBuffer.toString(),
-                ),
+        handle.update {
+            comparisonState = comparisonState.copy(
+                primaryIsStreaming = false,
+                secondaryIsStreaming = false,
+                primaryStreamingContent = "",
+                secondaryStreamingContent = "",
+                primaryActiveToolCalls = emptyList(),
+                secondaryActiveToolCalls = emptyList(),
+                parallelMessageId = parallelMessageId,
+                primaryFinalContent = primaryBuffer.toString(),
+                secondaryFinalContent = secondaryBuffer.toString(),
             )
         }
     }
@@ -319,24 +313,24 @@ class ComparisonModeDelegate(
      * chats that skipped it during comparison.
      */
     fun branchFromComparison(agentId: String) {
-        val messageId = stateHandle.state.comparisonState.parallelMessageId ?: return
-        val conversationId = stateHandle.state.conversationId ?: return
-        stateHandle.scope.launch {
+        val messageId = handle.state.comparisonState.parallelMessageId ?: return
+        val conversationId = handle.state.conversationId ?: return
+        handle.scope.launch {
             try {
                 messageRepository.branchMessage(
                     conversationId = conversationId,
                     messageId = messageId,
                     agentId = agentId,
                 )
-                stateHandle.update { copy(comparisonState = ComparisonState()) }
-                val cid = stateHandle.state.conversationId
-                if (cid != null && stateHandle.state.pendingNavigationConversationId == null) {
-                    stateHandle.update { copy(pendingNavigationConversationId = cid) }
+                handle.update { comparisonState = ComparisonState() }
+                val cid = handle.state.conversationId
+                if (cid != null && handle.state.pendingNavigationConversationId == null) {
+                    handle.update { conversation = conversation.copy(pendingNavigationConversationId = cid) }
                 }
                 reloadConversation(conversationId)
             } catch (e: Exception) {
                 Logger.e(e) { "Failed to branch comparison message" }
-                stateHandle.update { copy(error = "Failed to continue with selected response") }
+                handle.setError("Failed to continue with selected response")
             }
         }
     }
@@ -351,7 +345,7 @@ class ComparisonModeDelegate(
      */
     fun isSecondaryEvent(agentId: String?): Boolean {
         if (agentId == null) return false
-        val comparison = stateHandle.state.comparisonState
+        val comparison = handle.state.comparisonState
         // If we've already resolved the secondary agentId from earlier SSE events, use that
         if (comparison.secondaryAgentId != null) {
             return agentId == comparison.secondaryAgentId

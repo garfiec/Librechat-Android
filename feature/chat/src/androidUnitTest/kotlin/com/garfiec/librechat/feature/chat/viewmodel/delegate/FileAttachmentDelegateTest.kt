@@ -1,7 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import com.garfiec.librechat.feature.chat.components.AttachedFile
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -10,7 +10,7 @@ import org.junit.Test
 class FileAttachmentDelegateTest {
 
     private fun createDelegate() = FileAttachmentDelegate(
-        stateHandle = mockk<ChatStateHandle>(relaxed = true),
+        handle = mockk<ErrorOnlyHandle>(relaxed = true),
         appContext = mockk(relaxed = true),
         fileRepository = mockk(relaxed = true),
         ioDispatcher = Dispatchers.Unconfined,

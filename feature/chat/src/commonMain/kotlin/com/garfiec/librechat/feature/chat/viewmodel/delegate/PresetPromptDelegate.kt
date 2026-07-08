@@ -9,11 +9,11 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.PresetPromptHandle
 import kotlinx.coroutines.launch
 
 class PresetPromptDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: PresetPromptHandle,
     private val presetRepository: PresetRepository,
     private val promptRepository: PromptRepository,
 ) {
@@ -23,12 +23,12 @@ class PresetPromptDelegate(
     private var cachedPromptGroups: List<PromptGroup> = emptyList()
 
     fun loadPresets() {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (val result = presetRepository.getAll()) {
                 is Result.Success -> {
                     cachedPresets = result.data
-                    stateHandle.update {
-                        copy(presets = result.data.map { it.toDisplayData() })
+                    handle.update {
+                        presetPrompts = presetPrompts.copy(presets = result.data.map { it.toDisplayData() })
                     }
                 }
                 is Result.Error -> {
@@ -41,12 +41,12 @@ class PresetPromptDelegate(
     }
 
     fun loadAvailablePrompts() {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (val result = promptRepository.getGroups(pageSize = 100)) {
                 is Result.Success -> {
                     cachedPromptGroups = result.data.promptGroups
-                    stateHandle.update {
-                        copy(availablePrompts = result.data.promptGroups.map { it.toDisplayData() })
+                    handle.update {
+                        presetPrompts = presetPrompts.copy(availablePrompts = result.data.promptGroups.map { it.toDisplayData() })
                     }
                 }
                 is Result.Error -> {
@@ -59,7 +59,7 @@ class PresetPromptDelegate(
     }
 
     fun savePreset(name: String) {
-        val state = stateHandle.state
+        val state = handle.state
         val params = state.modelParameters
         val dyn = params.dynamicValues
         val preset = Preset(
@@ -113,23 +113,23 @@ class PresetPromptDelegate(
             region = dyn["region"],
             resendFiles = params.resendFiles,
         )
-        stateHandle.scope.launch {
+        handle.scope.launch {
             try {
                 presetRepository.create(preset)
                 loadPresets()
             } catch (e: Exception) {
                 Logger.e(e) { "Could not save preset" }
-                stateHandle.update { copy(error = "Could not save preset") }
+                handle.setError("Could not save preset")
             }
         }
     }
 
     fun loadPreset(displayData: PresetDisplayData) {
         val preset = cachedPresets.find { it.presetId == displayData.presetId } ?: return
-        stateHandle.update {
-            copy(
-                selectedEndpoint = preset.endpoint ?: selectedEndpoint,
-                selectedModel = preset.model ?: selectedModel,
+        handle.update {
+            selection = selection.copy(
+                selectedEndpoint = preset.endpoint ?: selection.selectedEndpoint,
+                selectedModel = preset.model ?: selection.selectedModel,
                 // Authoritative load: a preset represents a complete saved
                 // configuration. Merging from current parameters would let
                 // unrelated fields (e.g. a temperature from the previous
@@ -141,11 +141,11 @@ class PresetPromptDelegate(
     }
 
     fun deletePreset(presetId: String) {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (presetRepository.delete(presetId)) {
                 is Result.Success -> loadPresets()
                 is Result.Error -> {
-                    stateHandle.update { copy(error = "Could not delete preset") }
+                    handle.setError("Could not delete preset")
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -153,11 +153,11 @@ class PresetPromptDelegate(
     }
 
     fun editPreset(preset: Preset) {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (presetRepository.update(preset)) {
                 is Result.Success -> loadPresets()
                 is Result.Error -> {
-                    stateHandle.update { copy(error = "Could not update preset") }
+                    handle.setError("Could not update preset")
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -165,14 +165,14 @@ class PresetPromptDelegate(
     }
 
     fun handlePromptMention(displayData: PromptMentionDisplayData) {
-        val currentInput = stateHandle.state.inputText
+        val currentInput = handle.state.inputText
         val atIndex = currentInput.lastIndexOf('@')
         val newText = if (atIndex >= 0) {
             currentInput.substring(0, atIndex) + (displayData.command ?: displayData.name) + " "
         } else {
             currentInput + (displayData.command ?: displayData.name) + " "
         }
-        stateHandle.update { copy(inputText = newText) }
+        handle.update { composer = composer.copy(inputText = newText) }
         recordUseFor(displayData)
     }
 
@@ -191,8 +191,8 @@ class PresetPromptDelegate(
         } else {
             null
         }
-        stateHandle.update {
-            copy(inputText = promptText ?: (displayData.command ?: displayData.name))
+        handle.update {
+            composer = composer.copy(inputText = promptText ?: (displayData.command ?: displayData.name))
         }
         recordUseFor(displayData)
     }
@@ -206,7 +206,7 @@ class PresetPromptDelegate(
             it.name == displayData.name && it.command == displayData.command
         } ?: return
         val groupId = group.id ?: return
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (val result = promptRepository.recordPromptGroupUse(groupId)) {
                 is Result.Error -> Logger.d(result.exception) { "recordPromptGroupUse failed (non-fatal): ${result.message}" }
                 else -> Unit

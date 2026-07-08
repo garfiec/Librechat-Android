@@ -3,7 +3,9 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
+import com.garfiec.librechat.feature.chat.viewmodel.TtsHandle
+import com.garfiec.librechat.feature.chat.viewmodel.VoiceHandle
 import kotlinx.coroutines.CoroutineDispatcher
 
 class IosDelegateFactory(
@@ -13,23 +15,23 @@ class IosDelegateFactory(
     private val ioDispatcher: CoroutineDispatcher,
 ) : PlatformDelegateFactory {
 
-    override fun createFileHandler(stateHandle: ChatStateHandle): PlatformFileHandler {
-        return IosFileHandler(stateHandle, fileRepository, ioDispatcher)
+    override fun createFileHandler(handle: ErrorOnlyHandle): PlatformFileHandler {
+        return IosFileHandler(handle, fileRepository, ioDispatcher)
     }
 
     override fun createVoiceInput(
-        stateHandle: ChatStateHandle,
+        handle: VoiceHandle,
         onTranscriptionComplete: () -> Unit,
     ): PlatformVoiceInput {
-        return IosVoiceInput(stateHandle, onTranscriptionComplete)
+        return IosVoiceInput(handle, onTranscriptionComplete)
     }
 
     override fun createTts(
-        stateHandle: ChatStateHandle,
+        handle: TtsHandle,
         getMessageText: (String) -> String,
     ): PlatformTts {
         return IosTts(
-            stateHandle = stateHandle,
+            handle = handle,
             speechRepository = speechRepository,
             settingsDataStore = settingsDataStore,
             getMessageText = getMessageText,

@@ -12,7 +12,10 @@ import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.permissions.UserRolePermissions
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
+import com.garfiec.librechat.feature.chat.viewmodel.ConversationMetaState
+import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionState
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -76,8 +79,26 @@ class ModelSelectionDelegateTest {
         every { it.isConnected } returns isConnected
     }
 
-    private fun newHandle(scope: CoroutineScope, state: ChatUiState = ChatUiState()) =
+    private fun newHandle(scope: CoroutineScope, state: ChatUiState = uiState()) =
         ChatStateHandle(stateFlow = MutableStateFlow(state), scope = scope)
+
+    /** Builds a [ChatUiState] from the flat selection fields these tests set, wrapping them into
+     *  the [ModelSelectionState] slice. */
+    private fun uiState(
+        conversationId: String? = null,
+        selectedEndpoint: String = EndpointConstants.AGENTS,
+        selectedModel: String? = null,
+        agents: List<Agent> = emptyList(),
+        error: String? = null,
+    ) = ChatUiState(
+        conversation = ConversationMetaState(conversationId = conversationId),
+        error = error,
+        selection = ModelSelectionState(
+            selectedEndpoint = selectedEndpoint,
+            selectedModel = selectedModel,
+            agents = agents,
+        ),
+    )
 
     private fun newDelegate(
         handle: ChatStateHandle,
@@ -85,7 +106,7 @@ class ModelSelectionDelegateTest {
         initialEndpoint: String? = null,
         initialModel: String? = null,
     ) = ModelSelectionDelegate(
-        stateHandle = handle,
+        handle = ModelSelectionHandle(handle),
         configRepository = configRepository,
         agentRepository = agentRepository,
         mcpRepository = mcpRepository,
@@ -116,7 +137,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "gpt-4o"),
+            uiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "gpt-4o"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true
@@ -135,7 +156,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
+            uiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true
@@ -155,7 +176,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
+            uiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true
@@ -175,7 +196,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = EndpointConstants.AGENTS, selectedModel = "gpt-4o"),
+            uiState(conversationId = "c1", selectedEndpoint = EndpointConstants.AGENTS, selectedModel = "gpt-4o"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true
@@ -199,7 +220,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = EndpointConstants.AGENTS, selectedModel = "agent_abc"),
+            uiState(conversationId = "c1", selectedEndpoint = EndpointConstants.AGENTS, selectedModel = "agent_abc"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true
@@ -217,7 +238,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = null),
+            uiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = null),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = false
@@ -244,7 +265,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
+            uiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true
@@ -262,7 +283,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
+            uiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true
@@ -280,7 +301,7 @@ class ModelSelectionDelegateTest {
         // For new chats, refilter is validation-only: it never seeds/fallbacks —
         // seedInitialSelection owns the selection. An invalid selection is left as-is.
         val scope = TestScope(StandardTestDispatcher(testScheduler))
-        val handle = newHandle(scope, ChatUiState(selectedEndpoint = "openAI", selectedModel = "ghost"))
+        val handle = newHandle(scope, uiState(selectedEndpoint = "openAI", selectedModel = "ghost"))
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true // even so, new-chat path must not fallback
         delegate.cachedLastUsedEndpoint = "anthropic"
@@ -404,7 +425,7 @@ class ModelSelectionDelegateTest {
         // The error slot is shared with other delegates — a successful agent load must
         // clear only its own failure banner, never someone else's message.
         val scope = TestScope(StandardTestDispatcher(testScheduler))
-        val handle = newHandle(scope, ChatUiState(error = "Failed to rename conversation"))
+        val handle = newHandle(scope, uiState(error = "Failed to rename conversation"))
         val delegate = newDelegate(handle)
         allowAgents()
         coEvery { agentRepository.getAgents() } returns Result.Success(listOf(Agent(id = "agent_1")))
@@ -564,7 +585,7 @@ class ModelSelectionDelegateTest {
 
         // Models present, agents arrive later — last-used must win and stay.
         delegate.agentsLoaded.value = true
-        handle.update { copy(agents = listOf(Agent(id = "agent_1"))) }
+        handle.update { copy(selection = selection.copy(agents = listOf(Agent(id = "agent_1")))) }
         advanceUntilIdle()
 
         assertThat(handle.state.selectedEndpoint).isEqualTo("openAI")
@@ -587,7 +608,7 @@ class ModelSelectionDelegateTest {
 
         // Agents arrive first, models still pending → must NOT pick the first agent.
         delegate.agentsLoaded.value = true
-        handle.update { copy(agents = listOf(Agent(id = "agent_1"))) }
+        handle.update { copy(selection = selection.copy(agents = listOf(Agent(id = "agent_1")))) }
         advanceUntilIdle()
         assertThat(handle.state.selectedModel).isNull()
 
@@ -612,7 +633,7 @@ class ModelSelectionDelegateTest {
         assertThat(handle.state.selectedModel).isNull()
 
         delegate.agentsLoaded.value = true
-        handle.update { copy(agents = listOf(Agent(id = "agent_1"))) }
+        handle.update { copy(selection = selection.copy(agents = listOf(Agent(id = "agent_1")))) }
         advanceUntilIdle()
 
         assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
@@ -643,7 +664,7 @@ class ModelSelectionDelegateTest {
         lastUsedEndpoint.value = "openAI"
         lastUsedModel.value = "gpt-OLD" // no longer offered
         availableModels.value = mapOf("openAI" to listOf("gpt-4o"))
-        handle.update { copy(agents = listOf(Agent(id = "agent_1"))) }
+        handle.update { copy(selection = selection.copy(agents = listOf(Agent(id = "agent_1")))) }
 
         delegate.seedInitialSelection(isNewConversation = true)
         advanceUntilIdle()
@@ -693,7 +714,7 @@ class ModelSelectionDelegateTest {
         assertThat(handle.state.selectedModel).isEqualTo("gpt-4o")
 
         // Conversation starts with its own model.
-        handle.update { copy(conversationId = "conv_new", selectedEndpoint = "anthropic", selectedModel = "claude-3") }
+        handle.update { copy(conversation = conversation.copy(conversationId = "conv_new"), selection = selection.copy(selectedEndpoint = "anthropic", selectedModel = "claude-3")) }
         advanceUntilIdle()
 
         // Last-used changes afterwards → must NOT override the started conversation.
@@ -724,7 +745,7 @@ class ModelSelectionDelegateTest {
     @Test
     fun seedNoOpForExistingConversation() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
-        val handle = newHandle(scope, ChatUiState(conversationId = "c1", selectedModel = "claude-3", selectedEndpoint = "anthropic"))
+        val handle = newHandle(scope, uiState(conversationId = "c1", selectedModel = "claude-3", selectedEndpoint = "anthropic"))
         val delegate = newDelegate(handle)
         delegate.agentsLoaded.value = true
         lastUsedEndpoint.value = "openAI"
@@ -786,7 +807,7 @@ class ModelSelectionDelegateTest {
         // (INVALID), not still-loading (PENDING), so the seeder corrects a stale
         // selection instead of pinning a non-functional one forever.
         val scope = TestScope(StandardTestDispatcher(testScheduler))
-        val handle = newHandle(scope, ChatUiState(selectedEndpoint = "openAI", selectedModel = "gpt-4o"))
+        val handle = newHandle(scope, uiState(selectedEndpoint = "openAI", selectedModel = "gpt-4o"))
         val delegate = newDelegate(handle)
         delegate.agentsLoaded.value = true
         endpointConfigs.value = mapOf("anthropic" to EndpointConfig())
@@ -808,7 +829,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "anthropic", selectedModel = "claude-3"),
+            uiState(conversationId = "c1", selectedEndpoint = "anthropic", selectedModel = "claude-3"),
         )
         val delegate = newDelegate(handle)
         delegate.agentsLoaded.value = true
@@ -880,7 +901,7 @@ class ModelSelectionDelegateTest {
 
         // SECOND emission: agents list loads (post-create refetch surfaces the agent).
         delegate.agentsLoaded.value = true
-        handle.update { copy(agents = listOf(Agent(id = "agent_X"))) }
+        handle.update { copy(selection = selection.copy(agents = listOf(Agent(id = "agent_X")))) }
         advanceUntilIdle()
 
         // The override must STILL hold — not clobbered back to last-used gpt-4o.
@@ -931,14 +952,14 @@ class ModelSelectionDelegateTest {
 
         // TRANSIENT empty-list emission: agentsLoaded flips true with an EMPTY agents list.
         delegate.agentsLoaded.value = true
-        handle.update { copy(agents = emptyList()) }
+        handle.update { copy(selection = selection.copy(agents = emptyList())) }
         advanceUntilIdle()
         // Must STILL be the agent (today's bug flipped it to openAI/gpt-4o via Tier-3/last-used).
         assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
         assertThat(handle.state.selectedModel).isEqualTo("agent_X")
 
         // Real list arrives (contains the agent) → selection holds.
-        handle.update { copy(agents = listOf(Agent(id = "agent_X"), Agent(id = "agent_Y"))) }
+        handle.update { copy(selection = selection.copy(agents = listOf(Agent(id = "agent_X"), Agent(id = "agent_Y")))) }
         advanceUntilIdle()
         assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
         assertThat(handle.state.selectedModel).isEqualTo("agent_X")
@@ -955,7 +976,7 @@ class ModelSelectionDelegateTest {
         // whose last-used resolved to agents before the account's agents were all removed).
         val handle = newHandle(
             scope,
-            ChatUiState(selectedEndpoint = EndpointConstants.AGENTS, selectedModel = "agent_stale"),
+            uiState(selectedEndpoint = EndpointConstants.AGENTS, selectedModel = "agent_stale"),
         )
         val delegate = newDelegate(handle) // NO initialAgentId → no hold
         lastUsedEndpoint.value = EndpointConstants.AGENTS
@@ -967,7 +988,7 @@ class ModelSelectionDelegateTest {
 
         // Agents finish loading and the list is genuinely empty.
         delegate.agentsLoaded.value = true
-        handle.update { copy(agents = emptyList()) }
+        handle.update { copy(selection = selection.copy(agents = emptyList())) }
         advanceUntilIdle()
 
         // Must NOT be stranded on the (nonexistent) agent — resolve to a config model.
@@ -983,7 +1004,7 @@ class ModelSelectionDelegateTest {
     @Test
     fun applyResolvedConversationModelSetsSelectionAndFlagsAndRefilterDoesNotClobber() = runTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
-        val handle = newHandle(scope, ChatUiState(conversationId = "c1"))
+        val handle = newHandle(scope, uiState(conversationId = "c1"))
         val delegate = newDelegate(handle)
 
         delegate.applyResolvedConversationModel("anthropic", "claude-3")
@@ -1011,7 +1032,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(
+            uiState(
                 conversationId = "c1",
                 selectedEndpoint = "openAI",
                 selectedModel = "ghost",
@@ -1037,7 +1058,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(
+            uiState(
                 conversationId = "c1",
                 selectedEndpoint = "openAI",
                 selectedModel = "ghost",
@@ -1065,7 +1086,7 @@ class ModelSelectionDelegateTest {
         val scope = TestScope(StandardTestDispatcher(testScheduler))
         val handle = newHandle(
             scope,
-            ChatUiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
+            uiState(conversationId = "c1", selectedEndpoint = "openAI", selectedModel = "ghost"),
         )
         val delegate = newDelegate(handle)
         delegate.conversationModelLoaded = true

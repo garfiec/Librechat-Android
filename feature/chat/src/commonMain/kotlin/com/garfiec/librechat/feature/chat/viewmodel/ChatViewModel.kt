@@ -152,27 +152,27 @@ class ChatViewModel(
     // re-entry render directly from the cached AST. See CachedMarkdown.
     val parsedMarkdownCache: ParsedMarkdownCache = ParsedMarkdownCache()
 
-    // --- Platform delegates (created via factory so they get the ViewModel's stateHandle) ---
-    private val fileDelegate = platformDelegateFactory.createFileHandler(stateHandle)
-    private val ttsDelegate = platformDelegateFactory.createTts(stateHandle, ::getMessageText)
-    private val voiceDelegate = platformDelegateFactory.createVoiceInput(stateHandle, ::sendMessage)
+    // --- Platform delegates (created via factory so they get a narrowed handle over stateHandle) ---
+    private val fileDelegate = platformDelegateFactory.createFileHandler(ErrorOnlyHandle(stateHandle))
+    private val ttsDelegate = platformDelegateFactory.createTts(TtsHandle(stateHandle), ::getMessageText)
+    private val voiceDelegate = platformDelegateFactory.createVoiceInput(VoiceHandle(stateHandle), ::sendMessage)
     private val shareConsumer = platformDelegateFactory.createShareConsumer()
 
-    // --- Delegates ---
-    private val requestBuilder = ChatRequestBuilder(stateHandle)
-    private val treeDelegate = MessageTreeDelegate(stateHandle)
+    // --- Delegates (each gets a narrowed handle that can write only its own slices) ---
+    private val requestBuilder = ChatRequestBuilder { _uiState.value }
+    private val treeDelegate = MessageTreeDelegate(MessageTreeHandle(stateHandle))
     private val comparisonDelegate = ComparisonModeDelegate(
-        stateHandle = stateHandle,
+        handle = ComparisonHandle(stateHandle),
         messageRepository = messageRepository,
         reloadConversation = ::loadConversation,
     )
-    private val searchDelegate = InConversationSearchDelegate(stateHandle)
+    private val searchDelegate = InConversationSearchDelegate(SearchHandle(stateHandle))
     private val conversationActionsDelegate =
-        ConversationActionsDelegate(stateHandle, conversationRepository, shareRepository)
-    private val presetPromptDelegate = PresetPromptDelegate(stateHandle, presetRepository, promptRepository)
-    private val favoritesDelegate = FavoritesDelegate(stateHandle, favoritesRepository)
+        ConversationActionsDelegate(ConversationActionsHandle(stateHandle), conversationRepository, shareRepository)
+    private val presetPromptDelegate = PresetPromptDelegate(PresetPromptHandle(stateHandle), presetRepository, promptRepository)
+    private val favoritesDelegate = FavoritesDelegate(FavoritesHandle(stateHandle), favoritesRepository)
     private val modelDelegate = ModelSelectionDelegate(
-        stateHandle = stateHandle,
+        handle = ModelSelectionHandle(stateHandle),
         configRepository = configRepository,
         agentRepository = agentRepository,
         mcpRepository = mcpRepository,
@@ -184,13 +184,13 @@ class ChatViewModel(
         initialModel = initialModel,
     )
     private val keyStatusDelegate = EndpointKeyStatusDelegate(
-        stateHandle = stateHandle,
+        handle = EndpointKeyHandle(stateHandle),
         keyRepository = keyRepository,
     )
-    private val subagentTraceDelegate = SubagentTraceDelegate(stateHandle, json)
-    private val officePreviewDelegate = OfficePreviewDelegate(stateHandle, fileRepository)
+    private val subagentTraceDelegate = SubagentTraceDelegate(SubagentHandle(stateHandle), json)
+    private val officePreviewDelegate = OfficePreviewDelegate(OfficePreviewHandle(stateHandle), fileRepository)
     private val completionDelegate = SendCompletionDelegate(
-        stateHandle = stateHandle,
+        handle = SendCompletionHandle(stateHandle),
         conversationRepository = conversationRepository,
         messageRepository = messageRepository,
         draftRepository = draftRepository,
@@ -207,7 +207,7 @@ class ChatViewModel(
     val queuedMessagesDropped: Flow<Int> = _queuedMessagesDropped.receiveAsFlow()
 
     private val queueDelegate = MessageQueueDelegate(
-        stateHandle = stateHandle,
+        handle = QueueHandle(stateHandle),
         // Drained items send with their snapshotted config but LIVE lineage. We first wait for
         // the previous reply to settle into the tree (the Final-triggered Room reload is async),
         // so the optimistic insert chains onto the freshly-finalized assistant message rather
@@ -300,12 +300,14 @@ class ChatViewModel(
         chatHeaderPrefs,
     ) { state, url, fontSize, starredDisplay, headerPrefs ->
         state.copy(
-            serverUrl = url,
-            chatFontSize = fontSize,
-            starredModelsDisplay = starredDisplay,
-            chatHeaderContent = headerPrefs.content,
-            chatHeaderAlignment = headerPrefs.alignment,
-            contextBarPlacement = headerPrefs.contextBarPlacement,
+            prefs = ChatPrefsState(
+                serverUrl = url,
+                chatFontSize = fontSize,
+                starredModelsDisplay = starredDisplay,
+                chatHeaderContent = headerPrefs.content,
+                chatHeaderAlignment = headerPrefs.alignment,
+                contextBarPlacement = headerPrefs.contextBarPlacement,
+            ),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatUiState())
 
@@ -316,7 +318,7 @@ class ChatViewModel(
     private var roomObserverJob: Job? = null
 
     private val streamingManager = StreamingManagerDelegate(
-        stateHandle = stateHandle,
+        handle = StreamingHandle(stateHandle),
         chatRepository = chatRepository,
         activeAccountProvider = activeAccountProvider,
         connectivityObserver = connectivityObserver,
@@ -332,7 +334,7 @@ class ChatViewModel(
     )
 
     private val editingDelegate = MessageEditingDelegate(
-        stateHandle = stateHandle,
+        handle = MessageEditingHandle(stateHandle),
         chatRepository = chatRepository,
         messageRepository = messageRepository,
         treeDelegate = treeDelegate,
@@ -387,17 +389,21 @@ class ChatViewModel(
         if (conversationId != null) {
             _uiState.update {
                 it.copy(
-                    conversationId = conversationId,
                     // SECURITY: do not remove — temp-chat data-at-rest guard. Seeded from the Chat
                     // route (durable across process death), so a restored temp Chat(id) stays
                     // temp-aware from the first frame: this short-circuits loadConversation and
                     // loadConversationModel below, both of which would otherwise upsert the
                     // server-hidden conversation to Room, and makes follow-up sends temporary.
-                    isTemporaryChat = initialIsTemporary,
+                    conversation = it.conversation.copy(
+                        conversationId = conversationId,
+                        isTemporaryChat = initialIsTemporary,
+                    ),
                     // A temp chat restored across process death has no in-memory handoff to seed its
                     // messages (they're gone with the session), and its Room read is guarded off — so
                     // land on an empty ACTIVE chat rather than a LOADING spinner that never resolves.
-                    screenState = if (initialIsTemporary) ChatScreenState.ACTIVE else ChatScreenState.LOADING,
+                    content = it.content.copy(
+                        screenState = if (initialIsTemporary) ChatScreenState.ACTIVE else ChatScreenState.LOADING,
+                    ),
                 )
             }
             // If we arrived here straight from the NewChat landing (the common case for a
@@ -424,12 +430,14 @@ class ChatViewModel(
                 _uiState.update {
                     val seeded = listOf(optimistic)
                     it.copy(
-                        messages = seeded,
-                        displayMessages = buildActiveMessagePath(seeded, it.activeBranches),
-                        pendingResumeUserMessage = optimistic,
-                        // Show the message immediately instead of the LOADING spinner set above —
-                        // we already have content to render while the stream resumes.
-                        screenState = ChatScreenState.ACTIVE,
+                        content = it.content.copy(
+                            messages = seeded,
+                            displayMessages = buildActiveMessagePath(seeded, it.activeBranches),
+                            pendingResumeUserMessage = optimistic,
+                            // Show the message immediately instead of the LOADING spinner set above —
+                            // we already have content to render while the stream resumes.
+                            screenState = ChatScreenState.ACTIVE,
+                        ),
                     )
                 }
             }
@@ -479,7 +487,7 @@ class ChatViewModel(
 
         viewModelScope.launch {
             configRepository.endpointConfigs.collect { configs ->
-                _uiState.update { it.copy(endpointConfigs = configs) }
+                _uiState.update { it.copy(selection = it.selection.copy(endpointConfigs = configs)) }
                 modelDelegate.refilterModels(isNewConversation)
                 keyStatusDelegate.recomputeFor(configs)
                 // If code interpreter is no longer available, remove it from enabled tools
@@ -487,7 +495,7 @@ class ChatViewModel(
                 if (agentsCapabilities.isNotEmpty() && ToolConstants.EXECUTE_CODE !in agentsCapabilities) {
                     _uiState.update {
                         if (ToolConstants.CODE_INTERPRETER in it.enabledTools) {
-                            it.copy(enabledTools = it.enabledTools - ToolConstants.CODE_INTERPRETER)
+                            it.copy(selection = it.selection.copy(enabledTools = it.enabledTools - ToolConstants.CODE_INTERPRETER))
                         } else {
                             it
                         }
@@ -510,7 +518,7 @@ class ChatViewModel(
             configRepository.detectedBackendVersion.collect { version ->
                 val supported = version != null &&
                     BackendVersion.isCompatibleOrNewer(version, "0.8.5")
-                _uiState.update { it.copy(extendedEffortSupported = supported) }
+                _uiState.update { it.copy(selection = it.selection.copy(extendedEffortSupported = supported)) }
             }
         }
 
@@ -538,8 +546,10 @@ class ChatViewModel(
             if (mcpServers.isNotEmpty() || tools.isNotEmpty()) {
                 _uiState.update {
                     it.copy(
-                        selectedMcpServerNames = mcpServers,
-                        enabledTools = tools,
+                        selection = it.selection.copy(
+                            selectedMcpServerNames = mcpServers,
+                            enabledTools = tools,
+                        ),
                     )
                 }
             }
@@ -598,7 +608,7 @@ class ChatViewModel(
                 _uiState.update {
                     it.copy(
                         error = "Could not load messages",
-                        screenState = ChatScreenState.ACTIVE,
+                        content = it.content.copy(screenState = ChatScreenState.ACTIVE),
                     )
                 }
             }
@@ -640,12 +650,14 @@ class ChatViewModel(
                 .collect { (messages, displayMessages, retainedPending) ->
                     _uiState.update {
                         it.copy(
-                            messages = messages,
-                            displayMessages = displayMessages,
-                            screenState = ChatScreenState.ACTIVE,
-                            // Null once the server echoes its own copy (or there was never a seed) →
-                            // a later server-side delete can then still remove the row.
-                            pendingResumeUserMessage = retainedPending,
+                            content = it.content.copy(
+                                messages = messages,
+                                displayMessages = displayMessages,
+                                screenState = ChatScreenState.ACTIVE,
+                                // Null once the server echoes its own copy (or there was never a seed) →
+                                // a later server-side delete can then still remove the row.
+                                pendingResumeUserMessage = retainedPending,
+                            ),
                         )
                     }
                     // Restore comparison mode when reopening a Compare Models conversation: the
@@ -695,7 +707,7 @@ class ChatViewModel(
                     // the live SSE owns the gauge then, and clearing would kill the moving readout.
                     val prev = previousProjectionKey
                     if (prev != null && !prev.sameWindowAs(key) && !_uiState.value.isStreaming) {
-                        _uiState.update { it.copy(contextUsage = null) }
+                        _uiState.update { it.copy(content = it.content.copy(contextUsage = null)) }
                     }
                     previousProjectionKey = key
                     refreshContextProjection()
@@ -803,7 +815,7 @@ class ChatViewModel(
         // Only seed when the server actually returned a snapshot — never overwrite or blank an
         // existing gauge. On null/error, leave the gauge as-is; the next turn's SSE refreshes it.
         val usage = (result as? Result.Success)?.data ?: return
-        _uiState.update { it.copy(contextUsage = usage) }
+        _uiState.update { it.copy(content = it.content.copy(contextUsage = usage)) }
     }
 
     /**
@@ -818,7 +830,7 @@ class ChatViewModel(
             val draft = draftRepository.awaitDraft(draftKey)
             if (!draft.isNullOrBlank()) {
                 _uiState.update {
-                    if (it.inputText.isBlank()) it.copy(inputText = draft) else it
+                    if (it.inputText.isBlank()) it.copy(composer = it.composer.copy(inputText = draft)) else it
                 }
             }
         }
@@ -838,7 +850,7 @@ class ChatViewModel(
             val result = conversationRepository.getConversation(conversationId, originAccount = null)
             val conversation = result.getOrNull()
             if (conversation != null) {
-                _uiState.update { it.copy(conversationTitle = conversation.title) }
+                _uiState.update { it.copy(conversation = it.conversation.copy(conversationTitle = conversation.title)) }
                 val applied = modelDelegate.applyConversationModel(conversation)
                 Diag.d(
                     tag = "ModelSel",
@@ -869,7 +881,7 @@ class ChatViewModel(
         treeDelegate.switchBranch(parentMessageId, siblingIndex)
 
     fun onInputChanged(text: String) {
-        _uiState.update { it.copy(inputText = text) }
+        _uiState.update { it.copy(composer = it.composer.copy(inputText = text)) }
         // While editing a queued item the composer holds that item, not the persisted draft —
         // don't overwrite the on-disk new-message draft (it's restored on commit/cancel).
         if (_uiState.value.isEditingQueued) return
@@ -884,7 +896,7 @@ class ChatViewModel(
         Logger.d { "consumeShareIntent: text=${shareData.text != null}, files=${shareData.fileRefs.size}" }
 
         if (!shareData.text.isNullOrBlank()) {
-            _uiState.update { it.copy(inputText = shareData.text) }
+            _uiState.update { it.copy(composer = it.composer.copy(inputText = shareData.text)) }
         }
 
         if (shareData.fileRefs.isNotEmpty()) {
@@ -966,10 +978,12 @@ class ChatViewModel(
         applyComposer(taken.value.toComposerSnapshot())
         _uiState.update {
             it.copy(
-                editingQueuedItem = QueuedEditSession(
-                    original = taken.value,
-                    originalIndex = taken.index,
-                    stashed = stashed,
+                composer = it.composer.copy(
+                    editingQueuedItem = QueuedEditSession(
+                        original = taken.value,
+                        originalIndex = taken.index,
+                        stashed = stashed,
+                    ),
                 ),
             )
         }
@@ -1005,7 +1019,7 @@ class ChatViewModel(
 
     private fun finishQueuedEdit(session: QueuedEditSession) {
         applyComposer(session.stashed)
-        _uiState.update { it.copy(editingQueuedItem = null) }
+        _uiState.update { it.copy(composer = it.composer.copy(editingQueuedItem = null)) }
         // Draining was frozen during the edit; resume it now if the queue is idle (a reply may
         // have finished while editing).
         tryResumeDrain()
@@ -1047,12 +1061,14 @@ class ChatViewModel(
         fileDelegate.restoreAttachedFiles(snapshot.attachments)
         _uiState.update {
             it.copy(
-                inputText = snapshot.text,
-                selectedEndpoint = snapshot.endpoint,
-                selectedModel = snapshot.model,
-                enabledTools = snapshot.enabledTools,
-                selectedMcpServerNames = snapshot.mcpServerNames,
-                modelParameters = snapshot.modelParameters,
+                composer = it.composer.copy(inputText = snapshot.text),
+                selection = it.selection.copy(
+                    selectedEndpoint = snapshot.endpoint,
+                    selectedModel = snapshot.model,
+                    enabledTools = snapshot.enabledTools,
+                    selectedMcpServerNames = snapshot.mcpServerNames,
+                    modelParameters = snapshot.modelParameters,
+                ),
             )
         }
     }
@@ -1123,7 +1139,7 @@ class ChatViewModel(
     /** Clears the input, its persisted draft, and any attached files. */
     private fun clearComposer() {
         val draftKey = _uiState.value.conversationId ?: NEW_CHAT_DRAFT_KEY
-        _uiState.update { it.copy(inputText = "") }
+        _uiState.update { it.copy(composer = it.composer.copy(inputText = "")) }
         viewModelScope.launch { draftRepository.deleteDraft(draftKey) }
         fileDelegate.clearAttachedFiles()
     }
@@ -1175,14 +1191,16 @@ class ChatViewModel(
             val updatedMessages = it.messages + optimisticMessage
             val updatedDisplay = buildActiveMessagePath(updatedMessages, it.activeBranches, optimisticMessage.messageId)
             it.copy(
-                isStreaming = true,
-                streamingContent = "",
-                activeToolCalls = emptyList(),
-                streamingAttachments = emptyList(),
-                screenState = if (isNewChat) ChatScreenState.LANDING else ChatScreenState.ACTIVE,
+                content = it.content.copy(
+                    isStreaming = true,
+                    streamingContent = "",
+                    activeToolCalls = emptyList(),
+                    streamingAttachments = emptyList(),
+                    screenState = if (isNewChat) ChatScreenState.LANDING else ChatScreenState.ACTIVE,
+                    messages = updatedMessages,
+                    displayMessages = updatedDisplay,
+                ),
                 error = null,
-                messages = updatedMessages,
-                displayMessages = updatedDisplay,
             )
         }
         streamingManager.beginStreaming(isEdit = false)
@@ -1230,7 +1248,7 @@ class ChatViewModel(
                 if (cid != null && roomObserverJob?.isActive != true) {
                     loadConversation(cid)
                 } else if (cid == null) {
-                    _uiState.update { it.copy(isStreaming = false) }
+                    _uiState.update { it.copy(content = it.content.copy(isStreaming = false)) }
                 }
             }
         }
@@ -1296,20 +1314,23 @@ class ChatViewModel(
         roomObserverJob = null
         _uiState.update { current ->
             ChatUiState(
-                selectedEndpoint = current.selectedEndpoint,
-                selectedModel = current.selectedModel,
-                availableModels = current.availableModels,
-                endpointConfigs = current.endpointConfigs,
-                agents = current.agents,
-                presets = current.presets,
-                availablePrompts = current.availablePrompts,
-                mcpServers = current.mcpServers,
-                selectedMcpServerNames = current.selectedMcpServerNames,
-                enabledTools = current.enabledTools,
-                serverSttEnabled = current.serverSttEnabled,
-                userName = current.userName,
-                userAvatarUrl = current.userAvatarUrl,
-                sharedLinksEnabled = current.sharedLinksEnabled,
+                selection = ModelSelectionState(
+                    selectedEndpoint = current.selectedEndpoint,
+                    selectedModel = current.selectedModel,
+                    availableModels = current.availableModels,
+                    endpointConfigs = current.endpointConfigs,
+                    agents = current.agents,
+                    mcpServers = current.mcpServers,
+                    selectedMcpServerNames = current.selectedMcpServerNames,
+                    enabledTools = current.enabledTools,
+                ),
+                presetPrompts = current.presetPrompts,
+                voice = VoiceState(serverSttEnabled = current.serverSttEnabled),
+                account = AccountConfigState(
+                    userName = current.userName,
+                    userAvatarUrl = current.userAvatarUrl,
+                ),
+                conversation = ConversationMetaState(sharedLinksEnabled = current.sharedLinksEnabled),
             )
         }
     }
@@ -1324,11 +1345,11 @@ class ChatViewModel(
         // to Room. Skip — there's nothing to refresh for a temporary chat.
         if (_uiState.value.isTemporaryChat) return
         if (_uiState.value.isRefreshingMessages) return
-        _uiState.update { it.copy(isRefreshingMessages = true) }
+        _uiState.update { it.copy(content = it.content.copy(isRefreshingMessages = true)) }
         viewModelScope.launch {
             messageRepository.refreshMessages(conversationId)
             loadConversation(conversationId)
-            _uiState.update { it.copy(isRefreshingMessages = false) }
+            _uiState.update { it.copy(content = it.content.copy(isRefreshingMessages = false)) }
         }
     }
 
@@ -1343,7 +1364,7 @@ class ChatViewModel(
             ) { config, role ->
                 role.canCreateSharedLinks(config?.sharedLinksEnabled ?: false)
             }.distinctUntilChanged().collect { canShare ->
-                _uiState.update { it.copy(sharedLinksEnabled = canShare) }
+                _uiState.update { it.copy(conversation = it.conversation.copy(sharedLinksEnabled = canShare)) }
             }
         }
         // Feature gates. The effective rule mirrors web: `interface.* flag AND role permission`.
@@ -1373,26 +1394,28 @@ class ChatViewModel(
                     role.hasAccessOrPermissive(type, action) && (iface?.let(flag) ?: true)
                 _uiState.update {
                     it.copy(
-                        promptsEnabled = role.hasAccessOrPermissive(PermissionType.PROMPTS, Permission.USE),
-                        promptsCreateEnabled = role.hasAccessOrPermissive(PermissionType.PROMPTS, Permission.CREATE),
-                        agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
-                        agentsCreateEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.CREATE),
-                        mcpServersEnabled = role.hasAccessOrPermissive(PermissionType.MCP_SERVERS, Permission.USE),
-                        multiConvoEnabled = gate(PermissionType.MULTI_CONVO, Permission.USE) { it.multiConvo },
-                        temporaryChatEnabled = gate(PermissionType.TEMPORARY_CHAT, Permission.USE) { it.temporaryChat },
-                        webSearchEnabled = gate(PermissionType.WEB_SEARCH, Permission.USE) { it.webSearch },
-                        runCodeEnabled = gate(PermissionType.RUN_CODE, Permission.USE) { it.runCode },
-                        fileSearchEnabled = gate(PermissionType.FILE_SEARCH, Permission.USE) { it.fileSearch },
-                        bookmarksEnabled = gate(PermissionType.BOOKMARKS, Permission.USE) { it.bookmarks },
-                        // Interface-only gates (no role permission counterpart on web).
-                        modelSelectEnabled = iface?.modelSelect ?: true,
-                        parametersEnabled = iface?.parameters ?: true,
-                        // Web gates the presets menu on `presets && modelSelect` (Header.tsx).
-                        presetsEnabled = (iface?.presets ?: true) && (iface?.modelSelect ?: true),
-                        // Context-usage gauge (v0.8.7): interface flag AND backend support.
-                        contextUsageEnabled = contextGaugeSupported && (iface?.contextUsage ?: true),
-                        // Pinned tools (v0.8.7): raw interface list; mapped/filtered by pinnedToolChips.
-                        pinnedTools = iface?.defaultPinnedTools ?: emptyList(),
+                        gates = it.gates.copy(
+                            promptsEnabled = role.hasAccessOrPermissive(PermissionType.PROMPTS, Permission.USE),
+                            promptsCreateEnabled = role.hasAccessOrPermissive(PermissionType.PROMPTS, Permission.CREATE),
+                            agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
+                            agentsCreateEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.CREATE),
+                            mcpServersEnabled = role.hasAccessOrPermissive(PermissionType.MCP_SERVERS, Permission.USE),
+                            multiConvoEnabled = gate(PermissionType.MULTI_CONVO, Permission.USE) { it.multiConvo },
+                            temporaryChatEnabled = gate(PermissionType.TEMPORARY_CHAT, Permission.USE) { it.temporaryChat },
+                            webSearchEnabled = gate(PermissionType.WEB_SEARCH, Permission.USE) { it.webSearch },
+                            runCodeEnabled = gate(PermissionType.RUN_CODE, Permission.USE) { it.runCode },
+                            fileSearchEnabled = gate(PermissionType.FILE_SEARCH, Permission.USE) { it.fileSearch },
+                            bookmarksEnabled = gate(PermissionType.BOOKMARKS, Permission.USE) { it.bookmarks },
+                            // Interface-only gates (no role permission counterpart on web).
+                            modelSelectEnabled = iface?.modelSelect ?: true,
+                            parametersEnabled = iface?.parameters ?: true,
+                            // Web gates the presets menu on `presets && modelSelect` (Header.tsx).
+                            presetsEnabled = (iface?.presets ?: true) && (iface?.modelSelect ?: true),
+                            // Context-usage gauge (v0.8.7): interface flag AND backend support.
+                            contextUsageEnabled = contextGaugeSupported && (iface?.contextUsage ?: true),
+                            // Pinned tools (v0.8.7): raw interface list; mapped/filtered by pinnedToolChips.
+                            pinnedTools = iface?.defaultPinnedTools ?: emptyList(),
+                        ),
                     )
                 }
             }
@@ -1407,7 +1430,7 @@ class ChatViewModel(
     private fun loadFileConfig() {
         viewModelScope.launch {
             fileRepository.getFileConfig().getOrNull()?.let { config ->
-                _uiState.update { it.copy(fileUploadConfig = config) }
+                _uiState.update { it.copy(account = it.account.copy(fileUploadConfig = config)) }
             }
         }
     }
@@ -1510,15 +1533,15 @@ class ChatViewModel(
         favoritesDelegate.refresh()
         _uiState.update {
             it.copy(
-                sendBlockReason = reason ?: it.sendBlockReason,
-                showModelSheet = true,
+                composer = it.composer.copy(sendBlockReason = reason ?: it.sendBlockReason),
+                selection = it.selection.copy(showModelSheet = true),
             )
         }
     }
 
     /** Dismisses the model-selector sheet. Called on sheet dismiss and model selection. */
     fun dismissModelSheet() {
-        _uiState.update { it.copy(showModelSheet = false) }
+        _uiState.update { it.copy(selection = it.selection.copy(showModelSheet = false)) }
     }
 
     private fun loadUserProfile() {
@@ -1529,8 +1552,10 @@ class ChatViewModel(
                     cachedUserId = user.id
                     _uiState.update {
                         it.copy(
-                            userName = user.name ?: user.username,
-                            userAvatarUrl = user.avatar,
+                            account = it.account.copy(
+                                userName = user.name ?: user.username,
+                                userAvatarUrl = user.avatar,
+                            ),
                         )
                     }
                 }
@@ -1569,7 +1594,7 @@ class ChatViewModel(
     }
 
     fun dismissSendBlockReason() {
-        _uiState.update { it.copy(sendBlockReason = null) }
+        _uiState.update { it.copy(composer = it.composer.copy(sendBlockReason = null)) }
     }
 
     /**

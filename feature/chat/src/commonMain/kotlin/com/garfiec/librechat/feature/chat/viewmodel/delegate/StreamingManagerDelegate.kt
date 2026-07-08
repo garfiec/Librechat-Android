@@ -14,8 +14,8 @@ import com.garfiec.librechat.core.model.error.parseUserKeyError
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.RetryInfo
+import com.garfiec.librechat.feature.chat.viewmodel.StreamingHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
  * build a request flow and hand it to [launchStream]; everything downstream lives here.
  */
 class StreamingManagerDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: StreamingHandle,
     private val chatRepository: ChatRepository,
     private val activeAccountProvider: ActiveAccountProvider,
     private val connectivityObserver: ConnectivityObserver,
@@ -51,7 +51,7 @@ class StreamingManagerDelegate(
     private val isHandedOffNewChat: () -> Boolean,
 ) {
 
-    private val scope get() = stateHandle.scope
+    private val scope get() = handle.scope
 
     private var streamJob: Job? = null
     private var streamingUpdateJob: Job? = null
@@ -80,7 +80,7 @@ class StreamingManagerDelegate(
 
     /**
      * Resets the streaming-internal session state (buffer, edit flag, traces) and starts the
-     * throttled updater. Does NOT touch [stateHandle] — callers that already mutate UI state
+     * throttled updater. Does NOT touch UI state — callers that already mutate UI state
      * for their send (e.g. the optimistic-insert path) use this; [prepareForStreaming] wraps
      * it with the standard streaming-field reset.
      */
@@ -100,14 +100,14 @@ class StreamingManagerDelegate(
      * (edit, regenerate, or continue).
      */
     fun prepareForStreaming(isEdit: Boolean) {
-        stateHandle.update {
-            copy(
+        handle.update {
+            content = content.copy(
                 isStreaming = true,
                 streamingContent = "",
                 activeToolCalls = emptyList(),
                 streamingAttachments = emptyList(),
-                error = null,
             )
+            error = null
         }
         beginStreaming(isEdit)
     }
@@ -144,21 +144,21 @@ class StreamingManagerDelegate(
             stopStreamingUpdater()
             // Preserve partial content so users can read/copy what was received
             val partialContent = streamingBuffer.toString()
-            stateHandle.update {
-                copy(
+            handle.update {
+                content = content.copy(
                     isStreaming = false,
                     streamingContent = partialContent,
                     activeToolCalls = emptyList(),
                     streamingAttachments = emptyList(),
-                    error = e.message ?: "Chat request failed",
                 )
+                error = e.message ?: "Chat request failed"
             }
             comparisonDelegate.endStreaming()
             // Don't auto-drain into a failed turn — hold the queue for the user (mirrors the
             // StreamEvent.Error branch; a flow-level exception ends the stream the same way).
             queueDelegate.pause()
             // If the server already created a conversation, fetch whatever it persisted
-            val conversationId = stateHandle.state.conversationId
+            val conversationId = handle.state.conversationId
             if (conversationId != null) {
                 reloadConversation(conversationId)
             }
@@ -194,15 +194,15 @@ class StreamingManagerDelegate(
                 val keyError = parseUserKeyError(event.message)
                 // Preserve partial content so users can read/copy what was received
                 val partialContent = streamingBuffer.toString()
-                stateHandle.update {
-                    copy(
+                handle.update {
+                    content = content.copy(
                         isStreaming = false,
                         streamingContent = partialContent,
-                        error = if (keyError != null) null else event.message,
                         retryInfo = null,
                         activeToolCalls = emptyList(),
                         streamingAttachments = emptyList(),
                     )
+                    error = if (keyError != null) null else event.message
                 }
                 comparisonDelegate.endStreaming()
                 // Don't auto-drain into a failed turn — hold the queue for the user.
@@ -211,14 +211,14 @@ class StreamingManagerDelegate(
                     emitUserKeyError(keyError)
                 }
                 // If the server already created a conversation, fetch whatever it persisted
-                val conversationId = stateHandle.state.conversationId
+                val conversationId = handle.state.conversationId
                 if (conversationId != null) {
                     reloadConversation(conversationId)
                 }
             }
             is StreamEvent.Retrying -> {
-                stateHandle.update {
-                    copy(
+                handle.update {
+                    content = content.copy(
                         retryInfo = RetryInfo(
                             attempt = event.attempt,
                             maxAttempts = event.maxAttempts,
@@ -232,20 +232,20 @@ class StreamingManagerDelegate(
                     name = event.toolName,
                     input = event.input,
                 )
-                stateHandle.update {
-                    copy(activeToolCalls = activeToolCalls + newToolCall)
+                handle.update {
+                    content = content.copy(activeToolCalls = content.activeToolCalls + newToolCall)
                 }
             }
             is StreamEvent.ToolCallComplete -> {
-                stateHandle.update {
-                    val updated = activeToolCalls.map { tc ->
+                handle.update {
+                    val updated = content.activeToolCalls.map { tc ->
                         if (tc.id == event.toolCallId) {
                             tc.copy(isComplete = true, output = event.output)
                         } else {
                             tc
                         }
                     }
-                    copy(activeToolCalls = updated)
+                    content = content.copy(activeToolCalls = updated)
                 }
                 // If this was a `subagent` tool_call, freeze its live trace —
                 // the child run is done; stop accumulating for that key.
@@ -271,8 +271,8 @@ class StreamingManagerDelegate(
                 if (ArtifactType.isOfficePreviewMime(event.type)) {
                     officePreviewDelegate.onAttachment(attachment)
                 } else {
-                    stateHandle.update {
-                        copy(streamingAttachments = streamingAttachments + attachment)
+                    handle.update {
+                        content = content.copy(streamingAttachments = content.streamingAttachments + attachment)
                     }
                 }
             }
@@ -286,8 +286,8 @@ class StreamingManagerDelegate(
                     lastErrorWasNetwork = false
                     cancelConnectivityObserver()
                 }
-                stateHandle.update {
-                    if (retryInfo != null) copy(retryInfo = null) else this
+                handle.update {
+                    if (content.retryInfo != null) content = content.copy(retryInfo = null)
                 }
                 val textContent = event.aggregatedContent
                     .mapNotNull { it.text }
@@ -312,7 +312,7 @@ class StreamingManagerDelegate(
                             output = tc.output,
                         )
                     }
-                stateHandle.update { copy(activeToolCalls = syncedToolCalls) }
+                handle.update { content = content.copy(activeToolCalls = syncedToolCalls) }
                 flushStreamingBuffer()
             }
             is StreamEvent.Step -> { /* no-op */ }
@@ -325,12 +325,12 @@ class StreamingManagerDelegate(
             is StreamEvent.TitleUpdate -> handleTitleUpdate(event)
             is StreamEvent.ContextUsageUpdate -> {
                 // Latest context-window snapshot drives the gauge. In-memory only.
-                stateHandle.update { copy(contextUsage = event.usage) }
+                handle.update { content = content.copy(contextUsage = event.usage) }
             }
             is StreamEvent.TokenUsageUpdate -> {
                 // Per-call provider usage; the gauge denominator comes from the context
                 // snapshot, but the breakdown sheet shows Input/Output from this. In-memory only.
-                stateHandle.update { copy(tokenUsage = event.usage) }
+                handle.update { content = content.copy(tokenUsage = event.usage) }
             }
         }
     }
@@ -342,9 +342,9 @@ class StreamingManagerDelegate(
      * streaming-anchor invariant). The post-stream title refetch persists it.
      */
     private fun handleTitleUpdate(event: StreamEvent.TitleUpdate) {
-        val current = stateHandle.state.conversationId
+        val current = handle.state.conversationId
         if (current != null && current != event.conversationId) return
-        stateHandle.update { copy(conversationTitle = event.title) }
+        handle.update { conversation = conversation.copy(conversationTitle = event.title) }
     }
 
     private fun handleCreated(event: StreamEvent.Created) {
@@ -352,11 +352,10 @@ class StreamingManagerDelegate(
             lastErrorWasNetwork = false
             cancelConnectivityObserver()
         }
-        stateHandle.update {
-            if (retryInfo != null) {
-                copy(conversationId = event.conversationId, retryInfo = null)
-            } else {
-                copy(conversationId = event.conversationId)
+        handle.update {
+            conversation = conversation.copy(conversationId = event.conversationId)
+            if (content.retryInfo != null) {
+                content = content.copy(retryInfo = null)
             }
         }
         completionDelegate.onConversationCreated(event.conversationId, isNewConversation(), streamOriginAccountId)
@@ -368,8 +367,8 @@ class StreamingManagerDelegate(
         // `ready` SSE update may never arrive once the run closes) now falls back
         // to polling GET /api/files/:id/preview. De-duped + bounded in the delegate.
         officePreviewDelegate.onStreamEnded()
-        val isComparison = stateHandle.state.comparisonState.isEnabled
-        val conversationId = stateHandle.state.conversationId
+        val isComparison = handle.state.comparisonState.isEnabled
+        val conversationId = handle.state.conversationId
             ?: event.conversation?.conversationId
         val completedResponseText = if (isComparison) {
             comparisonDelegate.primaryContent()
@@ -379,13 +378,13 @@ class StreamingManagerDelegate(
         val shouldAutoRead = !isEditOrRegenerate
         // Make sure the resolved conversation id is in state for the completion handlers.
         if (conversationId != null) {
-            stateHandle.update { copy(conversationId = conversationId) }
+            handle.update { conversation = conversation.copy(conversationId = conversationId) }
         }
         if (isComparison) {
             // Comparison reconciles via background reload (no in-memory finalize to fold the
             // streaming-clear into), so clear the single-stream UI fields now.
-            stateHandle.update {
-                copy(
+            handle.update {
+                content = content.copy(
                     isStreaming = false,
                     streamingContent = "",
                     activeToolCalls = emptyList(),
@@ -410,9 +409,9 @@ class StreamingManagerDelegate(
         // conversation id (and thus nothing to finalize) never reaches finalizeChatDisplay,
         // so its streaming fields would otherwise stay set. No-op once the in-memory
         // finalize (normal/temp) or the comparison branch above has already cleared them.
-        if (stateHandle.state.isStreaming) {
-            stateHandle.update {
-                copy(
+        if (handle.state.isStreaming) {
+            handle.update {
+                content = content.copy(
                     isStreaming = false,
                     streamingContent = "",
                     activeToolCalls = emptyList(),
@@ -448,7 +447,7 @@ class StreamingManagerDelegate(
     private fun flushStreamingBuffer() {
         if (!streamingBufferDirty) return
         streamingBufferDirty = false
-        stateHandle.update { copy(streamingContent = streamingBuffer.toString()) }
+        handle.update { content = content.copy(streamingContent = streamingBuffer.toString()) }
     }
 
     /**
@@ -462,7 +461,7 @@ class StreamingManagerDelegate(
     }
 
     fun stopGeneration() {
-        val conversationId = stateHandle.state.conversationId ?: return
+        val conversationId = handle.state.conversationId ?: return
         // A manual stop usually means "wait" — hold the queue instead of firing the next item.
         queueDelegate.pause()
         streamJob?.cancel()
@@ -474,8 +473,8 @@ class StreamingManagerDelegate(
             if (abortResult is Result.Error) {
                 Logger.w(abortResult.exception) { "Failed to abort chat: ${abortResult.message}" }
             }
-            stateHandle.update {
-                copy(
+            handle.update {
+                content = content.copy(
                     isStreaming = false,
                     streamingContent = "",
                     activeToolCalls = emptyList(),
@@ -490,7 +489,7 @@ class StreamingManagerDelegate(
     }
 
     fun onPause() {
-        wasStreaming = stateHandle.state.isStreaming
+        wasStreaming = handle.state.isStreaming
         if (wasStreaming) {
             streamJob?.cancel()
             stopStreamingUpdater()
@@ -501,26 +500,26 @@ class StreamingManagerDelegate(
         if (!wasStreaming) return
         wasStreaming = false
 
-        val conversationId = stateHandle.state.conversationId ?: return
+        val conversationId = handle.state.conversationId ?: return
 
         scope.launch {
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
                 if (status.active) {
-                    stateHandle.update { copy(isStreaming = true) }
+                    handle.update { content = content.copy(isStreaming = true) }
                     resumeStream(conversationId)
                 } else {
-                    stateHandle.update { copy(isStreaming = false, streamingContent = "") }
+                    handle.update { content = content.copy(isStreaming = false, streamingContent = "") }
                     reloadConversation(conversationId)
                 }
             } catch (e: Exception) {
                 Logger.e(e) { "Could not resume stream" }
-                stateHandle.update {
-                    copy(
+                handle.update {
+                    content = content.copy(
                         isStreaming = false,
                         streamingContent = "",
-                        error = "Could not resume stream",
                     )
+                    error = "Could not resume stream"
                 }
             }
         }
@@ -549,8 +548,8 @@ class StreamingManagerDelegate(
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
                 if (status.active) {
-                    stateHandle.update {
-                        copy(
+                    handle.update {
+                        content = content.copy(
                             isStreaming = true,
                             screenState = ChatScreenState.ACTIVE,
                         )
@@ -594,7 +593,7 @@ class StreamingManagerDelegate(
      */
     private fun attemptNetworkRecovery() {
         if (!lastErrorWasNetwork) return
-        val state = stateHandle.state
+        val state = handle.state
         val conversationId = state.conversationId ?: return
         if (state.isStreaming) return
 
@@ -606,17 +605,20 @@ class StreamingManagerDelegate(
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
                 if (status.active) {
-                    stateHandle.update {
-                        copy(
+                    handle.update {
+                        content = content.copy(
                             isStreaming = true,
-                            error = null,
                             retryInfo = null,
                         )
+                        error = null
                     }
                     resumeStream(conversationId)
                 } else {
                     // Stream expired while offline — reload conversation from server
-                    stateHandle.update { copy(error = null, retryInfo = null) }
+                    handle.update {
+                        error = null
+                        content = content.copy(retryInfo = null)
+                    }
                     reloadConversation(conversationId)
                 }
             } catch (e: Exception) {

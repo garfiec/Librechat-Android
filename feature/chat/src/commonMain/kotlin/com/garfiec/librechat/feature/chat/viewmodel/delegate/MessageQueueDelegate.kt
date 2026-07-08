@@ -2,12 +2,12 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.QueueHandle
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 
 /**
  * Owns the in-memory FIFO queue of follow-up messages the user staged while a reply was
- * streaming. Holds only the list + pause flag in [ChatStateHandle]; the actual send is
+ * streaming. Holds only the list + pause flag in its [QueueHandle]; the actual send is
  * delegated back to `ChatViewModel` via [sendWithSpec] so all the request-build / optimistic-
  * insert / lineage logic stays in one place.
  *
@@ -16,7 +16,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
  * ([resume]). The queue is never persisted — it lives and dies with the ViewModel.
  */
 class MessageQueueDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: QueueHandle,
     private val activeAccountProvider: ActiveAccountProvider,
     /** Fires one queued message. Set by `ChatViewModel` to `doSendWithSpec` (wrapped in the
      *  send-ready gate). Recomputes lineage live; only config comes from the spec. [awaitSettle]
@@ -30,7 +30,7 @@ class MessageQueueDelegate(
 ) {
 
     fun enqueue(spec: QueuedMessage) {
-        stateHandle.update { copy(messageQueue = messageQueue + spec) }
+        handle.update { queue = queue.copy(messageQueue = queue.messageQueue + spec) }
     }
 
     /**
@@ -39,45 +39,45 @@ class MessageQueueDelegate(
      * the item is only borrowed, so a paused queue stays paused. Returns null if the id is gone.
      */
     fun takeForEdit(localId: String): IndexedValue<QueuedMessage>? {
-        val index = stateHandle.state.messageQueue.indexOfFirst { it.localId == localId }
+        val index = handle.state.messageQueue.indexOfFirst { it.localId == localId }
         if (index < 0) return null
-        val item = stateHandle.state.messageQueue[index]
-        stateHandle.update { copy(messageQueue = messageQueue.filterNot { it.localId == localId }) }
+        val item = handle.state.messageQueue[index]
+        handle.update { queue = queue.copy(messageQueue = queue.messageQueue.filterNot { it.localId == localId }) }
         return IndexedValue(index, item)
     }
 
     /** Re-inserts an item at [index] (clamped to the current bounds) — the commit/cancel counterpart
      *  to [takeForEdit]. */
     fun reinsert(index: Int, item: QueuedMessage) {
-        stateHandle.update {
-            val clamped = index.coerceIn(0, messageQueue.size)
-            copy(messageQueue = messageQueue.toMutableList().apply { add(clamped, item) })
+        handle.update {
+            val clamped = index.coerceIn(0, queue.messageQueue.size)
+            queue = queue.copy(messageQueue = queue.messageQueue.toMutableList().apply { add(clamped, item) })
         }
     }
 
     /** Clears a now-meaningless pause when the queue is empty (e.g. an edit was committed empty,
      *  deleting the last item). */
     fun clearPauseIfEmpty() {
-        stateHandle.update { if (messageQueue.isEmpty()) copy(isQueuePaused = false) else this }
+        handle.update { if (queue.messageQueue.isEmpty()) queue = queue.copy(isQueuePaused = false) }
     }
 
     fun cancel(localId: String) {
-        stateHandle.update {
-            val next = messageQueue.filterNot { it.localId == localId }
+        handle.update {
+            val next = queue.messageQueue.filterNot { it.localId == localId }
             // Clearing the last item while paused lifts the (now meaningless) pause.
-            copy(messageQueue = next, isQueuePaused = isQueuePaused && next.isNotEmpty())
+            queue = queue.copy(messageQueue = next, isQueuePaused = queue.isQueuePaused && next.isNotEmpty())
         }
     }
 
     fun reorder(fromIndex: Int, toIndex: Int) {
-        stateHandle.update {
-            val list = messageQueue
+        handle.update {
+            val list = queue.messageQueue
             if (fromIndex !in list.indices || toIndex !in list.indices || fromIndex == toIndex) {
-                return@update this
+                return@update
             }
             val mutable = list.toMutableList()
             mutable.add(toIndex, mutable.removeAt(fromIndex))
-            copy(messageQueue = mutable)
+            queue = queue.copy(messageQueue = mutable)
         }
     }
 
@@ -85,14 +85,14 @@ class MessageQueueDelegate(
      *  currently pulled out for editing still counts (it will return to the queue), so a Stop
      *  during the edit of the sole queued item correctly registers the pause. */
     fun pause() {
-        if (stateHandle.state.messageQueue.isEmpty() && !stateHandle.state.isEditingQueued) return
-        stateHandle.update { copy(isQueuePaused = true) }
+        if (handle.state.messageQueue.isEmpty() && !handle.state.isEditingQueued) return
+        handle.update { queue = queue.copy(isQueuePaused = true) }
     }
 
     /** User tapped "Send queued": lift the pause and start draining. The reply already settled
      *  while paused, so no settle-wait is needed. */
     fun resume() {
-        stateHandle.update { copy(isQueuePaused = false) }
+        handle.update { queue = queue.copy(isQueuePaused = false) }
         drainNext(awaitSettle = false)
     }
 
@@ -106,12 +106,12 @@ class MessageQueueDelegate(
         // Freeze the queue while a queued item is being edited: draining now would fire an item
         // out from under the user and shift the slots the edit session's originalIndex points at.
         // The edit's commit/cancel re-kicks draining once it completes.
-        if (stateHandle.state.isEditingQueued) return
+        if (handle.state.isEditingQueued) return
         // A paused queue must not be mutated: leave every item (foreign ones included) in place until
         // the user resumes, which re-enters here with the pause lifted and runs the purge below. Guard
         // before the purge so a stray drain trigger can't silently drop items — and fire a snackbar —
         // on a queue the user has deliberately parked.
-        if (stateHandle.state.isQueuePaused) return
+        if (handle.state.isQueuePaused) return
         // Purge items composed under a different account (the user switched accounts since queueing).
         // Sending one would POST account A's content to account B's server under B's bearer — a
         // content-to-wrong-server leak the same-owner reframe does not excuse. Surface a count so the
@@ -121,16 +121,16 @@ class MessageQueueDelegate(
         // accountId (pre-multi-account / tests) match any account.
         val current = activeAccountProvider.currentAccountId()?.value
         if (current != null) {
-            val foreign = stateHandle.state.messageQueue.count { it.accountId != null && it.accountId != current }
+            val foreign = handle.state.messageQueue.count { it.accountId != null && it.accountId != current }
             if (foreign > 0) {
-                stateHandle.update {
-                    copy(messageQueue = messageQueue.filter { it.accountId == null || it.accountId == current })
+                handle.update {
+                    queue = queue.copy(messageQueue = queue.messageQueue.filter { it.accountId == null || it.accountId == current })
                 }
                 onQueuedDropped(foreign)
             }
         }
-        val head = stateHandle.state.messageQueue.firstOrNull() ?: return
-        stateHandle.update { copy(messageQueue = messageQueue.drop(1)) }
+        val head = handle.state.messageQueue.firstOrNull() ?: return
+        handle.update { queue = queue.copy(messageQueue = queue.messageQueue.drop(1)) }
         sendWithSpec(head, awaitSettle)
     }
 }

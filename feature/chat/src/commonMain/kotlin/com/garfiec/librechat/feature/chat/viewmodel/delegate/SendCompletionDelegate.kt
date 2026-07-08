@@ -11,8 +11,8 @@ import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
+import com.garfiec.librechat.feature.chat.viewmodel.SendCompletionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.shouldRequestTitleGeneration
 import kotlinx.coroutines.launch
 
@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
  * cleanup (buffer flush, connectivity reset) stays on the caller's side.
  */
 class SendCompletionDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: SendCompletionHandle,
     private val conversationRepository: ConversationRepository,
     private val messageRepository: MessageRepository,
     private val draftRepository: DraftRepository,
@@ -58,10 +58,10 @@ class SendCompletionDelegate(
         // new Chat(id) VM via the Chat route's isTemporary flag (durable across process death), so
         // that VM starts temp-aware and skips its own loadConversation / loadConversationModel
         // upserts — see ChatViewModel.init and Navigator.navigateToChat.
-        val isTemporary = stateHandle.state.isTemporaryChat
+        val isTemporary = handle.state.isTemporaryChat
         if (isNewConversation) {
             if (!isTemporary) {
-                stateHandle.scope.launch {
+                handle.scope.launch {
                     val existingDraft = draftRepository.getDraft(NEW_CHAT_DRAFT_KEY)
                     if (existingDraft != null) {
                         draftRepository.saveDraft(conversationId, existingDraft)
@@ -73,24 +73,23 @@ class SendCompletionDelegate(
             // apply it directly instead of re-deriving it from a GET that races the server's
             // unawaited conversation save. Keyed by id, so a deferred nav (comparison-mode
             // branch) still picks it up. See NewChatSelectionHandoff.
-            val sent = stateHandle.state
+            val sent = handle.state
             // Hand off the optimistic user message too, so the about-to-be-created Chat(id) VM
             // can keep it on screen during the resumed stream — the server doesn't persist the
             // request message until the reply completes. See NewChatSelectionHandoff.
             val optimisticUserMessage = sent.messages.lastOrNull { it.isCreatedByUser }
             selectionHandoff.put(conversationId, sent.selectedEndpoint, sent.selectedModel, optimisticUserMessage)
-            stateHandle.update {
-                if (pendingNavigationConversationId == null && !comparisonState.isEnabled) {
-                    copy(pendingNavigationConversationId = conversationId)
-                } else {
-                    this
+            val snapshot = handle.state
+            if (snapshot.pendingNavigationConversationId == null && !snapshot.comparisonState.isEnabled) {
+                handle.update {
+                    conversation = conversation.copy(pendingNavigationConversationId = conversationId)
                 }
             }
         }
         // Eagerly fetch and cache the conversation the server just created, so it appears in the
         // conversation list even if the stream fails later — but never for temp chats (see guard).
         if (!isTemporary) {
-            stateHandle.scope.launch {
+            handle.scope.launch {
                 conversationRepository.getConversation(conversationId, originAccount)
             }
         }
@@ -131,9 +130,9 @@ class SendCompletionDelegate(
         // Temporary chats are kept out of normal history — the server excludes
         // them from the conversation list, so don't cache them to Room either (it would
         // leak a temp chat into the local list the server hides).
-        val isTemporary = stateHandle.state.isTemporaryChat || finalConversation?.isTemporary == true
+        val isTemporary = handle.state.isTemporaryChat || finalConversation?.isTemporary == true
         if (finalConversation?.conversationId != null && !isTemporary) {
-            stateHandle.scope.launch {
+            handle.scope.launch {
                 conversationRepository.saveConversation(finalConversation, originAccount)
             }
         }
@@ -166,7 +165,7 @@ class SendCompletionDelegate(
                 val shouldGenerate = shouldRequestTitleGeneration(
                     isNewConversation = isNewConversation,
                     isHandedOffNewChat = isHandedOffNewChat,
-                    currentTitle = stateHandle.state.conversationTitle,
+                    currentTitle = handle.state.conversationTitle,
                     alreadyRequested = titleGenerationRequested,
                 )
                 if (shouldGenerate) {
@@ -190,25 +189,25 @@ class SendCompletionDelegate(
      */
     private fun cacheTurn(turn: List<Message>, originAccount: AccountId?) {
         if (turn.isEmpty()) return
-        stateHandle.scope.launch {
+        handle.scope.launch {
             runCatching { messageRepository.cacheMessages(turn, originAccount) }
                 .onFailure { Logger.e(it) { "Failed to cache final messages for the completed turn" } }
         }
     }
 
     private fun refreshConversationTitle(conversationId: String, originAccount: AccountId?) {
-        stateHandle.scope.launch {
-            val conversation = conversationRepository.getConversation(conversationId, originAccount).getOrNull()
+        handle.scope.launch {
+            val fetched = conversationRepository.getConversation(conversationId, originAccount).getOrNull()
                 ?: return@launch
-            stateHandle.update { copy(conversationTitle = conversation.title) }
+            handle.update { conversation = conversation.copy(conversationTitle = fetched.title) }
         }
     }
 
     private fun generateAndSetTitle(conversationId: String, originAccount: AccountId?) {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (val result = conversationRepository.generateTitle(conversationId, originAccount)) {
                 is Result.Success -> {
-                    stateHandle.update { copy(conversationTitle = result.data) }
+                    handle.update { conversation = conversation.copy(conversationTitle = result.data) }
                 }
                 is Result.Error -> {
                     Logger.d { "Title generation failed for $conversationId: ${result.message}" }
@@ -218,8 +217,8 @@ class SendCompletionDelegate(
                     // still holds the "New Chat" placeholder, so cache-first getConversation
                     // could never observe the title, and refreshConversation's upsert also
                     // propagates it to the Room-observing conversation list.
-                    conversationRepository.refreshConversation(conversationId, originAccount).getOrNull()?.let { conversation ->
-                        stateHandle.update { copy(conversationTitle = conversation.title) }
+                    conversationRepository.refreshConversation(conversationId, originAccount).getOrNull()?.let { fetched ->
+                        handle.update { conversation = conversation.copy(conversationTitle = fetched.title) }
                     }
                 }
                 is Result.Loading -> { /* no-op */ }

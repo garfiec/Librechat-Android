@@ -1,5 +1,31 @@
 # feature:chat
 
+## State Architecture (ChatUiState slices + narrowed handles)
+`ChatUiState` is decomposed into **16 `@Immutable` sub-state slices** (15 new files under
+`viewmodel/state/`, plus the pre-existing `comparisonState`), plus two top-level fields: `error`
+(a shared transient-banner channel) and `mediaPreview`. The slices: `conversation`, `content`
+(message tree + all streaming fields),
+`editing`, `composer`, `selection` (endpoint/model/tools/params), `queue`, `search`,
+`presetPrompts`, `voice`, `favorites`, `subagents`, `comparisonState`, `gates`, `account`,
+`actions`, `prefs`.
+
+- **Compat accessors.** `ChatUiState` keeps flat `val field get() = slice.field` accessors for
+  every former field, so the ~250 UI read sites and test assertions read `uiState.isStreaming`
+  etc. unchanged. UI still reads flat; only writes changed.
+- **Narrowed write handles.** Delegates never receive the root `ChatStateHandle`. Each gets a
+  per-delegate handle from `DelegateHandles.kt` (e.g. `StreamingHandle`, `QueueHandle`) whose
+  `update { … }` block exposes only the slices that delegate may mutate (compile-time enforced
+  via a `*Writes` class). `error` is writable from every handle (shared channel); use
+  `setError(msg)` or assign `error` inside an `update`. Reads stay global via `handle.state`.
+  `ChatViewModel` alone holds the root `ChatStateHandle` for its orchestration transactions.
+- **Atomic-transaction invariant.** The completion-flash finalize, begin-stream, reset-with-
+  carryover, `applyComposer`, and `switchBranch` each write within a single slice (or a single
+  writer block), so they remain **one** `StateFlow` emission — do not split them across multiple
+  `update`/`copy` calls. Message-tree + streaming fields deliberately live in ONE slice
+  (`MessagesState`) because all five couple them.
+- Adding a field: put it on the owning slice, add a flat compat accessor on `ChatUiState`, and
+  add the slice to the writer of whichever delegate(s) own it.
+
 ## Screen States
 `ChatScreenState` enum: `LANDING` | `LOADING` | `ACTIVE`
 - **Landing**: no conversation selected, shows greeting + model icon + optional conversation starters
