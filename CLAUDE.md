@@ -47,7 +47,7 @@ Each module has its own `CLAUDE.md` with specific guidance.
    - `librechat.kmp.feature` — for KMP modules with shared iOS + Android code (most features)
    - `librechat.mobile.feature` — for Android-only modules
 3. Create `di/<Feature>Module.kt` with a Koin `module { }` containing `viewModelOf(::YourViewModel)` definitions
-4. Register the module in `LibreChatApplication.kt`'s `startKoin { modules(...) }` list
+4. Add the module to `sharedKoinModules` (`shared/src/commonMain/.../di/SharedKoinModules.kt`) — the single list both Android (`LibreChatApplication`) and iOS (`IosSharedModule`) start from, so a module registered once is wired on both platforms
 5. Use `koinViewModel()` in screen composables to inject ViewModels
 
 ## Backend Quirks

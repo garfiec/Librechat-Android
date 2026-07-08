@@ -28,6 +28,12 @@ This **cannot** be fixed in Ktor or `commonMain`. Ktor's Darwin engine faithfull
 
 ### Architecture: `expect class SseHttpTransport`
 
+Both platforms wire the network graph the same way: `networkModule` (commonMain) is
+platform-agnostic and both Android (`LibreChatApplication`) and iOS (`IosSharedModule`)
+`includes(networkModule)`. The only platform-specific bindings — the engine factory
+(OkHttp/Darwin) and `SseHttpTransport` — live in `networkPlatformModule` (expect/actual),
+so iOS's engine + `SseHttpTransport` come from `networkPlatformModule.ios`.
+
 Both layers are addressed via an `SseHttpTransport` abstraction:
 
 - **`SseHttpTransport.android.kt`** — thin Ktor `prepareGet + execute` shim. Layer 1 fix only; Layer 2 doesn't apply on Android.

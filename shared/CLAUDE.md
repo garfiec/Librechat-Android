@@ -15,7 +15,7 @@ The framework is static (`isStatic = true`) and named `Shared`.
 | File | Purpose |
 |------|---------|
 | `IosKoinHelper.kt` | `startIosKoin()` — called from Swift `iOSApp.init()`. Sets up Kermit logging via NSLog, installs crash reporting, starts Koin with iOS modules. |
-| `IosSharedModule.kt` | Koin module wiring Darwin Ktor engine, three HttpClient instances (main, streaming, refresh), all 16 API services, SSE client, and `LibreChatSDK`. |
+| `IosSharedModule.kt` | iOS Koin graph: `includes(sharedKoinModules)` (which brings in `networkModule` → Darwin engine + iOS `SseHttpTransport` via `networkPlatformModule.ios`, HTTP clients, all API services, SSE client) and adds only the one iOS-only binding, `LibreChatSDK`. |
 | `IosKoinAccessor.kt` | Swift-accessible Koin resolver. `KoinHelper.swift` calls these to get SDK, repos, etc. |
 | `IosCrashReporting.kt` | Unhandled exception hook — logs via Kermit + raises NSException for readable iOS crash logs. |
 | `MainViewController.kt` | `MainViewController()` — the Compose Multiplatform entry point wrapped by `ComposeView.swift`. |
@@ -23,6 +23,7 @@ The framework is static (`isStatic = true`) and named `Shared`.
 ## Common Files (`src/commonMain/`)
 
 - `LibreChatSDK.kt` — Facade class aggregating all API services, token manager, and SSE client
+- `di/SharedKoinModules.kt` — `sharedKoinModules`, the single Koin module list both platforms start from (Android loads it directly; iOS `includes` it). Add a feature module here, not in the per-platform entry points. Verified against Android actuals by `:app` `KoinGraphVerificationTest` and against iOS actuals by `iosTest/IosKoinGraphTest` (`:shared:iosSimulatorArm64Test`).
 - `navigation/` — Nav 3 route definitions and entry providers shared across platforms
 - `app/` — Shared app-level composables (root navigation host)
 
