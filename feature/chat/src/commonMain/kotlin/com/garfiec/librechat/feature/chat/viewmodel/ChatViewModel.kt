@@ -169,7 +169,8 @@ class ChatViewModel(
     private val searchDelegate = InConversationSearchDelegate(SearchHandle(stateHandle))
     private val conversationActionsDelegate =
         ConversationActionsDelegate(ConversationActionsHandle(stateHandle), conversationRepository, shareRepository)
-    private val presetPromptDelegate = PresetPromptDelegate(PresetPromptHandle(stateHandle), presetRepository, promptRepository)
+    private val presetPromptDelegate =
+        PresetPromptDelegate(PresetPromptHandle(stateHandle), presetRepository, promptRepository)
     private val favoritesDelegate = FavoritesDelegate(FavoritesHandle(stateHandle), favoritesRepository)
     private val modelDelegate = ModelSelectionDelegate(
         handle = ModelSelectionHandle(stateHandle),
