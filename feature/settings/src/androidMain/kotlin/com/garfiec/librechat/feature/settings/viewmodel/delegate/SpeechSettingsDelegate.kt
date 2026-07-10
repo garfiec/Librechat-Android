@@ -7,6 +7,7 @@ import android.speech.tts.UtteranceProgressListener
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.data.repository.ServerSttGate
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.model.speech.TtsVoice
 import com.garfiec.librechat.feature.settings.screen.DeviceVoiceInfo
@@ -30,6 +31,11 @@ class SpeechSettingsDelegate(
 
     private var currentMediaPlayer: MediaPlayer? = null
     private var deviceTtsEngine: TextToSpeech? = null
+
+    // Loads + latches the server-STT flag with the shared "unknown vs disabled" retry policy. Until
+    // it has resolved once (gate.loaded), serverSttEnabled=false is "unknown", not "disabled" — so
+    // opening the STT dialog retries rather than permanently hiding the External engine.
+    private val serverSttGate = ServerSttGate(speechRepository)
 
     override fun loadVoices() {
         stateHandle.scope.launch {
@@ -69,6 +75,15 @@ class SpeechSettingsDelegate(
                 tts
             }
             deviceTtsEngine = engine
+        }
+    }
+
+    override fun loadSpeechConfig() {
+        stateHandle.scope.launch {
+            // A null result means a transient failure — leave the gate unlatched so opening the STT
+            // dialog retries rather than trusting it as a definitive "server STT disabled".
+            val enabled = serverSttGate.refresh() ?: false
+            stateHandle.update { copy(serverSttEnabled = enabled) }
         }
     }
 
@@ -171,6 +186,9 @@ class SpeechSettingsDelegate(
     // STT detail dialogs
 
     override fun showSttDetailDialog() {
+        // Retry the speech-config fetch if it hasn't succeeded yet, so a transient error at settings
+        // launch doesn't permanently hide the External engine for the whole session.
+        if (!serverSttGate.loaded) loadSpeechConfig()
         stateHandle.update { copy(showSttDetailDialog = true) }
     }
 
@@ -178,13 +196,21 @@ class SpeechSettingsDelegate(
         stateHandle.update { copy(showSttDetailDialog = false) }
     }
 
-    override fun saveSttSettings(engine: String, language: String) {
+    override fun saveSttSettings(engine: String, language: String, onDevice: Boolean, endOfSpeech: Boolean) {
         stateHandle.update {
-            copy(sttEngine = engine, sttLanguage = language, showSttDetailDialog = false)
+            copy(
+                sttEngine = engine,
+                sttLanguage = language,
+                sttOnDevice = onDevice,
+                sttEndOfSpeech = endOfSpeech,
+                showSttDetailDialog = false,
+            )
         }
         stateHandle.scope.launch {
             settingsDataStore.setSttEngine(engine)
             settingsDataStore.setSttLanguage(language)
+            settingsDataStore.setSttOnDevice(onDevice)
+            settingsDataStore.setSttEndOfSpeech(endOfSpeech)
         }
     }
 

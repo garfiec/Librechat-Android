@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">Движок</string>
     <string name="stt_language_label">Язык</string>
-    <string name="stt_on_device">На устройстве</string>
     <string name="stt_default">По умолчанию</string>
-    <string name="stt_hint_whisper">Whisper использует транскрипцию на стороне сервера. На вашем сервере должно быть включено распознавание речи (STT).</string>
-    <string name="stt_hint_device">Использует встроенный распознаватель речи вашего устройства. Работает офлайн на поддерживаемых устройствах.</string>
-    <string name="stt_hint_google">Использует распознаватель речи Google. Требуется установленное приложение Google.</string>
-    <string name="stt_hint_default">Использует серверную транскрипцию (Whisper), когда она доступна, иначе переключается на распознавание на устройстве.</string>
+    <string name="stt_engine_browser">Встроенный</string>
+    <string name="stt_engine_external">Сервер</string>
+    <string name="stt_hint_browser">Использует встроенное распознавание речи вашего устройства для транскрипции в реальном времени.</string>
+    <string name="stt_hint_external">Загружает аудио на ваш сервер для преобразования речи в текст (Whisper). На сервере должно быть включено распознавание речи.</string>
+    <string name="stt_on_device_toggle">Распознавание на устройстве</string>
+    <string name="stt_on_device_toggle_desc">Транскрибирует на этом устройстве, а не в облаке. При недоступности переключается на облачное распознавание.</string>
+    <string name="stt_end_of_speech_toggle">Останавливать при паузе</string>
+    <string name="stt_end_of_speech_toggle_desc">Автоматически завершает диктовку, когда вы перестаёте говорить, вместо того чтобы продолжать до нажатия «Стоп». При включённой автоотправке после речи сообщение отправляется без помощи рук.</string>
     <string name="stt_auto_detect">Автоопределение</string>
 
     <!-- TTS detail dialog -->

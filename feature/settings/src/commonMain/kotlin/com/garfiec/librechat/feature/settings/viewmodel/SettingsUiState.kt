@@ -166,6 +166,12 @@ data class SettingsUiState(
     val sttEngine: String = "",
     val sttLanguage: String = "",
     val sttAutoSend: Boolean = false,
+    /** Mobile-only: prefer the platform on-device recognizer for the Browser engine. Default ON. */
+    val sttOnDevice: Boolean = true,
+    /** Mobile-only: stop dictation at end-of-speech (hands-free) vs. run continuously. Default OFF. */
+    val sttEndOfSpeech: Boolean = false,
+    /** Whether the server has external STT (Whisper) configured — gates the External engine option. */
+    val serverSttEnabled: Boolean = false,
     val ttsEngine: String = "",
     val ttsVoice: String = "",
     val ttsSpeechRate: Float = 1.0f,

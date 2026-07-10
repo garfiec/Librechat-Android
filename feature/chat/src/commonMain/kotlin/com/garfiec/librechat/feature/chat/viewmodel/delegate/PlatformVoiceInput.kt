@@ -2,8 +2,9 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 /**
  * Platform-abstracted voice input handling.
- * Android: wraps VoiceInputDelegate with MediaRecorder.
- * iOS: no-op initially (voice input not yet supported on iOS).
+ * Android: wraps VoiceInputDelegate (in-process SpeechRecognizer for the Browser engine,
+ * MediaRecorder + upload for the External engine).
+ * iOS: SFSpeechRecognizer live transcription.
  */
 interface PlatformVoiceInput {
     fun startRecording()

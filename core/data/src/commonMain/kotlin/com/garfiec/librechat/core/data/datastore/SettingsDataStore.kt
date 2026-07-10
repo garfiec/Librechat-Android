@@ -188,6 +188,27 @@ class SettingsDataStore(
         prefs[KEY_STT_LANGUAGE] ?: ""
     }
 
+    /**
+     * Mobile-only preference: when the Browser STT engine is selected, prefer the platform's
+     * on-device recognizer (Android `createOnDeviceSpeechRecognizer` / iOS
+     * `requiresOnDeviceRecognition`) over the cloud recognizer. Defaults ON. Irrelevant for the
+     * External engine (server transcription is inherently remote). Has no web counterpart.
+     */
+    val sttOnDevice: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_STT_ON_DEVICE] ?: true
+    }
+
+    /**
+     * Mobile-only preference for the Built-in STT engine: when ON, dictation stops as soon as the
+     * recognizer detects you've finished speaking (end-of-speech), enabling a hands-free flow where
+     * [autoSendAfterStt] then sends the message. When OFF (default) dictation runs continuously until
+     * the user taps stop. Irrelevant for the External engine (single-shot record→upload). No web
+     * counterpart.
+     */
+    val sttEndOfSpeech: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_STT_END_OF_SPEECH] ?: false
+    }
+
     val ttsEngine: Flow<String> = dataStore.data.map { prefs ->
         prefs[KEY_TTS_ENGINE] ?: ""
     }
@@ -495,6 +516,18 @@ class SettingsDataStore(
         }
     }
 
+    suspend fun setSttOnDevice(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_STT_ON_DEVICE] = enabled
+        }
+    }
+
+    suspend fun setSttEndOfSpeech(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_STT_END_OF_SPEECH] = enabled
+        }
+    }
+
     suspend fun setTtsEngine(engine: String) {
         dataStore.edit { prefs ->
             prefs[KEY_TTS_ENGINE] = engine
@@ -639,6 +672,8 @@ class SettingsDataStore(
         private val KEY_AUTO_SEND_AFTER_STT = booleanPreferencesKey("auto_send_after_stt")
         private val KEY_STT_ENGINE = stringPreferencesKey("stt_engine")
         private val KEY_STT_LANGUAGE = stringPreferencesKey("stt_language")
+        private val KEY_STT_ON_DEVICE = booleanPreferencesKey("stt_on_device")
+        private val KEY_STT_END_OF_SPEECH = booleanPreferencesKey("stt_end_of_speech")
         private val KEY_TTS_ENGINE = stringPreferencesKey("tts_engine")
         private val KEY_TTS_VOICE = stringPreferencesKey("tts_voice")
         private val KEY_TTS_CACHING = booleanPreferencesKey("tts_caching")

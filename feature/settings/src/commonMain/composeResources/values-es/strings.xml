@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">Motor</string>
     <string name="stt_language_label">Idioma</string>
-    <string name="stt_on_device">En el dispositivo</string>
     <string name="stt_default">Predeterminado</string>
-    <string name="stt_hint_whisper">Whisper usa transcripción del lado del servidor. Tu servidor debe tener el STT activado.</string>
-    <string name="stt_hint_device">Usa el reconocedor de voz integrado de tu dispositivo. Funciona sin conexión en los dispositivos compatibles.</string>
-    <string name="stt_hint_google">Usa el reconocedor de voz de Google. Requiere que la app de Google esté instalada.</string>
-    <string name="stt_hint_default">Usa la transcripción del servidor (Whisper) cuando esté disponible; de lo contrario, recurre al reconocimiento en el dispositivo.</string>
+    <string name="stt_engine_browser">Integrado</string>
+    <string name="stt_engine_external">Servidor</string>
+    <string name="stt_hint_browser">Usa el reconocimiento de voz integrado de tu dispositivo para la transcripción en vivo.</string>
+    <string name="stt_hint_external">Sube el audio a tu servidor para la conversión de voz a texto (Whisper). Tu servidor debe tener STT habilitado.</string>
+    <string name="stt_on_device_toggle">Reconocimiento en el dispositivo</string>
+    <string name="stt_on_device_toggle_desc">Transcribe en este dispositivo en lugar de en la nube. Recurre al reconocimiento en la nube si no está disponible.</string>
+    <string name="stt_end_of_speech_toggle">Detener cuando haga una pausa</string>
+    <string name="stt_end_of_speech_toggle_desc">Finaliza el dictado automáticamente cuando dejas de hablar, en lugar de seguir hasta que tocas detener. Con el envío automático tras el habla activado, envía el mensaje con manos libres.</string>
     <string name="stt_auto_detect">Detección automática</string>
 
     <!-- TTS detail dialog -->

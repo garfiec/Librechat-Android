@@ -30,4 +30,11 @@ class SpeechRepositoryImpl(
 
     override suspend fun getSpeechConfig(): Result<SpeechConfig> =
         safeApiCall { speechApi.getSpeechConfig() }
+
+    override suspend fun isServerSttEnabled(): Result<Boolean> =
+        when (val result = getSpeechConfig()) {
+            is Result.Success -> Result.Success(result.data.sttExternal)
+            is Result.Error -> result
+            is Result.Loading -> Result.Loading
+        }
 }

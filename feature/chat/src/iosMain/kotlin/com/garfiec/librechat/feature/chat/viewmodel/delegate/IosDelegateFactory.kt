@@ -5,6 +5,8 @@ import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 class IosDelegateFactory(
     private val fileRepository: FileRepository,
@@ -21,7 +23,18 @@ class IosDelegateFactory(
         stateHandle: ChatStateHandle,
         onTranscriptionComplete: () -> Unit,
     ): PlatformVoiceInput {
-        return IosVoiceInput(stateHandle, onTranscriptionComplete)
+        return IosVoiceInput(
+            stateHandle = stateHandle,
+            autoSendAfterStt = settingsDataStore.autoSendAfterStt
+                .stateIn(stateHandle.scope, SharingStarted.Eagerly, false),
+            sttOnDevice = settingsDataStore.sttOnDevice
+                .stateIn(stateHandle.scope, SharingStarted.Eagerly, true),
+            sttEndOfSpeech = settingsDataStore.sttEndOfSpeech
+                .stateIn(stateHandle.scope, SharingStarted.Eagerly, false),
+            sttLanguage = settingsDataStore.sttLanguage
+                .stateIn(stateHandle.scope, SharingStarted.Eagerly, ""),
+            onTranscriptionComplete = onTranscriptionComplete,
+        )
     }
 
     override fun createTts(

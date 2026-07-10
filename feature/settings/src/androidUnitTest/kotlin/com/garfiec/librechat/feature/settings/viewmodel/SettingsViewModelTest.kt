@@ -23,6 +23,7 @@ import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.DiagnosticLogRepository
 import com.garfiec.librechat.core.model.User
+import com.garfiec.librechat.core.model.speech.SpeechConfig
 import com.garfiec.librechat.feature.settings.util.ContentReader
 import com.garfiec.librechat.feature.settings.util.PlatformCacheCleaner
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.SpeechSettingsContract
@@ -107,6 +108,8 @@ class SettingsViewModelTest {
         every { settingsDataStore.autoSendAfterStt } returns MutableStateFlow(false)
         every { settingsDataStore.sttEngine } returns MutableStateFlow("")
         every { settingsDataStore.sttLanguage } returns MutableStateFlow("")
+        every { settingsDataStore.sttOnDevice } returns MutableStateFlow(true)
+        every { settingsDataStore.sttEndOfSpeech } returns MutableStateFlow(false)
         every { settingsDataStore.chatLayoutStyle } returns MutableStateFlow(ChatLayoutConstants.THREAD)
         every { settingsDataStore.showAvatars } returns MutableStateFlow(true)
         every { settingsDataStore.showBubbles } returns MutableStateFlow(false)
@@ -120,6 +123,7 @@ class SettingsViewModelTest {
         coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(emptyMap())
         coEvery { memoryRepository.getMemories() } returns Result.Success(emptyList())
         coEvery { speechRepository.getVoices() } returns Result.Success(emptyList())
+        coEvery { speechRepository.getSpeechConfig() } returns Result.Success(SpeechConfig())
         coEvery { balanceRepository.getBalance() } returns Result.Error(message = "Not available")
 
         // Permissive-null defaults so existing tests continue to exercise the

@@ -58,6 +58,8 @@ private data class AdditionalPreferences(
     val sttEngine: String,
     val sttLanguage: String,
     val ttsCaching: Boolean,
+    val sttOnDevice: Boolean = true,
+    val sttEndOfSpeech: Boolean = false,
     val chatLayoutStyle: String = ChatLayoutConstants.THREAD,
     val showAvatars: Boolean = true,
     val showBubbles: Boolean = false,
@@ -206,6 +208,10 @@ class SettingsPreferencesController(
         additional.copy(chatHeaderAlignment = headerAlignment)
     }.combine(contextBarPlacementPref) { additional, contextBarPlacement ->
         additional.copy(contextBarPlacement = contextBarPlacement)
+    }.combine(settingsDataStore.sttOnDevice) { additional, sttOnDevice ->
+        additional.copy(sttOnDevice = sttOnDevice)
+    }.combine(settingsDataStore.sttEndOfSpeech) { additional, sttEndOfSpeech ->
+        additional.copy(sttEndOfSpeech = sttEndOfSpeech)
     }.stateIn(scope, SharingStarted.Eagerly, AdditionalPreferences(true, false, "", "", true))
 
     /** The single public UI state that merges DataStore preferences with imperative state. */
@@ -241,6 +247,8 @@ class SettingsPreferencesController(
             sttAutoSend = additional.autoSendAfterStt,
             sttEngine = additional.sttEngine,
             sttLanguage = additional.sttLanguage,
+            sttOnDevice = additional.sttOnDevice,
+            sttEndOfSpeech = additional.sttEndOfSpeech,
             chatLayoutStyle = additional.chatLayoutStyle,
             showAvatars = additional.showAvatars,
             showBubbles = additional.showBubbles,

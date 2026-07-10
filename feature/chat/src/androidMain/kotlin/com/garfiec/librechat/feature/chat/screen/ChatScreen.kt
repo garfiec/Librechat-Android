@@ -100,7 +100,6 @@ actual fun ChatScreen(
         viewModel = viewModel,
         sttEngine = sttEngine,
         sttLanguage = sttLanguage,
-        serverSttEnabled = uiState.serverSttEnabled,
         snackbarHostState = snackbarHostState,
         coroutineScope = coroutineScope,
     )

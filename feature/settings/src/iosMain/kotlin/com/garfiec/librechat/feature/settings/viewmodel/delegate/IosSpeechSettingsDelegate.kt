@@ -77,6 +77,14 @@ class IosSpeechSettingsDelegate(
         stateHandle.update { copy(availableDeviceVoices = voices) }
     }
 
+    override fun loadSpeechConfig() {
+        // iOS has no server-STT (External) recording path yet — IosVoiceInput always uses
+        // SFSpeechRecognizer — so intentionally leave serverSttEnabled=false. This keeps the
+        // External engine hidden in the shared STT dialog rather than offering an option that would
+        // silently do nothing when selected. (Follow-up: implement iOS External via AVAudioRecorder
+        // + speechRepository.transcribeAudio, then fetch getSpeechConfig() here like Android does.)
+    }
+
     override fun setAutoSendAfterStt(enabled: Boolean) {
         stateHandle.scope.launch {
             settingsDataStore.setAutoSendAfterStt(enabled)
@@ -179,13 +187,21 @@ class IosSpeechSettingsDelegate(
         stateHandle.update { copy(showSttDetailDialog = false) }
     }
 
-    override fun saveSttSettings(engine: String, language: String) {
+    override fun saveSttSettings(engine: String, language: String, onDevice: Boolean, endOfSpeech: Boolean) {
         stateHandle.update {
-            copy(sttEngine = engine, sttLanguage = language, showSttDetailDialog = false)
+            copy(
+                sttEngine = engine,
+                sttLanguage = language,
+                sttOnDevice = onDevice,
+                sttEndOfSpeech = endOfSpeech,
+                showSttDetailDialog = false,
+            )
         }
         stateHandle.scope.launch {
             settingsDataStore.setSttEngine(engine)
             settingsDataStore.setSttLanguage(language)
+            settingsDataStore.setSttOnDevice(onDevice)
+            settingsDataStore.setSttEndOfSpeech(endOfSpeech)
         }
     }
 

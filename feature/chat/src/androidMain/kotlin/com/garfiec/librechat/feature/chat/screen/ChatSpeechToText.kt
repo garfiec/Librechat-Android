@@ -11,31 +11,36 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.garfiec.librechat.core.common.speech.mapSttLanguageToLocale
+import com.garfiec.librechat.core.common.speech.sttSupportsLiveRecognition
+import com.garfiec.librechat.core.model.speech.SttEngine
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Builds the "start recording" action for the chat composer, routing between the
- * server speech-to-text path (record audio + upload for transcription) and the
- * device speech recognizer based on the user's STT engine preference. This keeps
- * the Android permission + intent plumbing out of [ChatScreen].
+ * Builds the "start recording" action for the chat composer.
  *
- * Returns a lambda to invoke when the user taps the mic; it is rebuilt on each
- * recomposition so it always sees the latest [serverSttEnabled].
+ * Routing here is only about *which mechanism* to use, decided by OS capability:
+ * - API 31+ (or the External engine): defer to [ChatViewModel.startRecording]; the voice-input
+ *   delegate owns the Browser-vs-External and on-device-vs-network choice (it already collects the
+ *   `sttEngine`/`sttOnDevice` preferences).
+ * - API 26–30 with the Browser engine: `createOnDeviceSpeechRecognizer` isn't available, so fall
+ *   back to today's full-screen Intent-overlay recognizer.
+ *
+ * Rebuilt on each recomposition so it always sees the latest [sttEngine]/[sttLanguage].
  */
 @Composable
 internal fun rememberChatStartRecording(
     viewModel: ChatViewModel,
     sttEngine: String,
     sttLanguage: String,
-    serverSttEnabled: Boolean,
     snackbarHostState: SnackbarHostState,
     coroutineScope: CoroutineScope,
 ): () -> Unit {
     val context = LocalContext.current
 
-    // Device speech recognizer launcher (used when server STT is not available)
+    // Legacy full-screen Intent-overlay recognizer (API 26–30 Browser fallback).
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -48,7 +53,7 @@ internal fun rememberChatStartRecording(
         }
     }
 
-    // Runtime permission request for RECORD_AUDIO (server STT path)
+    // Runtime permission request for RECORD_AUDIO (in-process recognizer + External upload paths).
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { isGranted ->
@@ -62,33 +67,12 @@ internal fun rememberChatStartRecording(
     }
 
     return {
-        val useServerStt = sttEngine.equals("whisper", ignoreCase = true) ||
-            (sttEngine.isBlank() || sttEngine.equals("default", ignoreCase = true)) &&
-            serverSttEnabled
+        val engine = SttEngine.fromStored(sttEngine)
+        // The in-process live recognizer needs API 31+ (shared capability seam, same predicate the
+        // settings toggles gate on). Below that, Browser falls back to the full-screen Intent overlay.
+        val useIntentOverlay = engine == SttEngine.BROWSER && !sttSupportsLiveRecognition()
 
-        if (useServerStt) {
-            if (!serverSttEnabled && sttEngine.equals("whisper", ignoreCase = true)) {
-                // User selected Whisper but server STT is not configured
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        "Server speech-to-text is not enabled. " +
-                            "Ask your server admin to enable STT, or switch to Device or Google engine.",
-                    )
-                }
-            } else {
-                // Server STT path: record audio and upload for transcription
-                val hasPermission = ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.RECORD_AUDIO,
-                ) == PackageManager.PERMISSION_GRANTED
-                if (hasPermission) {
-                    viewModel.startRecording()
-                } else {
-                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                }
-            }
-        } else {
-            // Device speech recognizer path (Device, Google, or Default without server)
+        if (useIntentOverlay) {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(
                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -101,55 +85,25 @@ internal fun rememberChatStartRecording(
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, languageLocale)
                 }
             }
-            val enginePackage = mapSttEngineToPackage(sttEngine)
-            if (enginePackage != null) {
-                intent.setPackage(enginePackage)
-            }
             try {
                 speechRecognizerLauncher.launch(intent)
             } catch (_: Exception) {
-                val engineLabel = if (sttEngine.equals("google", ignoreCase = true)) {
-                    "Google speech recognition is not available. Is the Google app installed?"
-                } else {
-                    "Speech recognition is not available on this device"
-                }
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar(engineLabel)
+                    snackbarHostState.showSnackbar("Speech recognition is not available on this device")
                 }
+            }
+        } else {
+            // API 31+ Browser (in-process recognizer) or External (record + upload); the delegate
+            // routes. Both need RECORD_AUDIO.
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (hasPermission) {
+                viewModel.startRecording()
+            } else {
+                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }
         }
     }
-}
-
-/**
- * Maps the user-facing STT engine name (from settings) to an Android package name
- * that can be set on the device speech recognition intent. Returns null for "Default",
- * empty/unknown values, or "Whisper" (which uses server-side STT, not a device package).
- *
- * Note: "Whisper" is handled separately in [rememberChatStartRecording] above --
- * it routes through the server STT path (record audio + upload) rather than the device
- * speech recognizer. This function is only called for the device recognizer path.
- */
-private fun mapSttEngineToPackage(engine: String): String? = when (engine.lowercase()) {
-    "google" -> "com.google.android.googlequicksearchbox"
-    "whisper" -> null // Server-side engine; never reaches device recognizer path
-    "device" -> null // Explicit on-device; uses system default speech recognizer
-    "default", "" -> null
-    else -> null
-}
-
-/**
- * Maps the user-facing STT language name (from settings) to a BCP-47 locale tag
- * for [RecognizerIntent.EXTRA_LANGUAGE]. Returns null for "Auto-detect" or
- * empty values, which lets the recognizer use the device default.
- */
-private fun mapSttLanguageToLocale(language: String): String? = when (language.lowercase()) {
-    "english" -> "en-US"
-    "spanish" -> "es-ES"
-    "french" -> "fr-FR"
-    "german" -> "de-DE"
-    "japanese" -> "ja-JP"
-    "chinese" -> "zh-CN"
-    "auto-detect", "" -> null
-    else -> null
 }

@@ -314,12 +314,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">Engine</string>
     <string name="stt_language_label">Language</string>
-    <string name="stt_on_device">On Device</string>
     <string name="stt_default">Default</string>
-    <string name="stt_hint_whisper">Whisper uses server-side transcription. Your server must have STT enabled.</string>
-    <string name="stt_hint_device">Uses your device\'s built-in speech recognizer. Works offline on supported devices.</string>
-    <string name="stt_hint_google">Uses Google\'s speech recognizer. Requires the Google app to be installed.</string>
-    <string name="stt_hint_default">Uses server transcription (Whisper) when available, otherwise falls back to on-device recognition.</string>
+    <string name="stt_engine_browser">Built-in</string>
+    <string name="stt_engine_external">Server</string>
+    <string name="stt_hint_browser">Uses your device\'s built-in speech recognizer for live transcription.</string>
+    <string name="stt_hint_external">Uploads audio to your server for speech-to-text (Whisper). Your server must have STT enabled.</string>
+    <string name="stt_on_device_toggle">On-device recognition</string>
+    <string name="stt_on_device_toggle_desc">Transcribe on this device instead of the cloud. Falls back to the cloud recognizer if unavailable.</string>
+    <string name="stt_end_of_speech_toggle">Stop when I pause</string>
+    <string name="stt_end_of_speech_toggle_desc">End dictation automatically once you stop speaking, instead of running until you tap stop. With Auto-send after speech on, this sends the message hands-free.</string>
     <string name="stt_auto_detect">Auto-detect</string>
 
     <!-- TTS detail dialog -->

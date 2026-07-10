@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">引擎</string>
     <string name="stt_language_label">语言</string>
-    <string name="stt_on_device">设备端</string>
     <string name="stt_default">默认</string>
-    <string name="stt_hint_whisper">Whisper 使用服务器端转录。你的服务器必须已启用 STT。</string>
-    <string name="stt_hint_device">使用设备内置的语音识别器。在受支持的设备上可离线使用。</string>
-    <string name="stt_hint_google">使用 Google 的语音识别器。需要安装 Google 应用。</string>
-    <string name="stt_hint_default">在可用时使用服务器转录（Whisper），否则回退到设备端识别。</string>
+    <string name="stt_engine_browser">内置</string>
+    <string name="stt_engine_external">服务器</string>
+    <string name="stt_hint_browser">使用设备内置的语音识别进行实时转写。</string>
+    <string name="stt_hint_external">将音频上传到您的服务器进行语音转文字（Whisper）。您的服务器必须已启用 STT。</string>
+    <string name="stt_on_device_toggle">在设备上识别</string>
+    <string name="stt_on_device_toggle_desc">在本设备而非云端进行转写。不可用时回退到云端识别。</string>
+    <string name="stt_end_of_speech_toggle">停顿时停止</string>
+    <string name="stt_end_of_speech_toggle_desc">在你停止说话后自动结束听写，而不是持续到你点击停止。开启语音后自动发送时，将免提发送消息。</string>
     <string name="stt_auto_detect">自动检测</string>
 
     <!-- TTS detail dialog -->

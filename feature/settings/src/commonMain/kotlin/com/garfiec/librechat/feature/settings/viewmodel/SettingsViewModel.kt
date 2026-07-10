@@ -113,6 +113,7 @@ class SettingsViewModel(
     init {
         accountDelegate.loadUser()
         speechDelegate.loadVoices()
+        speechDelegate.loadSpeechConfig()
         accountDelegate.loadBalance()
         speechDelegate.loadDeviceVoices()
         loadRoleGatedData()
@@ -440,7 +441,8 @@ class SettingsViewModel(
     fun stopTtsPreview() = speechDelegate.stopTtsPreview()
     fun showSttDetailDialog() = speechDelegate.showSttDetailDialog()
     fun dismissSttDetailDialog() = speechDelegate.dismissSttDetailDialog()
-    fun saveSttSettings(engine: String, language: String) = speechDelegate.saveSttSettings(engine, language)
+    fun saveSttSettings(engine: String, language: String, onDevice: Boolean, endOfSpeech: Boolean) =
+        speechDelegate.saveSttSettings(engine, language, onDevice, endOfSpeech)
     fun showTtsDetailDialog() = speechDelegate.showTtsDetailDialog()
     fun dismissTtsDetailDialog() = speechDelegate.dismissTtsDetailDialog()
     fun saveTtsSettings(

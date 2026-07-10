@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">エンジン</string>
     <string name="stt_language_label">言語</string>
-    <string name="stt_on_device">オンデバイス</string>
     <string name="stt_default">デフォルト</string>
-    <string name="stt_hint_whisper">Whisperはサーバー側の文字起こしを使用します。サーバーでSTTを有効にする必要があります。</string>
-    <string name="stt_hint_device">デバイス内蔵の音声認識を使用します。対応デバイスではオフラインで動作します。</string>
-    <string name="stt_hint_google">Googleの音声認識を使用します。Googleアプリがインストールされている必要があります。</string>
-    <string name="stt_hint_default">利用可能な場合はサーバーの文字起こし（Whisper）を使用し、そうでない場合はオンデバイス認識にフォールバックします。</string>
+    <string name="stt_engine_browser">内蔵</string>
+    <string name="stt_engine_external">サーバー</string>
+    <string name="stt_hint_browser">デバイス内蔵の音声認識を使用してリアルタイムで文字起こしします。</string>
+    <string name="stt_hint_external">音声をサーバーにアップロードして音声認識（Whisper）を行います。サーバーでSTTを有効にする必要があります。</string>
+    <string name="stt_on_device_toggle">デバイス上で認識</string>
+    <string name="stt_on_device_toggle_desc">クラウドではなくこのデバイスで文字起こしします。利用できない場合はクラウド認識に切り替わります。</string>
+    <string name="stt_end_of_speech_toggle">一時停止したら停止</string>
+    <string name="stt_end_of_speech_toggle_desc">停止をタップするまで続ける代わりに、話し終えると自動的に口述を終了します。音声後の自動送信をオンにすると、ハンズフリーでメッセージを送信します。</string>
     <string name="stt_auto_detect">自動検出</string>
 
     <!-- TTS detail dialog -->

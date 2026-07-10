@@ -16,7 +16,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
@@ -36,6 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.common.speech.sttEngineSelectsRecognizer
+import com.garfiec.librechat.core.common.speech.sttSupportsLiveRecognition
+import com.garfiec.librechat.core.model.speech.SttEngine
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -45,15 +47,28 @@ import org.jetbrains.compose.resources.stringResource
 internal fun SttDetailDialog(
     selectedEngine: String,
     selectedLanguage: String,
-    availableEngines: List<String>,
+    selectedOnDevice: Boolean,
+    selectedEndOfSpeech: Boolean,
+    serverSttEnabled: Boolean,
     availableLanguages: List<String>,
-    onConfirm: (engine: String, language: String) -> Unit,
+    onConfirm: (engine: String, language: String, onDevice: Boolean, endOfSpeech: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var engine by remember { mutableStateOf(selectedEngine) }
+    var engine by remember { mutableStateOf(SttEngine.fromStored(selectedEngine)) }
     var language by remember { mutableStateOf(selectedLanguage) }
+    var onDevice by remember { mutableStateOf(selectedOnDevice) }
+    var endOfSpeech by remember { mutableStateOf(selectedEndOfSpeech) }
     var engineExpanded by remember { mutableStateOf(false) }
     var languageExpanded by remember { mutableStateOf(false) }
+
+    // Browser is always available. External is offered when the server has STT configured OR when
+    // it's already the selected engine — so a stored "external" that predates a failed/negative
+    // config fetch stays selectable and the dropdown never disagrees with the shown value (rather
+    // than showing "External" selected while listing only "Built-in").
+    val engineOptions = buildList {
+        add(SttEngine.BROWSER)
+        if (serverSttEnabled || engine == SttEngine.EXTERNAL) add(SttEngine.EXTERNAL)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -72,11 +87,7 @@ internal fun SttDetailDialog(
                     onExpandedChange = { engineExpanded = it },
                 ) {
                     OutlinedTextField(
-                        value = when {
-                            engine.equals("Device", ignoreCase = true) -> stringResource(Res.string.stt_on_device)
-                            engine.isBlank() -> stringResource(Res.string.stt_default)
-                            else -> engine
-                        },
+                        value = sttEngineLabel(engine),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = {
@@ -90,21 +101,11 @@ internal fun SttDetailDialog(
                         expanded = engineExpanded,
                         onDismissRequest = { engineExpanded = false },
                     ) {
-                        // On-device option first, separated by a divider
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.stt_on_device)) },
-                            onClick = {
-                                engine = "Device"
-                                engineExpanded = false
-                            },
-                        )
-                        HorizontalDivider()
-                        // Server-related options
-                        availableEngines.filter { !it.equals("Device", ignoreCase = true) }.forEach { item ->
+                        engineOptions.forEach { option ->
                             DropdownMenuItem(
-                                text = { Text(item) },
+                                text = { Text(sttEngineLabel(option)) },
                                 onClick = {
-                                    engine = item
+                                    engine = option
                                     engineExpanded = false
                                 },
                             )
@@ -113,30 +114,70 @@ internal fun SttDetailDialog(
                 }
 
                 // Engine-specific hint
-                if (engine.equals("Whisper", ignoreCase = true)) {
-                    Text(
-                        text = stringResource(Res.string.stt_hint_whisper),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else if (engine.equals("Device", ignoreCase = true)) {
-                    Text(
-                        text = stringResource(Res.string.stt_hint_device),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else if (engine.equals("Google", ignoreCase = true)) {
-                    Text(
-                        text = stringResource(Res.string.stt_hint_google),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else if (engine.equals("Default", ignoreCase = true) || engine.isBlank()) {
-                    Text(
-                        text = stringResource(Res.string.stt_hint_default),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Text(
+                    text = when (engine) {
+                        SttEngine.BROWSER -> stringResource(Res.string.stt_hint_browser)
+                        SttEngine.EXTERNAL -> stringResource(Res.string.stt_hint_external)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                // On-device + listening-mode toggles: shown only where the live recognizer actually
+                // honors them. That needs a platform that runs it (Android <31 uses the one-shot
+                // Intent overlay, which reads neither) AND — where the engine choice selects the
+                // transport (Android) — the Built-in engine, since External is a single-shot
+                // record→upload with no live recognizer. On iOS the engine doesn't select the
+                // transport (External falls through to SFSpeechRecognizer), so both prefs apply and
+                // the toggles show regardless of the selected engine.
+                val liveRecognizerHonorsPrefs = sttSupportsLiveRecognition() &&
+                    (engine == SttEngine.BROWSER || !sttEngineSelectsRecognizer())
+                if (liveRecognizerHonorsPrefs) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(Res.string.stt_on_device_toggle),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = stringResource(Res.string.stt_on_device_toggle_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = onDevice,
+                            onCheckedChange = { onDevice = it },
+                        )
+                    }
+
+                    // End-of-speech: stop automatically when the user pauses (hands-free). With
+                    // "Auto-send after STT" on, reaching end-of-speech also sends the message.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(Res.string.stt_end_of_speech_toggle),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = stringResource(Res.string.stt_end_of_speech_toggle_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = endOfSpeech,
+                            onCheckedChange = { endOfSpeech = it },
+                        )
+                    }
                 }
 
                 // Language selector
@@ -177,7 +218,7 @@ internal fun SttDetailDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(engine, language) }) {
+            TextButton(onClick = { onConfirm(engine.storedValue, language, onDevice, endOfSpeech) }) {
                 Text(stringResource(Res.string.action_save))
             }
         },
@@ -187,6 +228,13 @@ internal fun SttDetailDialog(
             }
         },
     )
+}
+
+/** Display label for an [SttEngine], resolved independently of which options are offered. */
+@Composable
+private fun sttEngineLabel(engine: SttEngine): String = when (engine) {
+    SttEngine.BROWSER -> stringResource(Res.string.stt_engine_browser)
+    SttEngine.EXTERNAL -> stringResource(Res.string.stt_engine_external)
 }
 
 data class DeviceVoiceInfo(

@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">Moteur</string>
     <string name="stt_language_label">Langue</string>
-    <string name="stt_on_device">Sur l\'appareil</string>
     <string name="stt_default">Par défaut</string>
-    <string name="stt_hint_whisper">Whisper utilise la transcription côté serveur. La reconnaissance vocale doit être activée sur votre serveur.</string>
-    <string name="stt_hint_device">Utilise le système de reconnaissance vocale intégré de votre appareil. Fonctionne hors ligne sur les appareils pris en charge.</string>
-    <string name="stt_hint_google">Utilise le système de reconnaissance vocale de Google. Nécessite l\'installation de l\'application Google.</string>
-    <string name="stt_hint_default">Utilise la transcription du serveur (Whisper) lorsqu\'elle est disponible, sinon revient à la reconnaissance sur l\'appareil.</string>
+    <string name="stt_engine_browser">Intégré</string>
+    <string name="stt_engine_external">Serveur</string>
+    <string name="stt_hint_browser">Utilise le moteur de reconnaissance vocale intégré de votre appareil pour la transcription en direct.</string>
+    <string name="stt_hint_external">Envoie l\'audio à votre serveur pour la reconnaissance vocale (Whisper). La reconnaissance vocale doit être activée sur votre serveur.</string>
+    <string name="stt_on_device_toggle">Reconnaissance sur l\'appareil</string>
+    <string name="stt_on_device_toggle_desc">Transcrit sur cet appareil plutôt que dans le cloud. Bascule sur la reconnaissance cloud si indisponible.</string>
+    <string name="stt_end_of_speech_toggle">Arrêter quand je fais une pause</string>
+    <string name="stt_end_of_speech_toggle_desc">Termine la dictée automatiquement dès que vous arrêtez de parler, au lieu de continuer jusqu\'à ce que vous touchiez arrêter. Avec l\'envoi automatique après la parole activé, le message est envoyé en mode mains libres.</string>
     <string name="stt_auto_detect">Détection automatique</string>
 
     <!-- TTS detail dialog -->

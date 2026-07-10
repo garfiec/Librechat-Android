@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">Engine</string>
     <string name="stt_language_label">Sprache</string>
-    <string name="stt_on_device">Auf dem Gerät</string>
     <string name="stt_default">Standard</string>
-    <string name="stt_hint_whisper">Whisper verwendet serverseitige Transkription. Auf deinem Server muss STT aktiviert sein.</string>
-    <string name="stt_hint_device">Verwendet die integrierte Spracherkennung deines Geräts. Funktioniert offline auf unterstützten Geräten.</string>
-    <string name="stt_hint_google">Verwendet die Spracherkennung von Google. Erfordert die installierte Google-App.</string>
-    <string name="stt_hint_default">Verwendet die Server-Transkription (Whisper), sofern verfügbar, andernfalls die Erkennung auf dem Gerät.</string>
+    <string name="stt_engine_browser">Integriert</string>
+    <string name="stt_engine_external">Server</string>
+    <string name="stt_hint_browser">Verwendet die integrierte Spracherkennung deines Geräts für die Live-Transkription.</string>
+    <string name="stt_hint_external">Lädt Audio zur Sprache-zu-Text-Umwandlung (Whisper) auf deinen Server hoch. Auf dem Server muss STT aktiviert sein.</string>
+    <string name="stt_on_device_toggle">Erkennung auf dem Gerät</string>
+    <string name="stt_on_device_toggle_desc">Transkribiert auf diesem Gerät statt in der Cloud. Fällt auf die Cloud-Erkennung zurück, falls nicht verfügbar.</string>
+    <string name="stt_end_of_speech_toggle">Anhalten, wenn ich pausiere</string>
+    <string name="stt_end_of_speech_toggle_desc">Beendet das Diktat automatisch, sobald du aufhörst zu sprechen, statt bis zum Tippen auf Stopp weiterzulaufen. Mit aktiviertem automatischem Senden nach der Sprache wird die Nachricht freihändig gesendet.</string>
     <string name="stt_auto_detect">Automatisch erkennen</string>
 
     <!-- TTS detail dialog -->

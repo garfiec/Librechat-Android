@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">엔진</string>
     <string name="stt_language_label">언어</string>
-    <string name="stt_on_device">기기 내</string>
     <string name="stt_default">기본값</string>
-    <string name="stt_hint_whisper">Whisper는 서버 측 전사를 사용합니다. 서버에 STT가 사용 설정되어 있어야 합니다.</string>
-    <string name="stt_hint_device">기기에 내장된 음성 인식기를 사용합니다. 지원되는 기기에서는 오프라인으로 작동합니다.</string>
-    <string name="stt_hint_google">Google 음성 인식기를 사용합니다. Google 앱이 설치되어 있어야 합니다.</string>
-    <string name="stt_hint_default">가능한 경우 서버 전사(Whisper)를 사용하고, 그렇지 않으면 기기 내 인식으로 대체합니다.</string>
+    <string name="stt_engine_browser">내장</string>
+    <string name="stt_engine_external">서버</string>
+    <string name="stt_hint_browser">기기에 내장된 음성 인식을 사용하여 실시간으로 받아씁니다.</string>
+    <string name="stt_hint_external">오디오를 서버에 업로드하여 음성을 텍스트로 변환합니다(Whisper). 서버에서 STT가 활성화되어 있어야 합니다.</string>
+    <string name="stt_on_device_toggle">기기에서 인식</string>
+    <string name="stt_on_device_toggle_desc">클라우드 대신 이 기기에서 받아씁니다. 사용할 수 없으면 클라우드 인식으로 전환됩니다.</string>
+    <string name="stt_end_of_speech_toggle">멈추면 중지</string>
+    <string name="stt_end_of_speech_toggle_desc">중지를 누를 때까지 계속하는 대신, 말을 멈추면 자동으로 받아쓰기를 종료합니다. 음성 후 자동 전송이 켜져 있으면 핸즈프리로 메시지를 보냅니다.</string>
     <string name="stt_auto_detect">자동 감지</string>
 
     <!-- TTS detail dialog -->

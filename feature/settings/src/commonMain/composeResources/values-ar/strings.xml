@@ -291,12 +291,15 @@
     <!-- STT detail dialog -->
     <string name="stt_engine_label">المحرك</string>
     <string name="stt_language_label">اللغة</string>
-    <string name="stt_on_device">على الجهاز</string>
     <string name="stt_default">افتراضي</string>
-    <string name="stt_hint_whisper">يستخدم Whisper النسخ على جانب الخادم. يجب أن يكون تحويل الكلام إلى نص مُفعّلًا في خادمك.</string>
-    <string name="stt_hint_device">يستخدم مُتعرّف الكلام المدمج في جهازك. يعمل دون اتصال على الأجهزة المدعومة.</string>
-    <string name="stt_hint_google">يستخدم مُتعرّف الكلام من Google. يتطلب تثبيت تطبيق Google.</string>
-    <string name="stt_hint_default">يستخدم النسخ على الخادم (Whisper) عند توفّره، وإلا يعود إلى التعرّف على الجهاز.</string>
+    <string name="stt_engine_browser">مدمج</string>
+    <string name="stt_engine_external">الخادم</string>
+    <string name="stt_hint_browser">يستخدم أداة التعرف على الكلام المدمجة في جهازك للنسخ المباشر.</string>
+    <string name="stt_hint_external">يرفع الصوت إلى الخادم لتحويل الكلام إلى نص (Whisper). يجب تفعيل التعرف على الكلام على الخادم.</string>
+    <string name="stt_on_device_toggle">التعرف على الجهاز</string>
+    <string name="stt_on_device_toggle_desc">النسخ على هذا الجهاز بدلاً من السحابة. يعود إلى أداة التعرف السحابية إذا لم تكن متوفرة.</string>
+    <string name="stt_end_of_speech_toggle">التوقف عند التوقف مؤقتًا</string>
+    <string name="stt_end_of_speech_toggle_desc">ينهي الإملاء تلقائيًا بمجرد توقفك عن الكلام، بدلاً من الاستمرار حتى تنقر على إيقاف. مع تفعيل الإرسال التلقائي بعد الكلام، يتم إرسال الرسالة دون استخدام اليدين.</string>
     <string name="stt_auto_detect">كشف تلقائي</string>
 
     <!-- TTS detail dialog -->

@@ -140,6 +140,8 @@ class DataStoreRoundTripTest {
         assertThat(store.showAvatars.first()).isTrue()
         assertThat(store.showBubbles.first()).isFalse()
         assertThat(store.selectedLanguage.first()).isEqualTo("system")
+        assertThat(store.sttOnDevice.first()).isTrue()
+        assertThat(store.sttEndOfSpeech.first()).isFalse()
     }
 
     @Test
@@ -152,12 +154,16 @@ class DataStoreRoundTripTest {
         store.setAutoReadEnabled(true)
         store.setDismissKeyboardOnSend(false)
         store.setShowImageDescriptions(true)
+        store.setSttOnDevice(false)
+        store.setSttEndOfSpeech(true)
 
         assertThat(store.autoScrollEnabled.first()).isFalse()
         assertThat(store.showThinkingBlocks.first()).isFalse()
         assertThat(store.autoReadEnabled.first()).isTrue()
         assertThat(store.dismissKeyboardOnSend.first()).isFalse()
         assertThat(store.showImageDescriptions.first()).isTrue()
+        assertThat(store.sttOnDevice.first()).isFalse()
+        assertThat(store.sttEndOfSpeech.first()).isTrue()
     }
 
     @Test

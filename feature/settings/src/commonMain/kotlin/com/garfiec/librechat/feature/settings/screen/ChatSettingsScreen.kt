@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.common.speech.sttLanguageOptions
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
@@ -345,8 +346,10 @@ fun ChatSettingsContent(
             SttDetailDialog(
                 selectedEngine = uiState.sttEngine,
                 selectedLanguage = uiState.sttLanguage,
-                availableEngines = listOf("Default", "Whisper", "Google"),
-                availableLanguages = listOf("Auto-detect", "English", "Spanish", "French", "German", "Japanese", "Chinese"),
+                selectedOnDevice = uiState.sttOnDevice,
+                selectedEndOfSpeech = uiState.sttEndOfSpeech,
+                serverSttEnabled = uiState.serverSttEnabled,
+                availableLanguages = sttLanguageOptions,
                 onConfirm = viewModel::saveSttSettings,
                 onDismiss = viewModel::dismissSttDetailDialog,
             )
