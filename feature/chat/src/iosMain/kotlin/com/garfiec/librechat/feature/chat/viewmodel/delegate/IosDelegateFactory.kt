@@ -3,7 +3,9 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
+import com.garfiec.librechat.feature.chat.viewmodel.TtsHandle
+import com.garfiec.librechat.feature.chat.viewmodel.VoiceHandle
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -15,34 +17,34 @@ class IosDelegateFactory(
     private val ioDispatcher: CoroutineDispatcher,
 ) : PlatformDelegateFactory {
 
-    override fun createFileHandler(stateHandle: ChatStateHandle): PlatformFileHandler {
-        return IosFileHandler(stateHandle, fileRepository, ioDispatcher)
+    override fun createFileHandler(handle: ErrorOnlyHandle): PlatformFileHandler {
+        return IosFileHandler(handle, fileRepository, ioDispatcher)
     }
 
     override fun createVoiceInput(
-        stateHandle: ChatStateHandle,
+        handle: VoiceHandle,
         onTranscriptionComplete: () -> Unit,
     ): PlatformVoiceInput {
         return IosVoiceInput(
-            stateHandle = stateHandle,
+            handle = handle,
             autoSendAfterStt = settingsDataStore.autoSendAfterStt
-                .stateIn(stateHandle.scope, SharingStarted.Eagerly, false),
+                .stateIn(handle.scope, SharingStarted.Eagerly, false),
             sttOnDevice = settingsDataStore.sttOnDevice
-                .stateIn(stateHandle.scope, SharingStarted.Eagerly, true),
+                .stateIn(handle.scope, SharingStarted.Eagerly, true),
             sttEndOfSpeech = settingsDataStore.sttEndOfSpeech
-                .stateIn(stateHandle.scope, SharingStarted.Eagerly, false),
+                .stateIn(handle.scope, SharingStarted.Eagerly, false),
             sttLanguage = settingsDataStore.sttLanguage
-                .stateIn(stateHandle.scope, SharingStarted.Eagerly, ""),
+                .stateIn(handle.scope, SharingStarted.Eagerly, ""),
             onTranscriptionComplete = onTranscriptionComplete,
         )
     }
 
     override fun createTts(
-        stateHandle: ChatStateHandle,
+        handle: TtsHandle,
         getMessageText: (String) -> String,
     ): PlatformTts {
         return IosTts(
-            stateHandle = stateHandle,
+            handle = handle,
             speechRepository = speechRepository,
             settingsDataStore = settingsDataStore,
             getMessageText = getMessageText,

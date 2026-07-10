@@ -4,7 +4,9 @@ import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.SubagentHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
+import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +28,7 @@ class SubagentTraceDelegateTest {
     ): Pair<SubagentTraceDelegate, MutableStateFlow<ChatUiState>> {
         val flow = MutableStateFlow(initial)
         val handle = ChatStateHandle(flow, CoroutineScope(TestScope().coroutineContext))
-        return SubagentTraceDelegate(handle, json) to flow
+        return SubagentTraceDelegate(SubagentHandle(handle), json) to flow
     }
 
     private fun messageDelta(
@@ -63,9 +65,11 @@ class SubagentTraceDelegateTest {
     fun `falls back to oldest unclaimed subagent tool_call when parentToolCallId absent`() {
         val (delegate, flow) = fixture(
             ChatUiState(
-                activeToolCalls = listOf(
-                    ActiveToolCall(id = "call_old", name = "subagent"),
-                    ActiveToolCall(id = "call_new", name = "subagent"),
+                content = MessagesState(
+                    activeToolCalls = listOf(
+                        ActiveToolCall(id = "call_old", name = "subagent"),
+                        ActiveToolCall(id = "call_new", name = "subagent"),
+                    ),
                 ),
             ),
         )
@@ -82,7 +86,7 @@ class SubagentTraceDelegateTest {
     @Test
     fun `same run reuses the claimed tool_call across envelopes`() {
         val (delegate, flow) = fixture(
-            ChatUiState(activeToolCalls = listOf(ActiveToolCall(id = "call_x", name = "subagent"))),
+            ChatUiState(content = MessagesState(activeToolCalls = listOf(ActiveToolCall(id = "call_x", name = "subagent")))),
         )
         delegate.onUpdate(messageDelta(null, "run_1", "a"))
         delegate.onUpdate(messageDelta(null, "run_1", "b"))
@@ -144,7 +148,7 @@ class SubagentTraceDelegateTest {
     @Test
     fun `reset clears state and correlation buffers across runs`() {
         val (delegate, flow) = fixture(
-            ChatUiState(activeToolCalls = listOf(ActiveToolCall(id = "call_x", name = "subagent"))),
+            ChatUiState(content = MessagesState(activeToolCalls = listOf(ActiveToolCall(id = "call_x", name = "subagent")))),
         )
         delegate.onUpdate(messageDelta(null, "run_1", "first"))
         assertThat(flow.value.subagentProgress).isNotEmpty()

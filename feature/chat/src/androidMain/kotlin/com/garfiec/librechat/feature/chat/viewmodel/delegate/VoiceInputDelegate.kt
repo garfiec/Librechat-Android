@@ -11,7 +11,7 @@ import com.garfiec.librechat.feature.chat.audio.SpeechRecognizerController
 import com.garfiec.librechat.feature.chat.audio.VoiceRecorder
 import com.garfiec.librechat.feature.chat.audio.appendToBase
 import com.garfiec.librechat.feature.chat.audio.shouldAutoSendTranscript
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.VoiceHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class VoiceInputDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: VoiceHandle,
     private val appContext: Context,
     private val speechRepository: SpeechRepository,
     private val autoSendAfterStt: StateFlow<Boolean>,
@@ -68,8 +68,8 @@ class VoiceInputDelegate(
         // finalize, and externalStartPending covers the async speech-config fetch before an External
         // recorder is assigned. Guarding on isRecording alone let a second mic tap in any of these
         // windows spawn a parallel session that orphaned the first recognizer and left the mic hot.
-        if (stateHandle.state.isRecording ||
-            stateHandle.state.isTranscribing ||
+        if (handle.state.isRecording ||
+            handle.state.isTranscribing ||
             speechController != null ||
             voiceRecorder != null ||
             externalStartPending
@@ -89,7 +89,7 @@ class VoiceInputDelegate(
         val recorder = voiceRecorder
         when {
             controller != null -> {
-                stateHandle.update { copy(isRecording = false, isTranscribing = true) }
+                handle.update { voice = voice.copy(isRecording = false, isTranscribing = true) }
                 controller.stop()
             }
             recorder != null -> stopExternalRecording(recorder)
@@ -110,20 +110,17 @@ class VoiceInputDelegate(
                 speechController = null
                 controller.cancel()
                 // Drop the in-progress dictation if the user hasn't edited the field since our last write.
-                stateHandle.update {
-                    copy(
-                        isRecording = false,
-                        isTranscribing = false,
-                        inputText = browserBuffer.revert(inputText),
-                    )
+                handle.update {
+                    voice = voice.copy(isRecording = false, isTranscribing = false)
+                    composer = composer.copy(inputText = browserBuffer.revert(composer.inputText))
                 }
             }
             recorder != null -> {
                 voiceRecorder = null
-                stateHandle.update { copy(isRecording = false) }
+                handle.update { voice = voice.copy(isRecording = false) }
                 // Join start() first so cancel() can't race the in-flight warm-up; cancel() then runs
                 // MediaRecorder.stop()/release() off the Main thread.
-                stateHandle.scope.launch {
+                handle.scope.launch {
                     startJob?.join()
                     recorder.cancel()
                 }
@@ -134,7 +131,7 @@ class VoiceInputDelegate(
             transcribeJob != null -> {
                 transcribeJob?.cancel()
                 transcribeJob = null
-                stateHandle.update { copy(isTranscribing = false) }
+                handle.update { voice = voice.copy(isTranscribing = false) }
             }
         }
     }
@@ -142,7 +139,7 @@ class VoiceInputDelegate(
     // ── Browser engine: in-process SpeechRecognizer with live partials ──
 
     private fun startBrowserRecording() {
-        browserBuffer.begin(stateHandle.state.inputText)
+        browserBuffer.begin(handle.state.inputText)
 
         val controller = SpeechRecognizerController(appContext).apply {
             onPartial = { partial -> applyBrowserPartial(partial) }
@@ -153,7 +150,10 @@ class VoiceInputDelegate(
         speechController = controller
         // Clear any error left by a prior failed session so a stale message can't re-surface over a
         // successful dictation.
-        stateHandle.update { copy(isRecording = true, error = null) }
+        handle.update {
+            voice = voice.copy(isRecording = true)
+            error = null
+        }
         controller.start(
             preferOnDevice = sttOnDevice.value,
             endOfSpeech = sttEndOfSpeech.value,
@@ -162,31 +162,34 @@ class VoiceInputDelegate(
     }
 
     private fun applyBrowserPartial(partial: String) {
-        val text = browserBuffer.merge(stateHandle.state.inputText, partial)
-        // Partials fire ~10×/s and often re-deliver the same text during a pause; skip the ~86-field
-        // ChatUiState copy + uiState re-emit when nothing actually changed.
-        if (text != stateHandle.state.inputText) stateHandle.update { copy(inputText = text) }
+        val text = browserBuffer.merge(handle.state.inputText, partial)
+        // Partials fire ~10×/s and often re-deliver the same text during a pause; skip the state copy
+        // + uiState re-emit when nothing actually changed.
+        if (text != handle.state.inputText) handle.update { composer = composer.copy(inputText = text) }
     }
 
     private fun commitBrowserSegment(segment: String) {
-        val committed = browserBuffer.commit(stateHandle.state.inputText, segment)
-        stateHandle.update { copy(inputText = committed) }
+        val committed = browserBuffer.commit(handle.state.inputText, segment)
+        handle.update { composer = composer.copy(inputText = committed) }
     }
 
     private fun onBrowserError(message: String) {
         speechController = null
-        stateHandle.update { copy(isRecording = false, isTranscribing = false, error = message) }
+        handle.update {
+            voice = voice.copy(isRecording = false, isTranscribing = false)
+            error = message
+        }
     }
 
     private fun finalizeBrowserSession() {
         speechController = null
-        stateHandle.update { copy(isRecording = false, isTranscribing = false) }
+        handle.update { voice = voice.copy(isRecording = false, isTranscribing = false) }
         // Auto-send only on user-stop (this callback), never per silence-boundary segment, and only
         // when dictation actually produced text so a pre-typed field isn't sent by an empty session.
         if (browserBuffer.shouldAutoSend(
-                stateHandle.state.inputText,
+                handle.state.inputText,
                 autoSendAfterStt.value,
-                stateHandle.state.isStreaming,
+                handle.state.isStreaming,
             )
         ) {
             onTranscriptionComplete()
@@ -203,7 +206,7 @@ class VoiceInputDelegate(
             beginExternalRecording()
         } else {
             externalStartPending = true
-            stateHandle.scope.launch {
+            handle.scope.launch {
                 try {
                     fetchSpeechConfig()
                     // stopRecording() during the fetch clears externalStartPending to cancel this
@@ -217,7 +220,7 @@ class VoiceInputDelegate(
     }
 
     private fun beginExternalRecording() {
-        if (!stateHandle.state.serverSttEnabled) {
+        if (!handle.state.serverSttEnabled) {
             // Distinguish "server reachable, STT genuinely off" from "couldn't reach the server to
             // check": gate.loaded is only set once a fetch succeeds, so a false here with the latch
             // still down means the fetch failed (transient) — don't tell the user STT is disabled.
@@ -228,15 +231,18 @@ class VoiceInputDelegate(
                 "Couldn't reach the server to check speech settings. Check your connection and try " +
                     "again, or switch the engine to Browser in Speech settings."
             }
-            stateHandle.update { copy(error = message) }
+            handle.setError(message)
             return
         }
         // Set state + assign the recorder synchronously on Main so the isRecording guard and
         // stopRecording()/cancelRecording() see a consistent recorder during start()'s warm-up.
         val recorder = VoiceRecorder(appContext, ioDispatcher)
         voiceRecorder = recorder
-        stateHandle.update { copy(isRecording = true, error = null) }
-        startJob = stateHandle.scope.launch {
+        handle.update {
+            voice = voice.copy(isRecording = true)
+            error = null
+        }
+        startJob = handle.scope.launch {
             try {
                 recorder.start()
             } catch (e: CancellationException) {
@@ -244,8 +250,9 @@ class VoiceInputDelegate(
             } catch (e: Exception) {
                 if (voiceRecorder === recorder) {
                     voiceRecorder = null
-                    stateHandle.update {
-                        copy(isRecording = false, error = "Could not start recording: ${e.message}")
+                    handle.update {
+                        voice = voice.copy(isRecording = false)
+                        error = "Could not start recording: ${e.message}"
                     }
                 }
             }
@@ -255,53 +262,52 @@ class VoiceInputDelegate(
     private fun stopExternalRecording(recorder: VoiceRecorder) {
         val mimeType = recorder.mimeType
         voiceRecorder = null
-        stateHandle.update { copy(isRecording = false, isTranscribing = true) }
+        handle.update { voice = voice.copy(isRecording = false, isTranscribing = true) }
 
         // Capture the warm-up job for THIS recorder. The isTranscribing guard blocks a new session
         // until this coroutine (or cancelRecording) clears the flag, so startJob can't be reassigned
         // out from under us before the coroutine's first line runs.
         val warmup = startJob
-        val job = stateHandle.scope.launch {
+        val job = handle.scope.launch {
             try {
                 // Ensure start() finished before we stop the recorder.
                 warmup?.join()
                 val audioData = recorder.stop()
                 if (audioData == null || audioData.isEmpty()) {
-                    stateHandle.update { copy(isTranscribing = false, error = "Recording was empty") }
+                    handle.update {
+                        voice = voice.copy(isTranscribing = false)
+                        error = "Recording was empty"
+                    }
                     return@launch
                 }
 
                 when (val result = speechRepository.transcribeAudio(audioData, mimeType)) {
                     is Result.Success -> {
                         val transcribedText = result.data.text
-                        val merged = appendToBase(stateHandle.state.inputText, transcribedText)
-                        stateHandle.update {
-                            copy(
-                                inputText = merged,
-                                isTranscribing = false,
-                            )
+                        val merged = appendToBase(handle.state.inputText, transcribedText)
+                        handle.update {
+                            composer = composer.copy(inputText = merged)
+                            voice = voice.copy(isTranscribing = false)
                         }
                         // Auto-send via the shared gate so this path can't drift from Browser/iOS.
                         if (shouldAutoSendTranscript(
                                 transcribedText.isNotBlank(),
                                 autoSendAfterStt.value,
-                                stateHandle.state.isStreaming,
+                                handle.state.isStreaming,
                             )
                         ) {
                             onTranscriptionComplete()
                         }
                     }
                     is Result.Error -> {
-                        stateHandle.update {
-                            copy(
-                                isTranscribing = false,
-                                error = result.message ?: "Transcription failed",
-                            )
+                        handle.update {
+                            voice = voice.copy(isTranscribing = false)
+                            error = result.message ?: "Transcription failed"
                         }
                     }
                     // safeApiCall never emits Loading, but clear the flag defensively so a future
                     // change can't strand isTranscribing=true and permanently lock out the mic.
-                    is Result.Loading -> stateHandle.update { copy(isTranscribing = false) }
+                    is Result.Loading -> handle.update { voice = voice.copy(isTranscribing = false) }
                 }
             } finally {
                 // On cancellation (cancelRecording during the warm-up or the upload) recorder.stop()
@@ -326,15 +332,16 @@ class VoiceInputDelegate(
      */
     fun onDeviceSpeechResult(transcribedText: String) {
         if (transcribedText.isBlank()) return
-        val merged = appendToBase(stateHandle.state.inputText, transcribedText)
-        stateHandle.update {
-            copy(inputText = merged, error = null)
+        val merged = appendToBase(handle.state.inputText, transcribedText)
+        handle.update {
+            composer = composer.copy(inputText = merged)
+            error = null
         }
         // Auto-send via the shared gate (transcribedText is non-blank — guarded above).
         if (shouldAutoSendTranscript(
                 transcribedText.isNotBlank(),
                 autoSendAfterStt.value,
-                stateHandle.state.isStreaming,
+                handle.state.isStreaming,
             )
         ) {
             onTranscriptionComplete()
@@ -342,14 +349,14 @@ class VoiceInputDelegate(
     }
 
     fun loadSpeechConfig() {
-        stateHandle.scope.launch { fetchSpeechConfig() }
+        handle.scope.launch { fetchSpeechConfig() }
     }
 
     private suspend fun fetchSpeechConfig() {
         // A null result means the fetch couldn't determine the flag (transient error) — leave the gate
         // unlatched so a later External tap retries rather than trusting this as a definitive "off".
         val enabled = serverSttGate.refresh() ?: false
-        stateHandle.update { copy(serverSttEnabled = enabled) }
+        handle.update { voice = voice.copy(serverSttEnabled = enabled) }
     }
 
     fun release() {
@@ -361,7 +368,7 @@ class VoiceInputDelegate(
 
         val recorder = voiceRecorder ?: return
         voiceRecorder = null
-        // Called from onCleared(), at which point stateHandle.scope is already cancelled — a
+        // Called from onCleared(), at which point handle.scope is already cancelled — a
         // launch on it would never run and the recorder/mic would leak. Run the cleanup on a
         // detached IO scope so the blocking MediaRecorder.stop()/release() still happens off the
         // Main thread and is guaranteed to complete (cancel() uses NonCancellable internally).

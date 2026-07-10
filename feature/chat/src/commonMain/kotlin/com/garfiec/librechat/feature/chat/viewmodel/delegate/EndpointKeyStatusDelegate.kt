@@ -7,7 +7,7 @@ import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.endpoint.KeyInvalidation
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.endpoint.resolveProviderKeyName
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.EndpointKeyHandle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -21,7 +21,7 @@ import kotlinx.coroutines.sync.withLock
  * of letting the user pick a model that will fail at send time.
  */
 class EndpointKeyStatusDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: EndpointKeyHandle,
     private val keyRepository: KeyRepository,
 ) {
 
@@ -30,7 +30,7 @@ class EndpointKeyStatusDelegate(
     private var currentRecomputeJob: Job? = null
 
     init {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             keyRepository.keyInvalidations.collect { invalidation ->
                 if (shouldRespondTo(invalidation)) {
                     launchFanOut(lastKnownConfigs, updateLastKnown = false)
@@ -43,7 +43,7 @@ class EndpointKeyStatusDelegate(
      * Re-fan-out the key-state fetch for every endpoint that requires a user-provided
      * key. Caches [configs] so a later invalidation-driven recompute can reuse them.
      *
-     * Launches the fan-out on [stateHandle.scope] so a slow `getKeyExpiry` GET
+     * Launches the fan-out on [handle.scope] so a slow `getKeyExpiry` GET
      * does not block the upstream `configRepository.endpointConfigs.collect`.
      */
     fun recomputeFor(configs: Map<String, EndpointConfig>) {
@@ -66,7 +66,7 @@ class EndpointKeyStatusDelegate(
      */
     private fun launchFanOut(configs: Map<String, EndpointConfig>, updateLastKnown: Boolean) {
         currentRecomputeJob?.cancel()
-        currentRecomputeJob = stateHandle.scope.launch {
+        currentRecomputeJob = handle.scope.launch {
             mutex.withLock {
                 if (updateLastKnown) lastKnownConfigs = configs
                 runFanOut(configs)
@@ -80,8 +80,8 @@ class EndpointKeyStatusDelegate(
         }
 
         if (gated.isEmpty()) {
-            if (stateHandle.state.endpointKeyStates.isNotEmpty()) {
-                stateHandle.update { copy(endpointKeyStates = emptyMap()) }
+            if (handle.state.endpointKeyStates.isNotEmpty()) {
+                handle.update { endpointKeyStates = emptyMap() }
             }
             return
         }
@@ -91,17 +91,15 @@ class EndpointKeyStatusDelegate(
         // mid-auth-token-refresh) breaks the per-endpoint fetch. Without this,
         // a single failed GET would demote every user-provide endpoint to greyed
         // even when the user has valid keys on file.
-        val prior = stateHandle.state.endpointKeyStates
+        val prior = handle.state.endpointKeyStates
 
         // Optimistic Loading push so the model sheet doesn't render an endpoint
         // as "active → greyed" while the fan-out is in flight. Already-resolved
         // values are preserved to avoid flicker on unrelated config tweaks.
-        stateHandle.update {
-            copy(
-                endpointKeyStates = gated.mapValues { (name, _) ->
-                    prior[name]?.takeIf { it != KeyState.Loading } ?: KeyState.Loading
-                },
-            )
+        handle.update {
+            endpointKeyStates = gated.mapValues { (name, _) ->
+                prior[name]?.takeIf { it != KeyState.Loading } ?: KeyState.Loading
+            }
         }
 
         val resolved: Map<String, KeyState> = coroutineScope {
@@ -115,7 +113,7 @@ class EndpointKeyStatusDelegate(
                 .toMap()
         }
 
-        stateHandle.update { copy(endpointKeyStates = resolved) }
+        handle.update { endpointKeyStates = resolved }
     }
 
     private suspend fun resolveKeyState(

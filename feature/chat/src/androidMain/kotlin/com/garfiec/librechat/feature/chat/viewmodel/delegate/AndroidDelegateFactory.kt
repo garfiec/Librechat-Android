@@ -4,7 +4,9 @@ import android.content.Context
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
+import com.garfiec.librechat.feature.chat.viewmodel.TtsHandle
+import com.garfiec.librechat.feature.chat.viewmodel.VoiceHandle
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -17,10 +19,10 @@ class AndroidDelegateFactory(
     private val ioDispatcher: CoroutineDispatcher,
 ) : PlatformDelegateFactory {
 
-    override fun createFileHandler(stateHandle: ChatStateHandle): PlatformFileHandler {
+    override fun createFileHandler(handle: ErrorOnlyHandle): PlatformFileHandler {
         return AndroidFileHandler(
             FileAttachmentDelegate(
-                stateHandle = stateHandle,
+                handle = handle,
                 appContext = appContext,
                 fileRepository = fileRepository,
                 ioDispatcher = ioDispatcher,
@@ -29,24 +31,24 @@ class AndroidDelegateFactory(
     }
 
     override fun createVoiceInput(
-        stateHandle: ChatStateHandle,
+        handle: VoiceHandle,
         onTranscriptionComplete: () -> Unit,
     ): PlatformVoiceInput {
         return AndroidVoiceInput(
             VoiceInputDelegate(
-                stateHandle = stateHandle,
+                handle = handle,
                 appContext = appContext,
                 speechRepository = speechRepository,
                 autoSendAfterStt = settingsDataStore.autoSendAfterStt
-                    .stateIn(stateHandle.scope, SharingStarted.Eagerly, false),
+                    .stateIn(handle.scope, SharingStarted.Eagerly, false),
                 sttEngine = settingsDataStore.sttEngine
-                    .stateIn(stateHandle.scope, SharingStarted.Eagerly, ""),
+                    .stateIn(handle.scope, SharingStarted.Eagerly, ""),
                 sttLanguage = settingsDataStore.sttLanguage
-                    .stateIn(stateHandle.scope, SharingStarted.Eagerly, ""),
+                    .stateIn(handle.scope, SharingStarted.Eagerly, ""),
                 sttOnDevice = settingsDataStore.sttOnDevice
-                    .stateIn(stateHandle.scope, SharingStarted.Eagerly, true),
+                    .stateIn(handle.scope, SharingStarted.Eagerly, true),
                 sttEndOfSpeech = settingsDataStore.sttEndOfSpeech
-                    .stateIn(stateHandle.scope, SharingStarted.Eagerly, false),
+                    .stateIn(handle.scope, SharingStarted.Eagerly, false),
                 ioDispatcher = ioDispatcher,
                 onTranscriptionComplete = onTranscriptionComplete,
             ),
@@ -54,12 +56,12 @@ class AndroidDelegateFactory(
     }
 
     override fun createTts(
-        stateHandle: ChatStateHandle,
+        handle: TtsHandle,
         getMessageText: (String) -> String,
     ): PlatformTts {
         return AndroidTts(
             TextToSpeechDelegate(
-                stateHandle = stateHandle,
+                handle = handle,
                 appContext = appContext,
                 speechRepository = speechRepository,
                 settingsDataStore = settingsDataStore,

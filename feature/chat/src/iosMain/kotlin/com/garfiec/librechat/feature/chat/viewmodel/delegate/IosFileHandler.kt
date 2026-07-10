@@ -7,7 +7,7 @@ import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.util.IosFileData
 import com.garfiec.librechat.feature.chat.util.IosImageData
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -25,7 +25,7 @@ import kotlin.uuid.Uuid
  * Handles file uploads from clipboard paste and (future) photo picker.
  */
 class IosFileHandler(
-    private val stateHandle: ChatStateHandle,
+    private val handle: ErrorOnlyHandle,
     private val fileRepository: FileRepository,
     private val ioDispatcher: CoroutineDispatcher,
 ) : PlatformFileHandler {
@@ -55,9 +55,9 @@ class IosFileHandler(
         )
         _attachedFiles.update { it + pendingFile }
 
-        stateHandle.scope.launch(ioDispatcher) {
+        handle.scope.launch(ioDispatcher) {
             try {
-                val state = stateHandle.state
+                val state = handle.state
                 val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
                 val fileId = Uuid.random().toString()
 
@@ -107,9 +107,7 @@ class IosFileHandler(
                                 if (f.uri == uniqueId) f.copy(uploadFailed = true, uploadProgress = null) else f
                             }
                         }
-                        stateHandle.update {
-                            copy(error = "Failed to upload ${imageData.filename}: ${result.message ?: "Unknown error"}")
-                        }
+                        handle.setError("Failed to upload ${imageData.filename}: ${result.message ?: "Unknown error"}")
                     }
                     is Result.Loading -> { /* unexpected */ }
                 }
@@ -122,7 +120,7 @@ class IosFileHandler(
                         if (f.uri == uniqueId) f.copy(uploadFailed = true, uploadProgress = null) else f
                     }
                 }
-                stateHandle.update { copy(error = "Failed to upload ${imageData.filename}: ${e.message}") }
+                handle.setError("Failed to upload ${imageData.filename}: ${e.message}")
             }
         }
     }
@@ -140,9 +138,9 @@ class IosFileHandler(
         )
         _attachedFiles.update { it + pendingFile }
 
-        stateHandle.scope.launch(ioDispatcher) {
+        handle.scope.launch(ioDispatcher) {
             try {
-                val state = stateHandle.state
+                val state = handle.state
                 val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
                 val fileId = Uuid.random().toString()
 
@@ -188,9 +186,7 @@ class IosFileHandler(
                                 if (f.uri == uniqueId) f.copy(uploadFailed = true, uploadProgress = null) else f
                             }
                         }
-                        stateHandle.update {
-                            copy(error = "Failed to upload ${fileData.filename}: ${result.message ?: "Unknown error"}")
-                        }
+                        handle.setError("Failed to upload ${fileData.filename}: ${result.message ?: "Unknown error"}")
                     }
                     is Result.Loading -> { /* unexpected */ }
                 }
@@ -203,7 +199,7 @@ class IosFileHandler(
                         if (f.uri == uniqueId) f.copy(uploadFailed = true, uploadProgress = null) else f
                     }
                 }
-                stateHandle.update { copy(error = "Failed to upload ${fileData.filename}: ${e.message}") }
+                handle.setError("Failed to upload ${fileData.filename}: ${e.message}")
             }
         }
     }

@@ -3,14 +3,14 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ConversationActionsHandle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ConversationActionsDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: ConversationActionsHandle,
     private val conversationRepository: ConversationRepository,
     private val shareRepository: ShareRepository,
 ) {
@@ -19,23 +19,23 @@ class ConversationActionsDelegate(
     val shareLinkUrl: StateFlow<String?> = _shareLinkUrl.asStateFlow()
 
     fun showRenameDialog() {
-        stateHandle.update { copy(showRenameDialog = true) }
+        handle.update { actions = actions.copy(showRenameDialog = true) }
     }
 
     fun dismissRenameDialog() {
-        stateHandle.update { copy(showRenameDialog = false) }
+        handle.update { actions = actions.copy(showRenameDialog = false) }
     }
 
     fun renameConversation(newTitle: String) {
-        val conversationId = stateHandle.state.conversationId ?: return
-        stateHandle.update { copy(showRenameDialog = false) }
-        stateHandle.scope.launch {
+        val conversationId = handle.state.conversationId ?: return
+        handle.update { actions = actions.copy(showRenameDialog = false) }
+        handle.scope.launch {
             when (conversationRepository.updateTitle(conversationId, newTitle)) {
                 is Result.Success -> {
-                    stateHandle.update { copy(conversationTitle = newTitle) }
+                    handle.update { conversation = conversation.copy(conversationTitle = newTitle) }
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = "Failed to rename conversation") }
+                    handle.setError("Failed to rename conversation")
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -43,24 +43,24 @@ class ConversationActionsDelegate(
     }
 
     fun showDeleteConfirmation() {
-        stateHandle.update { copy(showDeleteConfirmation = true) }
+        handle.update { actions = actions.copy(showDeleteConfirmation = true) }
     }
 
     fun dismissDeleteConfirmation() {
-        stateHandle.update { copy(showDeleteConfirmation = false) }
+        handle.update { actions = actions.copy(showDeleteConfirmation = false) }
     }
 
     fun deleteConversation() {
-        val conversationId = stateHandle.state.conversationId ?: return
-        stateHandle.update { copy(showDeleteConfirmation = false) }
-        stateHandle.scope.launch {
+        val conversationId = handle.state.conversationId ?: return
+        handle.update { actions = actions.copy(showDeleteConfirmation = false) }
+        handle.scope.launch {
             when (conversationRepository.delete(conversationId)) {
                 is Result.Success -> {
                     // Signal navigation back by clearing the conversation
-                    stateHandle.update { copy(conversationId = null) }
+                    handle.update { conversation = conversation.copy(conversationId = null) }
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = "Failed to delete conversation") }
+                    handle.setError("Failed to delete conversation")
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -68,15 +68,15 @@ class ConversationActionsDelegate(
     }
 
     fun archiveConversation() {
-        val conversationId = stateHandle.state.conversationId ?: return
-        stateHandle.scope.launch {
+        val conversationId = handle.state.conversationId ?: return
+        handle.scope.launch {
             when (conversationRepository.archive(conversationId, true)) {
                 is Result.Success -> {
                     // Signal navigation back by clearing the conversation
-                    stateHandle.update { copy(conversationId = null) }
+                    handle.update { conversation = conversation.copy(conversationId = null) }
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = "Failed to archive conversation") }
+                    handle.setError("Failed to archive conversation")
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -84,15 +84,15 @@ class ConversationActionsDelegate(
     }
 
     fun duplicateConversation() {
-        val conversationId = stateHandle.state.conversationId ?: return
-        val title = stateHandle.state.conversationTitle
-        stateHandle.scope.launch {
+        val conversationId = handle.state.conversationId ?: return
+        val title = handle.state.conversationTitle
+        handle.scope.launch {
             when (val result = conversationRepository.duplicateConversation(conversationId, title)) {
                 is Result.Success -> {
-                    stateHandle.update { copy(duplicatedConversationId = result.data.conversationId) }
+                    handle.update { actions = actions.copy(duplicatedConversationId = result.data.conversationId) }
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = "Failed to duplicate conversation") }
+                    handle.setError("Failed to duplicate conversation")
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -100,20 +100,20 @@ class ConversationActionsDelegate(
     }
 
     fun onDuplicatedConversationHandled() {
-        stateHandle.update { copy(duplicatedConversationId = null) }
+        handle.update { actions = actions.copy(duplicatedConversationId = null) }
     }
 
     fun shareConversation() {
-        val conversationId = stateHandle.state.conversationId ?: return
-        stateHandle.scope.launch {
+        val conversationId = handle.state.conversationId ?: return
+        handle.scope.launch {
             when (val result = shareRepository.createShareLink(conversationId)) {
                 is Result.Success -> {
-                    stateHandle.update { copy(error = null) }
+                    handle.setError(null)
                     // Store the share URL to be copied by the UI
                     _shareLinkUrl.value = result.data
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = result.message ?: "Failed to create share link") }
+                    handle.setError(result.message ?: "Failed to create share link")
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -125,23 +125,23 @@ class ConversationActionsDelegate(
     }
 
     fun showForkOptions(messageId: String) {
-        stateHandle.update { copy(showForkOptionsForMessageId = messageId) }
+        handle.update { actions = actions.copy(showForkOptionsForMessageId = messageId) }
     }
 
     fun dismissForkOptions() {
-        stateHandle.update { copy(showForkOptionsForMessageId = null) }
+        handle.update { actions = actions.copy(showForkOptionsForMessageId = null) }
     }
 
     fun forkFromMessage(messageId: String, option: String, splitAtTarget: Boolean = false) {
-        val conversationId = stateHandle.state.conversationId ?: return
-        val latestMessageId = stateHandle.state.displayMessages.lastOrNull()?.message?.messageId
-        stateHandle.update {
-            copy(
+        val conversationId = handle.state.conversationId ?: return
+        val latestMessageId = handle.state.displayMessages.lastOrNull()?.message?.messageId
+        handle.update {
+            actions = actions.copy(
                 showForkOptionsForMessageId = null,
                 isForkInProgress = true,
             )
         }
-        stateHandle.scope.launch {
+        handle.scope.launch {
             val result = conversationRepository.forkConversation(
                 conversationId = conversationId,
                 messageId = messageId,
@@ -151,19 +151,17 @@ class ConversationActionsDelegate(
             )
             when (result) {
                 is Result.Success -> {
-                    stateHandle.update {
-                        copy(
+                    handle.update {
+                        actions = actions.copy(
                             forkedConversationId = result.data.conversationId,
                             isForkInProgress = false,
                         )
                     }
                 }
                 is Result.Error -> {
-                    stateHandle.update {
-                        copy(
-                            error = result.message ?: "Could not fork conversation",
-                            isForkInProgress = false,
-                        )
+                    handle.update {
+                        error = result.message ?: "Could not fork conversation"
+                        actions = actions.copy(isForkInProgress = false)
                     }
                 }
                 is Result.Loading -> { /* no-op */ }
@@ -172,6 +170,6 @@ class ConversationActionsDelegate(
     }
 
     fun onForkedConversationHandled() {
-        stateHandle.update { copy(forkedConversationId = null) }
+        handle.update { actions = actions.copy(forkedConversationId = null) }
     }
 }

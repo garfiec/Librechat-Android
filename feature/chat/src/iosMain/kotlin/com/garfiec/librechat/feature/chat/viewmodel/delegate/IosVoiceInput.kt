@@ -7,7 +7,7 @@ import com.garfiec.librechat.feature.chat.audio.DictationBuffer
 import com.garfiec.librechat.feature.chat.audio.MAX_EMPTY_SEGMENTS
 import com.garfiec.librechat.feature.chat.audio.STOP_WATCHDOG_MS
 import com.garfiec.librechat.feature.chat.audio.appendToBase
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.VoiceHandle
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -33,7 +33,7 @@ import platform.Speech.SFSpeechRecognizerAuthorizationStatus
  * for real-time on-device speech recognition.
  */
 class IosVoiceInput(
-    private val stateHandle: ChatStateHandle,
+    private val handle: VoiceHandle,
     private val autoSendAfterStt: StateFlow<Boolean>,
     private val sttOnDevice: StateFlow<Boolean>,
     private val sttEndOfSpeech: StateFlow<Boolean>,
@@ -54,7 +54,7 @@ class IosVoiceInput(
     /**
      * Latched once the session is torn down (user stop, cancel, natural final, or error). Guards the
      * recognition callback so a result already queued before teardown can't re-inject stale text into
-     * a cancelled/cleared/sent composer. Only touched on the Main-dispatched [ChatStateHandle.scope]
+     * a cancelled/cleared/sent composer. Only touched on the Main-dispatched [VoiceHandle.scope]
      * (the callback hops there — see [startRecognitionTask]) so the check-then-set can't race.
      */
     private var finished = false
@@ -117,13 +117,13 @@ class IosVoiceInput(
 
     @OptIn(ExperimentalForeignApi::class)
     override fun startRecording() {
-        log.d { "startRecording() called, isRecording=${stateHandle.state.isRecording}" }
+        log.d { "startRecording() called, isRecording=${handle.state.isRecording}" }
         // Reject a start while a session is live OR winding down. isRecording is only true mid-session,
         // but after stopRecording() the task stays alive with isTranscribing=true until the final or
         // watchdog finalizes it; starting again in that window orphaned the first engine (mic stayed
         // hot) and cross-wired its callbacks. Mirrors the Android VoiceInputDelegate guard.
-        if (stateHandle.state.isRecording ||
-            stateHandle.state.isTranscribing ||
+        if (handle.state.isRecording ||
+            handle.state.isTranscribing ||
             recognitionTask != null ||
             authorizationInFlight
         ) {
@@ -147,7 +147,7 @@ class IosVoiceInput(
                     log.d { "Authorization callback: status=$status" }
                     // requestAuthorization delivers on an arbitrary queue — hop to the Main-dispatched
                     // scope for BOTH outcomes so every state write in this class stays main-confined.
-                    stateHandle.scope.launch {
+                    handle.scope.launch {
                         authorizationInFlight = false
                         // A cancel/release during the prompt set finished — don't start a session (or
                         // surface a denial error) after the user already backed out.
@@ -156,7 +156,7 @@ class IosVoiceInput(
                             beginRecording()
                         } else {
                             log.w { "Speech recognition permission denied" }
-                            stateHandle.update { copy(error = "Speech recognition permission denied") }
+                            handle.setError("Speech recognition permission denied")
                         }
                     }
                 }
@@ -168,7 +168,7 @@ class IosVoiceInput(
             }
             else -> {
                 log.w { "Speech recognition not available, authStatus=$authStatus" }
-                stateHandle.update { copy(error = "Speech recognition not available. Check Settings > Privacy > Speech Recognition.") }
+                handle.setError("Speech recognition not available. Check Settings > Privacy > Speech Recognition.")
                 return
             }
         }
@@ -185,7 +185,7 @@ class IosVoiceInput(
     private fun beginRecording() {
         try {
             // Reset all session-scoped state for the fresh session.
-            buffer.begin(stateHandle.state.inputText)
+            buffer.begin(handle.state.inputText)
             triedCloudFallback = false
             consecutiveEmptyFinals = 0
             stopRequested = false
@@ -274,7 +274,10 @@ class IosVoiceInput(
             // The recognition callback now hops to Main (this same thread), so it can't have torn the
             // session down during this synchronous setup — no need to re-check `finished` here. Clear
             // any error left by a prior failed session so a stale message can't re-surface.
-            stateHandle.update { copy(isRecording = true, error = null) }
+            handle.update {
+                voice = voice.copy(isRecording = true)
+                error = null
+            }
         } catch (e: Exception) {
             log.e(e) { "Failed to start recording: ${e.message}" }
             failStart("Could not start recording: ${e.message}")
@@ -309,7 +312,7 @@ class IosVoiceInput(
             // SFSpeechRecognizer delivers on an arbitrary queue; hop to the Main-dispatched scope so
             // the session guards (finished/token), the transcript buffer, and the watchdogs are all
             // single-threaded (parity with the Android controller's main-thread contract).
-            stateHandle.scope.launch {
+            handle.scope.launch {
                 // Ignore anything from a superseded task (continuous restart / cloud fallback) or after
                 // teardown — a late queued result must not re-inject stale text or drive a restart.
                 if (token != sessionToken || finished) return@launch
@@ -321,9 +324,9 @@ class IosVoiceInput(
                             // End-of-speech mode: the recognizer finished a phrase — commit and end the
                             // session (hands-free) instead of restarting. Auto-send fires here when
                             // enabled (gated inside finalizeSession → maybeAutoSend).
-                            val merged = buffer.merge(stateHandle.state.inputText, transcript)
-                            if (merged != stateHandle.state.inputText) {
-                                stateHandle.update { copy(inputText = merged) }
+                            val merged = buffer.merge(handle.state.inputText, transcript)
+                            if (merged != handle.state.inputText) {
+                                handle.update { composer = composer.copy(inputText = merged) }
                             }
                             finalizeSession(autoSend = true)
                             return@launch
@@ -332,9 +335,9 @@ class IosVoiceInput(
                         // cap) with no user stop — commit this segment and restart the recognition task
                         // on the live engine so dictation stays continuous. Bound consecutive empty
                         // finals so silence can't spin forever.
-                        val committed = buffer.commit(stateHandle.state.inputText, transcript)
-                        if (committed != stateHandle.state.inputText) {
-                            stateHandle.update { copy(inputText = committed) }
+                        val committed = buffer.commit(handle.state.inputText, transcript)
+                        if (committed != handle.state.inputText) {
+                            handle.update { composer = composer.copy(inputText = committed) }
                         }
                         if (transcript.isBlank() && ++consecutiveEmptyFinals >= MAX_EMPTY_SEGMENTS) {
                             log.d { "empty-final cap reached; ending session" }
@@ -346,10 +349,10 @@ class IosVoiceInput(
                         return@launch
                     }
                     // Live partials (~10×/s, often unchanged during a pause) and the user-stop final:
-                    // merge and only re-emit the ~86-field state when the text changed.
-                    val merged = buffer.merge(stateHandle.state.inputText, transcript)
-                    if (merged != stateHandle.state.inputText) {
-                        stateHandle.update { copy(inputText = merged) }
+                    // merge and only re-emit the state when the text changed.
+                    val merged = buffer.merge(handle.state.inputText, transcript)
+                    if (merged != handle.state.inputText) {
+                        handle.update { composer = composer.copy(inputText = merged) }
                         // In end-of-speech mode, (re)start the silence debounce on each new word so a
                         // pause after speech ends the session even without a recognizer final.
                         if (sttEndOfSpeech.value && buffer.producedText) armSilenceTimer()
@@ -407,7 +410,7 @@ class IosVoiceInput(
     }
 
     override fun stopRecording() {
-        if (!stateHandle.state.isRecording || stopRequested) return
+        if (!handle.state.isRecording || stopRequested) return
         stopRequested = true
         // A user stop supersedes the end-of-speech silence debounce.
         silenceJob?.cancel()
@@ -418,11 +421,11 @@ class IosVoiceInput(
         // already shown in the composer) if no final arrives.
         recognitionRequest?.endAudio()
         stopAudioEngine()
-        stateHandle.update { copy(isRecording = false, isTranscribing = true) }
+        handle.update { voice = voice.copy(isRecording = false, isTranscribing = true) }
         // The cloud recognizer's final lags well past the on-device timeout; wait longer for it before
         // force-finalizing so we don't commit/auto-send the rougher last partial instead of the final.
         val watchdogMs = if (requestedOnDevice) STOP_WATCHDOG_MS else CLOUD_STOP_WATCHDOG_MS
-        stopWatchdogJob = stateHandle.scope.launch {
+        stopWatchdogJob = handle.scope.launch {
             delay(watchdogMs)
             finalizeSession(autoSend = true)
         }
@@ -446,8 +449,9 @@ class IosVoiceInput(
         silenceJob?.cancel()
         silenceJob = null
         cleanupAudio()
-        stateHandle.update {
-            copy(isRecording = false, isTranscribing = false, error = errorMessage ?: error)
+        handle.update {
+            voice = voice.copy(isRecording = false, isTranscribing = false)
+            error = errorMessage ?: error
         }
         if (autoSend) maybeAutoSend()
     }
@@ -458,9 +462,9 @@ class IosVoiceInput(
      */
     private fun maybeAutoSend() {
         if (buffer.shouldAutoSend(
-                stateHandle.state.inputText,
+                handle.state.inputText,
                 autoSendAfterStt.value,
-                stateHandle.state.isStreaming,
+                handle.state.isStreaming,
             )
         ) {
             onTranscriptionComplete()
@@ -480,15 +484,16 @@ class IosVoiceInput(
         cleanupAudio()
         // Drop the dictated suffix and restore the pre-dictation text — but only if the user hasn't
         // edited the field since our last write; if they have, keep their edit (see DictationBuffer).
-        stateHandle.update {
-            copy(isRecording = false, isTranscribing = false, inputText = buffer.revert(inputText))
+        handle.update {
+            voice = voice.copy(isRecording = false, isTranscribing = false)
+            composer = composer.copy(inputText = buffer.revert(composer.inputText))
         }
     }
 
     override fun onDeviceSpeechResult(transcribedText: String) {
         if (transcribedText.isBlank()) return
-        val merged = appendToBase(stateHandle.state.inputText, transcribedText)
-        stateHandle.update { copy(inputText = merged) }
+        val merged = appendToBase(handle.state.inputText, transcribedText)
+        handle.update { composer = composer.copy(inputText = merged) }
     }
 
     override fun loadSpeechConfig() {
@@ -548,7 +553,7 @@ class IosVoiceInput(
      */
     private fun armSilenceTimer() {
         silenceJob?.cancel()
-        silenceJob = stateHandle.scope.launch {
+        silenceJob = handle.scope.launch {
             delay(END_OF_SPEECH_SILENCE_MS)
             if (!finished) {
                 log.d { "end-of-speech silence elapsed; finalizing" }

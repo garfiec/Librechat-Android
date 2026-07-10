@@ -6,7 +6,9 @@ import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.logging.redact.LogRedactor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngineFactory
+import io.ktor.client.plugins.DefaultRequest.DefaultRequestBuilder
 import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.HttpRequestRetryConfig
 import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -16,6 +18,7 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
@@ -59,9 +62,7 @@ object LibreChatHttpClient {
         }
 
         install(HttpRequestRetry) {
-            retryOnServerErrors(maxRetries = 2)
-            retryOnException(maxRetries = 2, retryOnTimeout = true)
-            exponentialDelay()
+            configureRetryPolicy()
         }
 
         install(AuthInterceptorPlugin) {
@@ -128,12 +129,8 @@ object LibreChatHttpClient {
         }
 
         defaultRequest {
-            val baseUrl = serverUrlProvider.getBaseUrl()
-            if (baseUrl.isNotEmpty()) {
-                url.takeFrom(baseUrl)
-            }
+            applyBrowserDefaults(serverUrlProvider)
             contentType(ContentType.Application.Json)
-            headers.append(HttpHeaders.UserAgent, BROWSER_USER_AGENT)
         }
     }
 
@@ -165,4 +162,41 @@ object LibreChatHttpClient {
             else -> "Request failed (HTTP $statusCode)"
         }
     }
+}
+
+/**
+ * Retry policy shared by production and the guard test so they can't drift. Replays only
+ * side-effect-free methods: a retried POST/PATCH would mint a duplicate chat job + orphaned
+ * generation or a duplicate upload, and a retried DELETE that already succeeded server-side would
+ * surface a spurious 404. The allow-list means an unknown or newly added method defaults to *not*
+ * retried.
+ */
+internal fun HttpRequestRetryConfig.configureRetryPolicy() {
+    // A 5xx can arrive as a response (retryIf) or, once HttpResponseValidator throws, as an
+    // ApiException (retryOnExceptionIf) — so both predicates carry the same method gate.
+    retryIf(maxRetries = 2) { request, response ->
+        request.method.isRetrySafe() && response.status.value in 500..599
+    }
+    retryOnExceptionIf(maxRetries = 2) { request, cause ->
+        request.method.isRetrySafe() && cause !is kotlinx.coroutines.CancellationException
+    }
+    exponentialDelay()
+}
+
+private val RETRY_SAFE_METHODS = setOf(HttpMethod.Get, HttpMethod.Head, HttpMethod.Options)
+
+private fun HttpMethod.isRetrySafe(): Boolean = this in RETRY_SAFE_METHODS
+
+/**
+ * Applies the base URL and the browser [User-Agent][LibreChatHttpClient.BROWSER_USER_AGENT] that
+ * the stock LibreChat server's `ua-parser-js` middleware requires — a single audited definition
+ * point shared by the main and streaming clients so the browser-UA invariant lives in one place.
+ * The refresh client deliberately omits this (its `/auth/refresh` route is UA-ungated).
+ */
+internal fun DefaultRequestBuilder.applyBrowserDefaults(serverUrlProvider: ServerUrlProvider) {
+    val baseUrl = serverUrlProvider.getBaseUrl()
+    if (baseUrl.isNotEmpty()) {
+        url.takeFrom(baseUrl)
+    }
+    headers.append(HttpHeaders.UserAgent, LibreChatHttpClient.BROWSER_USER_AGENT)
 }

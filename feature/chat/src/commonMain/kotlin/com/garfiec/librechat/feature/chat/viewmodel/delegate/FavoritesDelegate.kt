@@ -5,12 +5,12 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.model.FavoritesLimits
 import com.garfiec.librechat.core.model.UserFavorite
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.FavoritesHandle
 import kotlinx.coroutines.launch
 
 /**
  * Routes pin/unpin actions from chat-side pickers (model/agent selector) to
- * [FavoritesRepository] and republishes the canonical list into [ChatStateHandle].
+ * [FavoritesRepository] and republishes the canonical list into its [FavoritesHandle].
  *
  * The repository owns the cached list and serializes writes via a Mutex, so
  * this delegate is a thin shim: it observes the shared flow and forwards
@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  * clients' pinned specs survive a save from this client.
  */
 class FavoritesDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: FavoritesHandle,
     private val favoritesRepository: FavoritesRepository,
 ) {
 
@@ -38,7 +38,7 @@ class FavoritesDelegate(
      * The sheet-open refetch self-heals that and also picks up pins made elsewhere.
      */
     fun refresh() {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (val result = favoritesRepository.refresh()) {
                 is Result.Success -> Unit
                 is Result.Error -> {
@@ -51,7 +51,7 @@ class FavoritesDelegate(
     }
 
     private fun observeFavorites() {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             favoritesRepository.favorites.collect { list -> publish(list) }
         }
     }
@@ -91,18 +91,16 @@ class FavoritesDelegate(
     private fun atLimit(current: List<UserFavorite>): Boolean = current.size >= FavoritesLimits.MAX_FAVORITES
 
     private fun reportLimit() {
-        stateHandle.update {
-            copy(error = "You can pin up to ${FavoritesLimits.MAX_FAVORITES} favorites.")
-        }
+        handle.setError("You can pin up to ${FavoritesLimits.MAX_FAVORITES} favorites.")
     }
 
     private fun persist(nextList: List<UserFavorite>) {
-        stateHandle.scope.launch {
+        handle.scope.launch {
             when (val result = favoritesRepository.setFavorites(nextList)) {
                 is Result.Success -> Unit
                 is Result.Error -> {
                     Logger.w(result.exception) { "Failed to save favorites: ${result.message}" }
-                    stateHandle.update { copy(error = result.message ?: "Could not update favorites.") }
+                    handle.setError(result.message ?: "Could not update favorites.")
                 }
                 is Result.Loading -> Unit
             }
@@ -116,8 +114,8 @@ class FavoritesDelegate(
             val model = it.model
             if (endpoint != null && model != null) favoriteModelKey(endpoint, model) else null
         }
-        stateHandle.update {
-            copy(
+        handle.update {
+            favorites = favorites.copy(
                 favoriteAgentIds = agentIds,
                 favoriteModelKeys = modelKeys,
             )

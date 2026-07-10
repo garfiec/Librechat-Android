@@ -8,7 +8,6 @@ import com.garfiec.librechat.core.logging.PersistentLogWriter
 import com.garfiec.librechat.core.logging.PlatformInfo
 import com.garfiec.librechat.core.logging.logStartupHeader
 import com.garfiec.librechat.core.logging.startMainThreadWatchdog
-import com.garfiec.librechat.shared.navigation.sharedAppModule
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.koin.core.context.startKoin
 import platform.Foundation.NSLog
@@ -42,7 +41,7 @@ fun startIosKoin() {
     runCatching { installCrashReporting() }
 
     val app = startKoin {
-        modules(iosSharedModule, sharedAppModule)
+        modules(iosSharedModule)
     }
     IosKoinAccessor.koin = app.koin
     Logger.withTag("Koin").d { "startIosKoin: Koin initialized successfully" }

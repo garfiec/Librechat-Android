@@ -24,6 +24,7 @@ import org.koin.dsl.module
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = DATASTORE_FILE_NAME,
+    corruptionHandler = settingsCorruptionHandler(),
 )
 
 actual val dataPlatformModule: Module = module {

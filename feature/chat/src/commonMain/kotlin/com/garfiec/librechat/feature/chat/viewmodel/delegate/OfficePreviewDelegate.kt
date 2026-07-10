@@ -6,7 +6,7 @@ import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.response.FilePreviewResponse
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.OfficePreviewHandle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
  * An office doc arrives on the SSE `attachment` event twice for one `file_id`:
  * first `status: "pending"` (no text), then `"ready"` (+ text/textFormat) or
  * `"failed"` (+ previewError). This delegate:
- *  - [onAttachment]: UPSERTS by `file_id` into [ChatStateHandle] `streamingAttachments`
+ *  - [onAttachment]: UPSERTS by `file_id` into the chat state's `streamingAttachments`
  *    — merging over an existing record rather than appending. NO-REGRESS: a
  *    terminal (`ready`/`failed`) record is never downgraded by a late `pending`
  *    for the same `file_id` (cross-turn file_id reuse), and a terminal incoming
@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  * office-preview MIME types here; everything else keeps the plain append path.
  */
 class OfficePreviewDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: OfficePreviewHandle,
     private val fileRepository: FileRepository,
 ) {
 
@@ -45,8 +45,8 @@ class OfficePreviewDelegate(
     /** Upserts an office-doc attachment by `file_id` with the no-regress guard. */
     fun onAttachment(attachment: Attachment) {
         val fileId = attachment.fileId ?: return
-        stateHandle.update {
-            copy(streamingAttachments = upsertByFileId(streamingAttachments, attachment))
+        handle.update {
+            content = content.copy(streamingAttachments = upsertByFileId(content.streamingAttachments, attachment))
         }
         // A terminal SSE update supersedes any in-flight poll for this file.
         if (attachment.status.isTerminal()) {
@@ -60,7 +60,7 @@ class OfficePreviewDelegate(
      * merges the resolved record back in. Idempotent per `file_id`.
      */
     fun onStreamEnded() {
-        val pending = stateHandle.state.streamingAttachments.filter {
+        val pending = handle.state.streamingAttachments.filter {
             ArtifactType.isOfficePreviewMime(it.type) &&
                 it.fileId != null &&
                 it.status == FilePreviewResponse.STATUS_PENDING
@@ -68,7 +68,7 @@ class OfficePreviewDelegate(
         for (attachment in pending) {
             val fileId = attachment.fileId ?: continue
             if (activePolls.containsKey(fileId)) continue
-            activePolls[fileId] = stateHandle.scope.launch {
+            activePolls[fileId] = handle.scope.launch {
                 try {
                     when (val result = fileRepository.pollFilePreview(fileId)) {
                         is Result.Success -> mergePreviewResult(fileId, result.data)
@@ -93,8 +93,8 @@ class OfficePreviewDelegate(
     }
 
     private fun mergePreviewResult(fileId: String, preview: FilePreviewResponse) {
-        stateHandle.update {
-            val merged = streamingAttachments.map { att ->
+        handle.update {
+            val merged = content.streamingAttachments.map { att ->
                 if (att.fileId != fileId) {
                     att
                 } else {
@@ -111,7 +111,7 @@ class OfficePreviewDelegate(
                     }
                 }
             }
-            copy(streamingAttachments = merged)
+            content = content.copy(streamingAttachments = merged)
         }
     }
 

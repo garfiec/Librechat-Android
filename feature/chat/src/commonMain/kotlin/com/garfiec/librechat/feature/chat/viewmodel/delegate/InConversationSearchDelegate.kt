@@ -2,20 +2,20 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import com.garfiec.librechat.feature.chat.components.countMessageOccurrences
 import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
-import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.SearchFocusRequest
+import com.garfiec.librechat.feature.chat.viewmodel.SearchHandle
 import com.garfiec.librechat.feature.chat.viewmodel.SearchMatch
 
 class InConversationSearchDelegate(
-    private val stateHandle: ChatStateHandle,
+    private val handle: SearchHandle,
 ) {
 
     /** Monotonic id so consecutive requests are never equal (see [SearchFocusRequest]). */
     private var nextFocusRequestId = 0L
 
     fun openSearch() {
-        stateHandle.update {
-            copy(
+        handle.update {
+            search = search.copy(
                 isSearchOpen = true,
                 searchQuery = "",
                 searchMatchIndices = emptyList(),
@@ -26,8 +26,8 @@ class InConversationSearchDelegate(
     }
 
     fun closeSearch() {
-        stateHandle.update {
-            copy(
+        handle.update {
+            search = search.copy(
                 isSearchOpen = false,
                 searchQuery = "",
                 searchMatchIndices = emptyList(),
@@ -38,10 +38,10 @@ class InConversationSearchDelegate(
     }
 
     fun onSearchQueryChanged(query: String) {
-        val state = stateHandle.state
+        val state = handle.state
         if (query.isBlank()) {
-            stateHandle.update {
-                copy(
+            handle.update {
+                search = search.copy(
                     searchQuery = query,
                     searchMatchIndices = emptyList(),
                     currentSearchMatchIndex = 0,
@@ -67,8 +67,8 @@ class InConversationSearchDelegate(
             }
         }
 
-        stateHandle.update {
-            copy(
+        handle.update {
+            search = search.copy(
                 searchQuery = query,
                 searchMatchIndices = allMatches,
                 currentSearchMatchIndex = 0,
@@ -78,35 +78,35 @@ class InConversationSearchDelegate(
     }
 
     fun nextSearchMatch() {
-        val state = stateHandle.state
+        val state = handle.state
         if (state.searchMatchIndices.isEmpty()) return
         val nextIndex = (state.currentSearchMatchIndex + 1) % state.searchMatchIndices.size
-        stateHandle.update {
-            copy(
+        handle.update {
+            search = search.copy(
                 currentSearchMatchIndex = nextIndex,
-                searchFocusRequest = focusRequestFor(searchMatchIndices[nextIndex]),
+                searchFocusRequest = focusRequestFor(search.searchMatchIndices[nextIndex]),
             )
         }
     }
 
     fun previousSearchMatch() {
-        val state = stateHandle.state
+        val state = handle.state
         if (state.searchMatchIndices.isEmpty()) return
         val prevIndex = if (state.currentSearchMatchIndex > 0) {
             state.currentSearchMatchIndex - 1
         } else {
             state.searchMatchIndices.size - 1
         }
-        stateHandle.update {
-            copy(
+        handle.update {
+            search = search.copy(
                 currentSearchMatchIndex = prevIndex,
-                searchFocusRequest = focusRequestFor(searchMatchIndices[prevIndex]),
+                searchFocusRequest = focusRequestFor(search.searchMatchIndices[prevIndex]),
             )
         }
     }
 
     fun onSearchScrollHandled() {
-        stateHandle.update { copy(searchFocusRequest = null) }
+        handle.update { search = search.copy(searchFocusRequest = null) }
     }
 
     private fun focusRequestFor(match: SearchMatch) = SearchFocusRequest(

@@ -6,7 +6,9 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
+import com.garfiec.librechat.feature.chat.viewmodel.ComparisonHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
+import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -20,7 +22,7 @@ class ComparisonModeDelegateTest {
         val flow = MutableStateFlow(state)
         val handle = ChatStateHandle(flow, CoroutineScope(Dispatchers.Unconfined))
         val delegate = ComparisonModeDelegate(
-            stateHandle = handle,
+            handle = ComparisonHandle(handle),
             messageRepository = mockk<MessageRepository>(relaxed = true),
             reloadConversation = {},
         )
@@ -68,7 +70,7 @@ class ComparisonModeDelegateTest {
 
     @Test
     fun `rehydrate switches a landing screen to active`() {
-        val (delegate, flow) = delegateWith(ChatUiState(screenState = ChatScreenState.LANDING))
+        val (delegate, flow) = delegateWith(ChatUiState(content = MessagesState(screenState = ChatScreenState.LANDING)))
 
         delegate.rehydrateFromMessage(parallelMessage("agent_secondary____1"))
 

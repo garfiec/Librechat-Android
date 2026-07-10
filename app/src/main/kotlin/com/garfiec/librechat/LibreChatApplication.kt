@@ -12,23 +12,11 @@ import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.request.crossfade
 import coil3.svg.SvgDecoder
 import com.garfiec.librechat.core.common.AppInfo
-import com.garfiec.librechat.core.common.di.commonModule
-import com.garfiec.librechat.core.data.di.dataModule
 import com.garfiec.librechat.core.logging.PersistentLogWriter
 import com.garfiec.librechat.core.logging.PlatformInfo
-import com.garfiec.librechat.core.logging.di.loggingModule
 import com.garfiec.librechat.core.logging.logStartupHeader
 import com.garfiec.librechat.core.logging.startMainThreadWatchdog
-import com.garfiec.librechat.core.network.di.networkModule
-import com.garfiec.librechat.feature.agents.di.agentsModule
-import com.garfiec.librechat.feature.auth.di.authModule
-import com.garfiec.librechat.feature.auth.di.authPlatformModule
-import com.garfiec.librechat.feature.chat.di.chatModule
-import com.garfiec.librechat.feature.conversations.di.conversationsModule
-import com.garfiec.librechat.feature.files.di.filesModule
-import com.garfiec.librechat.feature.settings.di.settingsModule
-import com.garfiec.librechat.feature.skills.di.skillsFeatureModule
-import com.garfiec.librechat.shared.navigation.sharedAppModule
+import com.garfiec.librechat.shared.di.sharedKoinModules
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.koin.android.ext.android.inject
@@ -50,21 +38,7 @@ class LibreChatApplication : Application(), SingletonImageLoader.Factory {
                 }
                 androidContext(this@LibreChatApplication)
                 allowOverride(false)
-                modules(
-                    commonModule,
-                    loggingModule,
-                    networkModule,
-                    dataModule,
-                    sharedAppModule,
-                    authModule,
-                    authPlatformModule,
-                    chatModule,
-                    conversationsModule,
-                    settingsModule,
-                    agentsModule,
-                    filesModule,
-                    skillsFeatureModule,
-                )
+                modules(sharedKoinModules)
             }
         } catch (e: Exception) {
             Logger.e(e) { "Koin initialization failed" }
