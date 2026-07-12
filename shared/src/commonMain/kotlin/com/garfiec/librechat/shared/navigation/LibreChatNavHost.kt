@@ -54,6 +54,7 @@ import com.garfiec.librechat.feature.chat.navigation.ModelShortcutBus
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
 import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
+import com.garfiec.librechat.feature.conversations.drawer.DrawerViewModel
 import com.garfiec.librechat.feature.conversations.navigation.ArchivedConversations
 import com.garfiec.librechat.feature.conversations.navigation.ProjectChats
 import com.garfiec.librechat.feature.conversations.navigation.Projects
@@ -99,6 +100,7 @@ fun LibreChatNavHost(
     appLocaleTag: String? = null,
     hasPendingDeepLink: Boolean = false,
     navHostViewModel: NavHostViewModel = koinViewModel(),
+    drawerViewModel: DrawerViewModel = koinViewModel(),
     content: (@Composable (Navigator, NavHostViewModel, Modifier) -> Unit)? = null,
 ) {
     val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
@@ -138,7 +140,7 @@ fun LibreChatNavHost(
     // Track active conversation from nav back stack
     LaunchedEffect(navigator.currentRoute) {
         val conversationId = (navigator.currentRoute as? Chat)?.conversationId
-        navHostViewModel.setActiveConversation(conversationId)
+        drawerViewModel.setActiveConversation(conversationId)
 
         // Navigation breadcrumb: route type name only — low cardinality, content-free.
         val screen = navigator.currentRoute?.let { it::class.simpleName } ?: "none"
@@ -369,6 +371,7 @@ fun MainNavDisplay(
     modifier: Modifier = Modifier,
     onMenuClick: (() -> Unit)? = null,
     navHostViewModel: NavHostViewModel = koinViewModel(),
+    drawerViewModel: DrawerViewModel = koinViewModel(),
     serverFileSelectionHandoff: ServerFileSelectionHandoff = koinInject(),
 ) {
     NavDisplay(
@@ -411,6 +414,11 @@ fun MainNavDisplay(
                 onBack = { navigator.goBack() },
                 onAuthComplete = {
                     navHostViewModel.onAuthComplete()
+                    // accountTransitions() doesn't fire on login-from-logged-out, so the drawer's
+                    // conversation list is refreshed explicitly here (the other half — banners,
+                    // version — rides onAuthComplete above). Conversations-only: the login session
+                    // tasks already refreshed tags, so this must not re-fetch them (double-fetch).
+                    drawerViewModel.refreshConversationsAfterLogin()
                     navigator.navigateToChat()
                 },
             )

@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.conversations.di
 
 import com.garfiec.librechat.core.common.di.KoinQualifiers
+import com.garfiec.librechat.feature.conversations.drawer.DrawerViewModel
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
 import com.garfiec.librechat.feature.conversations.export.ConversationImporter
 import com.garfiec.librechat.feature.conversations.viewmodel.ArchivedConversationsViewModel
@@ -28,6 +29,8 @@ val conversationsModule = module {
     viewModelOf(::ConversationListViewModel)
     viewModelOf(::ArchivedConversationsViewModel)
     viewModelOf(::ProjectsViewModel)
+    // Drawer-data half of the nav shell's NavHostViewModel.
+    viewModelOf(::DrawerViewModel)
     // projectId arrives from the navigation layer via parametersOf.
     @Suppress("DeprecatedKoinApi")
     viewModel { params ->

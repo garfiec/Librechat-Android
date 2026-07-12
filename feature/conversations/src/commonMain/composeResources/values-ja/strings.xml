@@ -76,4 +76,12 @@
 
     <!-- Conversation item fallback -->
     <string name="chat">チャット</string>
+    <!-- Drawer strings (moved from :shared) -->
+    <string name="agents">エージェント</string>
+    <string name="favorites">お気に入り</string>
+    <string name="files">ファイル</string>
+    <string name="no_conversations_found">会話が見つかりません</string>
+    <string name="search_conversations_placeholder">会話を検索…</string>
+    <string name="settings">設定</string>
+    <string name="skills">スキル</string>
 </resources>

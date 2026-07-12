@@ -101,4 +101,27 @@
 
     <!-- Conversation item fallback -->
     <string name="chat">Chat</string>
+    <!-- Drawer strings (moved from :shared) -->
+    <string name="agents">Agents</string>
+    <string name="cd_collapse_section">Collapse section</string>
+    <string name="cd_expand_section">Expand section</string>
+    <string name="chats">Chats</string>
+    <string name="favorites">Favorites</string>
+    <string name="files">Files</string>
+    <string name="library">Library</string>
+    <string name="no_conversations_found">No conversations found</string>
+    <string name="pinned">Pinned</string>
+    <string name="projects">Projects</string>
+    <string name="search_conversations_placeholder">Search conversations\u2026</string>
+    <string name="settings">Settings</string>
+    <string name="show_less">Show less</string>
+    <string name="show_more">Show more</string>
+    <string name="skills">Skills</string>
+    <string name="accounts">Accounts</string>
+    <string name="add_account">Add account</string>
+    <string name="cd_active_account">Active account</string>
+    <string name="remove">Remove</string>
+    <string name="remove_account">Remove account</string>
+    <string name="remove_account_message">%1$s and its data will be removed from this device. The account on the server is not affected.</string>
+    <string name="remove_account_title">Remove account?</string>
 </resources>

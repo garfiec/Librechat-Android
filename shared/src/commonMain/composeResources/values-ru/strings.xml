@@ -4,23 +4,12 @@
     <string name="no_connection">Нет подключения к интернету</string>
 
     <!-- Drawer -->
-    <string name="new_chat">Новый чат</string>
-    <string name="favorites">Избранное</string>
-    <string name="no_conversations_found">Беседы не найдены</string>
-    <string name="remove_bookmark">Убрать закладку</string>
-    <string name="bookmark">В закладки</string>
-    <string name="agents">Агенты</string>
-    <string name="skills">Навыки</string>
-    <string name="files">Файлы</string>
     <string name="settings">Настройки</string>
 
     <!-- Content descriptions -->
-    <string name="cd_search">Поиск</string>
-    <string name="cd_clear_search">Очистить поиск</string>
     <string name="cd_back_to_conversations">Назад к беседам</string>
 
     <!-- Search -->
-    <string name="search_conversations_placeholder">Поиск бесед…</string>
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">Несоответствие версии бэкенда</string>

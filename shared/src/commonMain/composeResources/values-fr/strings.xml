@@ -4,23 +4,12 @@
     <string name="no_connection">Aucune connexion Internet</string>
 
     <!-- Drawer -->
-    <string name="new_chat">Nouvelle discussion</string>
-    <string name="favorites">Favoris</string>
-    <string name="no_conversations_found">Aucune conversation trouvée</string>
-    <string name="remove_bookmark">Supprimer le signet</string>
-    <string name="bookmark">Signet</string>
-    <string name="agents">Agents</string>
-    <string name="skills">Compétences</string>
-    <string name="files">Fichiers</string>
     <string name="settings">Paramètres</string>
 
     <!-- Content descriptions -->
-    <string name="cd_search">Rechercher</string>
-    <string name="cd_clear_search">Effacer la recherche</string>
     <string name="cd_back_to_conversations">Retour aux conversations</string>
 
     <!-- Search -->
-    <string name="search_conversations_placeholder">Rechercher des conversations…</string>
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">Incompatibilité de version du backend</string>

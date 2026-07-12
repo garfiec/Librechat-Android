@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.ui.components.PlatformBackHandler
+import com.garfiec.librechat.feature.conversations.drawer.DrawerContent
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -36,6 +37,10 @@ fun SidebarScaffold(
 ) {
     val sidebarMode by viewModel.sidebarMode.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedSettingsCategory.collectAsStateWithLifecycle()
+    // Account list + switching stay in the nav shell; the drawer only renders the footer chip/sheet,
+    // so the list and account callbacks are hoisted down into DrawerContent (which owns only its own
+    // DrawerViewModel now).
+    val accounts by viewModel.accounts.collectAsStateWithLifecycle()
 
     // System back pops any sub-mode (Projects/Settings) back to Conversations, as if it were on the
     // back stack. A no-op on platforms without a system back (iOS), where the in-mode back arrow is
@@ -69,9 +74,13 @@ fun SidebarScaffold(
                     onAgentsClick = onAgentsClick,
                     onFilesClick = onFilesClick,
                     onSkillsClick = onSkillsClick,
+                    accounts = accounts,
                     onOpenProjectsIndex = onOpenProjectsIndex,
                     onSwitchAccount = onSwitchAccount,
                     onAddAccount = onAddAccount,
+                    // Swipe round-robins in place; the sheet's remove asks the nav shell directly.
+                    onSwitchAccountInPlace = viewModel::switchAccount,
+                    onRemoveAccount = viewModel::removeAccount,
                 )
             }
             is SidebarMode.Settings -> {

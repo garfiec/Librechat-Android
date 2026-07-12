@@ -76,4 +76,12 @@
 
     <!-- Conversation item fallback -->
     <string name="chat">채팅</string>
+    <!-- Drawer strings (moved from :shared) -->
+    <string name="agents">에이전트</string>
+    <string name="favorites">즐겨찾기</string>
+    <string name="files">파일</string>
+    <string name="no_conversations_found">대화를 찾을 수 없습니다</string>
+    <string name="search_conversations_placeholder">대화 검색…</string>
+    <string name="settings">설정</string>
+    <string name="skills">스킬</string>
 </resources>

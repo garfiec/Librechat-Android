@@ -1,4 +1,4 @@
-package com.garfiec.librechat.shared.navigation
+package com.garfiec.librechat.feature.conversations.drawer
 
 /**
  * The drawer "Library" section's two modes: the recents history vs. the project folders. Persisted

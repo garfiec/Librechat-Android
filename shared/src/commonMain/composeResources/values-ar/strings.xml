@@ -4,23 +4,12 @@
     <string name="no_connection">لا يوجد اتصال بالإنترنت</string>
 
     <!-- Drawer -->
-    <string name="new_chat">محادثة جديدة</string>
-    <string name="favorites">المفضلة</string>
-    <string name="no_conversations_found">لم يتم العثور على محادثات</string>
-    <string name="remove_bookmark">إزالة الإشارة المرجعية</string>
-    <string name="bookmark">إشارة مرجعية</string>
-    <string name="agents">الوكلاء</string>
-    <string name="skills">المهارات</string>
-    <string name="files">الملفات</string>
     <string name="settings">الإعدادات</string>
 
     <!-- Content descriptions -->
-    <string name="cd_search">بحث</string>
-    <string name="cd_clear_search">مسح البحث</string>
     <string name="cd_back_to_conversations">العودة إلى المحادثات</string>
 
     <!-- Search -->
-    <string name="search_conversations_placeholder">البحث في المحادثات…</string>
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">عدم تطابق إصدار الخادم</string>

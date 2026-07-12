@@ -76,4 +76,12 @@
 
     <!-- Conversation item fallback -->
     <string name="chat">Chat</string>
+    <!-- Drawer strings (moved from :shared) -->
+    <string name="agents">Agenten</string>
+    <string name="favorites">Favoriten</string>
+    <string name="files">Dateien</string>
+    <string name="no_conversations_found">Keine Unterhaltungen gefunden</string>
+    <string name="search_conversations_placeholder">Unterhaltungen suchen…</string>
+    <string name="settings">Einstellungen</string>
+    <string name="skills">Skills</string>
 </resources>

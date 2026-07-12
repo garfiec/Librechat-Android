@@ -1,4 +1,4 @@
-package com.garfiec.librechat.shared.navigation
+package com.garfiec.librechat.feature.conversations.drawer
 
 import androidx.compose.runtime.Immutable
 import com.garfiec.librechat.core.model.ConversationTag

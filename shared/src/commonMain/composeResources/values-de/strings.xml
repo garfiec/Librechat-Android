@@ -4,23 +4,12 @@
     <string name="no_connection">Keine Internetverbindung</string>
 
     <!-- Drawer -->
-    <string name="new_chat">Neuer Chat</string>
-    <string name="favorites">Favoriten</string>
-    <string name="no_conversations_found">Keine Unterhaltungen gefunden</string>
-    <string name="remove_bookmark">Lesezeichen entfernen</string>
-    <string name="bookmark">Lesezeichen</string>
-    <string name="agents">Agenten</string>
-    <string name="skills">Skills</string>
-    <string name="files">Dateien</string>
     <string name="settings">Einstellungen</string>
 
     <!-- Content descriptions -->
-    <string name="cd_search">Suchen</string>
-    <string name="cd_clear_search">Suche löschen</string>
     <string name="cd_back_to_conversations">Zurück zu den Unterhaltungen</string>
 
     <!-- Search -->
-    <string name="search_conversations_placeholder">Unterhaltungen suchen…</string>
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">Backend-Versionskonflikt</string>

@@ -548,6 +548,115 @@ class ConversationListViewModelTest {
     }
 
     @Test
+    fun `delete from Room during active search removes the row from visible results`() = runTest {
+        // Regression (Punted Bug #25): a drawer-side delete used to stay visible in the list
+        // screen's active search until search was cleared, because Room emissions were dropped
+        // wholesale during search. Now a present -> absent transition subtracts the deleted row.
+        val roomFlow = MutableStateFlow<Result<List<Conversation>>>(Result.Success(testConversations))
+        every { conversationRepository.observeConversations(any()) } returns roomFlow
+        coEvery { searchRepository.search("q") } returns Result.Success(testConversations)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChanged("q")
+        advanceUntilIdle()
+        assertThat(
+            viewModel.uiState.value.groupedConversations.flatMap { it.second }.map { it.conversationId },
+        ).containsExactly("convo-1", "convo-2")
+
+        // Room re-emits without convo-1 (deleted from the drawer) while search is still active.
+        roomFlow.value = Result.Success(testConversations.filter { it.conversationId == "convo-2" })
+        advanceUntilIdle()
+
+        assertThat(
+            viewModel.uiState.value.groupedConversations.flatMap { it.second }.map { it.conversationId },
+        ).containsExactly("convo-2")
+    }
+
+    @Test
+    fun `rename in Room during active search refreshes the visible row`() = runTest {
+        val roomFlow = MutableStateFlow<Result<List<Conversation>>>(Result.Success(testConversations))
+        every { conversationRepository.observeConversations(any()) } returns roomFlow
+        coEvery { searchRepository.search("q") } returns Result.Success(testConversations)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChanged("q")
+        advanceUntilIdle()
+
+        // Room re-emits convo-1 with a new title (drawer rename); the visible search row updates
+        // in place, and rows Room no longer holds are not pulled in.
+        val renamed = testConversations.map {
+            if (it.conversationId == "convo-1") it.copy(title = "Renamed First") else it
+        }
+        roomFlow.value = Result.Success(renamed)
+        advanceUntilIdle()
+
+        val titles = viewModel.uiState.value.groupedConversations.flatMap { it.second }
+            .associate { it.conversationId to it.title }
+        assertThat(titles["convo-1"]).isEqualTo("Renamed First")
+        assertThat(titles.keys).containsExactly("convo-1", "convo-2")
+    }
+
+    @Test
+    fun `stale Room row during active search does not clobber a server-fresher search hit`() = runTest {
+        // Server search returns a fresher copy (newer updatedAt) than the local Room cache holds —
+        // e.g. the title was changed on another device and hasn't synced down yet. A Room re-emission
+        // during the search must NOT revert the visible row to the stale cached title.
+        val freshHit = Conversation(
+            conversationId = "convo-1",
+            title = "Fresh Title",
+            updatedAt = "2026-02-19T12:00:00.000Z",
+        )
+        val staleRoom = Conversation(
+            conversationId = "convo-1",
+            title = "Stale Title",
+            updatedAt = "2026-02-19T10:00:00.000Z",
+        )
+        val roomFlow = MutableStateFlow<Result<List<Conversation>>>(Result.Success(listOf(staleRoom)))
+        every { conversationRepository.observeConversations(any()) } returns roomFlow
+        coEvery { searchRepository.search("q") } returns Result.Success(listOf(freshHit))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChanged("q")
+        advanceUntilIdle()
+
+        // Room re-emits the stale copy while search is active.
+        roomFlow.value = Result.Success(listOf(staleRoom.copy()))
+        advanceUntilIdle()
+
+        val titles = viewModel.uiState.value.groupedConversations.flatMap { it.second }
+            .associate { it.conversationId to it.title }
+        assertThat(titles["convo-1"]).isEqualTo("Fresh Title")
+    }
+
+    @Test
+    fun `empty Room emission during active search does not blank the results`() = runTest {
+        // An empty emission is the account-scoped gate resetting on switch, not a per-row delete;
+        // blanking the active search here would leave a stale query over an empty list.
+        val roomFlow = MutableStateFlow<Result<List<Conversation>>>(Result.Success(testConversations))
+        every { conversationRepository.observeConversations(any()) } returns roomFlow
+        coEvery { searchRepository.search("q") } returns Result.Success(testConversations)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChanged("q")
+        advanceUntilIdle()
+
+        roomFlow.value = Result.Success(emptyList())
+        advanceUntilIdle()
+
+        assertThat(
+            viewModel.uiState.value.groupedConversations.flatMap { it.second }.map { it.conversationId },
+        ).containsExactly("convo-1", "convo-2")
+    }
+
+    @Test
     fun `endpointConfigs arriving late re-groups rows with iconURL`() = runTest {
         // Conversation has no per-convo iconURL; relies on the endpoint config fallback.
         val convo = Conversation(

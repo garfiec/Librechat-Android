@@ -4,23 +4,12 @@
     <string name="no_connection">インターネット接続がありません</string>
 
     <!-- Drawer -->
-    <string name="new_chat">新しいチャット</string>
-    <string name="favorites">お気に入り</string>
-    <string name="no_conversations_found">会話が見つかりません</string>
-    <string name="remove_bookmark">ブックマークを解除</string>
-    <string name="bookmark">ブックマーク</string>
-    <string name="agents">エージェント</string>
-    <string name="skills">スキル</string>
-    <string name="files">ファイル</string>
     <string name="settings">設定</string>
 
     <!-- Content descriptions -->
-    <string name="cd_search">検索</string>
-    <string name="cd_clear_search">検索をクリア</string>
     <string name="cd_back_to_conversations">会話に戻る</string>
 
     <!-- Search -->
-    <string name="search_conversations_placeholder">会話を検索…</string>
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">バックエンドのバージョン不一致</string>

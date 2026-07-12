@@ -4,23 +4,12 @@
     <string name="no_connection">인터넷 연결 없음</string>
 
     <!-- Drawer -->
-    <string name="new_chat">새 채팅</string>
-    <string name="favorites">즐겨찾기</string>
-    <string name="no_conversations_found">대화를 찾을 수 없습니다</string>
-    <string name="remove_bookmark">북마크 제거</string>
-    <string name="bookmark">북마크</string>
-    <string name="agents">에이전트</string>
-    <string name="skills">스킬</string>
-    <string name="files">파일</string>
     <string name="settings">설정</string>
 
     <!-- Content descriptions -->
-    <string name="cd_search">검색</string>
-    <string name="cd_clear_search">검색 지우기</string>
     <string name="cd_back_to_conversations">대화로 돌아가기</string>
 
     <!-- Search -->
-    <string name="search_conversations_placeholder">대화 검색…</string>
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">백엔드 버전 불일치</string>

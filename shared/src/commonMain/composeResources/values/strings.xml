@@ -4,46 +4,15 @@
     <string name="no_connection">No internet connection</string>
 
     <!-- Drawer -->
-    <string name="new_chat">New chat</string>
-    <string name="library">Library</string>
-    <string name="chats">Chats</string>
-    <string name="favorites">Favorites</string>
-    <string name="pinned">Pinned</string>
-    <string name="projects">Projects</string>
-    <string name="projects_all">All projects</string>
-    <string name="project_unassigned">Unassigned</string>
-    <string name="project_new">New project</string>
-    <string name="no_conversations_found">No conversations found</string>
-    <string name="show_more">Show more</string>
-    <string name="show_less">Show less</string>
-    <string name="cd_collapse_section">Collapse section</string>
-    <string name="cd_expand_section">Expand section</string>
-    <string name="remove_bookmark">Remove bookmark</string>
-    <string name="bookmark">Bookmark</string>
-    <string name="agents">Agents</string>
-    <string name="skills">Skills</string>
-    <string name="files">Files</string>
     <string name="settings">Settings</string>
 
     <!-- Account switcher -->
-    <string name="accounts">Accounts</string>
-    <string name="add_account">Add account</string>
-    <string name="remove_account">Remove account</string>
-    <string name="remove_account_title">Remove account?</string>
-    <string name="remove_account_message">%1$s and its data will be removed from this device. The account on the server is not affected.</string>
-    <string name="remove">Remove</string>
-    <string name="cancel">Cancel</string>
     <string name="cd_switch_account">Switch account</string>
-    <string name="cd_active_account">Active account</string>
 
     <!-- Content descriptions -->
-    <string name="cd_search">Search</string>
-    <string name="cd_clear_search">Clear search</string>
     <string name="cd_back_to_conversations">Back to conversations</string>
-    <string name="cd_conversation_actions">Show conversation actions</string>
 
     <!-- Search -->
-    <string name="search_conversations_placeholder">Search conversations\u2026</string>
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">Backend Version Mismatch</string>

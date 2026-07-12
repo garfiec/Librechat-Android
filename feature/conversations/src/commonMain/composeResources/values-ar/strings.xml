@@ -76,4 +76,12 @@
 
     <!-- Conversation item fallback -->
     <string name="chat">محادثة</string>
+    <!-- Drawer strings (moved from :shared) -->
+    <string name="agents">الوكلاء</string>
+    <string name="favorites">المفضلة</string>
+    <string name="files">الملفات</string>
+    <string name="no_conversations_found">لم يتم العثور على محادثات</string>
+    <string name="search_conversations_placeholder">البحث في المحادثات…</string>
+    <string name="settings">الإعدادات</string>
+    <string name="skills">المهارات</string>
 </resources>

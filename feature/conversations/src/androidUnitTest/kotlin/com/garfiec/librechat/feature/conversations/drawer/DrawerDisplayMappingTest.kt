@@ -1,10 +1,9 @@
-package com.garfiec.librechat.shared.navigation
+package com.garfiec.librechat.feature.conversations.drawer
 
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.EndpointConfig
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import com.google.common.truth.Truth.assertThat
+import org.junit.Test
 
 class DrawerDisplayMappingTest {
 
@@ -21,7 +20,7 @@ class DrawerDisplayMappingTest {
 
         val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs)
 
-        assertEquals("https://convo-icon.example.com/icon.png", data.endpointIconUrl)
+        assertThat(data.endpointIconUrl).isEqualTo("https://convo-icon.example.com/icon.png")
     }
 
     @Test
@@ -37,7 +36,7 @@ class DrawerDisplayMappingTest {
 
         val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs)
 
-        assertEquals("https://config-icon.example.com/icon.png", data.endpointIconUrl)
+        assertThat(data.endpointIconUrl).isEqualTo("https://config-icon.example.com/icon.png")
     }
 
     @Test
@@ -53,7 +52,7 @@ class DrawerDisplayMappingTest {
 
         val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs)
 
-        assertNull(data.endpointIconUrl)
+        assertThat(data.endpointIconUrl).isNull()
     }
 
     @Test
@@ -69,6 +68,6 @@ class DrawerDisplayMappingTest {
             endpointConfigs = emptyMap(),
         )
 
-        assertNull(data.endpointIconUrl)
+        assertThat(data.endpointIconUrl).isNull()
     }
 }

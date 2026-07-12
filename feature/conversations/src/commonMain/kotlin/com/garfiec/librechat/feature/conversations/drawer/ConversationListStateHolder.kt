@@ -1,4 +1,4 @@
-package com.garfiec.librechat.shared.navigation
+package com.garfiec.librechat.feature.conversations.drawer
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.extensions.toInstantOrNull
@@ -64,9 +64,15 @@ class ConversationListStateHolder(
                 conversationRepository.observeConversations().collect { result ->
                     if (result is Result.Success) {
                         _recentConversations.value = result.data
-                        if (_searchQuery.value.isBlank()) {
-                            _groupedConversations.value =
-                                groupConversationsByDate(result.data.withoutPinned())
+                        // Regroup on every Room emission — including during an active search. Search
+                        // is a client-side filter over live Room data, so a delete/rename/pin/favorite
+                        // (which re-emits Room) must reflect in the visible results immediately, not
+                        // wait for the next query keystroke (Punted Bug #25, drawer side).
+                        val query = _searchQuery.value
+                        _groupedConversations.value = if (query.isBlank()) {
+                            groupConversationsByDate(result.data.withoutPinned())
+                        } else {
+                            groupConversationsByDate(filterByQuery(result.data, query))
                         }
                     }
                 }
@@ -141,13 +147,14 @@ class ConversationListStateHolder(
                 .filter { it.isNotBlank() }
                 .debounce(SEARCH_DEBOUNCE_MS)
                 .collectLatest { query ->
-                    val filtered = _recentConversations.value.filter { conversation ->
-                        conversation.title?.contains(query, ignoreCase = true) == true
-                    }
-                    _groupedConversations.value = groupConversationsByDate(filtered)
+                    _groupedConversations.value =
+                        groupConversationsByDate(filterByQuery(_recentConversations.value, query))
                 }
         }
     }
+
+    private fun filterByQuery(conversations: List<Conversation>, query: String): List<Conversation> =
+        conversations.filter { it.title?.contains(query, ignoreCase = true) == true }
 
     fun reset() {
         searchObserverJob?.cancel()

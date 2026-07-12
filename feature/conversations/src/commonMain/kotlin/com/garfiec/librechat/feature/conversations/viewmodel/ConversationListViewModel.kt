@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.conversations.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.garfiec.librechat.core.common.extensions.toInstantOrNull
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @Immutable
@@ -78,6 +80,11 @@ class ConversationListViewModel(
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     private var searchJob: Job? = null
 
+    // The last Room emission, so an active search can tell a genuine delete/archive (present ->
+    // absent) from a row merely outside Room's fetched window. Kept as the raw list (a reference,
+    // not a Set) so the non-search path allocates nothing; the id sets are built only while searching.
+    private var lastRoomData: List<Conversation> = emptyList()
+
     private val actions = ConversationListActionsDelegate(
         scope = viewModelScope,
         events = _events,
@@ -115,11 +122,32 @@ class ConversationListViewModel(
             conversationRepository.observeConversations().collect { result ->
                 when (result) {
                     is Result.Success -> {
-                        // Only update from Room when not in search mode
                         if (_uiState.value.searchQuery.isEmpty()) {
                             _conversations.value = result.data
                             _uiState.value = _uiState.value.copy(isLoading = false)
+                        } else if (result.data.isNotEmpty()) {
+                            // Active search: results are server-sourced and not written to Room, so
+                            // don't replace them wholesale (that wipes server-only hits) nor union
+                            // Room in (that pollutes results). Room still re-emits on local mutations,
+                            // so reconcile the visible results against it: drop rows that just left
+                            // Room (delete/archive from the drawer) and pull in locally-edited rows
+                            // (rename/tags/pin/favorite stamp updatedAt = now, so Room is >= as fresh),
+                            // but never let a stale cache row clobber a server-fresher hit that hasn't
+                            // synced to Room yet. An empty emission is an account-scoped reset (the
+                            // active-account gate), not a per-row delete, so it is ignored here — the
+                            // screen reloads for the new account rather than blanking the old results.
+                            val roomIds = result.data.mapNotNullTo(HashSet()) { it.conversationId }
+                            val lastIds = lastRoomData.mapNotNullTo(HashSet()) { it.conversationId }
+                            val removed = lastIds - roomIds
+                            val byId = result.data.associateBy { it.conversationId }
+                            _conversations.update { current ->
+                                current.mapNotNull { c ->
+                                    val id = c.conversationId ?: return@mapNotNull c
+                                    if (id in removed) null else byId[id]?.takeIf { it.isNotOlderThan(c) } ?: c
+                                }
+                            }
                         }
+                        lastRoomData = result.data
                     }
                     is Result.Error -> {
                         _uiState.value = _uiState.value.copy(
@@ -131,6 +159,18 @@ class ConversationListViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * True when `this` (a Room row) is at least as fresh as [other] (a server search hit), by
+     * `updatedAt`. Local edits stamp `updatedAt = now`, so they compare newer and are reflected;
+     * a cross-device change not yet synced leaves Room strictly older, so it is not swapped in.
+     * Falls back to `false` (keep the server hit) when either timestamp is missing/unparseable.
+     */
+    private fun Conversation.isNotOlderThan(other: Conversation): Boolean {
+        val mine = updatedAt?.toInstantOrNull() ?: return false
+        val theirs = other.updatedAt?.toInstantOrNull() ?: return false
+        return mine >= theirs
     }
 
     private fun observeTags() {

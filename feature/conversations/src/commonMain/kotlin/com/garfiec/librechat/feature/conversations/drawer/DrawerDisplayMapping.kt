@@ -1,4 +1,4 @@
-package com.garfiec.librechat.shared.navigation
+package com.garfiec.librechat.feature.conversations.drawer
 
 import com.garfiec.librechat.core.common.extensions.formatMonthAbbrev
 import com.garfiec.librechat.core.common.extensions.toInstantOrNull

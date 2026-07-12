@@ -1,4 +1,4 @@
-package com.garfiec.librechat.shared.navigation
+package com.garfiec.librechat.feature.conversations.drawer
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -100,31 +100,31 @@ import com.garfiec.librechat.feature.conversations.components.ProjectPicker
 import com.garfiec.librechat.feature.conversations.components.TagPicker
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import com.garfiec.librechat.feature.conversations.export.ExportFormatPicker
-import com.garfiec.librechat.shared.resources.Res
-import com.garfiec.librechat.shared.resources.agents
-import com.garfiec.librechat.shared.resources.bookmark
-import com.garfiec.librechat.shared.resources.cd_clear_search
-import com.garfiec.librechat.shared.resources.cd_collapse_section
-import com.garfiec.librechat.shared.resources.cd_conversation_actions
-import com.garfiec.librechat.shared.resources.cd_expand_section
-import com.garfiec.librechat.shared.resources.cd_search
-import com.garfiec.librechat.shared.resources.chats
-import com.garfiec.librechat.shared.resources.favorites
-import com.garfiec.librechat.shared.resources.files
-import com.garfiec.librechat.shared.resources.library
-import com.garfiec.librechat.shared.resources.new_chat
-import com.garfiec.librechat.shared.resources.no_conversations_found
-import com.garfiec.librechat.shared.resources.pinned
-import com.garfiec.librechat.shared.resources.project_new
-import com.garfiec.librechat.shared.resources.project_unassigned
-import com.garfiec.librechat.shared.resources.projects
-import com.garfiec.librechat.shared.resources.projects_all
-import com.garfiec.librechat.shared.resources.remove_bookmark
-import com.garfiec.librechat.shared.resources.search_conversations_placeholder
-import com.garfiec.librechat.shared.resources.settings
-import com.garfiec.librechat.shared.resources.show_less
-import com.garfiec.librechat.shared.resources.show_more
-import com.garfiec.librechat.shared.resources.skills
+import com.garfiec.librechat.feature.conversations.resources.Res
+import com.garfiec.librechat.feature.conversations.resources.agents
+import com.garfiec.librechat.feature.conversations.resources.bookmark
+import com.garfiec.librechat.feature.conversations.resources.cd_clear_search
+import com.garfiec.librechat.feature.conversations.resources.cd_collapse_section
+import com.garfiec.librechat.feature.conversations.resources.cd_conversation_actions
+import com.garfiec.librechat.feature.conversations.resources.cd_expand_section
+import com.garfiec.librechat.feature.conversations.resources.cd_search
+import com.garfiec.librechat.feature.conversations.resources.chats
+import com.garfiec.librechat.feature.conversations.resources.favorites
+import com.garfiec.librechat.feature.conversations.resources.files
+import com.garfiec.librechat.feature.conversations.resources.library
+import com.garfiec.librechat.feature.conversations.resources.new_chat
+import com.garfiec.librechat.feature.conversations.resources.no_conversations_found
+import com.garfiec.librechat.feature.conversations.resources.pinned
+import com.garfiec.librechat.feature.conversations.resources.project_new
+import com.garfiec.librechat.feature.conversations.resources.project_unassigned
+import com.garfiec.librechat.feature.conversations.resources.projects
+import com.garfiec.librechat.feature.conversations.resources.projects_all
+import com.garfiec.librechat.feature.conversations.resources.remove_bookmark
+import com.garfiec.librechat.feature.conversations.resources.search_conversations_placeholder
+import com.garfiec.librechat.feature.conversations.resources.settings
+import com.garfiec.librechat.feature.conversations.resources.show_less
+import com.garfiec.librechat.feature.conversations.resources.show_more
+import com.garfiec.librechat.feature.conversations.resources.skills
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -162,16 +162,20 @@ fun DrawerContent(
     onAgentsClick: () -> Unit,
     onFilesClick: () -> Unit,
     onSkillsClick: () -> Unit,
+    accounts: List<AccountUiModel>,
     modifier: Modifier = Modifier,
     onOpenProjectsIndex: () -> Unit = {},
     onSwitchAccount: (String) -> Unit = {},
     onAddAccount: () -> Unit = {},
-    viewModel: NavHostViewModel = koinViewModel(),
+    // Round-robin swipe switch (in place, drawer stays open) + sheet remove — both are nav-shell
+    // account operations, hoisted in because DrawerViewModel owns only drawer data now.
+    onSwitchAccountInPlace: (String) -> Unit = {},
+    onRemoveAccount: (String) -> Unit = {},
+    viewModel: DrawerViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.drawerUiState.collectAsStateWithLifecycle()
     val projects by viewModel.projects.collectAsStateWithLifecycle()
     val inlineProjectChats by viewModel.inlineProjectChats.collectAsStateWithLifecycle()
-    val accounts by viewModel.accounts.collectAsStateWithLifecycle()
     val libraryTab by viewModel.drawerLibraryTab.collectAsStateWithLifecycle()
 
     // Account switcher: the header chip opens the roster sheet; remove asks for confirmation.
@@ -214,7 +218,7 @@ fun DrawerContent(
                         // keeps the drawer open too (the host no longer closes it on switch).
                         // Disabled (null) with a single account.
                         onSwitchAdjacent = if (accounts.size > 1) {
-                            { delta -> adjacentAccountId(accounts, delta)?.let(viewModel::switchAccount) }
+                            { delta -> adjacentAccountId(accounts, delta)?.let(onSwitchAccountInPlace) }
                         } else {
                             null
                         },
@@ -274,7 +278,7 @@ fun DrawerContent(
         RemoveAccountDialog(
             account = target,
             onConfirm = {
-                viewModel.removeAccount(target.accountId)
+                onRemoveAccount(target.accountId)
                 removeAccountTarget = null
             },
             onDismiss = { removeAccountTarget = null },

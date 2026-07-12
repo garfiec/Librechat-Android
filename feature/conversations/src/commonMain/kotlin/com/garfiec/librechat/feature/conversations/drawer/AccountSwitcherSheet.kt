@@ -1,4 +1,4 @@
-package com.garfiec.librechat.shared.navigation
+package com.garfiec.librechat.feature.conversations.drawer
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
@@ -52,15 +52,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.ui.components.AvatarImage
 import com.garfiec.librechat.core.ui.components.avatarColorForSeed
-import com.garfiec.librechat.shared.resources.Res
-import com.garfiec.librechat.shared.resources.accounts
-import com.garfiec.librechat.shared.resources.add_account
-import com.garfiec.librechat.shared.resources.cancel
-import com.garfiec.librechat.shared.resources.cd_active_account
-import com.garfiec.librechat.shared.resources.remove
-import com.garfiec.librechat.shared.resources.remove_account
-import com.garfiec.librechat.shared.resources.remove_account_message
-import com.garfiec.librechat.shared.resources.remove_account_title
+import com.garfiec.librechat.feature.conversations.resources.Res
+import com.garfiec.librechat.feature.conversations.resources.accounts
+import com.garfiec.librechat.feature.conversations.resources.add_account
+import com.garfiec.librechat.feature.conversations.resources.cancel
+import com.garfiec.librechat.feature.conversations.resources.cd_active_account
+import com.garfiec.librechat.feature.conversations.resources.remove
+import com.garfiec.librechat.feature.conversations.resources.remove_account
+import com.garfiec.librechat.feature.conversations.resources.remove_account_message
+import com.garfiec.librechat.feature.conversations.resources.remove_account_title
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
