@@ -367,6 +367,24 @@ class SseEventMapperTest {
         assertThat(result.fileId).isEqualTo("f2")
     }
 
+    @Test
+    fun `maps web_search attachment carrying sources without a file`() {
+        // Web-search results arrive as an attachment with no file_id/filename — the sources
+        // are nested under the `web_search` key (organic + topStories).
+        val event = SseEvent(
+            event = "attachment",
+            data = """{"type":"web_search","toolCallId":"call_ws","messageId":"m1","web_search":{"turn":0,"organic":[{"link":"https://en.wikipedia.org/wiki/Photosynthesis","title":"Photosynthesis - Wikipedia"}],"topStories":[{"link":"https://en.wiktionary.org/wiki/photosynthesis","title":"photosynthesis - Wiktionary","source":"en.wiktionary.org"}]}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.AttachmentCreated
+        assertThat(result.type).isEqualTo("web_search")
+        assertThat(result.toolCallId).isEqualTo("call_ws")
+        assertThat(result.webSearch).isNotNull()
+        assertThat(result.webSearch!!.organic).hasSize(1)
+        assertThat(result.webSearch!!.organic!!.single().link)
+            .isEqualTo("https://en.wikipedia.org/wiki/Photosynthesis")
+        assertThat(result.webSearch!!.topStories!!.single().title).isEqualTo("photosynthesis - Wiktionary")
+    }
+
     // --- Legacy Flat Format ---
 
     @Test

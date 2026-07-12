@@ -49,6 +49,8 @@ sealed interface StreamEvent {
         val text: String? = null,
         val textFormat: String? = null,
         val previewError: String? = null,
+        /** Web-search sources when this is a `web_search` attachment (no file). */
+        val webSearch: WebSearchData? = null,
     ) : StreamEvent
 
     data class Final(

@@ -91,14 +91,15 @@ internal fun ToolCallDispatcher(
                     modifier = cardModifier,
                 )
             }
-            // file_search / retrieval carry their sources in an attachment payload the mobile model
-            // doesn't parse yet — route to the generic card, not the web-search list.
-            toolNameLower != ToolConstants.FILE_SEARCH &&
-                toolNameLower != ToolConstants.RETRIEVAL &&
-                toolNameLower.contains("search") -> {
-                val results = remember(output) { parseWebSearchResults(output) }
+            isWebSearchToolCall(toolNameLower) -> {
+                // The real sources arrive as `web_search` attachments (organic + topStories),
+                // not in the tool-call output — prefer them, falling back to output parsing.
+                val results = remember(attachments, toolCall?.id, output) {
+                    collectWebSearchSources(attachments, toolCall?.id)
+                        .ifEmpty { parseWebSearchResults(output) }
+                }
                 if (results.isNotEmpty()) {
-                    WebSearchResultList(results = results, modifier = cardModifier)
+                    WebSearchSourcesCard(results = results, modifier = cardModifier)
                 } else {
                     GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
                 }

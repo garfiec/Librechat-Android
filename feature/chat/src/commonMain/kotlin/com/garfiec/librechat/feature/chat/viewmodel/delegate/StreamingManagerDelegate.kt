@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
@@ -264,12 +265,23 @@ class StreamingManagerDelegate(
                     text = event.text,
                     textFormat = event.textFormat,
                     previewError = event.previewError,
+                    webSearch = event.webSearch,
                 )
                 // Office-doc previews (v0.8.6) arrive twice per file_id (pending →
                 // ready/failed) — route through the delegate for upsert-by-file_id +
                 // poll-while-pending. Ordinary attachments keep the simple append path.
                 if (ArtifactType.isOfficePreviewMime(event.type)) {
                     officePreviewDelegate.onAttachment(attachment)
+                } else if (attachment.webSearch != null && attachment.toolCallId != null) {
+                    // Web-search re-emits an accumulating superset per source processed —
+                    // upsert by toolCallId so we keep only the latest (fullest) one rather
+                    // than piling up near-duplicate copies for the stream's duration.
+                    handle.update {
+                        val kept = content.streamingAttachments.filterNot {
+                            it.type == ToolConstants.WEB_SEARCH && it.toolCallId == attachment.toolCallId
+                        }
+                        content = content.copy(streamingAttachments = kept + attachment)
+                    }
                 } else {
                     handle.update {
                         content = content.copy(streamingAttachments = content.streamingAttachments + attachment)

@@ -61,7 +61,71 @@ internal fun isCodeExecutionToolCall(toolNameLower: String): Boolean {
     return toolNameLower == ToolConstants.PROGRAMMATIC_TOOL_CALLING || toolNameLower in BASH_TOOL_NAMES
 }
 
+/**
+ * Web-search-style tool calls that render as the "Searched the web" sources card. `file_search`
+ * and `retrieval` also contain "search" but carry their sources in an attachment payload the
+ * mobile model doesn't parse yet, so they're excluded and fall through to the generic card.
+ */
+internal fun isWebSearchToolCall(toolNameLower: String): Boolean =
+    toolNameLower != ToolConstants.FILE_SEARCH &&
+        toolNameLower != ToolConstants.RETRIEVAL &&
+        toolNameLower.contains("search")
+
 // --- Parsing helpers ---
+
+/**
+ * Collects web-search sources from a message's `web_search` attachments (the shape the server
+ * actually sends — `organic` + `topStories`, not a `results` array in the tool-call output).
+ *
+ * Takes attachments whose `toolCallId` matches this tool call, plus any that carry no id at all
+ * (older payloads didn't always set one — those attach to any search call as a best effort).
+ * Attachments belonging to a *different* tool call are excluded so a second search turn can't
+ * duplicate its sources here. When this tool call itself has no id we can't disambiguate, so we
+ * fall back to every web-search attachment (there is normally only one). During streaming the
+ * server re-emits the attachment once per source processed, each a superset of the last, so we
+ * dedup by link — that naturally yields the final full set. Mirrors upstream `collectSources`
+ * in `WebSearch.tsx`.
+ */
+internal fun collectWebSearchSources(
+    attachments: List<Attachment>,
+    toolCallId: String?,
+): List<WebSearchResult> {
+    val webAttachments = attachments.filter {
+        it.type == ToolConstants.WEB_SEARCH && it.webSearch != null
+    }
+    if (webAttachments.isEmpty()) return emptyList()
+    val scoped = if (toolCallId == null) {
+        webAttachments
+    } else {
+        webAttachments.filter { it.toolCallId == toolCallId || it.toolCallId == null }
+    }
+
+    val seen = LinkedHashSet<String>()
+    val results = mutableListOf<WebSearchResult>()
+    scoped.forEach { att ->
+        val data = att.webSearch ?: return@forEach
+        (data.organic.orEmpty() + data.topStories.orEmpty()).forEach { s ->
+            val url = s.link ?: return@forEach
+            if (seen.add(url)) {
+                results += WebSearchResult(
+                    title = s.title?.takeIf { it.isNotBlank() } ?: hostOf(url) ?: url,
+                    url = url,
+                    snippet = s.snippet.orEmpty(),
+                    favicon = null,
+                )
+            }
+        }
+    }
+    return results
+}
+
+/** Bare host of a URL (no scheme, no port, no path), or null if it can't be extracted. */
+internal fun hostOf(url: String): String? =
+    url.substringAfter("://", url)
+        .substringBefore("/")
+        .substringBefore(":")
+        .removePrefix("www.")
+        .takeIf { it.isNotEmpty() }
 
 internal fun parseWebSearchResults(output: String?): List<WebSearchResult> {
     if (output.isNullOrBlank()) return emptyList()

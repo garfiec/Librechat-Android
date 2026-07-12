@@ -99,4 +99,7 @@ data class Attachment(
     val textFormat: String? = null,
     /** Short machine-readable reason when [status] == `failed`. */
     val previewError: String? = null,
+    /** Web-search sources, present only when [type] == `web_search` (no file_id/filename).
+     *  Null for ordinary file attachments. */
+    @SerialName("web_search") val webSearch: WebSearchData? = null,
 )

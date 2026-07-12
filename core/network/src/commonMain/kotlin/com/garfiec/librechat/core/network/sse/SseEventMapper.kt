@@ -538,7 +538,18 @@ class SseEventMapper(private val json: Json) {
         val fileId = data["file_id"]?.jsonPrimitive?.contentOrNull ?: ""
         val filename = data["filename"]?.jsonPrimitive?.contentOrNull ?: ""
         val type = data["type"]?.jsonPrimitive?.contentOrNull ?: ""
-        if (fileId.isBlank() && filename.isBlank()) return null
+        // Web-search results ride in as an attachment with no file — `type == "web_search"`
+        // and the sources nested under the `web_search` key. Parse it before the file guard
+        // so these aren't dropped as "empty" attachments.
+        val webSearch = data["web_search"]?.let { element ->
+            try {
+                json.decodeFromJsonElement(com.garfiec.librechat.core.model.WebSearchData.serializer(), element)
+            } catch (e: Exception) {
+                Logger.w("SSE", e) { "Failed to parse web_search attachment data" }
+                null
+            }
+        }
+        if (fileId.isBlank() && filename.isBlank() && webSearch == null) return null
         return StreamEvent.AttachmentCreated(
             fileId = fileId,
             filename = filename,
@@ -553,6 +564,7 @@ class SseEventMapper(private val json: Json) {
             text = data["text"]?.jsonPrimitive?.contentOrNull,
             textFormat = data["textFormat"]?.jsonPrimitive?.contentOrNull,
             previewError = data["previewError"]?.jsonPrimitive?.contentOrNull,
+            webSearch = webSearch,
         )
     }
 

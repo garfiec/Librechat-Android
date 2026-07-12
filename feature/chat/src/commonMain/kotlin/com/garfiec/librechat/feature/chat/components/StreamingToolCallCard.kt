@@ -61,6 +61,37 @@ fun StreamingToolCallCard(
         return
     }
 
+    // Web search: as soon as `web_search` attachments arrive (streamed once per source
+    // processed) render the same "Searched the web" sources card the finalized message uses,
+    // so sources appear live instead of a generic spinner that only resolves on reload.
+    val webSearchSources = remember(toolCall, streamingAttachments) {
+        if (isWebSearchToolCall(toolCall.name.lowercase())) {
+            collectWebSearchSources(streamingAttachments, toolCall.id)
+        } else {
+            emptyList()
+        }
+    }
+    if (webSearchSources.isNotEmpty()) {
+        WebSearchSourcesCard(results = webSearchSources, modifier = modifier)
+    } else {
+        GenericStreamingToolCard(
+            toolCall = toolCall,
+            baseUrl = baseUrl,
+            streamingAttachments = streamingAttachments,
+            modifier = modifier,
+        )
+    }
+}
+
+/** The default streaming tool-call card: name, progress/complete state, expandable output, and
+ *  any files this tool call has generated so far. Used when no specialized card applies. */
+@Composable
+private fun GenericStreamingToolCard(
+    toolCall: ActiveToolCall,
+    baseUrl: String,
+    streamingAttachments: List<Attachment>,
+    modifier: Modifier = Modifier,
+) {
     var isExpanded by remember { mutableStateOf(false) }
     val canExpand = toolCall.isComplete && !toolCall.output.isNullOrBlank()
 

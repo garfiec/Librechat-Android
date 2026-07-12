@@ -153,6 +153,7 @@
     <string name="tool_model_parameters_desc">Adjust temperature, tokens, and more</string>
     <string name="tool_web_search">Web Search</string>
     <string name="tool_web_search_desc">Search the web for information</string>
+    <string name="web_searched">Searched the web</string>
     <string name="tool_url_context">URL Context</string>
     <string name="tool_url_context_desc">Let the model read URLs and YouTube you reference</string>
     <string name="tool_code">Code</string>
