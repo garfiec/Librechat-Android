@@ -17,7 +17,6 @@ import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -250,27 +249,11 @@ class FileAttachmentDelegate(
     }
 
     /**
-     * Waits for all pending file uploads to complete (up to 30 seconds),
-     * then proceeds with sending the message via the provided callback.
+     * Waits for all pending file uploads to complete (up to 30 seconds), then sends via [doSend] —
+     * or aborts with a visible error if any upload is still in flight. See [awaitUploadsThenSend].
      */
-    suspend fun waitForUploadsAndSend(text: String, doSend: (String) -> Unit) {
-        // Poll _attachedFiles until all files have either completed or failed.
-        // Timeout after 30 seconds to avoid hanging forever.
-        val timeoutMs = 30_000L
-        val pollIntervalMs = 200L
-        var elapsed = 0L
-        while (elapsed < timeoutMs) {
-            val pending = _attachedFiles.value.any { it.fileId == null && !it.uploadFailed }
-            if (!pending) break
-            delay(pollIntervalMs)
-            elapsed += pollIntervalMs
-        }
-        val stillPending = _attachedFiles.value.count { it.fileId == null && !it.uploadFailed }
-        if (stillPending > 0) {
-            Logger.w { "waitForUploadsAndSend: timed out with $stillPending file(s) still uploading" }
-        }
-        doSend(text)
-    }
+    suspend fun waitForUploadsAndSend(text: String, doSend: (String) -> Unit) =
+        _attachedFiles.awaitUploadsThenSend(text, setError = handle::setError, doSend = doSend)
 
     fun hasPendingUploads(): Boolean =
         _attachedFiles.value.any { it.fileId == null && !it.uploadFailed }

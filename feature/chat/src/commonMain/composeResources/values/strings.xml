@@ -51,6 +51,7 @@
     <string name="cd_stop_generation">Stop generation</string>
     <string name="cd_send_message">Send message</string>
     <string name="cd_add_to_queue">Add message to queue</string>
+    <string name="cd_cancel_pending_send">Waiting for upload — tap to cancel send</string>
     <string name="cd_cancel_queued_message">Remove queued message</string>
     <string name="cd_reorder_queued_message">Drag to reorder queued message</string>
     <string name="send_queued_messages">Send queued (%1$d)</string>

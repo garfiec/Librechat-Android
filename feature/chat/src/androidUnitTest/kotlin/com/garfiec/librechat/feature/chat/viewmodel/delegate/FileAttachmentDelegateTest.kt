@@ -4,13 +4,15 @@ import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class FileAttachmentDelegateTest {
 
-    private fun createDelegate() = FileAttachmentDelegate(
-        handle = mockk<ErrorOnlyHandle>(relaxed = true),
+    private fun createDelegate(handle: ErrorOnlyHandle = mockk(relaxed = true)) = FileAttachmentDelegate(
+        handle = handle,
         appContext = mockk(relaxed = true),
         fileRepository = mockk(relaxed = true),
         ioDispatcher = Dispatchers.Unconfined,
@@ -24,6 +26,15 @@ class FileAttachmentDelegateTest {
         fileId = id,
         filepath = "/files/$id.png",
         type = "image/png",
+    )
+
+    /** A file still uploading: no server fileId yet, not failed. */
+    private fun pendingFile(id: String) = AttachedFile(
+        uri = id,
+        name = "$id.png",
+        isImage = true,
+        uploadProgress = 0.5f,
+        fileId = null,
     )
 
     @Test
@@ -45,5 +56,33 @@ class FileAttachmentDelegateTest {
 
         assertThat(delegate.attachedFiles.value.mapNotNull { it.fileId })
             .containsExactly("a", "b", "c")
+    }
+
+    @Test
+    fun `waitForUploadsAndSend aborts with an error when an upload never completes`() = runTest {
+        val handle = mockk<ErrorOnlyHandle>(relaxed = true)
+        val delegate = createDelegate(handle)
+        delegate.restoreAttachedFiles(listOf(pendingFile("stuck")))
+
+        var sent = false
+        delegate.waitForUploadsAndSend("hello") { sent = true }
+
+        // The send must not fire (buildSendSpec would silently drop the not-yet-uploaded file);
+        // the user gets a visible error instead.
+        assertThat(sent).isFalse()
+        verify { handle.setError(any()) }
+    }
+
+    @Test
+    fun `waitForUploadsAndSend sends once every upload has completed`() = runTest {
+        val handle = mockk<ErrorOnlyHandle>(relaxed = true)
+        val delegate = createDelegate(handle)
+        delegate.restoreAttachedFiles(listOf(serverFile("done")))
+
+        var sentText: String? = null
+        delegate.waitForUploadsAndSend("hello") { sentText = it }
+
+        assertThat(sentText).isEqualTo("hello")
+        verify(exactly = 0) { handle.setError(any()) }
     }
 }

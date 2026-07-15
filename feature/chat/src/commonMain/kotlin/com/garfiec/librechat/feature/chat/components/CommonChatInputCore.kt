@@ -58,6 +58,7 @@ import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_add_to_queue
 import com.garfiec.librechat.feature.chat.resources.cd_cancel_edit
+import com.garfiec.librechat.feature.chat.resources.cd_cancel_pending_send
 import com.garfiec.librechat.feature.chat.resources.cd_send_message
 import com.garfiec.librechat.feature.chat.resources.cd_start_voice_recording
 import com.garfiec.librechat.feature.chat.resources.cd_stop_generation
@@ -93,6 +94,9 @@ data class ChatInputState(
     /** True while the composer is editing a queued item (queued-edit mode): the send button
      *  becomes "Update" and an editing banner shows above the input. */
     val isEditingQueued: Boolean = false,
+    /** True while a tapped send is parked waiting for its attachment(s) to finish uploading: the
+     *  send button becomes a spinner the user can tap to cancel the deferred send. */
+    val isAwaitingUploadSend: Boolean = false,
     /** Latest context-window usage snapshot; drives the context bar above the composer. */
     val contextUsage: ContextUsage? = null,
     /** Latest per-call token usage, for the breakdown sheet's Input/Output rows. */
@@ -130,6 +134,8 @@ fun CommonChatInputCore(
     /** Commit / cancel the in-progress queued edit (see [ChatInputState.isEditingQueued]). */
     onCommitEdit: () -> Unit = {},
     onCancelEdit: () -> Unit = {},
+    /** Cancel a send parked behind an in-flight upload (see [ChatInputState.isAwaitingUploadSend]). */
+    onCancelPendingSend: () -> Unit = {},
     /** Queued follow-ups (ghost rows), pinned just above the composer. Hosted here — rather than
      *  in the scrolling message list — so the list's auto-scroll-to-bottom can't make the ghosts
      *  bounce as the reply streams. Empty list renders nothing. */
@@ -246,6 +252,9 @@ fun CommonChatInputCore(
                     // In queued-edit mode the button commits the edit instead of send/stop/queue.
                     isEditingQueued = state.isEditingQueued,
                     onUpdate = onCommitEdit,
+                    // A send waiting on an in-flight upload: spinner, tap to cancel.
+                    isAwaitingUploadSend = state.isAwaitingUploadSend,
+                    onCancelPendingSend = onCancelPendingSend,
                 )
             }
         }
@@ -254,15 +263,17 @@ fun CommonChatInputCore(
 }
 
 /** Visual mode of the trailing composer button. */
-private enum class SendButtonMode { SEND, STOP, QUEUE, UPDATE }
+private enum class SendButtonMode { SEND, STOP, QUEUE, UPDATE, AWAITING }
 
 /**
  * Animated send / stop / add-to-queue / update button shared between platforms.
  *
- * In queued-edit mode ([isEditingQueued]) it is **Update** (commit the edit). Otherwise, while
- * streaming it is **Stop** by default but morphs into **Add to queue** when the composer has
- * content and queueing is allowed ([canQueue]) — the "clear the box to reveal Stop" rule. When not
- * streaming it is the usual **Send** (enabled on [canSend]).
+ * A send parked behind an in-flight upload ([isAwaitingUploadSend]) shows a cancellable **spinner**
+ * — but only when not streaming, so a mid-stream Stop is never hidden behind it. Otherwise, in
+ * queued-edit mode ([isEditingQueued]) it is **Update** (commit the edit); while streaming it is
+ * **Stop** by default but morphs into **Add to queue** when the composer has content and queueing is
+ * allowed ([canQueue]) — the "clear the box to reveal Stop" rule; and when not streaming it is the
+ * usual **Send** (enabled on [canSend]).
  */
 @Composable
 fun SendStopButton(
@@ -275,9 +286,16 @@ fun SendStopButton(
     onQueue: () -> Unit = {},
     isEditingQueued: Boolean = false,
     onUpdate: () -> Unit = {},
+    isAwaitingUploadSend: Boolean = false,
+    onCancelPendingSend: () -> Unit = {},
 ) {
     val mode = when {
         isEditingQueued -> SendButtonMode.UPDATE
+        // A send parked behind an in-flight upload only takes over the button when NOT streaming —
+        // during a stream the Stop control must stay reachable, so a queued-message send parked
+        // behind its upload keeps Stop (the parked enqueue still fires once the upload settles).
+        isAwaitingUploadSend && !isStreaming -> SendButtonMode.AWAITING
+        isAwaitingUploadSend -> SendButtonMode.STOP
         !isStreaming -> SendButtonMode.SEND
         canQueue -> SendButtonMode.QUEUE
         else -> SendButtonMode.STOP
@@ -314,6 +332,29 @@ fun SendStopButton(
                     imageVector = Icons.Default.Check,
                     contentDescription = stringResource(Res.string.cd_update_queued_message),
                 )
+            }
+
+            SendButtonMode.AWAITING -> IconButton(
+                onClick = onCancelPendingSend,
+                modifier = Modifier.size(56.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            ) {
+                // Spinner (upload still in flight) with a small ✕ so it reads as "tap to cancel".
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(Res.string.cd_cancel_pending_send),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
 
             SendButtonMode.STOP -> IconButton(

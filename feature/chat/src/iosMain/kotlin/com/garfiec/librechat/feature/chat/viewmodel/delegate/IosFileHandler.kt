@@ -11,7 +11,6 @@ import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -213,18 +212,8 @@ class IosFileHandler(
         removeFile(file)
     }
 
-    override suspend fun waitForUploadsAndSend(text: String, doSend: (String) -> Unit) {
-        val timeoutMs = 30_000L
-        val pollIntervalMs = 200L
-        var elapsed = 0L
-        while (elapsed < timeoutMs) {
-            val pending = _attachedFiles.value.any { it.fileId == null && !it.uploadFailed }
-            if (!pending) break
-            delay(pollIntervalMs)
-            elapsed += pollIntervalMs
-        }
-        doSend(text)
-    }
+    override suspend fun waitForUploadsAndSend(text: String, doSend: (String) -> Unit) =
+        _attachedFiles.awaitUploadsThenSend(text, setError = handle::setError, doSend = doSend)
 
     override fun hasPendingUploads(): Boolean =
         _attachedFiles.value.any { it.fileId == null && !it.uploadFailed }

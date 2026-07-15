@@ -1,8 +1,10 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -44,6 +46,46 @@ interface PlatformFileHandler {
 fun List<AttachedFile>.appendDedupedByFileId(files: List<AttachedFile>): List<AttachedFile> {
     val existingIds = mapNotNull { it.fileId }.toSet()
     return this + files.filter { it.fileId != null && it.fileId !in existingIds }
+}
+
+/**
+ * User-facing message shown when a send is attempted while an attachment upload is still in flight.
+ * English literal — VM-layer error strings are not yet routed through compose resources (tracked by
+ * the "VM error strings i18n" cleanup backlog), so it can't use `stringResource` here.
+ */
+private const val STILL_UPLOADING_MESSAGE = "Attachment still uploading — wait for it to finish, then send"
+
+/**
+ * Polls this attached-file tray until every attachment has either finished uploading (`fileId`
+ * assigned) or failed, or [timeoutMs] elapses, then either aborts or sends. `buildSendSpec` drops
+ * files without a `fileId`, so sending while an upload is still in flight would fire a message
+ * missing the file the user attached (or, for an image-only message, silently send nothing). If any
+ * attachment is still in flight after the wait, [setError] surfaces [STILL_UPLOADING_MESSAGE] and the
+ * send is skipped so the user can retry once it settles; otherwise [doSend] fires with [text].
+ *
+ * Shared by both platform handlers' [PlatformFileHandler.waitForUploadsAndSend] so Android and iOS
+ * can't drift apart on the abort semantics or the message.
+ */
+suspend fun StateFlow<List<AttachedFile>>.awaitUploadsThenSend(
+    text: String,
+    setError: (String) -> Unit,
+    doSend: (String) -> Unit,
+    timeoutMs: Long = 30_000L,
+    pollIntervalMs: Long = 200L,
+) {
+    var elapsed = 0L
+    while (elapsed < timeoutMs) {
+        if (value.none { it.fileId == null && !it.uploadFailed }) break
+        delay(pollIntervalMs)
+        elapsed += pollIntervalMs
+    }
+    val stillPending = value.count { it.fileId == null && !it.uploadFailed }
+    if (stillPending > 0) {
+        Logger.w { "awaitUploadsThenSend: aborting send — $stillPending file(s) still uploading" }
+        setError(STILL_UPLOADING_MESSAGE)
+        return
+    }
+    doSend(text)
 }
 
 /**

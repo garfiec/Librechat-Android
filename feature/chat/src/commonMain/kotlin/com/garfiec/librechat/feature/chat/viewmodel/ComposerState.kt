@@ -18,6 +18,10 @@ data class ComposerState(
     /** Non-null while a queued item is being edited in the composer (queued-edit mode). Holds the
      *  stashed new-message draft + the item's slot so both are restored on commit/cancel. */
     val editingQueuedItem: QueuedEditSession? = null,
+    /** True while a tapped send is parked waiting for its attachment(s) to finish uploading (see
+     *  `ChatViewModel.withUploadGate`). Drives the composer's send button into a spinner the user
+     *  can tap to cancel the deferred send. */
+    val isAwaitingUploadSend: Boolean = false,
 )
 
 /**

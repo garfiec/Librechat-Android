@@ -88,6 +88,7 @@ data class ChatUiState(
     val inputText: String get() = composer.inputText
     val sendBlockReason: SendBlockReason? get() = composer.sendBlockReason
     val editingQueuedItem: QueuedEditSession? get() = composer.editingQueuedItem
+    val isAwaitingUploadSend: Boolean get() = composer.isAwaitingUploadSend
     val presets: List<PresetDisplayData> get() = presetPrompts.presets
     val availablePrompts: List<PromptMentionDisplayData> get() = presetPrompts.availablePrompts
     val isRecording: Boolean get() = voice.isRecording

@@ -252,6 +252,8 @@ actual fun ChatScreen(
                 isEditingQueued = uiState.isEditingQueued,
                 onCommitEdit = viewModel::commitQueuedEdit,
                 onCancelEdit = viewModel::cancelQueuedEdit,
+                isAwaitingUploadSend = uiState.isAwaitingUploadSend,
+                onCancelPendingSend = viewModel::cancelPendingUploadSend,
                 queuedMessages = uiState.messageQueue,
                 onEditQueuedMessage = viewModel::editQueued,
                 onCancelQueuedMessage = viewModel::cancelQueued,

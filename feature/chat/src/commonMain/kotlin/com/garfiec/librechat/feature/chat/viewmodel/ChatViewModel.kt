@@ -942,12 +942,41 @@ class ChatViewModel(
         if (fileDelegate.pendingUploadSendJob?.isActive == true) return
         if (fileDelegate.hasPendingUploads()) {
             Logger.d { "withUploadGate: waiting for pending upload(s) to complete" }
+            // Park the send behind the upload and flip the composer's Send button to a cancellable
+            // spinner, so a tap isn't a silent no-op while we wait (see [cancelPendingUploadSend]).
+            setAwaitingUploadSend(true)
             fileDelegate.pendingUploadSendJob = viewModelScope.launch {
-                fileDelegate.waitForUploadsAndSend(text) { action(it) }
+                try {
+                    fileDelegate.waitForUploadsAndSend(text) { ready ->
+                        // Clear before handing off so the button never shows a spinner over an
+                        // already-started send (the success path may set streaming synchronously).
+                        setAwaitingUploadSend(false)
+                        action(ready)
+                    }
+                } finally {
+                    // Covers the abort/timeout/cancel paths where [action] never runs.
+                    setAwaitingUploadSend(false)
+                }
             }
             return
         }
         action(text)
+    }
+
+    private fun setAwaitingUploadSend(awaiting: Boolean) {
+        _uiState.update { it.copy(composer = it.composer.copy(isAwaitingUploadSend = awaiting)) }
+    }
+
+    /**
+     * Cancels a send that is parked waiting for its attachment(s) to finish uploading (the composer
+     * shows a spinner in place of Send). The draft and attachment chips stay put so the user can
+     * retry once the upload settles; the uploads themselves keep running.
+     */
+    fun cancelPendingUploadSend() {
+        val job = fileDelegate.pendingUploadSendJob ?: return
+        fileDelegate.pendingUploadSendJob = null
+        job.cancel()
+        setAwaitingUploadSend(false)
     }
 
     private fun enqueueNow(text: String) {
