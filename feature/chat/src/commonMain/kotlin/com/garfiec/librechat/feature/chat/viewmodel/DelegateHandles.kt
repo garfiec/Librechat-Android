@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
 import com.garfiec.librechat.core.model.endpoint.KeyState
+import com.garfiec.librechat.core.model.usage.ContextUsage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 
@@ -224,6 +225,23 @@ class OfficePreviewWrites internal constructor(state: ChatUiState) {
 class OfficePreviewHandle(root: ChatStateHandle) : DelegateHandle(root) {
     fun update(block: OfficePreviewWrites.() -> Unit) =
         root.update { OfficePreviewWrites(this).apply(block).applyTo(this) }
+}
+
+// ── ContextProjectionDelegate ─────────────────────────────────────────────
+// Narrow on purpose: this delegate only seeds/clears the context-usage gauge, so it may write
+// nothing on the content slice but `contextUsage`.
+class ContextProjectionWrites internal constructor(state: ChatUiState) {
+    var contextUsage: ContextUsage? = state.content.contextUsage
+    var error: String? = state.error
+    internal fun applyTo(s: ChatUiState) =
+        s.copy(content = s.content.copy(contextUsage = contextUsage), error = error)
+}
+
+class ContextProjectionHandle(root: ChatStateHandle) : DelegateHandle(root) {
+    /** Read-only observation of the full state (the observer keys off conversation/endpoint/model). */
+    val stateFlow: StateFlow<ChatUiState> get() = root.stateFlow
+    fun update(block: ContextProjectionWrites.() -> Unit) =
+        root.update { ContextProjectionWrites(this).apply(block).applyTo(this) }
 }
 
 // ── Platform voice input (VoiceInputDelegate / IosVoiceInput) ─────────────

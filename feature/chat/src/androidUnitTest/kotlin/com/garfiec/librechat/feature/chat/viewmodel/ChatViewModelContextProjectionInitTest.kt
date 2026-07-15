@@ -47,25 +47,25 @@ import org.junit.Test
 /**
  * Regression guard for the context-gauge init-order crash (agents endpoint).
  *
- * `observeContextProjection()` launches a collector on `_uiState` during construction.
- * Once `loadFlags` enables the gauge (backend >= 0.8.7), that collector fires
- * `refreshContextProjection` -> `resolveProjectionModel`, which on the AGENTS endpoint
- * reads the `resolvedAgentModels` map. If that `val` is declared *after* the `init`
- * block, its initializer hasn't run when the collector re-enters the half-constructed
- * ViewModel, so the field is still null and the map lookup throws a `NullPointerException`
- * that crashes the app (surfaced via the coroutine's uncaught-exception path -> the
- * device sees `FATAL EXCEPTION: main`).
+ * The projection lives in `ContextProjectionDelegate`, whose `start()` is launched from
+ * `ChatViewModel.init` and collects the state flow during construction. Once `loadFlags`
+ * enables the gauge (backend >= 0.8.7), that collector fires `refreshContextProjection` ->
+ * `resolveProjectionModel`, which on the AGENTS endpoint reads the delegate's
+ * `resolvedAgentModels` map. The original crash was that this cache was a `ChatViewModel` `val`
+ * declared *after* `init`, so its initializer hadn't run when the collector re-entered the
+ * half-constructed ViewModel — the field was null and the map lookup threw a
+ * `NullPointerException` that crashed the app (`FATAL EXCEPTION: main`). Homing the cache inside
+ * the delegate makes that structurally impossible (the delegate — and its map — is fully
+ * constructed before `init` calls `start()`); this test locks the behavior in either shape.
  *
  * The crash only reproduces when an AGENT is the selection *at construction time* (a new
  * chat handed off with an agent selected), not when the agent is applied post-construction.
  * This test constructs that state directly under an [UnconfinedTestDispatcher], which (like
- * the device's `Dispatchers.Main.immediate`) runs the init-launched collectors inline during
+ * the device's `Dispatchers.Main.immediate`) runs the init-launched collector inline during
  * construction.
  *
  * The guard is a `coVerify` that the projection reached `getAgentForEditing` — i.e. it ran
- * to completion past the `resolvedAgentModels` map lookup on the agents branch. With the
- * init-order bug the map is null when the collector re-enters mid-construction, so the lookup
- * throws before that call and the verification fails; with the fix it passes.
+ * to completion past the `resolvedAgentModels` map lookup on the agents branch.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelContextProjectionInitTest {
@@ -172,11 +172,8 @@ class ChatViewModelContextProjectionInitTest {
 
         // The context projection reaches `resolveProjectionModel` on the agents branch, falls
         // through the (empty) `resolvedAgentModels` cache, and calls `getAgentForEditing` for the
-        // agent's real model. Verifying that call proves the projection ran to completion.
-        //
-        // This is the regression guard: with the init-order bug (the map declared after `init`),
-        // `resolvedAgentModels` is null when the collector re-enters mid-construction, so the map
-        // lookup throws before this call is ever reached and the verification fails.
+        // agent's real model. Verifying that call proves the projection ran to completion past the
+        // map lookup during construction — the point the init-order crash used to fail at.
         coVerify { agentRepository.getAgentForEditing(agentId) }
     }
 
