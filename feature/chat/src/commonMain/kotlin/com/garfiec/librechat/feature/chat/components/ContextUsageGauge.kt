@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -145,7 +146,7 @@ fun ContextUsageExpandableGauge(
             Surface(
                 onClick = { expanded = !expanded },
                 color = Color.Transparent,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) {
                 ContextGaugePill(percent = percent, usedFraction = usage.usedFraction, fillWidth = true) {
                     Icon(
