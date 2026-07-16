@@ -110,6 +110,11 @@ class SettingsDataStore(
         ContextBarPlacement.fromString(prefs[KEY_CONTEXT_BAR_PLACEMENT])
     }
 
+    /** Whether the options-sheet context gauge's inline breakdown is expanded. */
+    val contextGaugeExpanded: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_CONTEXT_GAUGE_EXPANDED] ?: false
+    }
+
     val autoReadEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_AUTO_READ_ENABLED] ?: false
     }
@@ -341,6 +346,12 @@ class SettingsDataStore(
     suspend fun setContextBarPlacement(placement: ContextBarPlacement) {
         dataStore.edit { prefs ->
             prefs[KEY_CONTEXT_BAR_PLACEMENT] = placement.toStorageString()
+        }
+    }
+
+    suspend fun setContextGaugeExpanded(expanded: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CONTEXT_GAUGE_EXPANDED] = expanded
         }
     }
 
@@ -654,6 +665,7 @@ class SettingsDataStore(
         private val KEY_AUTO_SCROLL_ENABLED = booleanPreferencesKey("auto_scroll_enabled")
         private val KEY_SHOW_THINKING_BLOCKS = booleanPreferencesKey("show_thinking_blocks")
         private val KEY_CONTEXT_BAR_PLACEMENT = stringPreferencesKey("context_bar_placement")
+        private val KEY_CONTEXT_GAUGE_EXPANDED = booleanPreferencesKey("context_gauge_expanded")
         private val KEY_AUTO_READ_ENABLED = booleanPreferencesKey("auto_read_enabled")
         private val KEY_SHOW_IMAGE_DESCRIPTIONS = booleanPreferencesKey("show_image_descriptions")
         private val KEY_SELECTED_VOICE_ID = stringPreferencesKey("selected_voice_id")

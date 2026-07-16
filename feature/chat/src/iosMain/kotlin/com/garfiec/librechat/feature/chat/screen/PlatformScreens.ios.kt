@@ -394,6 +394,8 @@ actual fun ChatScreen(
                 tokenUsage = uiState.tokenUsage,
                 contextUsageEnabled = uiState.contextUsageEnabled,
                 contextBarPlacement = uiState.contextBarPlacement,
+                contextGaugeExpanded = uiState.contextGaugeExpanded,
+                onContextGaugeExpandedChange = viewModel::setContextGaugeExpanded,
                 queuedPausedCount = uiState.pausedQueueCount,
                 isEditingQueued = uiState.isEditingQueued,
                 onCommitEdit = viewModel::commitQueuedEdit,

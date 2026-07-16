@@ -102,6 +102,9 @@ fun ChatToolsBottomSheet(
     contextUsageEnabled: Boolean = false,
     /** Where the user chose to surface the gauge; the sheet only renders it when [ContextBarPlacement.OPTIONS_SHEET]. */
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    /** Persisted expanded/collapsed state of the gauge's inline breakdown. */
+    contextGaugeExpanded: Boolean = false,
+    onContextGaugeExpandedChange: (Boolean) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -136,6 +139,8 @@ fun ChatToolsBottomSheet(
             tokenUsage = tokenUsage,
             contextUsageEnabled = contextUsageEnabled,
             contextBarPlacement = contextBarPlacement,
+            contextGaugeExpanded = contextGaugeExpanded,
+            onContextGaugeExpandedChange = onContextGaugeExpandedChange,
         )
     }
 }
@@ -184,6 +189,9 @@ fun ChatToolsSheetContent(
     contextUsageEnabled: Boolean = false,
     /** Where the user chose to surface the gauge; the sheet only renders it when [ContextBarPlacement.OPTIONS_SHEET]. */
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    /** Persisted expanded/collapsed state of the gauge's inline breakdown. */
+    contextGaugeExpanded: Boolean = false,
+    onContextGaugeExpandedChange: (Boolean) -> Unit = {},
 ) {
     var showMcpServers by remember { mutableStateOf(false) }
 
@@ -260,6 +268,8 @@ fun ChatToolsSheetContent(
         ) {
             ContextUsageExpandableGauge(
                 usage = sheetContextUsage,
+                expanded = contextGaugeExpanded,
+                onExpandedChange = onContextGaugeExpandedChange,
                 tokenUsage = tokenUsage,
                 modifier = Modifier
                     .padding(horizontal = 16.dp)

@@ -126,14 +126,16 @@ fun ContextUsageMenuItem(
  * Full-width gauge that expands in place to reveal the breakdown — for the composer "+" sheet,
  * where a tap can't open a modal sheet (that would nest modal surfaces) but the inline space is
  * available. The header pill fills the row; tapping it toggles the [ContextUsageBreakdown] below.
+ * The expanded state is hoisted so the caller can persist it across sheet openings.
  */
 @Composable
 fun ContextUsageExpandableGauge(
     usage: ContextUsage,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     tokenUsage: TokenUsage? = null,
 ) {
-    var expanded by remember { mutableStateOf(false) }
     val percent = (usage.usedFraction * 100).toInt()
     val chevronRotation by animateFloatAsState(if (expanded) 180f else 0f, label = "ctx_chevron")
 
@@ -144,7 +146,7 @@ fun ContextUsageExpandableGauge(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Surface(
-                onClick = { expanded = !expanded },
+                onClick = { onExpandedChange(!expanded) },
                 color = Color.Transparent,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) {

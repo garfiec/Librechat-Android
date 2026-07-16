@@ -106,6 +106,8 @@ fun ChatInput(
     tokenUsage: TokenUsage? = null,
     contextUsageEnabled: Boolean = false,
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    contextGaugeExpanded: Boolean = false,
+    onContextGaugeExpandedChange: (Boolean) -> Unit = {},
 ) {
     val cdOpenToolsMenu = stringResource(Res.string.cd_open_tools_menu)
     val cdPasteImage = stringResource(Res.string.cd_paste_image)
@@ -378,6 +380,8 @@ fun ChatInput(
             tokenUsage = tokenUsage,
             contextUsageEnabled = contextUsageEnabled,
             contextBarPlacement = contextBarPlacement,
+            contextGaugeExpanded = contextGaugeExpanded,
+            onContextGaugeExpandedChange = onContextGaugeExpandedChange,
         )
     }
 }

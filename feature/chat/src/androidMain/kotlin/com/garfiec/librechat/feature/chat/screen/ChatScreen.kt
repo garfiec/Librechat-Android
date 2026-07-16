@@ -448,6 +448,8 @@ actual fun ChatScreen(
                 tokenUsage = uiState.tokenUsage,
                 contextUsageEnabled = uiState.contextUsageEnabled,
                 contextBarPlacement = uiState.contextBarPlacement,
+                contextGaugeExpanded = uiState.contextGaugeExpanded,
+                onContextGaugeExpandedChange = viewModel::setContextGaugeExpanded,
                 // After a Stop/error pause, the queue waits for an explicit nudge.
                 queuedPausedCount = uiState.pausedQueueCount,
                 onSendQueuedMessages = viewModel::sendQueuedNow,
@@ -575,6 +577,8 @@ actual fun ChatScreen(
                         tokenUsage = uiState.tokenUsage,
                         contextUsageEnabled = uiState.contextUsageEnabled,
                         contextBarPlacement = uiState.contextBarPlacement,
+                        contextGaugeExpanded = uiState.contextGaugeExpanded,
+                        onContextGaugeExpandedChange = viewModel::setContextGaugeExpanded,
                     )
                 }
             }

@@ -91,6 +91,8 @@ fun IosChatInput(
     tokenUsage: TokenUsage? = null,
     contextUsageEnabled: Boolean = false,
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    contextGaugeExpanded: Boolean = false,
+    onContextGaugeExpandedChange: (Boolean) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showToolsSheet by remember { mutableStateOf(false) }
@@ -274,6 +276,8 @@ fun IosChatInput(
             tokenUsage = tokenUsage,
             contextUsageEnabled = contextUsageEnabled,
             contextBarPlacement = contextBarPlacement,
+            contextGaugeExpanded = contextGaugeExpanded,
+            onContextGaugeExpandedChange = onContextGaugeExpandedChange,
         )
     }
 }

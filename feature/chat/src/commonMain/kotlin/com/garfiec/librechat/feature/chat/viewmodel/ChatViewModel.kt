@@ -77,6 +77,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.SubagentTraceDelega
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.toFileReference
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -91,6 +92,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
@@ -292,29 +294,44 @@ class ChatViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatPreferences())
 
+    // In-memory echo of the gauge-expanded toggle: a tap flips the UI synchronously instead of
+    // waiting on the DataStore write round-trip (which would also make a quick second tap read
+    // stale state). The persisted value only seeds the session until the first tap.
+    private val contextGaugeExpandedOverride = MutableStateFlow<Boolean?>(null)
+
     // Bundled into one source so the uiState combine below stays within Kotlin's
     // 5-argument typed `combine` ceiling.
-    private val chatHeaderPrefs: Flow<ChatHeaderPrefs> = combine(
+    private val chatDisplayPrefs: Flow<ChatDisplayPrefs> = combine(
         settingsDataStore.chatHeaderContent,
         settingsDataStore.chatHeaderAlignment,
         settingsDataStore.contextBarPlacement,
-    ) { content, alignment, contextBarPlacement -> ChatHeaderPrefs(content, alignment, contextBarPlacement) }
+        settingsDataStore.contextGaugeExpanded,
+        contextGaugeExpandedOverride,
+    ) { content, alignment, contextBarPlacement, persistedGaugeExpanded, overrideGaugeExpanded ->
+        ChatDisplayPrefs(
+            content,
+            alignment,
+            contextBarPlacement,
+            overrideGaugeExpanded ?: persistedGaugeExpanded,
+        )
+    }
 
     val uiState: StateFlow<ChatUiState> = combine(
         _uiState,
         serverDataStore.currentUrlFlow,
         settingsDataStore.chatFontSize,
         settingsDataStore.starredModelsDisplay,
-        chatHeaderPrefs,
-    ) { state, url, fontSize, starredDisplay, headerPrefs ->
+        chatDisplayPrefs,
+    ) { state, url, fontSize, starredDisplay, displayPrefs ->
         state.copy(
             prefs = ChatPrefsState(
                 serverUrl = url,
                 chatFontSize = fontSize,
                 starredModelsDisplay = starredDisplay,
-                chatHeaderContent = headerPrefs.content,
-                chatHeaderAlignment = headerPrefs.alignment,
-                contextBarPlacement = headerPrefs.contextBarPlacement,
+                chatHeaderContent = displayPrefs.content,
+                chatHeaderAlignment = displayPrefs.alignment,
+                contextBarPlacement = displayPrefs.contextBarPlacement,
+                contextGaugeExpanded = displayPrefs.contextGaugeExpanded,
             ),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatUiState())
@@ -1636,4 +1653,15 @@ class ChatViewModel(
     fun updateModelParameters(parameters: ModelParameters) = modelDelegate.updateModelParameters(parameters)
 
     fun branchFromComparison(agentId: String) = comparisonDelegate.branchFromComparison(agentId)
+
+    fun setContextGaugeExpanded(expanded: Boolean) {
+        contextGaugeExpandedOverride.value = expanded
+        viewModelScope.launch {
+            // Survive ViewModel teardown (tap, then navigate away) and never crash on a storage
+            // failure — the in-memory override above already reflects the user's choice.
+            runCatching {
+                withContext(NonCancellable) { settingsDataStore.setContextGaugeExpanded(expanded) }
+            }
+        }
+    }
 }

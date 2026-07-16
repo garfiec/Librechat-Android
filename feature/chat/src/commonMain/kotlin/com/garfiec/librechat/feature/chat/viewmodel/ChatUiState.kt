@@ -104,6 +104,7 @@ data class ChatUiState(
     val chatHeaderContent: ChatHeaderContent get() = prefs.chatHeaderContent
     val chatHeaderAlignment: ChatHeaderAlignment get() = prefs.chatHeaderAlignment
     val contextBarPlacement: ContextBarPlacement get() = prefs.contextBarPlacement
+    val contextGaugeExpanded: Boolean get() = prefs.contextGaugeExpanded
     val promptsEnabled: Boolean get() = gates.promptsEnabled
     val promptsCreateEnabled: Boolean get() = gates.promptsCreateEnabled
     val agentsEnabled: Boolean get() = gates.agentsEnabled

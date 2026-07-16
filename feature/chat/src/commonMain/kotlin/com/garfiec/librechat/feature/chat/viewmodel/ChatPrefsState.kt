@@ -32,6 +32,8 @@ data class ChatPrefsState(
     val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
     /** User preference (Settings → Chat) for where the context gauge is surfaced. */
     val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    /** Whether the options-sheet context gauge's inline breakdown is expanded. */
+    val contextGaugeExpanded: Boolean = false,
 )
 
 /**
@@ -54,12 +56,14 @@ data class ChatPreferences(
 )
 
 /**
- * The chat floating top bar's mobile-only display preferences, bundled into a single
- * flow so [ChatViewModel]'s `uiState` combine stays within Kotlin's 5-arg typed limit.
+ * Chat-screen display preferences (floating top bar + options-sheet context gauge), bundled
+ * into a single flow so [ChatViewModel]'s `uiState` combine stays within Kotlin's 5-arg
+ * typed limit.
  */
 @Immutable
-data class ChatHeaderPrefs(
+data class ChatDisplayPrefs(
     val content: ChatHeaderContent = ChatHeaderContent.TITLE,
     val alignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
     val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    val contextGaugeExpanded: Boolean = false,
 )
