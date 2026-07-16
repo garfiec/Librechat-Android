@@ -31,11 +31,13 @@ private val ExportFileNameSanitizer = Regex("[^a-zA-Z0-9._-]")
 fun ConversationActionEffects(
     events: Flow<ConversationListEvent>,
     onNavigateToConversation: (String) -> Unit,
+    onNavigateToNewChat: () -> Unit,
 ) {
     var pendingExportFileName by remember { mutableStateOf<String?>(null) }
     var pendingExportContent by remember { mutableStateOf<String?>(null) }
 
     val currentOnNavigate by rememberUpdatedState(onNavigateToConversation)
+    val currentOnNavigateToNewChat by rememberUpdatedState(onNavigateToNewChat)
 
     val linkCopiedMsg = stringResource(Res.string.link_copied)
     val conversationExportedMsg = stringResource(Res.string.conversation_exported)
@@ -65,6 +67,9 @@ fun ConversationActionEffects(
                 }
                 is ConversationListEvent.NavigateToConversation -> {
                     currentOnNavigate(event.conversationId)
+                }
+                is ConversationListEvent.NavigateToNewChat -> {
+                    currentOnNavigateToNewChat()
                 }
                 is ConversationListEvent.ShowError -> {
                     showToast(event.message)

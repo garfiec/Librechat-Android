@@ -171,6 +171,10 @@ fun DrawerContent(
     // account operations, hoisted in because DrawerViewModel owns only drawer data now.
     onSwitchAccountInPlace: (String) -> Unit = {},
     onRemoveAccount: (String) -> Unit = {},
+    // Fired when the user deletes the conversation currently open in the pane: move the pane off the
+    // now-gone thread. Distinct from [onNewChat] because that also closes the phone drawer — here the
+    // drawer stays open so the user can keep browsing (defaults to [onNewChat] if a host doesn't wire it).
+    onActiveConversationDelete: () -> Unit = onNewChat,
     viewModel: DrawerViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.drawerUiState.collectAsStateWithLifecycle()
@@ -190,6 +194,7 @@ fun DrawerContent(
     ConversationActionEffects(
         events = viewModel.events,
         onNavigateToConversation = onConversationClick,
+        onNavigateToNewChat = onActiveConversationDelete,
     )
 
     DrawerContent(

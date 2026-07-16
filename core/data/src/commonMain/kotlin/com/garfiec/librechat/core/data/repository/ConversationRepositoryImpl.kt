@@ -9,6 +9,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
+import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.mapper.toEntity
 import com.garfiec.librechat.core.data.mapper.toModel
 import com.garfiec.librechat.core.data.mapper.toModels
@@ -28,6 +29,7 @@ import kotlin.time.Clock
 class ConversationRepositoryImpl(
     private val conversationsApi: ConversationsApi,
     private val conversationDao: ConversationDao,
+    private val messageDao: MessageDao,
     private val activeAccountProvider: ActiveAccountProvider,
     private val roster: AccountRoster,
     private val json: Json,
@@ -198,6 +200,15 @@ class ConversationRepositoryImpl(
             // log it. In practice a delete is a foreground action where the account is resolved.
             if (accountId != null) {
                 conversationDao.deleteById(id, accountId)
+                // Cascade the cached messages too. MessageEntity has no FK to the conversation, so the
+                // row-only delete would strand this convo's messages in Room — and any chat pane still
+                // bound to [id] (deleted from a surface that doesn't navigate off it) keeps rendering
+                // them via observeMessages. Best-effort: the server row is already gone, so a Room
+                // failure here must NOT flip delete() to Result.Error (that would suppress the drawer's
+                // navigate-off and surface a spurious "failed to delete"). A lingering message cache is
+                // harmless — the pane navigates away, and it's cleared on the next sync/account wipe.
+                runCatching { messageDao.deleteAllForConversation(id, accountId) }
+                    .onFailure { Logger.w(it) { "Deleted $id but failed to purge its cached messages" } }
             } else {
                 Logger.w { "Server-deleted $id but kept local row: no resolved account to scope the delete" }
             }

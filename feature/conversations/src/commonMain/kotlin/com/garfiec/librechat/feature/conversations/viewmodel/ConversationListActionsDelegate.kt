@@ -60,11 +60,21 @@ class ConversationListActionsDelegate(
         }
     }
 
-    fun deleteConversation(id: String) {
+    /**
+     * Deletes [id]. When [isActive] (the deleted conversation is the one currently open in the chat
+     * pane), emits [ConversationListEvent.NavigateToNewChat] on success so the host moves the pane off
+     * the now-deleted thread to a fresh chat. This is the clean-UX half: the repo's delete also purges
+     * the conversation's cached messages, so surfaces that DON'T navigate don't render a stale thread
+     * either — the two are complementary, not redundant.
+     */
+    fun deleteConversation(id: String, isActive: Boolean = false) {
         scope.launch {
             when (conversationRepository.delete(id)) {
                 is Result.Error -> events.emit(ConversationListEvent.ShowError("Failed to delete conversation"))
-                else -> onMutated()
+                else -> {
+                    if (isActive) events.emit(ConversationListEvent.NavigateToNewChat)
+                    onMutated()
+                }
             }
         }
     }

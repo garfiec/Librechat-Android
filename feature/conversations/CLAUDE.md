@@ -43,4 +43,4 @@
 - File I/O uses SAF (Storage Access Framework)
 
 ## Events
-`ConversationListEvent` sealed interface for one-shot UI events: `ShareLinkCopied`, `NavigateToConversation`, `ShowError`, `ExportReady`, `ImportSuccess`
+`ConversationListEvent` sealed interface for one-shot UI events: `ShareLinkCopied`, `NavigateToConversation`, `NavigateToNewChat` (emitted when the currently-open conversation is deleted, so the host moves off the now-gone thread), `ShowError`, `ExportReady`, `ImportSuccess`

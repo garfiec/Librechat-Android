@@ -438,7 +438,11 @@ class DrawerViewModel(
         projectActions.delete(projectId)
     }
 
-    fun deleteConversation(id: String) = conversationActions.deleteConversation(id)
+    fun deleteConversation(id: String) = conversationActions.deleteConversation(
+        id = id,
+        // See the delegate KDoc: isActive drives the navigate-off when the open chat is deleted.
+        isActive = conversationListStateHolder.activeConversationId.value == id,
+    )
 
     fun shareConversation(conversationId: String) = conversationActions.shareConversation(conversationId)
 

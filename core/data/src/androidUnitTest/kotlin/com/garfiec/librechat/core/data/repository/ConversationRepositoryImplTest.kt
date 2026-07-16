@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
+import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.db.entity.ConversationEntity
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.SAVED_TAG
@@ -30,6 +31,7 @@ class ConversationRepositoryImplTest {
 
     private val conversationsApi = mockk<ConversationsApi>(relaxed = true)
     private val conversationDao = mockk<ConversationDao>(relaxed = true)
+    private val messageDao = mockk<MessageDao>(relaxed = true)
     private val roster = mockk<AccountRoster>(relaxed = true)
     private val json = Json { ignoreUnknownKeys = true }
     private val account = AccountId("srv:user-1")
@@ -42,6 +44,7 @@ class ConversationRepositoryImplTest {
         repository = ConversationRepositoryImpl(
             conversationsApi = conversationsApi,
             conversationDao = conversationDao,
+            messageDao = messageDao,
             activeAccountProvider = activeAccountProvider,
             roster = roster,
             json = json,
@@ -81,6 +84,43 @@ class ConversationRepositoryImplTest {
         val entity = captured.captured.single()
         assertThat(entity.conversationId).isEqualTo("convo-1")
         assertThat(entity.title).isEqualTo("Server Title")
+    }
+
+    @Test
+    fun `delete cascades to the conversation's cached messages`() = runTest {
+        coEvery { conversationsApi.deleteConversation("convo-1") } just Runs
+
+        val result = repository.delete("convo-1")
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+        // Room has no FK cascade, so the row-only delete would strand the messages and let a bound
+        // chat pane keep rendering the deleted thread. Both deletes must be account-scoped.
+        coVerify(exactly = 1) { conversationDao.deleteById("convo-1", account.value) }
+        coVerify(exactly = 1) { messageDao.deleteAllForConversation("convo-1", account.value) }
+    }
+
+    @Test
+    fun `delete still succeeds when the message cascade fails`() = runTest {
+        coEvery { conversationsApi.deleteConversation("convo-1") } just Runs
+        // Server row + conversation row are already gone; a Room failure purging the cached
+        // messages must not flip delete() to Error (that would suppress the drawer's navigate-off).
+        coEvery { messageDao.deleteAllForConversation("convo-1", account.value) } throws RuntimeException("disk I/O")
+
+        val result = repository.delete("convo-1")
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `delete keeps local rows when no account is resolved`() = runTest {
+        activeAccountProvider.clear() // Resolved(null) — currentAccountId() is null
+        coEvery { conversationsApi.deleteConversation("convo-1") } just Runs
+
+        repository.delete("convo-1")
+
+        // Unresolved account: the by-PK local deletes can't be safely scoped, so neither runs.
+        coVerify(exactly = 0) { conversationDao.deleteById(any(), any()) }
+        coVerify(exactly = 0) { messageDao.deleteAllForConversation(any(), any()) }
     }
 
     @Test

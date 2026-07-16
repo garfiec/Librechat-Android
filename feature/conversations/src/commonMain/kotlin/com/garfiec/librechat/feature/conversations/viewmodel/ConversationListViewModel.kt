@@ -54,6 +54,9 @@ data class ConversationListUiState(
 sealed interface ConversationListEvent {
     data class ShareLinkCopied(val url: String) : ConversationListEvent
     data class NavigateToConversation(val conversationId: String) : ConversationListEvent
+
+    /** The currently-open conversation was deleted: move off it to a fresh new chat. */
+    data object NavigateToNewChat : ConversationListEvent
     data class ShowError(val message: String) : ConversationListEvent
     data class ExportReady(val content: String, val format: ExportFormat, val title: String) : ConversationListEvent
     data class ImportSuccess(val title: String) : ConversationListEvent

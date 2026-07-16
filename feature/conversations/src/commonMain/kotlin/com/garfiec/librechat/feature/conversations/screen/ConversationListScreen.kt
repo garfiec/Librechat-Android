@@ -123,6 +123,8 @@ fun ConversationListScreen(
                 is ConversationListEvent.NavigateToConversation -> {
                     currentOnConversationClick(event.conversationId)
                 }
+                // Only the drawer deletes with active-conversation awareness, so this never fires here.
+                is ConversationListEvent.NavigateToNewChat -> Unit
                 is ConversationListEvent.ShowError -> {
                     snackbarHostState.showSnackbar(event.message)
                 }

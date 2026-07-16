@@ -33,6 +33,9 @@ fun SidebarScaffold(
     onOpenProjectsIndex: () -> Unit = {},
     onSwitchAccount: (String) -> Unit = {},
     onAddAccount: () -> Unit = {},
+    // Deleting the open conversation navigates the pane off it; see DrawerContent's param for the
+    // onNewChat distinction. Defaults to [onNewChat].
+    onActiveConversationDelete: () -> Unit = onNewChat,
     viewModel: NavHostViewModel = koinViewModel(),
 ) {
     val sidebarMode by viewModel.sidebarMode.collectAsStateWithLifecycle()
@@ -69,6 +72,7 @@ fun SidebarScaffold(
             is SidebarMode.Conversations -> {
                 DrawerContent(
                     onNewChat = onNewChat,
+                    onActiveConversationDelete = onActiveConversationDelete,
                     onConversationClick = onConversationClick,
                     onSettingsClick = onSettingsClick,
                     onAgentsClick = onAgentsClick,

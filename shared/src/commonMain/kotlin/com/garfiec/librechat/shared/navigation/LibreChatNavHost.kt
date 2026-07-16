@@ -312,6 +312,11 @@ fun PhoneLayout(
                         scope.launch { drawerState.close() }
                         navigator.navigateToChat(conversationId)
                     },
+                    // Leave the drawer open (no drawerState.close()) so the user can keep browsing,
+                    // unlike onNewChat above.
+                    onActiveConversationDelete = {
+                        navigator.navigateToTopLevel(NewChat())
+                    },
                     onSettingsClick = {
                         scope.launch { drawerState.close() }
                         navigator.navigate(SettingsTabbed)
