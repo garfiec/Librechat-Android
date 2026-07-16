@@ -54,8 +54,10 @@ import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
 import com.garfiec.librechat.feature.chat.util.hasParallelParts
+import com.garfiec.librechat.feature.chat.util.isImageType
 import com.garfiec.librechat.feature.chat.util.resolveFileReferenceUrl
 import com.garfiec.librechat.feature.chat.util.stabilizeMessageInstances
+import com.garfiec.librechat.feature.chat.util.visionUnreadableImageNames
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ContextProjectionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ConversationActionsDelegate
@@ -1564,10 +1566,18 @@ class ChatViewModel(
      */
     private fun attachServerFiles(files: List<FileObject>) {
         if (files.isEmpty()) return
+        // Attach every pick — the server keeps a heightless image as a plain file record, and an
+        // agent may route it to a tool — but warn about images the vision encoder will skip so a
+        // picked image doesn't silently do nothing on a vision model (issue #252). Yield to any
+        // real error already showing so the heads-up can't clobber a more important notice.
+        val unreadable = visionUnreadableImageNames(files)
+        if (unreadable.isNotEmpty() && uiState.value.error == null) {
+            stateHandle.update { copy(error = unreadableImageWarning(unreadable)) }
+        }
         val baseUrl = uiState.value.serverUrl
         fileDelegate.addPreUploadedFiles(
             files.map { file ->
-                val isImage = file.type.startsWith("image/")
+                val isImage = isImageType(file.type)
                 // The preview row loads images from `uri`, so resolve the same server URL the
                 // message renderers use. Non-image files show an icon, so the bare id is fine as
                 // a stable key for removal.
@@ -1592,6 +1602,14 @@ class ChatViewModel(
                 )
             },
         )
+    }
+
+    /** Advisory shown when a picked server image has no stored dimensions the model can read. */
+    private fun unreadableImageWarning(names: List<String>): String = when (names.size) {
+        1 -> "\"${names.first()}\" has no saved dimensions, so the model may not read it as an " +
+            "image. Try re-uploading it from your device."
+        else -> "${names.size} picked images have no saved dimensions, so the model may not read " +
+            "them as images. Try re-uploading them from your device."
     }
 
     // Presets and prompts
