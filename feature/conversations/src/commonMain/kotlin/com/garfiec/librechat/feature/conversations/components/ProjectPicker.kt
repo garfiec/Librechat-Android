@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.ChatProject
+import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.feature.conversations.resources.Res
 import com.garfiec.librechat.feature.conversations.resources.project_create
 import com.garfiec.librechat.feature.conversations.resources.project_new_name
@@ -54,7 +55,11 @@ fun ProjectPicker(
 ) {
     var newName by remember { mutableStateOf("") }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = modifier) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        dragHandle = { LowProfileDragHandle() },
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

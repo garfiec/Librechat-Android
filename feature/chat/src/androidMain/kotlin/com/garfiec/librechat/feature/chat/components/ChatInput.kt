@@ -1,12 +1,6 @@
 package com.garfiec.librechat.feature.chat.components
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -48,8 +41,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
@@ -60,7 +51,6 @@ import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
-import java.io.File
 
 @Composable
 fun ChatInput(
@@ -85,7 +75,7 @@ fun ChatInput(
     onReorderQueuedMessages: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     fontSizeMultiplier: Float = 1f,
     attachedFiles: List<AttachedFile> = emptyList(),
-    onFilesSelected: (List<Uri>) -> Unit = {},
+    attachmentActions: ChatAttachmentActions,
     onRemoveFile: (AttachedFile) -> Unit = {},
     onAttachFromServer: () -> Unit = {},
     promptSuggestions: List<PromptMentionDisplayData> = emptyList(),
@@ -122,78 +112,6 @@ fun ChatInput(
     val cdMessageInput = stringResource(Res.string.cd_message_input)
     val cdStopVoiceRec = stringResource(Res.string.cd_stop_voice_recording)
     val cdStartVoiceRec = stringResource(Res.string.cd_start_voice_recording)
-    val context = LocalContext.current
-
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            onFilesSelected(uris)
-        }
-    }
-
-    // Photo picker (gallery) launcher using modern PickMultipleVisualMedia
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(),
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            onFilesSelected(uris)
-        }
-    }
-
-    // Camera launcher: stores the photo in a temp file via FileProvider
-    var cameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
-
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-    ) { success ->
-        val uri = cameraPhotoUri
-        if (success && uri != null) {
-            onFilesSelected(listOf(uri))
-        }
-        cameraPhotoUri = null
-    }
-
-    // Camera permission launcher
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { isGranted ->
-        if (isGranted) {
-            val photoFile = createCameraPhotoFile(context)
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                photoFile,
-            )
-            cameraPhotoUri = uri
-            cameraLauncher.launch(uri)
-        }
-    }
-
-    val onTakePhoto: () -> Unit = {
-        val hasCameraPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.CAMERA,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (hasCameraPermission) {
-            val photoFile = createCameraPhotoFile(context)
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                photoFile,
-            )
-            cameraPhotoUri = uri
-            cameraLauncher.launch(uri)
-        } else {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-    }
-
-    val onPickPhotos: () -> Unit = {
-        photoPickerLauncher.launch(
-            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-        )
-    }
 
     val focusRequester = remember { FocusRequester() }
     var showToolsSheet by remember { mutableStateOf(false) }
@@ -441,9 +359,9 @@ fun ChatInput(
             mcpServers = mcpServers,
             selectedMcpServerNames = selectedMcpServerNames,
             onToggleMcpServer = onToggleMcpServer,
-            onAttachFiles = { filePickerLauncher.launch(arrayOf("*/*")) },
-            onTakePhoto = onTakePhoto,
-            onPickPhotos = onPickPhotos,
+            onAttachFiles = attachmentActions.onAttachFiles,
+            onTakePhoto = attachmentActions.onTakePhoto,
+            onPickPhotos = attachmentActions.onPickPhotos,
             onAttachFromServer = onAttachFromServer,
             onOpenModelParameters = onOpenModelParameters,
             onOpenModelSelector = onOpenModelSelector,
@@ -462,17 +380,4 @@ fun ChatInput(
             contextBarPlacement = contextBarPlacement,
         )
     }
-}
-
-/**
- * Creates a temporary file for the camera to write a photo into.
- * Stored in the app's cache directory under `camera_photos/` which is
- * registered in the FileProvider paths XML.
- */
-private fun createCameraPhotoFile(context: Context): File {
-    val cameraDir = File(context.cacheDir, "camera_photos")
-    if (!cameraDir.exists()) {
-        cameraDir.mkdirs()
-    }
-    return File.createTempFile("photo_", ".jpg", cameraDir)
 }

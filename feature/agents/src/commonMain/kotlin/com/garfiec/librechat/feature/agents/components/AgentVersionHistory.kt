@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.feature.agents.components.model.AgentVersion
 import com.garfiec.librechat.feature.agents.resources.Res
 import com.garfiec.librechat.feature.agents.resources.no_version_history
@@ -66,6 +67,7 @@ fun AgentVersionHistory(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        dragHandle = { LowProfileDragHandle() },
         sheetState = sheetState,
         modifier = modifier,
     ) {

@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +41,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.components.CodeBlock
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -117,7 +117,7 @@ fun ArtifactPanel(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         modifier = modifier.fillMaxSize(),
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = { LowProfileDragHandle() },
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         ArtifactViewer(

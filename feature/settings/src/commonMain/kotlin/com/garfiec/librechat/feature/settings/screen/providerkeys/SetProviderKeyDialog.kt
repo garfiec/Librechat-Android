@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.model.endpoint.KeyState
+import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.resources.action_cancel
 import com.garfiec.librechat.feature.settings.resources.action_save
@@ -95,6 +96,7 @@ fun SetProviderKeyDialog(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        dragHandle = { LowProfileDragHandle() },
         sheetState = sheetState,
     ) {
         Column(

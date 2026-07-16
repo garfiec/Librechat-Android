@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accessibility label for the bottom-sheet drag handle -->
+    <string name="cd_drag_handle">Alça de arrasto</string>
+</resources>

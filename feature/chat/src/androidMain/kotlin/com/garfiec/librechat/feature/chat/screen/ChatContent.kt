@@ -44,6 +44,11 @@ internal fun ColumnScope.ChatContent(
     topContentPadding: Dp,
     onShowSecondaryModelSheet: () -> Unit,
     onComparisonTabChange: (Int) -> Unit,
+    // Bridges the active message list's over-scroll-past-bottom into the pull-up tools sheet
+    // (nested-scroll) and re-arms the reveal on each pointer-down.
+    listPullUpModifier: Modifier,
+    // Drives the pull-up sheet directly from the (non-scrollable) landing surface.
+    pullUpModifier: Modifier,
 ) {
     // Non-scrolling bodies (landing, loading, comparison panes) clear the floating bar with a
     // plain top padding; only the single active MessageList takes the inset as scrollable
@@ -56,7 +61,7 @@ internal fun ColumnScope.ChatContent(
             LandingContent(
                 selectedModel = uiState.selectedModel,
                 selectedAgentName = agentName,
-                modifier = topInsetModifier,
+                modifier = topInsetModifier.then(pullUpModifier),
             )
         }
         ChatScreenState.LOADING -> {
@@ -115,7 +120,9 @@ internal fun ColumnScope.ChatContent(
                     activeToolCalls = uiState.activeToolCalls,
                     streamingSenderName = senderName,
                     bottomContentPadding = bottomContentPadding,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(listPullUpModifier),
                 )
             }
         }

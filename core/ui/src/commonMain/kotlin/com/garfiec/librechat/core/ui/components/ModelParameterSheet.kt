@@ -167,6 +167,7 @@ fun ModelParameterSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         modifier = modifier,
+        dragHandle = { LowProfileDragHandle() },
     ) {
         ModelParameterContent(
             parameters = parameters,

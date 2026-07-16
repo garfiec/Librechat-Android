@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
+import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.context_usage_free
 import com.garfiec.librechat.feature.chat.resources.context_usage_input
@@ -222,7 +223,10 @@ internal fun ContextUsageSheet(
     tokenUsage: TokenUsage?,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        dragHandle = { LowProfileDragHandle() },
+    ) {
         ContextUsageBreakdown(
             usage = usage,
             tokenUsage = tokenUsage,

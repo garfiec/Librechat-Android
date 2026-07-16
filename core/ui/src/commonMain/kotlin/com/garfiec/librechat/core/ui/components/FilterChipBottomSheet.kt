@@ -72,6 +72,7 @@ fun <T : Any> FilterChipBottomSheet(
         },
         modifier = modifier,
         sheetState = sheetState,
+        dragHandle = { LowProfileDragHandle() },
     ) {
         Column(
             modifier = Modifier
