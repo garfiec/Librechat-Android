@@ -1,17 +1,18 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.net.Uri
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.core.common.extensions.formatByteSize
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.FileRepository
+import com.garfiec.librechat.core.model.response.effectiveFileSizeLimit
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.util.detectMimeTypeFromBytes
 import com.garfiec.librechat.feature.chat.util.fixFilenameExtension
 import com.garfiec.librechat.feature.chat.util.guessMimeType
-import com.garfiec.librechat.feature.chat.util.reEncodeImageIfNeeded
+import com.garfiec.librechat.feature.chat.util.processImageForUpload
 import com.garfiec.librechat.feature.chat.util.resolveFileName
 import com.garfiec.librechat.feature.chat.viewmodel.ErrorOnlyHandle
 import kotlinx.coroutines.CancellationException
@@ -94,16 +95,52 @@ class FileAttachmentDelegate(
                     preliminaryMimeType
                 }
 
-                // Re-encode images that are in formats the server may not handle well
+                // Snapshot the endpoint/model/config ONCE here and reuse it for both sizing and the
+                // upload below. Sizing the file against one endpoint's limit but registering it
+                // against a different one (if the user switched endpoints mid-encode) could upload an
+                // oversized file that the new endpoint 413-rejects — so the file is sized and
+                // registered against the same endpoint, even if that means not reflecting a switch
+                // made while this upload was already in flight.
+                val state = handle.state
+
+                // Resolve the server's per-file size limit up front so we can both (a) let the image
+                // re-encode downsample to fit it and (b) backstop-reject anything still over it.
+                // Non-positive limits (0 = disabled endpoint, gated elsewhere) mean "no check".
+                val sizeLimit = state.fileUploadConfig
+                    ?.effectiveFileSizeLimit(state.selectedEndpoint)
+                    ?.takeIf { it > 0 }
+
+                // Re-encode images to PNG (server media-type workaround), downsampling to fit the
+                // size limit where possible. This also yields the pixel dimensions in one decode, so
+                // there's no separate bounds read below.
                 var uploadBytes = bytes
+                var imageWidth: Int? = null
+                var imageHeight: Int? = null
                 val actualIsImage = mimeType.startsWith("image/")
                 if (actualIsImage) {
-                    val reEncoded = reEncodeImageIfNeeded(bytes, mimeType)
-                    if (reEncoded != null) {
-                        Logger.d { "uploadFile: re-encoded image from $mimeType to ${reEncoded.mimeType} (${bytes.size} -> ${reEncoded.bytes.size} bytes)" }
-                        uploadBytes = reEncoded.bytes
-                        mimeType = reEncoded.mimeType
+                    val processed = processImageForUpload(bytes, mimeType, maxEncodedBytes = sizeLimit)
+                    if (processed != null) {
+                        if (processed.reEncoded) {
+                            Logger.d { "uploadFile: re-encoded image from $mimeType to ${processed.mimeType} (${bytes.size} -> ${processed.bytes.size} bytes)" }
+                        }
+                        uploadBytes = processed.bytes
+                        mimeType = processed.mimeType
+                        imageWidth = processed.width
+                        imageHeight = processed.height
                     }
+                }
+
+                // Backstop the pre-check against the server's limit so an over-limit file fails fast
+                // with a clear message instead of after a long upload the server rejects. Fires for
+                // non-images and for images the re-encode couldn't shrink under the limit.
+                if (sizeLimit != null && uploadBytes.size > sizeLimit) {
+                    Logger.w { "uploadFile: $filename is ${uploadBytes.size} bytes, over server limit of $sizeLimit" }
+                    markUploadFailed(uri)
+                    // State only the limit — not the file's own size. The limit is the actionable
+                    // number, and rounding both to the same MB precision could otherwise print a
+                    // self-contradictory "X MB is larger than the X MB limit".
+                    handle.setError("$filename is larger than the server limit of ${formatByteSize(sizeLimit)}.")
+                    return@launch
                 }
 
                 // Rename the file extension to match the detected/re-encoded MIME type.
@@ -132,30 +169,15 @@ class FileAttachmentDelegate(
                     }
                 }
 
-                // For images, resolve width and height so the server can process them correctly
-                var imageWidth: Int? = null
-                var imageHeight: Int? = null
                 if (actualIsImage) {
-                    try {
-                        val options = BitmapFactory.Options().apply {
-                            inJustDecodeBounds = true
-                        }
-                        BitmapFactory.decodeByteArray(uploadBytes, 0, uploadBytes.size, options)
-                        if (options.outWidth > 0 && options.outHeight > 0) {
-                            imageWidth = options.outWidth
-                            imageHeight = options.outHeight
-                        }
-                        Logger.d { "uploadFile: image dimensions ${imageWidth}x$imageHeight for $uploadFilename" }
-                    } catch (e: Exception) {
-                        Logger.w(e) { "uploadFile: could not read image dimensions for $uploadFilename" }
-                    }
+                    Logger.d { "uploadFile: image dimensions ${imageWidth}x$imageHeight for $uploadFilename" }
                 }
 
                 // Generate a UUID for the file_id -- the backend requires this field
                 val fileId = UUID.randomUUID().toString()
 
-                // Upload to server with context about current endpoint/model
-                val state = handle.state
+                // Upload to server with context about current endpoint/model, using the same
+                // snapshot the file was sized against above (see the comment there).
                 val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
                 Logger.d { "uploadFile: sending to server -- fileId=$fileId, endpoint=${state.selectedEndpoint}, model=${state.selectedModel}, isAgent=$isAgent, mimeType=$mimeType, filename=$uploadFilename" }
                 val result = fileRepository.uploadFile(

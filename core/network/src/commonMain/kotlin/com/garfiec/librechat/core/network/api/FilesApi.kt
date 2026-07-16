@@ -9,6 +9,7 @@ import com.garfiec.librechat.core.model.response.FileUploadConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.onUpload
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -74,6 +75,15 @@ class FilesApi constructor(
 
         val response: FileObject = client.post {
             url { path("api/files") }
+            // Match the official web client, which sets no request timeout on uploads (axios
+            // default 0 = unlimited); the only interruption there is the user's cancel. The
+            // client-wide 30s requestTimeoutMillis bounds the *entire* request, which a large image
+            // on a slow link can exceed mid-transfer — and POSTs are not retried. Disable the
+            // whole-request cap for uploads; socketTimeoutMillis (120s) still aborts a genuinely
+            // stalled connection where no bytes are moving, so this can't hang forever.
+            timeout {
+                requestTimeoutMillis = Long.MAX_VALUE
+            }
             setBody(multipart)
             if (onProgress != null) {
                 var lastPct = -1

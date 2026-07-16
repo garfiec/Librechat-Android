@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.garfiec.librechat.core.common.extensions.formatByteSize
 import com.garfiec.librechat.core.ui.components.EmptyState
 import com.garfiec.librechat.core.ui.components.LibreChatTopBar
 import com.garfiec.librechat.core.ui.components.LoadingIndicator
@@ -279,7 +280,7 @@ private fun FilesList(
                         overflow = TextOverflow.Ellipsis,
                     )
                     val subtitle = listOfNotNull(
-                        file.bytes?.let { formatBytes(it) },
+                        file.bytes?.let { formatByteSize(it) },
                         file.type,
                     ).joinToString(" · ")
                     if (subtitle.isNotBlank()) {
@@ -369,16 +370,3 @@ private fun ArtifactsList(artifacts: List<List<Artifact>>) {
     }
 }
 
-private fun formatBytes(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
-    val kb = bytes / 1024.0
-    if (kb < 1024) return "${kb.format1()} KB"
-    val mb = kb / 1024.0
-    if (mb < 1024) return "${mb.format1()} MB"
-    return "${(mb / 1024.0).format1()} GB"
-}
-
-private fun Double.format1(): String {
-    val rounded = (this * 10).toLong()
-    return "${rounded / 10}.${rounded % 10}"
-}
