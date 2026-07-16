@@ -28,29 +28,32 @@ import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import org.jetbrains.compose.resources.stringResource
 
-enum class ForkMode(val label: String, val description: String, val apiValue: String) {
-    DIRECT_PATH(
-        "Visible messages",
-        "Only the direct path of messages to the selected message",
-        ForkOption.DIRECT_PATH,
-    ),
-    INCLUDE_BRANCHES(
-        "Include branches",
-        "Direct path plus sibling messages at each level",
-        ForkOption.INCLUDE_BRANCHES,
-    ),
-    TARGET_LEVEL(
-        "All to target level",
-        "All messages and branches up to the target message level (default)",
-        ForkOption.TARGET_LEVEL,
-    );
+enum class ForkMode(val apiValue: String) {
+    DIRECT_PATH(ForkOption.DIRECT_PATH),
+    INCLUDE_BRANCHES(ForkOption.INCLUDE_BRANCHES),
+    TARGET_LEVEL(ForkOption.TARGET_LEVEL),
+    ;
 
     companion object {
         fun fromApiValue(value: String): ForkMode = entries.firstOrNull { it.apiValue == value } ?: TARGET_LEVEL
     }
 }
 
-/** Radio-select dialog for ForkMode (TARGET, BRANCHES, ALL) controlling conversation fork depth. */
+@Composable
+internal fun forkModeLabel(mode: ForkMode): String = when (mode) {
+    ForkMode.DIRECT_PATH -> stringResource(Res.string.fork_mode_direct_path)
+    ForkMode.INCLUDE_BRANCHES -> stringResource(Res.string.fork_mode_include_branches)
+    ForkMode.TARGET_LEVEL -> stringResource(Res.string.fork_mode_target_level)
+}
+
+@Composable
+internal fun forkModeDescription(mode: ForkMode): String = when (mode) {
+    ForkMode.DIRECT_PATH -> stringResource(Res.string.fork_mode_direct_path_desc)
+    ForkMode.INCLUDE_BRANCHES -> stringResource(Res.string.fork_mode_include_branches_desc)
+    ForkMode.TARGET_LEVEL -> stringResource(Res.string.fork_mode_target_level_desc)
+}
+
+/** Radio-select dialog controlling conversation fork depth. */
 @Composable
 internal fun ForkSettingsDialog(
     selectedMode: ForkMode,
@@ -86,11 +89,11 @@ internal fun ForkSettingsDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = mode.label,
+                                text = forkModeLabel(mode),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                             Text(
-                                text = mode.description,
+                                text = forkModeDescription(mode),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

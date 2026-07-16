@@ -68,12 +68,13 @@ fun McpServersScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val retryLabel = stringResource(Res.string.action_retry)
 
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
             message = error,
-            actionLabel = "Retry",
+            actionLabel = retryLabel,
         )
         viewModel.dismissError()
         if (result == SnackbarResult.ActionPerformed) {

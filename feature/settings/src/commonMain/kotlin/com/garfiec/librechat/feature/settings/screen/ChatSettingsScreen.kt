@@ -176,7 +176,7 @@ fun ChatSettingsContent(
                 ChatSettingsRow(
                     icon = Icons.AutoMirrored.Filled.Chat,
                     title = stringResource(Res.string.fork_behavior),
-                    subtitle = ForkMode.fromApiValue(uiState.forkMode).label,
+                    subtitle = forkModeLabel(ForkMode.fromApiValue(uiState.forkMode)),
                     onClick = viewModel::showForkSettingsDialog,
                 )
             }

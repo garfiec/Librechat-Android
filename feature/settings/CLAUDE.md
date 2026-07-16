@@ -59,5 +59,5 @@
 
 ### Dialogs
 - `LanguageSelectorDialog` — 37+ locales with search, single-select radio
-- `ForkSettingsDialog` — 3 fork modes (TARGET, BRANCHES, ALL)
+- `ForkSettingsDialog` — 3 fork modes (`DIRECT_PATH`, `INCLUDE_BRANCHES`, `TARGET_LEVEL`); labels/descriptions come from `fork_mode_*` string resources via `forkModeLabel()` / `forkModeDescription()`, not from the enum
 - `PersonalizationDialog` — "About you" + "Response style" text areas with enable toggle
