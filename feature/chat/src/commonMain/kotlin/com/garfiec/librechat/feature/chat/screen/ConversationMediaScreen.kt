@@ -369,4 +369,3 @@ private fun ArtifactsList(artifacts: List<List<Artifact>>) {
         }
     }
 }
-
