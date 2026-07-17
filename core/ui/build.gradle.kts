@@ -21,6 +21,7 @@ kotlin {
         androidMain.dependencies {
             // Runtime-permission launcher for saving images to the gallery (API < 29).
             implementation(libs.activity.compose)
+            implementation(libs.kermit)
         }
     }
 }
