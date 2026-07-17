@@ -43,11 +43,11 @@ import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
+import com.garfiec.librechat.feature.chat.components.rememberChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.IosChatInput
 import com.garfiec.librechat.feature.chat.components.LandingContent
 import com.garfiec.librechat.feature.chat.components.ChatRoot
 import com.garfiec.librechat.feature.chat.components.MessageList
-import com.garfiec.librechat.feature.chat.components.ModelSelectorSheet
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
 import com.garfiec.librechat.feature.chat.resources.*
@@ -135,6 +135,32 @@ actual fun ChatScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
     var showSecondaryModelSheet by remember { mutableStateOf(false) }
     var activeComparisonTab by remember { mutableStateOf(0) }
+
+    // Secondary model on comparison tab 1, primary otherwise. Hoisted so IosChatInput and
+    // ChatOptionsSheetHost share one computation rather than each re-running the agents scan.
+    val isSecondaryTab = uiState.comparisonState.isEnabled && activeComparisonTab == 1
+    val selectedModelDisplay = if (isSecondaryTab) {
+        viewModel.getSecondaryModelDisplayName()
+            ?: uiState.comparisonState.secondaryModel
+            ?: displayModel
+    } else {
+        displayModel
+    }
+
+    // Options sheet ("+" menu, selector/parameters as pages). Independent of uiState.showModelSheet
+    // (the standalone selector), which still dismisses straight to the chat.
+    val optionsController = rememberChatOptionsSheetController()
+    // Native iOS picker actions. Hoisted here (they used to live on IosChatInput) because the
+    // options sheet that invokes them is now hosted at this level, not inside the composer.
+    val onAttachFilesAction: () -> Unit = {
+        openDocumentPicker { files -> if (files.isNotEmpty()) viewModel.onFilesSelected(files) }
+    }
+    val onTakePhotoAction: () -> Unit = {
+        openCamera { files -> if (files.isNotEmpty()) viewModel.onFilesSelected(files) }
+    }
+    val onPickPhotosAction: () -> Unit = {
+        openPhotoPicker { files -> if (files.isNotEmpty()) viewModel.onFilesSelected(files) }
+    }
 
     // Check clipboard for image content
     var hasClipboardImage by remember { mutableStateOf(false) }
@@ -312,7 +338,6 @@ actual fun ChatScreen(
             val isAnyStreaming = uiState.isStreaming ||
                 uiState.comparisonState.primaryIsStreaming ||
                 uiState.comparisonState.secondaryIsStreaming
-            val isSecondaryTab = uiState.comparisonState.isEnabled && activeComparisonTab == 1
             IosChatInput(
                 inputText = uiState.inputText,
                 isStreaming = isAnyStreaming,
@@ -321,6 +346,7 @@ actual fun ChatScreen(
                     viewModel.sendMessage()
                 },
                 onStop = viewModel::stopGeneration,
+                onOpenTools = { optionsController.open() },
                 onQueue = { viewModel.queueMessage() },
                 canQueue = uiState.canQueueFollowUp,
                 enabledTools = uiState.effectiveEnabledTools,
@@ -328,26 +354,11 @@ actual fun ChatScreen(
                 onToggleTool = viewModel::toggleTool,
                 mcpServers = uiState.mcpServers,
                 selectedMcpServerNames = uiState.selectedMcpServerNames,
-                onToggleMcpServer = viewModel::toggleMcpServer,
                 isRecording = uiState.isRecording,
                 isTranscribing = uiState.isTranscribing,
                 onStartRecording = viewModel::startRecording,
                 onStopRecording = viewModel::stopRecording,
-                onOpenModelParameters = viewModel::showModelParameters,
-                onOpenModelSelector = {
-                    if (isSecondaryTab) {
-                        showSecondaryModelSheet = true
-                    } else {
-                        viewModel.openModelSheet()
-                    }
-                },
-                selectedModelDisplay = if (isSecondaryTab) {
-                    viewModel.getSecondaryModelDisplayName()
-                        ?: uiState.comparisonState.secondaryModel
-                        ?: displayModel
-                } else {
-                    displayModel
-                },
+                selectedModelDisplay = selectedModelDisplay,
                 isCodeInterpreterAvailable = uiState.isCodeInterpreterAvailable,
                 attachedFiles = attachedFiles,
                 onRemoveFile = viewModel::removeFile,
@@ -362,40 +373,11 @@ actual fun ChatScreen(
                         hasClipboardImage = clipboardHasImage()
                     }
                 },
-                onAttachFiles = {
-                    openDocumentPicker { files ->
-                        if (files.isNotEmpty()) {
-                            viewModel.onFilesSelected(files)
-                        }
-                    }
-                },
-                onTakePhoto = {
-                    openCamera { files ->
-                        if (files.isNotEmpty()) {
-                            viewModel.onFilesSelected(files)
-                        }
-                    }
-                },
-                onAttachFromServer = onAttachFromServer,
-                onPickPhotos = {
-                    openPhotoPicker { files ->
-                        if (files.isNotEmpty()) {
-                            viewModel.onFilesSelected(files)
-                        }
-                    }
-                },
-                webSearchEnabled = uiState.webSearchEnabled,
-                urlContextEnabled = uiState.urlContextProviderGate,
-                runCodeEnabled = uiState.runCodeEnabled,
-                fileSearchEnabled = uiState.fileSearchEnabled,
-                mcpServersEnabled = uiState.mcpServersEnabled,
                 gates = uiState.chatInputGates,
                 contextUsage = uiState.contextUsage,
                 tokenUsage = uiState.tokenUsage,
                 contextUsageEnabled = uiState.contextUsageEnabled,
                 contextBarPlacement = uiState.contextBarPlacement,
-                contextGaugeExpanded = uiState.contextGaugeExpanded,
-                onContextGaugeExpandedChange = viewModel::setContextGaugeExpanded,
                 queuedPausedCount = uiState.pausedQueueCount,
                 isEditingQueued = uiState.isEditingQueued,
                 onCommitEdit = viewModel::commitQueuedEdit,
@@ -431,67 +413,37 @@ actual fun ChatScreen(
         }
     }
 
+    ChatOptionsSheetHost(
+        controller = optionsController,
+        uiState = uiState,
+        viewModel = viewModel,
+        isSecondaryTab = isSecondaryTab,
+        selectedModelDisplay = selectedModelDisplay,
+        onAttachFiles = onAttachFilesAction,
+        onTakePhoto = onTakePhotoAction,
+        onPickPhotos = onPickPhotosAction,
+        onAttachFromServer = onAttachFromServer,
+        onNavigateToProviderKeys = onNavigateToProviderKeys,
+        onShowSavePresetDialog = { showSavePresetDialog = true },
+    )
+
     // Model selector bottom sheet
     if (uiState.showModelSheet) {
-        ModelSelectorSheet(
-            endpointConfigs = uiState.endpointConfigs,
-            availableModels = uiState.availableModels,
-            agents = uiState.agents,
-            selectedEndpoint = uiState.selectedEndpoint,
-            selectedModel = uiState.selectedModel,
-            onModelSelect = { endpoint, model ->
-                viewModel.onModelSelected(endpoint, model)
-                // Clear any pending scaffold-level snackbar for the same error so it
-                // doesn't flash behind the sheet's close animation. Harmless no-op when
-                // error is already null.
-                viewModel.dismissError()
-                viewModel.dismissSendBlockReason()
-                viewModel.dismissModelSheet()
-            },
-            onDismiss = {
-                viewModel.dismissError()
-                viewModel.dismissSendBlockReason()
-                viewModel.dismissModelSheet()
-            },
-            serverUrl = uiState.serverUrl,
-            // Send-block reasons take precedence: when set, the sheet was auto-opened
-            // to help the user resolve the block, so surface that context inline.
-            errorMessage = sendBlockMessage ?: uiState.error,
-            onErrorDismiss = {
-                viewModel.dismissSendBlockReason()
-                viewModel.dismissError()
-            },
-            favoriteAgentIds = uiState.favoriteAgentIds,
-            favoriteModelKeys = uiState.favoriteModelKeys,
-            onToggleAgentFavorite = viewModel::toggleAgentFavorite,
-            onToggleModelFavorite = viewModel::toggleModelFavorite,
-            starredDisplay = uiState.starredModelsDisplay,
-            endpointKeyStates = uiState.endpointKeyStates,
-            onSetApiKey = { name -> onNavigateToProviderKeys(name) },
+        PrimaryModelSelectorSheet(
+            uiState = uiState,
+            viewModel = viewModel,
+            sendBlockMessage = sendBlockMessage,
+            onNavigateToProviderKeys = onNavigateToProviderKeys,
         )
     }
 
     // Secondary model selector sheet for comparison mode
     if (showSecondaryModelSheet) {
-        ModelSelectorSheet(
-            endpointConfigs = uiState.endpointConfigs,
-            availableModels = uiState.availableModels,
-            agents = uiState.agents,
-            selectedEndpoint = uiState.comparisonState.secondaryEndpoint,
-            selectedModel = uiState.comparisonState.secondaryModel,
-            onModelSelect = { endpoint, model ->
-                viewModel.setSecondaryModel(endpoint, model)
-                showSecondaryModelSheet = false
-            },
+        SecondaryModelSelectorSheet(
+            uiState = uiState,
+            viewModel = viewModel,
             onDismiss = { showSecondaryModelSheet = false },
-            serverUrl = uiState.serverUrl,
-            favoriteAgentIds = uiState.favoriteAgentIds,
-            favoriteModelKeys = uiState.favoriteModelKeys,
-            onToggleAgentFavorite = viewModel::toggleAgentFavorite,
-            onToggleModelFavorite = viewModel::toggleModelFavorite,
-            starredDisplay = uiState.starredModelsDisplay,
-            endpointKeyStates = uiState.endpointKeyStates,
-            onSetApiKey = { name -> onNavigateToProviderKeys(name) },
+            onNavigateToProviderKeys = onNavigateToProviderKeys,
         )
     }
 

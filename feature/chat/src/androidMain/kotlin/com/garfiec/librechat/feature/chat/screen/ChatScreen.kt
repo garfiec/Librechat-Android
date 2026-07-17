@@ -70,7 +70,9 @@ import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
 import com.garfiec.librechat.feature.chat.components.ChatInput
 import com.garfiec.librechat.feature.chat.components.ChatRoot
+import com.garfiec.librechat.feature.chat.components.ChatOptionsPage
 import com.garfiec.librechat.feature.chat.components.ChatToolsSheetContent
+import com.garfiec.librechat.feature.chat.components.rememberChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.rememberChatAttachmentActions
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.asString
@@ -158,17 +160,14 @@ actual fun ChatScreen(
         coroutineScope = coroutineScope,
     )
 
-    // Shared by the composer "+" sheet (ChatInput) and the pull-up sheet: opening the model selector
-    // routes to the secondary picker on the comparison screen's second tab, and the displayed model
-    // label follows the same tab. Hoisted here so both entry points behave identically.
-    val onOpenModelSelector: () -> Unit = {
-        if (uiState.comparisonState.isEnabled && activeComparisonTab == 1) {
-            showSecondaryModelSheet = true
-        } else {
-            viewModel.openModelSheet()
-        }
-    }
-    val effectiveSelectedModelDisplay = if (uiState.comparisonState.isEnabled && activeComparisonTab == 1) {
+    // Options sheet ("+" menu, model selector/parameters as pages). Opened from the composer's "+"
+    // and the pull-up, hence the controller. Independent of uiState.showModelSheet (the standalone
+    // selector), which keeps dismissing straight to the chat.
+    val optionsController = rememberChatOptionsSheetController()
+    // On comparison tab 1 the composer edits the secondary model, so the selector page and label
+    // both follow the active tab.
+    val isSecondaryTab = uiState.comparisonState.isEnabled && activeComparisonTab == 1
+    val effectiveSelectedModelDisplay = if (isSecondaryTab) {
         viewModel.getSecondaryModelDisplayName()
             ?: uiState.comparisonState.secondaryModel
             ?: displayModel
@@ -243,6 +242,9 @@ actual fun ChatScreen(
             val pullUpState = remember { AnchoredDraggableState(PullUpAnchor.Hidden) }
             var pullUpSheetHeightPx by remember { mutableIntStateOf(0) }
             val pullUpGesture = remember { PullUpGesture() }
+            // ChatToolsSheetContent hoists the MCP sub-list's expansion (the paged options sheet
+            // needs it to survive a page swap), so this surface owns its own copy.
+            var pullUpMcpExpanded by remember { mutableStateOf(false) }
             // Fling velocity above which a flick (rather than drag position) decides open/closed.
             val pullUpMinFlingVelocityPx = with(LocalDensity.current) { 125.dp.toPx() }
             // Cap the sheet's height to the space below the top bar so tall content (e.g. many MCP
@@ -278,10 +280,29 @@ actual fun ChatScreen(
                     if (revealing) keyboardController?.hide()
                 }
             }
+            // Velocity-aware settle, only once the sheet is already partly open (so a fling that
+            // merely reaches the list bottom can't fling it open). Velocity wins, else position at
+            // 40%. animateToWithDecay, NOT settle(velocity) — the latter throws for this
+            // threshold-less state. Shared by both bridges; reads height live, remember on state.
+            val settlePullUpSheet: suspend (Float) -> Unit = remember(pullUpState, pullUpMinFlingVelocityPx) {
+                { velocity ->
+                    val height = pullUpSheetHeightPx.toFloat()
+                    val o = pullUpState.offset
+                    if (height > 0f && !o.isNaN() && o < height) {
+                        val target = when {
+                            velocity <= -pullUpMinFlingVelocityPx -> PullUpAnchor.Revealed
+                            velocity >= pullUpMinFlingVelocityPx -> PullUpAnchor.Hidden
+                            o < height * 0.6f -> PullUpAnchor.Revealed
+                            else -> PullUpAnchor.Hidden
+                        }
+                        pullUpState.animateToWithDecay(target, velocity)
+                    }
+                }
+            }
             // Bridges the message-list over-scroll into the sheet: reveal on leftover upward drag once
             // the list is at its true bottom (onPostScroll), retract on downward drag while the sheet
             // is open (onPreScroll). Reads pullUpSheetHeightPx live, so remember only on the state.
-            val pullUpConnection = remember(pullUpState, pullUpMinFlingVelocityPx) {
+            val pullUpConnection = remember(pullUpState, pullUpMinFlingVelocityPx, settlePullUpSheet) {
                 object : NestedScrollConnection {
                     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                         val o = pullUpState.offset
@@ -319,7 +340,7 @@ actual fun ChatScreen(
                         val o = pullUpState.offset
                         val open = !o.isNaN() && o < pullUpSheetHeightPx
                         return if (available.y > 0f && open) {
-                            settleSheet(available.y)
+                            settlePullUpSheet(available.y)
                             available
                         } else {
                             Velocity.Zero
@@ -327,28 +348,60 @@ actual fun ChatScreen(
                     }
 
                     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                        settleSheet(available.y)
+                        settlePullUpSheet(available.y)
                         return available
                     }
-
-                    // Velocity-aware settle to the nearest anchor. Only acts once the sheet is already
-                    // partly open, so a fling that merely reaches the bottom (sheet still hidden) can't
-                    // fling it open — the reveal must have been started by a deliberate pull. A fast
-                    // flick then wins on velocity; otherwise position decides (open past 40% revealed,
-                    // matching pullUpFling's 0.4 positionalThreshold). Uses the modifier-era
-                    // animateToWithDecay — NOT settle(velocity), which throws for a state built with
-                    // the threshold-less constructor.
-                    private suspend fun settleSheet(velocity: Float) {
-                        val height = pullUpSheetHeightPx.toFloat()
+                }
+            }
+            // Bridges the sheet's own content scroll into the surface: anchoredDraggable is
+            // pointer-input only and, unlike ModalBottomSheet, has no nested-scroll bridge, so
+            // ChatToolsSheetContent's verticalScroll would otherwise swallow every drag. onPostScroll
+            // for downward (content scrolls first, leftover retracts), onPreScroll for upward.
+            val pullUpSheetConnection = remember(pullUpState, settlePullUpSheet) {
+                object : NestedScrollConnection {
+                    // Upward before the content, so a half-retracted sheet pulls back up mid-drag.
+                    // Unconditional is safe: at Revealed, dispatchRawDelta consumes 0.
+                    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                        // NaN guard: before onSizeChanged sets anchors, offset is NaN and
+                        // dispatchRawDelta would poison the child scrollable's delta.
                         val o = pullUpState.offset
-                        if (height <= 0f || o.isNaN() || o >= height) return
-                        val target = when {
-                            velocity <= -pullUpMinFlingVelocityPx -> PullUpAnchor.Revealed
-                            velocity >= pullUpMinFlingVelocityPx -> PullUpAnchor.Hidden
-                            o < height * 0.6f -> PullUpAnchor.Revealed
-                            else -> PullUpAnchor.Hidden
+                        return if (available.y < 0f && !o.isNaN()) {
+                            Offset(0f, pullUpState.dispatchRawDelta(available.y))
+                        } else {
+                            Offset.Zero
                         }
-                        pullUpState.animateToWithDecay(target, velocity)
+                    }
+
+                    override fun onPostScroll(
+                        consumed: Offset,
+                        available: Offset,
+                        source: NestedScrollSource,
+                    ): Offset {
+                        val o = pullUpState.offset
+                        val open = !o.isNaN() && o < pullUpSheetHeightPx
+                        return if (available.y > 0f && open) {
+                            Offset(0f, pullUpState.dispatchRawDelta(available.y))
+                        } else {
+                            Offset.Zero
+                        }
+                    }
+
+                    // Mirror of onPreScroll: an upward flick on a half-retracted sheet settles it
+                    // rather than handing velocity to the content.
+                    override suspend fun onPreFling(available: Velocity): Velocity {
+                        val o = pullUpState.offset
+                        val partlyRetracted = !o.isNaN() && o > 0f
+                        return if (available.y < 0f && partlyRetracted) {
+                            settlePullUpSheet(available.y)
+                            available
+                        } else {
+                            Velocity.Zero
+                        }
+                    }
+
+                    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                        settlePullUpSheet(available.y)
+                        return available
                     }
                 }
             }
@@ -410,6 +463,7 @@ actual fun ChatScreen(
                     }
                 },
                 onStop = viewModel::stopGeneration,
+                onOpenTools = { optionsController.open() },
                 onQueue = {
                     viewModel.queueMessage()
                     if (dismissKeyboardOnSend) {
@@ -418,9 +472,7 @@ actual fun ChatScreen(
                 },
                 canQueue = uiState.canQueueFollowUp,
                 attachedFiles = attachedFiles,
-                attachmentActions = attachmentActions,
                 onRemoveFile = viewModel::removeFile,
-                onAttachFromServer = onAttachFromServer,
                 promptSuggestions = uiState.availablePrompts,
                 onPromptSelected = viewModel::handlePromptMention,
                 onSlashCommandSelected = viewModel::handleSlashCommand,
@@ -433,23 +485,13 @@ actual fun ChatScreen(
                 onToggleTool = viewModel::toggleTool,
                 mcpServers = uiState.mcpServers,
                 selectedMcpServerNames = uiState.selectedMcpServerNames,
-                onToggleMcpServer = viewModel::toggleMcpServer,
-                onOpenModelParameters = viewModel::showModelParameters,
-                onOpenModelSelector = onOpenModelSelector,
                 selectedModelDisplay = effectiveSelectedModelDisplay,
                 isCodeInterpreterAvailable = uiState.isCodeInterpreterAvailable,
-                webSearchEnabled = uiState.webSearchEnabled,
-                urlContextEnabled = uiState.urlContextProviderGate,
-                runCodeEnabled = uiState.runCodeEnabled,
-                fileSearchEnabled = uiState.fileSearchEnabled,
-                mcpServersEnabled = uiState.mcpServersEnabled,
                 gates = uiState.chatInputGates,
                 contextUsage = uiState.contextUsage,
                 tokenUsage = uiState.tokenUsage,
                 contextUsageEnabled = uiState.contextUsageEnabled,
                 contextBarPlacement = uiState.contextBarPlacement,
-                contextGaugeExpanded = uiState.contextGaugeExpanded,
-                onContextGaugeExpandedChange = viewModel::setContextGaugeExpanded,
                 // After a Stop/error pause, the queue waits for an explicit nudge.
                 queuedPausedCount = uiState.pausedQueueCount,
                 onSendQueuedMessages = viewModel::sendQueuedNow,
@@ -546,7 +588,9 @@ actual fun ChatScreen(
                         state = pullUpState,
                         orientation = Orientation.Vertical,
                         flingBehavior = pullUpFling,
-                    ),
+                    )
+                    // Lets a drag over the scrolling content move the surface. See pullUpSheetConnection.
+                    .nestedScroll(pullUpSheetConnection),
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     LowProfileDragHandle()
@@ -560,8 +604,17 @@ actual fun ChatScreen(
                         onTakePhoto = attachmentActions.onTakePhoto,
                         onPickPhotos = attachmentActions.onPickPhotos,
                         onAttachFromServer = onAttachFromServer,
-                        onOpenModelParameters = viewModel::showModelParameters,
-                        onOpenModelSelector = onOpenModelSelector,
+                        // The pull-up hands these two pages off to the options sheet rather than
+                        // swapping its own anchored-drag surface (which the selector's search/IME/list
+                        // would fight), retracting itself here.
+                        onOpenModelParameters = {
+                            optionsController.open(ChatOptionsPage.ModelParameters)
+                            coroutineScope.launch { pullUpState.animateTo(PullUpAnchor.Hidden) }
+                        },
+                        onOpenModelSelector = {
+                            optionsController.open(ChatOptionsPage.ModelSelector)
+                            coroutineScope.launch { pullUpState.animateTo(PullUpAnchor.Hidden) }
+                        },
                         selectedModelDisplay = effectiveSelectedModelDisplay,
                         onDismiss = {
                             coroutineScope.launch { pullUpState.animateTo(PullUpAnchor.Hidden) }
@@ -579,11 +632,27 @@ actual fun ChatScreen(
                         contextBarPlacement = uiState.contextBarPlacement,
                         contextGaugeExpanded = uiState.contextGaugeExpanded,
                         onContextGaugeExpandedChange = viewModel::setContextGaugeExpanded,
+                        mcpExpanded = pullUpMcpExpanded,
+                        onMcpExpandedChange = { pullUpMcpExpanded = it },
                     )
                 }
             }
         }
     }
+
+    ChatOptionsSheetHost(
+        controller = optionsController,
+        uiState = uiState,
+        viewModel = viewModel,
+        isSecondaryTab = isSecondaryTab,
+        selectedModelDisplay = effectiveSelectedModelDisplay,
+        onAttachFiles = attachmentActions.onAttachFiles,
+        onTakePhoto = attachmentActions.onTakePhoto,
+        onPickPhotos = attachmentActions.onPickPhotos,
+        onAttachFromServer = onAttachFromServer,
+        onNavigateToProviderKeys = onNavigateToProviderKeys,
+        onShowSavePresetDialog = { showSavePresetDialog = true },
+    )
 
     ChatScreenDialogs(
         uiState = uiState,

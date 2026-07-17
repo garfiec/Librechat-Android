@@ -110,7 +110,7 @@ private val PRIMARY_TYPED_KEYS = setOf(
  * `ModelParameters.getValueForKey` / `withUpdatedKey`. When the editor saves
  * the def's canonical key, any legacy alias must be cleared so that an agent
  * doesn't carry two semantically-identical keys with potentially diverging
- * values. Pairs derive from `ModelParameterSheet.kt` aliases:
+ * values. Pairs derive from `ModelParameterContent.kt` aliases:
  *  - `system` / `promptPrefix` → customInstructions slot
  *  - `chatGptLabel` / `modelLabel` → customName slot
  *  - `topP` / `top_p` → handled separately via PRIMARY_TYPED_KEYS rewrite

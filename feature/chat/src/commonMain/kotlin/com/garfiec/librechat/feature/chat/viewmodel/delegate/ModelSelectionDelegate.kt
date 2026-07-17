@@ -771,14 +771,6 @@ class ModelSelectionDelegate(
         }
     }
 
-    fun showModelParameters() {
-        handle.update { selection = selection.copy(showModelParameters = true) }
-    }
-
-    fun hideModelParameters() {
-        handle.update { selection = selection.copy(showModelParameters = false) }
-    }
-
     fun updateModelParameters(parameters: ModelParameters) {
         handle.update { selection = selection.copy(modelParameters = parameters) }
     }

@@ -6,7 +6,7 @@ import com.garfiec.librechat.core.model.ParameterType
 /**
  * Registry of parameter definitions per endpoint, matching the official LibreChat web app's
  * parameterSettings.ts. Each endpoint maps to an ordered list of ParameterDefinition that
- * drives the dynamic ModelParameterSheet rendering.
+ * drives the dynamic ModelParameterContent rendering.
  */
 @Suppress("TooManyFunctions") // Registry of per-endpoint/provider/variant param builders mirroring upstream parameterSettings.ts.
 object EndpointParameterRegistry {

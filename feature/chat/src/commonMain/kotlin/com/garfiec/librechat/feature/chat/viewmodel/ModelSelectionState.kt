@@ -29,10 +29,11 @@ data class ModelSelectionState(
     val availableModels: Map<String, List<String>> = emptyMap(),
     val agents: List<Agent> = emptyList(),
     val modelParameters: ModelParameters = ModelParameters.DEFAULT,
-    val showModelParameters: Boolean = false,
-    /** Single source of truth for whether the model-selector sheet is open. Preflight
-     *  failures and readiness timeouts flip this to true so the user sees the sheet with
-     *  a send-block banner. */
+    /** Single source of truth for whether the *standalone* model-selector sheet is open — the
+     *  top-bar chip, the comparison dual-pane, and send-block auto-opens. Preflight failures and
+     *  readiness timeouts flip this to true so the user sees the sheet with a send-block banner.
+     *  The chat options sheet shows the selector as an in-sheet page off its own local state, so
+     *  it never sets this. */
     val showModelSheet: Boolean = false,
     val enabledTools: Set<String> = emptySet(),
     val mcpServers: List<McpServerDisplayData> = emptyList(),

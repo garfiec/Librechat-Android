@@ -56,7 +56,7 @@ Material 3 theme and shared Compose components used across all feature modules. 
 - `ParameterDefinition` contains: key, type, label, description, default, min, max, step, options
 - `DynamicSlider` snaps to step increments; calculates stepCount from range
 - All controls are stateless — caller manages values via `Map<String, String>`
-- `ModelParameterSheet` falls back to existing fixed params when no schema available
+- `ModelParameterContent` falls back to existing fixed params when no schema available
 - **Gotcha**: Slider step count calculated as `((max - min) / step).toInt()` — ensure step divides range evenly to avoid drift
 
 ### Accessibility (`theme/AccessibilityUtils.kt`)

@@ -131,15 +131,81 @@ fun ModelSelectorSheet(
     onSetApiKey: (endpointName: String) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-    var searchQuery by remember { mutableStateOf("") }
-    val expandedGroups = remember {
-        mutableStateMapOf<String, Boolean>().apply {
-            availableModels.keys.forEach { put(it, false) }
-            if (agents.isNotEmpty()) put(EndpointConstants.AGENTS, false)
-            // Starred group starts collapsed too, matching the provider groups.
-            put(STARRED_GROUP_KEY, false)
-        }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        dragHandle = { LowProfileDragHandle() },
+        sheetState = sheetState,
+        modifier = modifier,
+    ) {
+        ModelSelectorSheetContent(
+            endpointConfigs = endpointConfigs,
+            availableModels = availableModels,
+            agents = agents,
+            selectedEndpoint = selectedEndpoint,
+            selectedModel = selectedModel,
+            onModelSelect = onModelSelect,
+            onSetApiKey = onSetApiKey,
+            modifier = Modifier.fillMaxSize(),
+            serverUrl = serverUrl,
+            errorMessage = errorMessage,
+            onErrorDismiss = onErrorDismiss,
+            favoriteAgentIds = favoriteAgentIds,
+            favoriteModelKeys = favoriteModelKeys,
+            onToggleAgentFavorite = onToggleAgentFavorite,
+            onToggleModelFavorite = onToggleModelFavorite,
+            starredDisplay = starredDisplay,
+            endpointKeyStates = endpointKeyStates,
+        )
     }
+}
+
+/**
+ * The model selector body (header, search, grouped list), no sheet chrome. Rendered by the
+ * standalone [ModelSelectorSheet] and by `ChatOptionsBottomSheet`'s selector page. Has no
+ * `onDismiss` — each host decides what selection does (swap to Options vs. dismiss).
+ */
+@Composable
+fun ModelSelectorSheetContent(
+    endpointConfigs: Map<String, EndpointConfig>,
+    availableModels: Map<String, List<String>>,
+    agents: List<Agent>,
+    selectedEndpoint: String?,
+    selectedModel: String?,
+    onModelSelect: (endpoint: String, model: String) -> Unit,
+    /**
+     * Invoked with the endpoint name when the user taps the "Set API Key" CTA on
+     * a greyed group. Implementations should navigate to Settings → Provider API Keys.
+     */
+    onSetApiKey: (endpointName: String) -> Unit,
+    modifier: Modifier = Modifier,
+    serverUrl: String = "",
+    errorMessage: String? = null,
+    onErrorDismiss: () -> Unit = {},
+    favoriteAgentIds: Set<String> = emptySet(),
+    favoriteModelKeys: Set<String> = emptySet(),
+    onToggleAgentFavorite: ((agentId: String) -> Unit)? = null,
+    onToggleModelFavorite: ((endpoint: String, model: String) -> Unit)? = null,
+    /**
+     * Mobile-only preference controlling whether pinned items also appear in a
+     * dedicated section at the top of the sheet. [StarredModelsDisplay.OFF] keeps the
+     * historical behavior (favorites float to the top within their own group).
+     */
+    starredDisplay: StarredModelsDisplay = StarredModelsDisplay.OFF,
+    /**
+     * Per-endpoint user-provided-key state. Endpoints whose key is [KeyState.Unset]
+     * or [KeyState.Expired] render a greyed group with a "Set API Key" CTA. Absent
+     * keys (built-in endpoints) and [KeyState.Loading] / [KeyState.Set] all
+     * fail-open to the normal selectable rendering.
+     */
+    endpointKeyStates: Map<String, KeyState> = emptyMap(),
+    /** Rendered above the error banner and title; the paged host passes a back-arrow row. */
+    header: (@Composable () -> Unit)? = null,
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    // Only user toggles land here; absent keys default collapsed via `== true` reads below. Not
+    // seeded — the sheet can mount before models/agents load, and a seed would miss late arrivals.
+    val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     val isSearching = searchQuery.isNotBlank()
 
     // Filter to only show models for endpoints the user's server has enabled
@@ -196,199 +262,193 @@ fun ModelSelectorSheet(
     }
     val hasStarred = starredAgents.isNotEmpty() || starredModels.isNotEmpty()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        dragHandle = { LowProfileDragHandle() },
-        sheetState = sheetState,
-        modifier = modifier,
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .imePadding()
+            .padding(bottom = 32.dp),
     ) {
-        Column(
+        header?.invoke()
+        // Banner applies its own 16dp inset, so it sits outside the Column's
+        // horizontal padding to line up with the other elements.
+        if (errorMessage != null) {
+            ErrorBanner(message = errorMessage, onDismiss = onErrorDismiss)
+        }
+        Text(
+            text = stringResource(Res.string.select_a_model),
+            style = MaterialTheme.typography.titleMedium,
             modifier = Modifier
-                .fillMaxSize()
-                .imePadding()
-                .padding(bottom = 32.dp),
-        ) {
-            // Banner applies its own 16dp inset, so it sits outside the Column's
-            // horizontal padding to line up with the other elements.
-            if (errorMessage != null) {
-                ErrorBanner(message = errorMessage, onDismiss = onErrorDismiss)
-            }
-            Text(
-                text = stringResource(Res.string.select_a_model),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp),
-            )
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+        )
 
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Search models...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                singleLine = true,
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = stringResource(Res.string.cd_clear_search),
-                            )
-                        }
-                    }
-                },
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-            ) {
-                // Optional "Starred" section at the very top (mobile-only). Starred items
-                // are duplicated here — they still render in their own groups below.
-                if (showStarred && hasStarred) {
-                    // GROUPED renders a collapsible header and respects its toggle; TOP is a
-                    // flat, always-shown list closed off with a divider. OFF never reaches here.
-                    val starredItemsVisible = when (starredDisplay) {
-                        StarredModelsDisplay.GROUPED -> {
-                            val expanded = expandedGroups[STARRED_GROUP_KEY] != false
-                            item(key = "header_starred") {
-                                EndpointGroupHeader(
-                                    endpointName = STARRED_GROUP_KEY,
-                                    displayLabel = stringResource(Res.string.starred_group),
-                                    modelCount = starredAgents.size + starredModels.size,
-                                    isExpanded = expanded,
-                                    iconUrl = null,
-                                    leadingIcon = Icons.Default.Star,
-                                    onToggle = { expandedGroups[STARRED_GROUP_KEY] = !expanded },
-                                )
-                            }
-                            expanded
-                        }
-                        StarredModelsDisplay.TOP -> true
-                        StarredModelsDisplay.OFF -> false
-                    }
-                    if (starredItemsVisible) {
-                        // The flat TOP list reads as a dense quick-access strip; GROUPED keeps
-                        // the standard row rhythm since it sits behind a collapsible header.
-                        val starredPadding = if (starredDisplay == StarredModelsDisplay.TOP) {
-                            StarredItemVerticalPadding
-                        } else {
-                            ListItemVerticalPadding
-                        }
-                        items(starredAgents, key = { "starred_agent_${it.id}" }, contentType = { "agent" }) { agent ->
-                            AgentListItem(
-                                agent = agent,
-                                isSelected = selectedEndpoint == EndpointConstants.AGENTS && agent.id == selectedModel,
-                                serverUrl = serverUrl,
-                                onClick = { onModelSelect(EndpointConstants.AGENTS, agent.id) },
-                                isFavorite = true,
-                                onToggleFavorite = onToggleAgentFavorite?.let { toggle -> { toggle(agent.id) } },
-                                verticalPadding = starredPadding,
-                            )
-                        }
-                        items(
-                            starredModels,
-                            key = { (endpoint, model) -> "starred_model_$endpoint::$model" },
-                            contentType = { "model" },
-                        ) { (endpoint, model) ->
-                            ModelListItem(
-                                model = model,
-                                isSelected = endpoint == selectedEndpoint && model == selectedModel,
-                                isFavorite = true,
-                                onClick = { onModelSelect(endpoint, model) },
-                                onToggleFavorite = onToggleModelFavorite?.let { toggle -> { toggle(endpoint, model) } },
-                                verticalPadding = starredPadding,
-                            )
-                        }
-                    }
-                    if (starredDisplay == StarredModelsDisplay.TOP) {
-                        item(key = "starred_divider") {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                        }
-                    }
-                }
-
-                // "My Agents" group (shown first, like the web frontend)
-                if (filteredAgents.isNotEmpty()) {
-                    val agentsExpanded = isSearching || expandedGroups[EndpointConstants.AGENTS] != false
-                    item(key = "header_agents") {
-                        EndpointGroupHeader(
-                            endpointName = EndpointConstants.AGENTS,
-                            displayLabel = "My Agents",
-                            modelCount = filteredAgents.size,
-                            isExpanded = agentsExpanded,
-                            iconUrl = null,
-                            onToggle = { if (!isSearching) expandedGroups[EndpointConstants.AGENTS] = !agentsExpanded },
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Search models...") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            singleLine = true,
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = stringResource(Res.string.cd_clear_search),
                         )
                     }
-                    if (agentsExpanded) {
-                        items(filteredAgents, key = { "agents_${it.id}" }, contentType = { "agent" }) { agent ->
-                            AgentListItem(
-                                agent = agent,
-                                isSelected = selectedEndpoint == EndpointConstants.AGENTS && agent.id == selectedModel,
-                                serverUrl = serverUrl,
-                                onClick = { onModelSelect(EndpointConstants.AGENTS, agent.id) },
-                                isFavorite = agent.id in favoriteAgentIds,
-                                onToggleFavorite = onToggleAgentFavorite?.let { toggle -> { toggle(agent.id) } },
+                }
+            },
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+        ) {
+            // Optional "Starred" section at the very top (mobile-only). Starred items
+            // are duplicated here — they still render in their own groups below.
+            if (showStarred && hasStarred) {
+                // GROUPED renders a collapsible header and respects its toggle; TOP is a
+                // flat, always-shown list closed off with a divider. OFF never reaches here.
+                val starredItemsVisible = when (starredDisplay) {
+                    StarredModelsDisplay.GROUPED -> {
+                        val expanded = expandedGroups[STARRED_GROUP_KEY] == true
+                        item(key = "header_starred") {
+                            EndpointGroupHeader(
+                                endpointName = STARRED_GROUP_KEY,
+                                displayLabel = stringResource(Res.string.starred_group),
+                                modelCount = starredAgents.size + starredModels.size,
+                                isExpanded = expanded,
+                                iconUrl = null,
+                                leadingIcon = Icons.Default.Star,
+                                onToggle = { expandedGroups[STARRED_GROUP_KEY] = !expanded },
                             )
                         }
+                        expanded
+                    }
+                    StarredModelsDisplay.TOP -> true
+                    StarredModelsDisplay.OFF -> false
+                }
+                if (starredItemsVisible) {
+                    // The flat TOP list reads as a dense quick-access strip; GROUPED keeps
+                    // the standard row rhythm since it sits behind a collapsible header.
+                    val starredPadding = if (starredDisplay == StarredModelsDisplay.TOP) {
+                        StarredItemVerticalPadding
+                    } else {
+                        ListItemVerticalPadding
+                    }
+                    items(starredAgents, key = { "starred_agent_${it.id}" }, contentType = { "agent" }) { agent ->
+                        AgentListItem(
+                            agent = agent,
+                            isSelected = selectedEndpoint == EndpointConstants.AGENTS && agent.id == selectedModel,
+                            serverUrl = serverUrl,
+                            onClick = { onModelSelect(EndpointConstants.AGENTS, agent.id) },
+                            isFavorite = true,
+                            onToggleFavorite = onToggleAgentFavorite?.let { toggle -> { toggle(agent.id) } },
+                            verticalPadding = starredPadding,
+                        )
+                    }
+                    items(
+                        starredModels,
+                        key = { (endpoint, model) -> "starred_model_$endpoint::$model" },
+                        contentType = { "model" },
+                    ) { (endpoint, model) ->
+                        ModelListItem(
+                            model = model,
+                            isSelected = endpoint == selectedEndpoint && model == selectedModel,
+                            isFavorite = true,
+                            onClick = { onModelSelect(endpoint, model) },
+                            onToggleFavorite = onToggleModelFavorite?.let { toggle -> { toggle(endpoint, model) } },
+                            verticalPadding = starredPadding,
+                        )
                     }
                 }
+                if (starredDisplay == StarredModelsDisplay.TOP) {
+                    item(key = "starred_divider") {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    }
+                }
+            }
 
-                // Endpoint model groups
-                filteredByEndpoint.forEach { (endpointName, models) ->
-                    val baseFiltered = if (!isSearching) {
-                        models
-                    } else if (searchQuery.length <= 2) {
-                        models.filter { fuzzyMatches(it, searchQuery) }
-                    } else {
-                        models.map { model -> model to fuzzyScore(model, searchQuery) }
-                            .filter { (_, score) -> score >= FUZZY_MATCH_THRESHOLD }
-                            .sortedByDescending { (_, score) -> score }
-                            .map { (model, _) -> model }
+            // "My Agents" group (shown first, like the web frontend)
+            if (filteredAgents.isNotEmpty()) {
+                val agentsExpanded = isSearching || expandedGroups[EndpointConstants.AGENTS] == true
+                item(key = "header_agents") {
+                    EndpointGroupHeader(
+                        endpointName = EndpointConstants.AGENTS,
+                        displayLabel = "My Agents",
+                        modelCount = filteredAgents.size,
+                        isExpanded = agentsExpanded,
+                        iconUrl = null,
+                        onToggle = { if (!isSearching) expandedGroups[EndpointConstants.AGENTS] = !agentsExpanded },
+                    )
+                }
+                if (agentsExpanded) {
+                    items(filteredAgents, key = { "agents_${it.id}" }, contentType = { "agent" }) { agent ->
+                        AgentListItem(
+                            agent = agent,
+                            isSelected = selectedEndpoint == EndpointConstants.AGENTS && agent.id == selectedModel,
+                            serverUrl = serverUrl,
+                            onClick = { onModelSelect(EndpointConstants.AGENTS, agent.id) },
+                            isFavorite = agent.id in favoriteAgentIds,
+                            onToggleFavorite = onToggleAgentFavorite?.let { toggle -> { toggle(agent.id) } },
+                        )
                     }
-                    // Pinned models (v0.8.5+) sort to the top when not searching.
-                    val filteredModels = if (isSearching) {
-                        baseFiltered
-                    } else {
-                        baseFiltered.sortedByDescending { "$endpointName::$it" in favoriteModelKeys }
+                }
+            }
+
+            // Endpoint model groups
+            filteredByEndpoint.forEach { (endpointName, models) ->
+                val baseFiltered = if (!isSearching) {
+                    models
+                } else if (searchQuery.length <= 2) {
+                    models.filter { fuzzyMatches(it, searchQuery) }
+                } else {
+                    models.map { model -> model to fuzzyScore(model, searchQuery) }
+                        .filter { (_, score) -> score >= FUZZY_MATCH_THRESHOLD }
+                        .sortedByDescending { (_, score) -> score }
+                        .map { (model, _) -> model }
+                }
+                // Pinned models (v0.8.5+) sort to the top when not searching.
+                val filteredModels = if (isSearching) {
+                    baseFiltered
+                } else {
+                    baseFiltered.sortedByDescending { "$endpointName::$it" in favoriteModelKeys }
+                }
+                if (filteredModels.isNotEmpty()) {
+                    val config = endpointConfigs[endpointName]
+                    val displayLabel = config?.modelDisplayLabel ?: endpointName
+                    // Auto-expand while searching so matches in collapsed groups are visible;
+                    // otherwise use manual toggle state.
+                    val isExpanded = isSearching || expandedGroups[endpointName] == true
+                    // Endpoints with userProvide=true and Unset/Expired key render disabled
+                    // with a "Set API Key" CTA. Loading and absent states fail-open.
+                    val keyState = endpointKeyStates[endpointName]
+                    val needsKey = keyState is KeyState.Unset || keyState is KeyState.Expired
+                    val effectiveExpanded = isExpanded && !needsKey
+                    item(key = "header_$endpointName") {
+                        EndpointGroupHeader(
+                            endpointName = endpointName,
+                            displayLabel = displayLabel,
+                            modelCount = filteredModels.size,
+                            isExpanded = effectiveExpanded,
+                            iconUrl = config?.iconURL,
+                            onToggle = { if (!isSearching) expandedGroups[endpointName] = !isExpanded },
+                            needsKey = needsKey,
+                            onSetApiKey = { onSetApiKey(endpointName) },
+                        )
                     }
-                    if (filteredModels.isNotEmpty()) {
-                        val config = endpointConfigs[endpointName]
-                        val displayLabel = config?.modelDisplayLabel ?: endpointName
-                        // Auto-expand while searching so matches in collapsed groups are visible;
-                        // otherwise use manual toggle state.
-                        val isExpanded = isSearching || expandedGroups[endpointName] != false
-                        // Endpoints with userProvide=true and Unset/Expired key render disabled
-                        // with a "Set API Key" CTA. Loading and absent states fail-open.
-                        val keyState = endpointKeyStates[endpointName]
-                        val needsKey = keyState is KeyState.Unset || keyState is KeyState.Expired
-                        val effectiveExpanded = isExpanded && !needsKey
-                        item(key = "header_$endpointName") {
-                            EndpointGroupHeader(
-                                endpointName = endpointName,
-                                displayLabel = displayLabel,
-                                modelCount = filteredModels.size,
-                                isExpanded = effectiveExpanded,
-                                iconUrl = config?.iconURL,
-                                onToggle = { if (!isSearching) expandedGroups[endpointName] = !isExpanded },
-                                needsKey = needsKey,
-                                onSetApiKey = { onSetApiKey(endpointName) },
+                    if (effectiveExpanded) {
+                        items(filteredModels, key = { "${endpointName}_$it" }, contentType = { "model" }) { model ->
+                            ModelListItem(
+                                model = model,
+                                isSelected = endpointName == selectedEndpoint && model == selectedModel,
+                                isFavorite = "$endpointName::$model" in favoriteModelKeys,
+                                onClick = { onModelSelect(endpointName, model) },
+                                onToggleFavorite = onToggleModelFavorite?.let { toggle -> { toggle(endpointName, model) } },
                             )
-                        }
-                        if (effectiveExpanded) {
-                            items(filteredModels, key = { "${endpointName}_$it" }, contentType = { "model" }) { model ->
-                                ModelListItem(
-                                    model = model,
-                                    isSelected = endpointName == selectedEndpoint && model == selectedModel,
-                                    isFavorite = "$endpointName::$model" in favoriteModelKeys,
-                                    onClick = { onModelSelect(endpointName, model) },
-                                    onToggleFavorite = onToggleModelFavorite?.let { toggle -> { toggle(endpointName, model) } },
-                                )
-                            }
                         }
                     }
                 }

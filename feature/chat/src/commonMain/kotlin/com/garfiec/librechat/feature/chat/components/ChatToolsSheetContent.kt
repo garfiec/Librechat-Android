@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.components
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,20 +31,13 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -57,100 +51,18 @@ import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
-import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChatToolsBottomSheet(
-    enabledTools: Set<String>,
-    onToggleTool: (String) -> Unit,
-    mcpServers: List<McpServerDisplayData>,
-    selectedMcpServerNames: Set<String>,
-    onToggleMcpServer: (String) -> Unit,
-    onAttachFiles: () -> Unit,
-    onTakePhoto: () -> Unit,
-    onPickPhotos: () -> Unit,
-    onAttachFromServer: () -> Unit,
-    onOpenModelParameters: () -> Unit,
-    onOpenModelSelector: () -> Unit,
-    selectedModelDisplay: String?,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    isCodeInterpreterAvailable: Boolean = true,
-    webSearchEnabled: Boolean = true,
-    /** Whether to offer the Google-only URL Context toggle (active provider is Google/Gemini). */
-    urlContextEnabled: Boolean = false,
-    runCodeEnabled: Boolean = true,
-    fileSearchEnabled: Boolean = true,
-    mcpServersEnabled: Boolean = true,
-    /**
-     * Server/endpoint feature gates for the sheet: model-select row, parameters row,
-     * ephemeral tool controls (web search / code / file search / MCP), and the
-     * Camera / Photos / Files attach controls. See [ChatInputGates].
-     */
-    gates: ChatInputGates = ChatInputGates(),
-    /** Latest context-window usage snapshot; drives the optional context gauge above the model row. */
-    contextUsage: ContextUsage? = null,
-    /** Latest per-call token usage, for the gauge's expanded Input/Output breakdown rows. */
-    tokenUsage: TokenUsage? = null,
-    /** Server/version gate for the context gauge (`interface.contextUsage` AND backend ≥ 0.8.7). */
-    contextUsageEnabled: Boolean = false,
-    /** Where the user chose to surface the gauge; the sheet only renders it when [ContextBarPlacement.OPTIONS_SHEET]. */
-    contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
-    /** Persisted expanded/collapsed state of the gauge's inline breakdown. */
-    contextGaugeExpanded: Boolean = false,
-    onContextGaugeExpandedChange: (Boolean) -> Unit = {},
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = modifier,
-        sheetState = sheetState,
-        dragHandle = { LowProfileDragHandle() },
-    ) {
-        ChatToolsSheetContent(
-            enabledTools = enabledTools,
-            onToggleTool = onToggleTool,
-            mcpServers = mcpServers,
-            selectedMcpServerNames = selectedMcpServerNames,
-            onToggleMcpServer = onToggleMcpServer,
-            onAttachFiles = onAttachFiles,
-            onTakePhoto = onTakePhoto,
-            onPickPhotos = onPickPhotos,
-            onAttachFromServer = onAttachFromServer,
-            onOpenModelParameters = onOpenModelParameters,
-            onOpenModelSelector = onOpenModelSelector,
-            selectedModelDisplay = selectedModelDisplay,
-            onDismiss = onDismiss,
-            isCodeInterpreterAvailable = isCodeInterpreterAvailable,
-            webSearchEnabled = webSearchEnabled,
-            urlContextEnabled = urlContextEnabled,
-            runCodeEnabled = runCodeEnabled,
-            fileSearchEnabled = fileSearchEnabled,
-            mcpServersEnabled = mcpServersEnabled,
-            gates = gates,
-            contextUsage = contextUsage,
-            tokenUsage = tokenUsage,
-            contextUsageEnabled = contextUsageEnabled,
-            contextBarPlacement = contextBarPlacement,
-            contextGaugeExpanded = contextGaugeExpanded,
-            onContextGaugeExpandedChange = onContextGaugeExpandedChange,
-        )
-    }
-}
-
 /**
- * The scrollable body of the chat tools/attachment menu, without the surrounding sheet chrome.
- * Rendered inside the "+" [ChatToolsBottomSheet]'s [ModalBottomSheet] and inside the finger-following
- * pull-up surface in `ChatScreen`, so both entry points show identical content. Each row invokes its
- * action then [onDismiss] — the Modal path dismisses the sheet; the pull-up path animates its surface
- * back to hidden.
+ * The scrollable body of the chat tools/attachment menu (the Options page), no sheet chrome.
+ * Rendered by both [ChatOptionsBottomSheet] and the pull-up surface in `ChatScreen`.
+ *
+ * The Model / Model Parameters rows do *not* call [onDismiss] (the paged sheet swaps in place, the
+ * pull-up hands off); every other row calls its action then [onDismiss].
  */
 @Composable
 fun ChatToolsSheetContent(
@@ -192,16 +104,17 @@ fun ChatToolsSheetContent(
     /** Persisted expanded/collapsed state of the gauge's inline breakdown. */
     contextGaugeExpanded: Boolean = false,
     onContextGaugeExpandedChange: (Boolean) -> Unit = {},
+    /** MCP sub-list expansion, hoisted so the paged sheet keeps it across a page swap (which drops this composable). */
+    mcpExpanded: Boolean = false,
+    onMcpExpandedChange: (Boolean) -> Unit = {},
+    /** Scroll position, hoisted for the same reason as [mcpExpanded]. Defaulted for hosts that keep it composed. */
+    scrollState: ScrollState = rememberScrollState(),
 ) {
-    var showMcpServers by remember { mutableStateOf(false) }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
-            // Scroll so a tall configuration (uploads + every tool toggle + an expanded MCP list)
-            // stays fully reachable when the content exceeds the sheet's height — the pull-up surface
-            // caps its height, and even the "+" ModalBottomSheet clips a non-scrolling Column.
-            .verticalScroll(rememberScrollState())
+            // Tall configurations exceed the sheet height, so the content scrolls.
+            .verticalScroll(scrollState)
             .navigationBarsPadding()
             .padding(bottom = 16.dp),
     ) {
@@ -283,10 +196,8 @@ fun ChatToolsSheetContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .sheetRowRipple()
-                    .clickable {
-                        onOpenModelSelector()
-                        onDismiss()
-                    }
+                    // No onDismiss — see the KDoc above.
+                    .clickable { onOpenModelSelector() }
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -324,10 +235,7 @@ fun ChatToolsSheetContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .sheetRowRipple()
-                    .clickable {
-                        onOpenModelParameters()
-                        onDismiss()
-                    }
+                    .clickable { onOpenModelParameters() }
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -393,7 +301,7 @@ fun ChatToolsSheetContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .sheetRowRipple()
-                    .clickable { showMcpServers = !showMcpServers }
+                    .clickable { onMcpExpandedChange(!mcpExpanded) }
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -430,7 +338,7 @@ fun ChatToolsSheetContent(
             }
 
             // MCP server sub-list
-            if (showMcpServers) {
+            if (mcpExpanded) {
                 Column(
                     modifier = Modifier.padding(start = 40.dp),
                 ) {

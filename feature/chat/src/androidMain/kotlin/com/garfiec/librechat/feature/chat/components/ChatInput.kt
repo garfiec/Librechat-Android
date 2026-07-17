@@ -59,6 +59,11 @@ fun ChatInput(
     onInputChanged: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    /**
+     * Opens the chat options sheet from the "+" button. The sheet is hosted by `ChatScreen`, not
+     * here, because the pull-up surface opens the same one — see `ChatOptionsSheetController`.
+     */
+    onOpenTools: () -> Unit,
     modifier: Modifier = Modifier,
     onQueue: () -> Unit = {},
     canQueue: Boolean = false,
@@ -75,9 +80,7 @@ fun ChatInput(
     onReorderQueuedMessages: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     fontSizeMultiplier: Float = 1f,
     attachedFiles: List<AttachedFile> = emptyList(),
-    attachmentActions: ChatAttachmentActions,
     onRemoveFile: (AttachedFile) -> Unit = {},
-    onAttachFromServer: () -> Unit = {},
     promptSuggestions: List<PromptMentionDisplayData> = emptyList(),
     onPromptSelected: (PromptMentionDisplayData) -> Unit = {},
     onSlashCommandSelected: (PromptMentionDisplayData) -> Unit = {},
@@ -91,23 +94,13 @@ fun ChatInput(
     pinnedToolKeys: List<String> = emptyList(),
     mcpServers: List<McpServerDisplayData> = emptyList(),
     selectedMcpServerNames: Set<String> = emptySet(),
-    onToggleMcpServer: (String) -> Unit = {},
-    onOpenModelParameters: () -> Unit = {},
-    onOpenModelSelector: () -> Unit = {},
     selectedModelDisplay: String? = null,
     isCodeInterpreterAvailable: Boolean = true,
-    webSearchEnabled: Boolean = true,
-    urlContextEnabled: Boolean = false,
-    runCodeEnabled: Boolean = true,
-    fileSearchEnabled: Boolean = true,
-    mcpServersEnabled: Boolean = true,
     gates: ChatInputGates = ChatInputGates(),
     contextUsage: ContextUsage? = null,
     tokenUsage: TokenUsage? = null,
     contextUsageEnabled: Boolean = false,
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
-    contextGaugeExpanded: Boolean = false,
-    onContextGaugeExpandedChange: (Boolean) -> Unit = {},
 ) {
     val cdOpenToolsMenu = stringResource(Res.string.cd_open_tools_menu)
     val cdPasteImage = stringResource(Res.string.cd_paste_image)
@@ -116,7 +109,6 @@ fun ChatInput(
     val cdStartVoiceRec = stringResource(Res.string.cd_start_voice_recording)
 
     val focusRequester = remember { FocusRequester() }
-    var showToolsSheet by remember { mutableStateOf(false) }
 
     // Use TextFieldValue internally so we can control cursor position.
     // When inputText changes externally (e.g. STT result, prompt insertion),
@@ -203,7 +195,7 @@ fun ChatInput(
             // "+" button to open tools bottom sheet
             Box {
                 FilledTonalIconButton(
-                    onClick = { showToolsSheet = true },
+                    onClick = onOpenTools,
                     modifier = Modifier
                         .size(48.dp)
                         .semantics {
@@ -352,36 +344,4 @@ fun ChatInput(
             Spacer(modifier = Modifier.width(8.dp))
         },
     )
-
-    // Tools bottom sheet
-    if (showToolsSheet) {
-        ChatToolsBottomSheet(
-            enabledTools = enabledTools,
-            onToggleTool = onToggleTool,
-            mcpServers = mcpServers,
-            selectedMcpServerNames = selectedMcpServerNames,
-            onToggleMcpServer = onToggleMcpServer,
-            onAttachFiles = attachmentActions.onAttachFiles,
-            onTakePhoto = attachmentActions.onTakePhoto,
-            onPickPhotos = attachmentActions.onPickPhotos,
-            onAttachFromServer = onAttachFromServer,
-            onOpenModelParameters = onOpenModelParameters,
-            onOpenModelSelector = onOpenModelSelector,
-            selectedModelDisplay = selectedModelDisplay,
-            onDismiss = { showToolsSheet = false },
-            isCodeInterpreterAvailable = isCodeInterpreterAvailable,
-            webSearchEnabled = webSearchEnabled,
-            urlContextEnabled = urlContextEnabled,
-            runCodeEnabled = runCodeEnabled,
-            fileSearchEnabled = fileSearchEnabled,
-            mcpServersEnabled = mcpServersEnabled,
-            gates = gates,
-            contextUsage = contextUsage,
-            tokenUsage = tokenUsage,
-            contextUsageEnabled = contextUsageEnabled,
-            contextBarPlacement = contextBarPlacement,
-            contextGaugeExpanded = contextGaugeExpanded,
-            onContextGaugeExpandedChange = onContextGaugeExpandedChange,
-        )
-    }
 }

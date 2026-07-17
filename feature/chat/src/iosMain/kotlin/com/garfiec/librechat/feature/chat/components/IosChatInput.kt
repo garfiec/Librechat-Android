@@ -19,10 +19,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -44,6 +41,11 @@ fun IosChatInput(
     onInputChanged: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    /**
+     * Opens the chat options sheet from the "+" button. The sheet is hosted by the chat screen,
+     * not here — see `ChatOptionsSheetController`.
+     */
+    onOpenTools: () -> Unit,
     modifier: Modifier = Modifier,
     onQueue: () -> Unit = {},
     canQueue: Boolean = false,
@@ -64,38 +66,23 @@ fun IosChatInput(
     onToggleTool: (String) -> Unit = {},
     mcpServers: List<McpServerDisplayData> = emptyList(),
     selectedMcpServerNames: Set<String> = emptySet(),
-    onToggleMcpServer: (String) -> Unit = {},
-    onOpenModelParameters: () -> Unit = {},
     isRecording: Boolean = false,
     isTranscribing: Boolean = false,
     onStartRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
-    onOpenModelSelector: () -> Unit = {},
     selectedModelDisplay: String? = null,
     isCodeInterpreterAvailable: Boolean = true,
     attachedFiles: List<AttachedFile> = emptyList(),
     onRemoveFile: (AttachedFile) -> Unit = {},
     hasClipboardImage: Boolean = false,
     onPasteImage: (() -> Unit)? = null,
-    onAttachFiles: () -> Unit = {},
-    onTakePhoto: () -> Unit = {},
-    onPickPhotos: () -> Unit = {},
-    onAttachFromServer: () -> Unit = {},
-    webSearchEnabled: Boolean = true,
-    urlContextEnabled: Boolean = false,
-    runCodeEnabled: Boolean = true,
-    fileSearchEnabled: Boolean = true,
-    mcpServersEnabled: Boolean = true,
     gates: ChatInputGates = ChatInputGates(),
     contextUsage: ContextUsage? = null,
     tokenUsage: TokenUsage? = null,
     contextUsageEnabled: Boolean = false,
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
-    contextGaugeExpanded: Boolean = false,
-    onContextGaugeExpandedChange: (Boolean) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    var showToolsSheet by remember { mutableStateOf(false) }
 
     val state = ChatInputState(
         inputText = inputText,
@@ -140,7 +127,7 @@ fun IosChatInput(
         leadingButtons = {
             // "+" button to open tools bottom sheet (matches Android behavior)
             FilledTonalIconButton(
-                onClick = { showToolsSheet = true },
+                onClick = onOpenTools,
                 modifier = Modifier.size(48.dp),
             ) {
                 Icon(
@@ -231,53 +218,4 @@ fun IosChatInput(
         },
     )
 
-    // Tools bottom sheet with native iOS file picker actions
-    if (showToolsSheet) {
-        ChatToolsBottomSheet(
-            enabledTools = enabledTools,
-            onToggleTool = onToggleTool,
-            mcpServers = mcpServers,
-            selectedMcpServerNames = selectedMcpServerNames,
-            onToggleMcpServer = onToggleMcpServer,
-            onAttachFiles = {
-                showToolsSheet = false
-                onAttachFiles()
-            },
-            onTakePhoto = {
-                showToolsSheet = false
-                onTakePhoto()
-            },
-            onPickPhotos = {
-                showToolsSheet = false
-                onPickPhotos()
-            },
-            onAttachFromServer = {
-                showToolsSheet = false
-                onAttachFromServer()
-            },
-            onOpenModelParameters = {
-                showToolsSheet = false
-                onOpenModelParameters()
-            },
-            onOpenModelSelector = {
-                showToolsSheet = false
-                onOpenModelSelector()
-            },
-            selectedModelDisplay = selectedModelDisplay,
-            onDismiss = { showToolsSheet = false },
-            isCodeInterpreterAvailable = isCodeInterpreterAvailable,
-            webSearchEnabled = webSearchEnabled,
-            urlContextEnabled = urlContextEnabled,
-            runCodeEnabled = runCodeEnabled,
-            fileSearchEnabled = fileSearchEnabled,
-            mcpServersEnabled = mcpServersEnabled,
-            gates = gates,
-            contextUsage = contextUsage,
-            tokenUsage = tokenUsage,
-            contextUsageEnabled = contextUsageEnabled,
-            contextBarPlacement = contextBarPlacement,
-            contextGaugeExpanded = contextGaugeExpanded,
-            onContextGaugeExpandedChange = onContextGaugeExpandedChange,
-        )
-    }
 }

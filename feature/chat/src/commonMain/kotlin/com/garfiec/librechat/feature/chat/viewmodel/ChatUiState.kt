@@ -79,7 +79,6 @@ data class ChatUiState(
     val availableModels: Map<String, List<String>> get() = selection.availableModels
     val agents: List<Agent> get() = selection.agents
     val modelParameters: ModelParameters get() = selection.modelParameters
-    val showModelParameters: Boolean get() = selection.showModelParameters
     val showModelSheet: Boolean get() = selection.showModelSheet
     val enabledTools: Set<String> get() = selection.enabledTools
     val mcpServers: List<McpServerDisplayData> get() = selection.mcpServers
@@ -244,7 +243,7 @@ data class ChatUiState(
 
     /**
      * Bundle of the feature gates that flow into the composer ([ChatInput] →
-     * [ChatToolsBottomSheet]), so the four are threaded as one value across both
+     * [ChatToolsSheetContent]), so the four are threaded as one value across both
      * platforms instead of four parallel params. Built from the existing fields;
      * see each property for its gating rule. (`presetsEnabled` is not included —
      * it flows to the top bar, a different path.)

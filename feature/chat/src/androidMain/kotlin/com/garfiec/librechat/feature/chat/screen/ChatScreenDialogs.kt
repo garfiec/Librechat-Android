@@ -17,10 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.garfiec.librechat.core.common.EndpointConstants
-import com.garfiec.librechat.core.ui.components.ModelParameterSheet
 import com.garfiec.librechat.feature.chat.components.ForkOptionsBottomSheet
-import com.garfiec.librechat.feature.chat.components.ModelSelectorSheet
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
 import com.garfiec.librechat.feature.chat.resources.*
@@ -31,10 +28,13 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Hosts the chat screen's transient dialogs and bottom sheets — preset load/save,
- * fork options, model parameters, rename/delete confirmations, and the primary +
- * secondary model selectors — so [ChatScreen] only has to declare which are open.
+ * fork options, rename/delete confirmations, and the primary + secondary *standalone*
+ * model selectors — so [ChatScreen] only has to declare which are open.
  * Local-only visibility (preset picker, save-preset, secondary model sheet) is
  * hoisted to the caller via the boolean flags and their setters.
+ *
+ * The chat options sheet — the "+" menu, with the model selector and model parameters as
+ * swappable pages — is hosted separately in [ChatScreen], since two entry points open it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,29 +93,6 @@ internal fun ChatScreenDialogs(
         )
     }
 
-    if (uiState.showModelParameters) {
-        val activeAgent = remember(uiState.agents, uiState.selectedModel, uiState.selectedEndpoint) {
-            if (uiState.selectedEndpoint == EndpointConstants.AGENTS) {
-                uiState.agents.find { it.id == uiState.selectedModel }
-            } else {
-                null
-            }
-        }
-        ModelParameterSheet(
-            parameters = uiState.modelParameters,
-            onParametersChange = viewModel::updateModelParameters,
-            onDismiss = viewModel::hideModelParameters,
-            selectedEndpoint = uiState.selectedEndpoint,
-            extendedEffortSupported = uiState.extendedEffortSupported,
-            selectedProvider = activeAgent?.provider,
-            selectedModel = activeAgent?.model ?: uiState.selectedModel,
-            onSaveAsPreset = {
-                viewModel.hideModelParameters()
-                onSetShowSavePresetDialog(true)
-            },
-        )
-    }
-
     if (uiState.showRenameDialog) {
         ChatRenameDialog(
             currentTitle = uiState.conversationTitle ?: "",
@@ -133,65 +110,21 @@ internal fun ChatScreenDialogs(
     }
 
     if (uiState.showModelSheet) {
-        ModelSelectorSheet(
-            endpointConfigs = uiState.endpointConfigs,
-            availableModels = uiState.availableModels,
-            agents = uiState.agents,
-            selectedEndpoint = uiState.selectedEndpoint,
-            selectedModel = uiState.selectedModel,
-            onModelSelect = { endpoint, model ->
-                viewModel.onModelSelected(endpoint, model)
-                // Clear any pending scaffold-level snackbar for the same error so it
-                // doesn't flash behind the sheet's close animation. Harmless no-op when
-                // error is already null.
-                viewModel.dismissError()
-                viewModel.dismissSendBlockReason()
-                viewModel.dismissModelSheet()
-            },
-            onDismiss = {
-                viewModel.dismissError()
-                viewModel.dismissSendBlockReason()
-                viewModel.dismissModelSheet()
-            },
-            serverUrl = uiState.serverUrl,
-            // Send-block reasons take precedence: when set, the sheet was auto-opened
-            // to help the user resolve the block, so surface that context inline.
-            errorMessage = sendBlockMessage ?: uiState.error,
-            onErrorDismiss = {
-                viewModel.dismissSendBlockReason()
-                viewModel.dismissError()
-            },
-            favoriteAgentIds = uiState.favoriteAgentIds,
-            favoriteModelKeys = uiState.favoriteModelKeys,
-            onToggleAgentFavorite = viewModel::toggleAgentFavorite,
-            onToggleModelFavorite = viewModel::toggleModelFavorite,
-            starredDisplay = uiState.starredModelsDisplay,
-            endpointKeyStates = uiState.endpointKeyStates,
-            onSetApiKey = { name -> onNavigateToProviderKeys(name) },
+        PrimaryModelSelectorSheet(
+            uiState = uiState,
+            viewModel = viewModel,
+            sendBlockMessage = sendBlockMessage,
+            onNavigateToProviderKeys = onNavigateToProviderKeys,
         )
     }
 
     // Secondary model selector sheet for comparison mode
     if (showSecondaryModelSheet) {
-        ModelSelectorSheet(
-            endpointConfigs = uiState.endpointConfigs,
-            availableModels = uiState.availableModels,
-            agents = uiState.agents,
-            selectedEndpoint = uiState.comparisonState.secondaryEndpoint,
-            selectedModel = uiState.comparisonState.secondaryModel,
-            onModelSelect = { endpoint, model ->
-                viewModel.setSecondaryModel(endpoint, model)
-                onSetShowSecondaryModelSheet(false)
-            },
+        SecondaryModelSelectorSheet(
+            uiState = uiState,
+            viewModel = viewModel,
             onDismiss = { onSetShowSecondaryModelSheet(false) },
-            serverUrl = uiState.serverUrl,
-            favoriteAgentIds = uiState.favoriteAgentIds,
-            favoriteModelKeys = uiState.favoriteModelKeys,
-            onToggleAgentFavorite = viewModel::toggleAgentFavorite,
-            onToggleModelFavorite = viewModel::toggleModelFavorite,
-            starredDisplay = uiState.starredModelsDisplay,
-            endpointKeyStates = uiState.endpointKeyStates,
-            onSetApiKey = { name -> onNavigateToProviderKeys(name) },
+            onNavigateToProviderKeys = onNavigateToProviderKeys,
         )
     }
 }

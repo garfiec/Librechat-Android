@@ -40,7 +40,7 @@ data class FeatureGatesState(
 )
 
 /**
- * Feature gates that flow into the composer ([ChatInput] → [ChatToolsBottomSheet]),
+ * Feature gates that flow into the composer ([ChatInput] → [ChatToolsSheetContent]),
  * bundled so they thread as one value across Android and iOS. Each defaults to true
  * (shown) so a default-constructed bundle is fully permissive. Built by
  * [ChatUiState.chatInputGates]; see [ChatUiState.modelSelectEnabled] /

@@ -1420,16 +1420,21 @@ class ChatViewModel(
     fun openModelSheet() = surfaceModelSheet()
 
     /**
-     * Single choke point for showing the model-selector sheet — user-initiated (model
-     * chip) and send-blocked auto-opens alike. Opening the selector retries a failed
-     * agent load so the user can actually pick an agent, and refetches favorites to
-     * self-heal a failed cold-start fetch (see [FavoritesDelegate.refresh]); routing
-     * every open through here keeps both from being forgotten on a future open path. A
-     * null [reason] leaves the current sendBlockReason untouched.
+     * Side effects of surfacing the selector (retry a failed agent load, refetch favorites), split
+     * out for the paged sheet, which shows the selector without setting `showModelSheet`. Every
+     * selector path must route through here or these self-heals are lost.
      */
-    private fun surfaceModelSheet(reason: SendBlockReason? = null) {
+    fun prepareModelSelector() {
         modelDelegate.retryAgentsIfFailed(isNewConversation)
         favoritesDelegate.refresh()
+    }
+
+    /**
+     * Single choke point for the *standalone* selector sheet, layering the sheet flag over
+     * [prepareModelSelector]. A null [reason] leaves the current sendBlockReason untouched.
+     */
+    private fun surfaceModelSheet(reason: SendBlockReason? = null) {
+        prepareModelSelector()
         _uiState.update {
             it.copy(
                 composer = it.composer.copy(sendBlockReason = reason ?: it.sendBlockReason),
@@ -1648,8 +1653,6 @@ class ChatViewModel(
     fun getSecondaryModelDisplayName(): String? = comparisonDelegate.getSecondaryModelDisplayName()
     fun toggleMcpServer(serverName: String) = modelDelegate.toggleMcpServer(serverName)
     fun toggleTool(toolName: String) = modelDelegate.toggleTool(toolName)
-    fun showModelParameters() = modelDelegate.showModelParameters()
-    fun hideModelParameters() = modelDelegate.hideModelParameters()
     fun updateModelParameters(parameters: ModelParameters) = modelDelegate.updateModelParameters(parameters)
 
     fun branchFromComparison(agentId: String) = comparisonDelegate.branchFromComparison(agentId)

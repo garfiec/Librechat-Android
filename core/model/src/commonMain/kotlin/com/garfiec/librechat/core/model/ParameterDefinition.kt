@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Describes a dynamic model parameter that can be configured per-endpoint.
- * Used by ModelParameterSheet to render appropriate controls.
+ * Used by ModelParameterContent to render appropriate controls.
  */
 @Serializable
 data class ParameterDefinition(

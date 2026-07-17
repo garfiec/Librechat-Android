@@ -5,20 +5,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -141,48 +134,6 @@ data class ModelParameters(
         val defaultNum = default.toDoubleOrNull()
         if (currentNum != null && defaultNum != null) return currentNum != defaultNum
         return current != default
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ModelParameterSheet(
-    parameters: ModelParameters,
-    onParametersChange: (ModelParameters) -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    selectedEndpoint: String = "",
-    dynamicParameterDefinitions: List<ParameterDefinition>? = null,
-    extendedEffortSupported: Boolean = false,
-    /** Underlying provider when [selectedEndpoint] is "agents". Routes the
-     *  agents dispatcher to the matching provider's parameter set. */
-    selectedProvider: String? = null,
-    /** Model id; consumed by the bedrock dispatcher (or the agents dispatcher
-     *  when its underlying provider is bedrock). */
-    selectedModel: String? = null,
-    onSaveAsPreset: () -> Unit = {},
-    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        modifier = modifier,
-        dragHandle = { LowProfileDragHandle() },
-    ) {
-        ModelParameterContent(
-            parameters = parameters,
-            onParametersChange = onParametersChange,
-            selectedEndpoint = selectedEndpoint,
-            dynamicParameterDefinitions = dynamicParameterDefinitions,
-            extendedEffortSupported = extendedEffortSupported,
-            selectedProvider = selectedProvider,
-            selectedModel = selectedModel,
-            onSaveAsPreset = onSaveAsPreset,
-            modifier = Modifier
-                .padding(horizontal = 24.dp)
-                .navigationBarsPadding()
-                .imePadding(),
-        )
     }
 }
 
