@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -107,7 +108,7 @@ fun LibreChatNavHost(
 
     // Stable start key — auth redirect handled via LaunchedEffect below.
     val backStack = rememberNavBackStack(navigationSavedStateConfig, NewChat())
-    val navigator = Navigator(backStack)
+    val navigator = remember(backStack) { Navigator(backStack) }
 
     // Redirect to auth if not logged in — once per saved-state lifecycle, NOT on every recreation.
     // LaunchedEffect(Unit) restarts on each Activity recreation (config change / process-death restore,
