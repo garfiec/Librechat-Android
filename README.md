@@ -8,17 +8,19 @@ A third-party native mobile client for [LibreChat](https://www.librechat.ai/) (A
 
 ## Features
 
+- **Multi-Account & Multi-Server** — Sign in to multiple accounts across different LibreChat servers and switch between them instantly, no re-login. Swipe the account chip to switch; storage is fully scoped per account.
+- **Pin Artifacts to Home Screen** — Turn any generated artifact (HTML, React, SVG, Mermaid, Markdown) into a home-screen launcher icon that opens straight into a full-screen viewer — works on cold start, while logged out, and even after the source chat is deleted. *(Android)*
+- **Quick Actions** — Your most-used models become home-screen shortcuts (Android) and long-press quick actions (iOS) that deep-link into a new chat with that model preselected.
+- **Rich Media Viewer** — Full-screen, Google-Photos-style viewer with pinch-to-zoom and swipe between images across a branch or grid, shared by chat and files.
+- **Native Upload, Share & Save** — Attach from the device or reuse existing server files without re-uploading, save images to your gallery, and share out through the system share sheet with original format preserved.
 - **Chat** — Real-time streaming (SSE), message branching & sibling navigation, stop/regenerate/continue, markdown with syntax highlighting, LaTeX math rendering, code blocks with copy, image display, file attachments, tool call progress cards
 - **Inline Artifacts** — Render Mermaid, SVG, HTML, React, and Markdown artifacts directly in chat messages at full message width with content-fit height. Per-type toggle in Settings → Chat → Artifacts.
 - **Model Selection** — Searchable bottom sheet grouped by endpoint, model comparison mode
 - **Agents** — Marketplace with search and categories, MCP server configuration
 - **Conversations** — Paginated list with date grouping, tags, search, rename, archive, delete, share, fork, duplicate, export/import
-- **Presets & Prompts** — Save/load chat presets, prompts library with @mention insertion
-- **Authentication** — Login, registration, forgot password, two-factor (TOTP + backup codes), OAuth (Google, GitHub, Discord, Facebook, Apple, OpenID)
-- **Files** — Upload, list, delete, inline image rendering with pinch-to-zoom
-- **Voice** — Speech-to-text input, text-to-speech playback (device and server engines)
-- **Settings** — Theme (system/light/dark), account management, data controls
-- **Tablet** — Adaptive dual-pane layout (600dp+) with persistent sidebar
+- **Voice** — On-device live dictation (Android & iOS) with cloud fallback, plus text-to-speech playback
+- **Mobile & Tablet** — Single adaptive UI: single-pane on phones, dual-pane layout (600dp+) with a persistent sidebar on tablets and foldables, with native predictive-back gestures
+- **Settings** — Theme (system/light/dark), in-app language switching, accent color, account management, data controls
 - **Accessibility** — Semantic headings, content descriptions, 48dp touch targets, live regions
 
 ## Screenshots
