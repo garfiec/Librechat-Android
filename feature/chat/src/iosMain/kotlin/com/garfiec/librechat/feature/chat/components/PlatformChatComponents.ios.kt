@@ -385,7 +385,7 @@ actual fun MarkdownContent(
     immediate: Boolean,
     streaming: Boolean,
 ) {
-    val segments = remember(text) { parseMarkdownSegments(text) }
+    val segments = rememberMarkdownSegments(text, streaming)
 
     val colors = markdownColor(
         text = MaterialTheme.colorScheme.onSurface,
