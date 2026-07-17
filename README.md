@@ -13,6 +13,7 @@ A third-party native mobile client for [LibreChat](https://www.librechat.ai/) (A
 - **Quick Actions** — Your most-used models become home-screen shortcuts (Android) and long-press quick actions (iOS) that deep-link into a new chat with that model preselected.
 - **Rich Media Viewer** — Full-screen, Google-Photos-style viewer with pinch-to-zoom and swipe between images across a branch or grid, shared by chat and files.
 - **Native Upload, Share & Save** — Attach from the device or reuse existing server files without re-uploading, save images to your gallery, and share out through the system share sheet with original format preserved.
+- **Themes** — Pick any accent color and the whole app regenerates a matching Material 3 palette — choose from presets or dial in a custom color (HSV or hex). System/light/dark modes, plus Material You wallpaper-based colors on Android 12+.
 - **Chat** — Real-time streaming (SSE), message branching & sibling navigation, stop/regenerate/continue, markdown with syntax highlighting, LaTeX math rendering, code blocks with copy, image display, file attachments, tool call progress cards
 - **Inline Artifacts** — Render Mermaid, SVG, HTML, React, and Markdown artifacts directly in chat messages at full message width with content-fit height. Per-type toggle in Settings → Chat → Artifacts.
 - **Model Selection** — Searchable bottom sheet grouped by endpoint, model comparison mode
@@ -20,7 +21,7 @@ A third-party native mobile client for [LibreChat](https://www.librechat.ai/) (A
 - **Conversations** — Paginated list with date grouping, tags, search, rename, archive, delete, share, fork, duplicate, export/import
 - **Voice** — On-device live dictation (Android & iOS) with cloud fallback, plus text-to-speech playback
 - **Mobile & Tablet** — Single adaptive UI: single-pane on phones, dual-pane layout (600dp+) with a persistent sidebar on tablets and foldables, with native predictive-back gestures
-- **Settings** — Theme (system/light/dark), in-app language switching, accent color, account management, data controls
+- **Settings** — In-app language switching, account management, data controls
 - **Accessibility** — Semantic headings, content descriptions, 48dp touch targets, live regions
 
 ## Screenshots
