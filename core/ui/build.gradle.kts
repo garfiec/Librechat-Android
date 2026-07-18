@@ -23,5 +23,15 @@ kotlin {
             implementation(libs.activity.compose)
             implementation(libs.kermit)
         }
+        named("androidInstrumentedTest").dependencies {
+            implementation(libs.junit)
+            implementation(libs.android.test.runner)
+            implementation(libs.android.test.ext.junit)
+            implementation(libs.compose.ui.test)
+            implementation(libs.compose.ui.test.manifest)
+            // Pin espresso ≥3.7.0: the 3.5.x pulled in transitively by ui-test-junit4 injects
+            // input via InputManager.getInstance, which no longer exists on API 36+.
+            implementation(libs.espresso.core)
+        }
     }
 }
