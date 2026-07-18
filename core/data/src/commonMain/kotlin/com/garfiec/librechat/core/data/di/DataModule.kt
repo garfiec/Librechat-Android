@@ -265,6 +265,18 @@ val dataModule = module {
         )
     }
 
+    single<ConversationRepository> {
+        ConversationRepositoryImpl(
+            conversationsApi = get(),
+            conversationDao = get(),
+            messageDao = get(),
+            activeAccountProvider = get(),
+            roster = get(),
+            json = get(),
+            dispatcher = get(KoinQualifiers.Default),
+        )
+    }
+
     single<MessageRepository> {
         MessageRepositoryImpl(
             messagesApi = get(),
@@ -300,7 +312,6 @@ val dataModule = module {
             dispatcher = get(KoinQualifiers.Default),
         )
     } bind ConfigRepository::class
-    singleOf(::ConversationRepositoryImpl) bind ConversationRepository::class
     singleOf(::FileRepositoryImpl) bind FileRepository::class
     singleOf(::AgentRepositoryImpl) bind AgentRepository::class
     singleOf(::AgentToolsRepositoryImpl) bind AgentToolsRepository::class

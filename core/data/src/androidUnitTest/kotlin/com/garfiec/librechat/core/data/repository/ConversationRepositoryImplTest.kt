@@ -21,6 +21,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Before
@@ -48,6 +49,7 @@ class ConversationRepositoryImplTest {
             activeAccountProvider = activeAccountProvider,
             roster = roster,
             json = json,
+            dispatcher = UnconfinedTestDispatcher(),
         )
     }
 

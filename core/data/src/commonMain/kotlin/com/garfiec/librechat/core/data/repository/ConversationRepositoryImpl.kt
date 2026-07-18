@@ -18,8 +18,10 @@ import com.garfiec.librechat.core.model.ConversationPage
 import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.model.request.ForkConversationRequest
 import com.garfiec.librechat.core.network.api.ConversationsApi
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -33,13 +35,17 @@ class ConversationRepositoryImpl(
     private val activeAccountProvider: ActiveAccountProvider,
     private val roster: AccountRoster,
     private val json: Json,
+    private val dispatcher: CoroutineDispatcher,
 ) : ConversationRepository {
 
+    // toModels() decodes each row's tags JSON and formats two timestamps, so the whole cached list
+    // is remapped on every Room emission (a rename/pin/delete re-emits). flowOn keeps that off the
+    // collector's thread — all three collectors observe from the main dispatcher.
     override fun observeConversations(isArchived: Boolean): Flow<Result<List<Conversation>>> =
         activeAccountProvider.flatMapAccountOrEmpty(Result.Success(emptyList())) { account ->
             conversationDao.observeConversationsForAccount(account.value, isArchived)
                 .map { entities -> Result.Success(entities.toModels()) as Result<List<Conversation>> }
-        }
+        }.flowOn(dispatcher)
 
     override suspend fun loadNextPage(
         cursor: String?,
