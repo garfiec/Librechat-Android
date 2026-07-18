@@ -5,9 +5,11 @@ import android.content.ClipboardManager
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.ui.components.LoadingIndicator
 import com.garfiec.librechat.feature.chat.components.LandingContent
@@ -26,10 +28,11 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
  * wide screens, a tab pager on phones); otherwise it shows the single message
  * list. Lives in a [ColumnScope] so the panes can claim the remaining height via
  * `weight`, leaving the bottom of the box for the composer overlay.
+ *
+ * Collects `viewModel.uiState` at full rate — the one subtree that re-renders per streaming flush.
  */
 @Composable
 internal fun ColumnScope.ChatContent(
-    uiState: ChatUiState,
     viewModel: ChatViewModel,
     clipboardManager: ClipboardManager,
     agentName: String?,
@@ -50,6 +53,7 @@ internal fun ColumnScope.ChatContent(
     // Drives the pull-up sheet directly from the (non-scrollable) landing surface.
     pullUpModifier: Modifier,
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     // Non-scrolling bodies (landing, loading, comparison panes) clear the floating bar with a
     // plain top padding; only the single active MessageList takes the inset as scrollable
     // contentPadding so its content scrolls up behind the bar's scrim.

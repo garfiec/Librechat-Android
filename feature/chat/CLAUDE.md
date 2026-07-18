@@ -25,6 +25,16 @@
   (`MessagesState`) because all five couple them.
 - Adding a field: put it on the owning slice, add a flat compat accessor on `ChatUiState`, and
   add the slice to the writer of whichever delegate(s) own it.
+- **Chrome/hot collection split (Android `ChatScreen`).** The screen collects `uiState` twice:
+  `ChatContent` (the thread subtree) at full rate, the rest — top bar, composer, dialogs, sheets,
+  effects ("chrome") — as `map { it.neutralizeStreamingChurn() }.distinctUntilChanged()`
+  (`ChatChromeEquivalence.kt`), so the 50ms flush doesn't re-execute the whole screen ~20×/s.
+  The neutralized fields are always empty on the chrome's copy — chrome must not read them; if it
+  needs one, drop it from `neutralizeStreamingChurn`. New high-frequency streaming fields go in
+  both `neutralizeStreamingChurn` and `ChatChromeEquivalenceTest`. Known exclusion:
+  `subagentProgress` is chrome-visible by design (ChatRoot → `LocalSubagentProgress`) and written
+  per SSE envelope unthrottled, so subagent-heavy runs still re-execute the chrome — needs a
+  separate collection path or a write-side throttle in `SubagentTraceDelegate` (open follow-up).
 
 ## Screen States
 `ChatScreenState` enum: `LANDING` | `LOADING` | `ACTIVE`
