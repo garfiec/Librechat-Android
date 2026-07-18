@@ -53,7 +53,6 @@
     <string name="page_of">Page %1$d of %2$d</string>
     <string name="page_cd">Page %1$d of %2$s</string>
     <string name="could_not_render_pdf">Could not render PDF preview</string>
-    <string name="pdf_page_failed">Couldn\'t render this page</string>
     <string name="failed_to_download_pdf">Failed to download PDF</string>
     <string name="failed_to_render_pdf">Failed to render PDF</string>
     <string name="loading_file_content">Loading file content…</string>

@@ -38,6 +38,14 @@ Material 3 theme and shared Compose components used across all feature modules. 
 - `ToolCallCard` - Expandable tool call display.
 - `FileAttachmentChip` - File reference chip.
 - `FeedbackButtons` - Thumbs up/down.
+
+### PDF (`pdf/`, androidMain only)
+- `PdfDocumentHolder` - Owns the `PdfRenderer`/fd; mutex-serialized on-demand `renderPage` with
+  dimension caps and a page-count bound. Created from bytes, closed by the owning composable.
+- `PdfPageContent` - One page rendered when it scrolls into a LazyColumn window and recycled when
+  it scrolls out. Shared by `:feature:chat`'s viewer (adds per-page pinch-zoom via the modifier
+  slot) and `:feature:files`' preview (adds page labels). Fix render/recycle logic HERE, not in the
+  feature copies — there are none.
 - `StreamingIndicator` - Pulsing indicator during SSE streaming.
 
 ## Rules
@@ -45,7 +53,7 @@ Material 3 theme and shared Compose components used across all feature modules. 
 - **No business logic.** No ViewModels, no repository calls, no use cases.
 - Components accept domain models from `:core:model` as parameters and render them.
 - All components must be stateless or hoist state to the caller.
-- Dependencies: `:core:model`, `:core:common`, Coil for image loading, Compose libraries.
+- Dependencies: `:core:model`, `:core:common`, Coil for image loading, Compose libraries, Kermit logging (androidMain, for the PDF holder).
 - Convention plugins: `librechat.mobile.library` + `librechat.mobile.compose`.
 - No DI in this module (no Koin modules, no injected classes).
 - Use `@Preview` annotations on all components for Android Studio preview support.

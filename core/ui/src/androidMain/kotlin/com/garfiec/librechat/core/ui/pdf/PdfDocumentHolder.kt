@@ -8,6 +8,7 @@ import android.os.ParcelFileDescriptor
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,13 @@ private const val DEFAULT_PAGE_ASPECT = 0.7071f
  */
 private const val MAX_PAGE_BITMAP_WIDTH_PX = 2048
 private const val MAX_PAGE_BITMAP_HEIGHT_PX = 8192
+
+/**
+ * Upper bound on the page count taken from the document. Per-page bookkeeping ([aspectRatios]) and
+ * the caller's LazyColumn item count are O(pageCount), so a corrupt or crafted PDF claiming
+ * millions of pages could otherwise allocate its way to an OOM before a single page renders.
+ */
+private const val MAX_PAGE_COUNT = 2000
 
 /**
  * Owns the [PdfRenderer] and its backing fd. [renderPage] is serialized by a [Mutex] because
@@ -63,33 +71,44 @@ class PdfDocumentHolder private constructor(
             ?: DEFAULT_PAGE_ASPECT
     }
 
-    suspend fun renderPage(index: Int, widthPx: Int): ImageBitmap? = withContext(Dispatchers.IO) {
-        runCatching {
-            mutex.withLock {
-                if (closed) return@withLock null
-                renderer.openPage(index).use { page ->
-                    if (page.width <= 0 || page.height <= 0) return@use null
-                    aspectRatios.set(index, (page.width.toFloat() / page.height).toRawBits())
+    suspend fun renderPage(index: Int, widthPx: Int): ImageBitmap? {
+        var rendered: Bitmap? = null
+        try {
+            return withContext(Dispatchers.IO) {
+                runCatching {
+                    mutex.withLock {
+                        if (closed) return@withLock null
+                        renderer.openPage(index).use { page ->
+                            if (page.width <= 0 || page.height <= 0) return@use null
+                            aspectRatios.set(index, (page.width.toFloat() / page.height).toRawBits())
 
-                    // Fit to width, then downscale by one factor so neither dimension exceeds its cap
-                    // (aspect preserved). FillWidth upscales the smaller bitmap back to the container.
-                    val fitHeight = widthPx.toFloat() * page.height / page.width
-                    val downscale = minOf(
-                        1f,
-                        MAX_PAGE_BITMAP_WIDTH_PX / widthPx.toFloat(),
-                        MAX_PAGE_BITMAP_HEIGHT_PX / fitHeight,
-                    )
-                    val renderWidth = (widthPx * downscale).toInt().coerceAtLeast(1)
-                    val renderHeight = (fitHeight * downscale).toInt().coerceAtLeast(1)
+                            // Fit to width, then downscale by one factor so neither dimension exceeds its cap
+                            // (aspect preserved). FillWidth upscales the smaller bitmap back to the container.
+                            val fitHeight = widthPx.toFloat() * page.height / page.width
+                            val downscale = minOf(
+                                1f,
+                                MAX_PAGE_BITMAP_WIDTH_PX / widthPx.toFloat(),
+                                MAX_PAGE_BITMAP_HEIGHT_PX / fitHeight,
+                            )
+                            val renderWidth = (widthPx * downscale).toInt().coerceAtLeast(1)
+                            val renderHeight = (fitHeight * downscale).toInt().coerceAtLeast(1)
 
-                    val bmp = Bitmap.createBitmap(renderWidth, renderHeight, Bitmap.Config.ARGB_8888)
-                    // PDF pages are transparent where unpainted; fill white so text is legible on dark themes.
-                    bmp.eraseColor(Color.WHITE)
-                    page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    bmp.asImageBitmap()
-                }
+                            val bmp = Bitmap.createBitmap(renderWidth, renderHeight, Bitmap.Config.ARGB_8888)
+                            rendered = bmp
+                            // PDF pages are transparent where unpainted; fill white so text is legible on dark themes.
+                            bmp.eraseColor(Color.WHITE)
+                            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            bmp.asImageBitmap()
+                        }
+                    }
+                }.getOrNull()
             }
-        }.getOrNull()
+        } catch (e: CancellationException) {
+            // Prompt cancellation can discard a render that already completed on the IO thread —
+            // the caller never receives the bitmap, so free it here instead of leaving it to GC.
+            rendered?.recycle()
+            throw e
+        }
     }
 
     fun close() {
@@ -119,7 +138,11 @@ class PdfDocumentHolder private constructor(
                 // process is killed with the preview open — no orphaned cache files.
                 file.delete()
                 val renderer = PdfRenderer(fd)
-                PdfDocumentHolder(fd, renderer, renderer.pageCount)
+                val pageCount = minOf(renderer.pageCount, MAX_PAGE_COUNT)
+                if (renderer.pageCount > pageCount) {
+                    Logger.w { "PdfDocumentHolder: capping ${renderer.pageCount}-page document at $pageCount pages" }
+                }
+                PdfDocumentHolder(fd, renderer, pageCount)
             }.onFailure { e ->
                 Logger.e(e) { "PdfDocumentHolder.create failed" }
                 runCatching { opened?.close() }
