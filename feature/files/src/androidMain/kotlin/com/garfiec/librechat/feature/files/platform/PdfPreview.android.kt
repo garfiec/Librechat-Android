@@ -63,10 +63,9 @@ actual fun PdfPreview(
     val context = LocalContext.current
     val currentOnDownloadFile by rememberUpdatedState(onDownloadFile)
 
-    // The producer owns the holder's lifecycle: it publishes the instance it created and closes that
-    // same instance via awaitDispose. Download is cancellable (leaving mid-download just stops it);
-    // create() is NonCancellable so a create finishing after dismissal is still published-then-closed
-    // rather than leaking its fd/renderer.
+    // The producer owns the holder's lifecycle: it closes the same instance it published, via
+    // awaitDispose. The download stays cancellable; create() is NonCancellable so a create
+    // finishing after dismissal is still closed rather than leaking its fd/renderer.
     val loadState by produceState<PdfLoadState>(PdfLoadState.Loading, file.fileId) {
         value = PdfLoadState.Loading
         val bytes = try {

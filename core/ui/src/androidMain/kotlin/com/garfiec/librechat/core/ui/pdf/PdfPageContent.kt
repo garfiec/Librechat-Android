@@ -55,9 +55,8 @@ fun PdfPageContent(
 
     val widthPx = size.width
     val renderState = produceState<PageRender>(PageRender.Loading, doc, index, widthPx) {
-        // A width-change restart supersedes the previous bitmap. Blank the display first — this
-        // runs in the frame's effects, before draw — then free the old pixels; leaving them to GC
-        // lets native ARGB_8888 buffers pile up across fold/rotate re-renders.
+        // A width-change restart supersedes the previous bitmap: blank the display first (effects
+        // run before this frame draws), then it is safe to free the old pixels.
         val superseded = (value as? PageRender.Ready)?.bitmap
         value = PageRender.Loading
         superseded?.asAndroidBitmap()?.recycle()
@@ -66,11 +65,8 @@ fun PdfPageContent(
         }
     }
 
-    // Recycle when the page leaves composition (scrolls out of the window). Reads the State
-    // directly — not a value captured at the last recomposition — so a bitmap that landed after
-    // the final recomposition is still freed. Between this, the superseded-recycle above, and
-    // renderPage freeing a render its caller's cancellation discarded, every rendered bitmap has
-    // exactly one owner.
+    // Recycle when the page leaves composition. Must read the State directly — a value captured
+    // at the last recomposition misses a bitmap that lands just before disposal.
     DisposableEffect(renderState) {
         onDispose { (renderState.value as? PageRender.Ready)?.bitmap?.asAndroidBitmap()?.recycle() }
     }
@@ -78,8 +74,8 @@ fun PdfPageContent(
     val render = renderState.value
     val bitmap = (render as? PageRender.Ready)?.bitmap
 
-    // Once the bitmap is in, size the box to its true aspect (drives relayout); until then use the
-    // stored/placeholder ratio. Sanitize so Modifier.aspectRatio never sees 0 / NaN / ∞.
+    // True aspect once rendered, stored/placeholder ratio until then; sanitized so
+    // Modifier.aspectRatio never sees 0 / NaN / ∞.
     val aspect = bitmap
         ?.let { it.width.toFloat() / it.height.toFloat() }
         ?.takeIf { it.isFinite() && it > 0f }

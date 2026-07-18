@@ -43,11 +43,9 @@ actual fun PdfViewer(bytes: ByteArray, onRenderError: () -> Unit, modifier: Modi
     val context = LocalContext.current
     val currentOnRenderError by rememberUpdatedState(onRenderError)
 
-    // The producer owns the holder's lifecycle: it publishes the instance it created and closes that
-    // same instance via awaitDispose. (A DisposableEffect keyed on the delegated holder would read
-    // the *live* value at dispose time and close the just-created holder on the null→holder swap.)
-    // NonCancellable so a create() that finishes after the composition scrolled away is still
-    // published-or-closed rather than leaking its fd/renderer.
+    // The producer owns the holder's lifecycle: it closes the same instance it published, via
+    // awaitDispose. NonCancellable so a create() finishing after disposal is still closed rather
+    // than leaking its fd/renderer.
     val holder by produceState<PdfDocumentHolder?>(null, bytes) {
         val fresh = withContext(Dispatchers.IO + NonCancellable) {
             PdfDocumentHolder.create(context, bytes)
@@ -69,8 +67,7 @@ actual fun PdfViewer(bytes: ByteArray, onRenderError: () -> Unit, modifier: Modi
  * One page, fit to width, with per-page pinch-zoom + pan. The zoom gesture is gated to multi-touch
  * (see the second `pointerInput`) so a one-finger drag is left unconsumed and the enclosing
  * [LazyColumn] scrolls; two fingers zoom/pan the page. Double-tap resets. Pan is clamped so the page
- * can't be dragged off its own bounds. Rendering, recycling, and aspect sizing live in the shared
- * [PdfPageContent].
+ * can't be dragged off its own bounds.
  */
 @Composable
 private fun PdfPage(doc: PdfDocumentHolder, index: Int) {

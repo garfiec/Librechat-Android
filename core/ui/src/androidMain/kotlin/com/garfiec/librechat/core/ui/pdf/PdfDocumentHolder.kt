@@ -25,18 +25,15 @@ import java.util.concurrent.atomic.AtomicIntegerArray
 private const val DEFAULT_PAGE_ASPECT = 0.7071f
 
 /**
- * Hard caps on a rendered page bitmap's dimensions in pixels. A page fit to a large-screen width
- * (unfolded foldable, tablet) or a pathological aspect could otherwise demand hundreds of MB across
- * the visible window and OOM. We downscale by a single factor so *both* dimensions stay under their
- * cap while the aspect is preserved, and let `ContentScale.FillWidth` upscale the smaller bitmap.
+ * Hard caps on a rendered page bitmap's dimensions; a page fit to a tablet-width container or a
+ * pathological aspect could otherwise allocate hundreds of MB across the visible window.
  */
 private const val MAX_PAGE_BITMAP_WIDTH_PX = 2048
 private const val MAX_PAGE_BITMAP_HEIGHT_PX = 8192
 
 /**
- * Upper bound on the page count taken from the document. Per-page bookkeeping ([aspectRatios]) and
- * the caller's LazyColumn item count are O(pageCount), so a corrupt or crafted PDF claiming
- * millions of pages could otherwise allocate its way to an OOM before a single page renders.
+ * Per-page bookkeeping and the caller's LazyColumn are O(pageCount); a crafted PDF claiming
+ * millions of pages could otherwise OOM before a single page renders.
  */
 private const val MAX_PAGE_COUNT = 2000
 
@@ -55,13 +52,10 @@ class PdfDocumentHolder private constructor(
     @Volatile private var closed = false
     private val tornDown = AtomicBoolean(false)
 
-    // Holder-owned teardown scope (cancelled once teardown completes) rather than a fresh anonymous
-    // CoroutineScope per close() with no lifecycle owner.
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Real per-page width/height ratios, filled lazily by renderPage. Float bits in an
-    // AtomicIntegerArray so the render-thread write is visible to the main-thread aspectRatio() read
-    // (a plain FloatArray gives no cross-thread visibility guarantee). 0 bits == unset.
+    // Per-page width/height ratios as float bits, filled lazily by renderPage; atomic so the
+    // render-thread write is visible to the main-thread read. 0 bits == unset.
     private val aspectRatios = AtomicIntegerArray(pageCount)
 
     /** width / height, for placeholder sizing before the bitmap renders (real value once rendered). */
@@ -104,18 +98,17 @@ class PdfDocumentHolder private constructor(
                 }.getOrNull()
             }
         } catch (e: CancellationException) {
-            // Prompt cancellation can discard a render that already completed on the IO thread —
-            // the caller never receives the bitmap, so free it here instead of leaving it to GC.
+            // Prompt cancellation discards a completed render at the withContext boundary; free
+            // the bitmap the caller will never receive.
             rendered?.recycle()
             throw e
         }
     }
 
     fun close() {
-        // Idempotent: guard so a double-dispose doesn't launch teardown twice.
         if (!tornDown.compareAndSet(false, true)) return
-        // Flag first so in-flight renders bail; do the actual teardown under the lock so we never
-        // close the renderer out from under a page.render() that's mid-flight.
+        // Set the flag first so in-flight renders bail; tear down under the lock so the renderer
+        // is never closed out from under a mid-flight page.render().
         closed = true
         ioScope.launch {
             mutex.withLock {
@@ -134,8 +127,8 @@ class PdfDocumentHolder private constructor(
                 file.writeBytes(bytes)
                 val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
                 opened = fd
-                // Unlink now: the fd keeps the data readable, and the on-disk entry is gone even if the
-                // process is killed with the preview open — no orphaned cache files.
+                // Unlink now: the fd keeps the data readable and nothing is orphaned if the
+                // process dies with the preview open.
                 file.delete()
                 val renderer = PdfRenderer(fd)
                 val pageCount = minOf(renderer.pageCount, MAX_PAGE_COUNT)

@@ -42,7 +42,6 @@ class PdfPageContentInstrumentedTest {
             assertEquals(3, holder.pageCount)
             val bitmap = runBlocking { holder.renderPage(0, widthPx = 500) }
             assertNotNull(bitmap)
-            // US-Letter page (612x792): rendered aspect and cached aspect both ≈ 0.7727.
             val expected = 612f / 792f
             assertEquals(expected, bitmap!!.width.toFloat() / bitmap.height, 0.01f)
             assertEquals(expected, holder.aspectRatio(0), 0.01f)
@@ -76,9 +75,7 @@ class PdfPageContentInstrumentedTest {
             }
         }
         try {
-            // Visiting pages across the document — each visited page must reach Ready (its Image
-            // node carries the content description). Revisiting page 1 after its bitmap was
-            // recycled on scroll-out must re-render, not crash.
+            // The final index revisits page 1 after its bitmap was recycled on scroll-out.
             for (target in intArrayOf(0, 12, 25, 39, 0)) {
                 composeRule.onNodeWithTag("pdfList").performScrollToIndex(target)
                 composeRule.waitUntilPageRendered(target + 1)
@@ -100,9 +97,8 @@ class PdfPageContentInstrumentedTest {
         }
         try {
             composeRule.waitUntilPageRendered(1)
-            // Each flip restarts the width-keyed producer: the superseded bitmap is recycled and
-            // the page re-renders at the new width. A recycle of a still-displayed bitmap would
-            // crash the draw pass and fail the test.
+            // Each flip recycles the superseded bitmap; recycling a still-displayed one would
+            // crash the draw pass.
             repeat(3) {
                 composeRule.runOnUiThread { narrow.value = !narrow.value }
                 composeRule.waitForIdle()
@@ -121,11 +117,7 @@ class PdfPageContentInstrumentedTest {
         }
     }
 
-    /**
-     * Builds a minimal but valid multi-page PDF (US-Letter pages, one text line and a numbered
-     * block per page) entirely in memory. Kept intentionally simple: one catalog, one pages node,
-     * one shared font, N page objects, N content streams, and a correct xref table.
-     */
+    /** Builds a minimal valid multi-page PDF (US-Letter, one text line + block per page) in memory. */
     private fun minimalPdf(pages: Int): ByteArray {
         val objects = ArrayList<Pair<Int, ByteArray>>(2 * pages + 3)
         val kids = (0 until pages).joinToString(" ") { "${4 + it} 0 R" }
