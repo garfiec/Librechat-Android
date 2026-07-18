@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Connectivity -->
-    <string name="no_connection">인터넷 연결 없음</string>
-
     <!-- Drawer -->
     <string name="settings">설정</string>
 
     <!-- Content descriptions -->
     <string name="cd_back_to_conversations">대화로 돌아가기</string>
-
-    <!-- Search -->
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">백엔드 버전 불일치</string>

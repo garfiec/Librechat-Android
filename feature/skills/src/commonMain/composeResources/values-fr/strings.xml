@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">Modifier</string>
     <string name="skill_delete">Supprimer</string>
-    <string name="skill_show_source">Afficher la source</string>
-    <string name="skill_show_rendered">Afficher le rendu</string>
     <string name="skill_category_label">Catégorie : %1$s</string>
     <string name="skill_version_label">Version %1$d</string>
     <string name="skill_delete_confirm_title">Supprimer la compétence ?</string>

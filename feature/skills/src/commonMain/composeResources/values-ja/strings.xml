@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">編集</string>
     <string name="skill_delete">削除</string>
-    <string name="skill_show_source">ソースを表示</string>
-    <string name="skill_show_rendered">レンダリング表示</string>
     <string name="skill_category_label">カテゴリ: %1$s</string>
     <string name="skill_version_label">バージョン %1$d</string>
     <string name="skill_delete_confirm_title">スキルを削除しますか？</string>

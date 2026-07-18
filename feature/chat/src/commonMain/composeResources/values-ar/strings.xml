@@ -4,14 +4,11 @@
     <string name="cancel">إلغاء</string>
     <string name="save">حفظ</string>
     <string name="delete">حذف</string>
-    <string name="copy">نسخ</string>
     <string name="edit">تعديل</string>
-    <string name="regenerate">إعادة إنشاء</string>
     <string name="action_rename">إعادة تسمية</string>
     <string name="action_submit">إرسال</string>
     <string name="action_insert">إدراج</string>
     <string name="action_open">فتح</string>
-    <string name="action_close">إغلاق</string>
     <string name="action_share">مشاركة</string>
     <string name="action_search">بحث</string>
     <string name="action_archive">أرشفة</string>
@@ -20,13 +17,8 @@
 
     <!-- Chat screen -->
     <string name="new_chat">محادثة جديدة</string>
-    <string name="send_message">إرسال</string>
-    <string name="stop_generating">إيقاف</string>
-    <string name="message_hint">اكتب رسالة…</string>
-    <string name="model_parameters">معاملات النموذج</string>
     <string name="load_preset">تحميل إعداد مسبق</string>
     <string name="save_as_preset">الحفظ كإعداد مسبق</string>
-    <string name="search_models">البحث في النماذج…</string>
     <string name="save_and_submit">حفظ وإرسال</string>
     <string name="preset_name_label">اسم الإعداد المسبق</string>
     <string name="code">الكود</string>
@@ -53,7 +45,6 @@
     <string name="cd_open_drawer">فتح درج التنقل</string>
     <string name="cd_edit_title">تعديل العنوان</string>
     <string name="cd_more_options">خيارات إضافية</string>
-    <string name="cd_more_tools">أدوات إضافية</string>
     <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>
     <string name="cd_select_model">اختيار النموذج</string>
     <string name="cd_librechat">LibreChat</string>
@@ -132,7 +123,6 @@
     <string name="cd_collapse_tool_call">طي استدعاء الأداة %1$s</string>
     <string name="cd_expand_tool_call">توسيع استدعاء الأداة %1$s</string>
     <string name="cd_tool_complete">مكتمل</string>
-    <string name="cd_tool_enabled">مُفعّل</string>
     <string name="video_not_supported">محتوى الفيديو غير مدعوم</string>
 
     <!-- Tools bottom sheet -->
@@ -156,7 +146,6 @@
 
     <!-- Attachments -->
     <string name="cd_attach_file">إرفاق ملف</string>
-    <string name="toast_file_attach_unavailable">مرفقات الملفات غير متاحة على iOS بعد</string>
     <string name="files_count">الملفات (%1$d)</string>
     <string name="cd_attached_file">ملف مرفق: %1$s</string>
     <string name="cd_preview_file">معاينة %1$s</string>
@@ -191,30 +180,12 @@
     <string name="fork_start_new">بدء محادثة جديدة من الهدف</string>
     <string name="fork_start_new_desc">ابدأ التفريع من الرسالة المحددة بدلًا من الجذر</string>
 
-    <!-- Image viewer toasts -->
-    <string name="toast_failed_to_load_image">فشل تحميل الصورة</string>
-    <string name="toast_failed_to_save_image">فشل حفظ الصورة</string>
-    <string name="toast_image_saved">تم حفظ الصورة في المعرض</string>
-    <string name="toast_failed_to_save_with_error">فشل حفظ الصورة: %1$s</string>
-    <string name="toast_storage_permission_required">إذن التخزين مطلوب لحفظ الصور</string>
-
     <!-- Image generation -->
     <string name="generating_image">جارٍ إنشاء الصورة…</string>
     <string name="image_generated">تم إنشاء الصورة</string>
     <string name="cd_generated_image">صورة مُنشأة</string>
 
-    <!-- Landing page greetings -->
-    <string name="greeting_late_night">سهرة سعيدة</string>
-    <string name="greeting_weekend_morning">صباح عطلة سعيد</string>
-    <string name="greeting_weekend_afternoon">ظهيرة عطلة سعيدة</string>
-    <string name="greeting_weekend_evening">مساء عطلة سعيد</string>
-    <string name="greeting_early_morning">صباح الخير المبكر</string>
-    <string name="greeting_morning">صباح الخير</string>
-    <string name="greeting_afternoon">طاب يومك</string>
-    <string name="greeting_evening">مساء الخير</string>
-
     <!-- Log content -->
-    <string name="log_output">مخرجات السجل</string>
     <string name="cd_collapse_log">طي %1$s</string>
     <string name="cd_expand_log">توسيع %1$s</string>
 
@@ -223,7 +194,6 @@
     <string name="dialog_table">جدول</string>
 
     <!-- MCP -->
-    <string name="cd_select_mcp_servers">اختيار خوادم MCP</string>
     <string name="cd_mcp_resources">موارد MCP: %1$d عنصر</string>
     <string name="cd_mcp_resource">مورد MCP: %1$s</string>
 
@@ -284,18 +254,12 @@
     <string name="dialog_title_delete_conversation">حذف المحادثة</string>
     <string name="dialog_delete_conversation_message">سيؤدي هذا إلى حذف هذه المحادثة نهائيًا. لا يمكن التراجع عن ذلك.</string>
 
-    <!-- Chat menu options -->
-    <string name="menu_search">بحث</string>
-    <string name="menu_rename">إعادة تسمية</string>
-
     <!-- Artifacts -->
     <string name="cd_open_artifact">فتح العنصر التفاعلي</string>
     <string name="cd_share_artifact">مشاركة العنصر التفاعلي</string>
     <string name="cd_previous_version">الإصدار السابق</string>
     <string name="cd_next_version">الإصدار التالي</string>
     <string name="artifact_version">الإصدار %1$d/%2$d</string>
-    <string name="label_resource">المورد</string>
-
     <!-- Prompts -->
     <string name="prompts_library">مكتبة المطالبات</string>
     <string name="use_in_chat">استخدام في المحادثة</string>
@@ -339,16 +303,9 @@
     <!-- Variable input dialog -->
     <string name="dialog_title_fill_variables">تعبئة المتغيرات</string>
 
-    <!-- Temp chat toggle -->
-    <string name="cd_temp_chat">محادثة مؤقتة</string>
-    <string name="label_temp_chat">مؤقتة</string>
-
     <!-- Comparison mode -->
     <string name="continue_with_response">المتابعة بهذا الرد</string>
     <string name="waiting_for_response">في انتظار الرد…</string>
-
-    <!-- Slash command menu -->
-    <string name="slash_command_title">/%1$s</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">لم يتم العثور على مفتاح. يرجى تقديم مفتاح والمحاولة مرة أخرى.</string>

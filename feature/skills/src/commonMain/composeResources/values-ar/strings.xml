@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">تعديل</string>
     <string name="skill_delete">حذف</string>
-    <string name="skill_show_source">إظهار المصدر</string>
-    <string name="skill_show_rendered">إظهار المعروض</string>
     <string name="skill_category_label">الفئة: %1$s</string>
     <string name="skill_version_label">الإصدار %1$d</string>
     <string name="skill_delete_confirm_title">حذف المهارة؟</string>

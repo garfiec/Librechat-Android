@@ -7,7 +7,6 @@ import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.core.model.response.PromptGroupListResponse
-import com.garfiec.librechat.core.model.response.PromptListResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -69,31 +68,6 @@ class PromptsApi constructor(
     }
 
     /**
-     * Get prompts with filtering. Uses query parameters for category, type, etc.
-     */
-    suspend fun getPrompts(
-        category: String? = null,
-        type: String? = null,
-        pageNumber: Int = 1,
-        pageSize: Int = 10,
-    ): PromptListResponse =
-        client.get {
-            url { path("api/prompts") }
-            category?.let { parameter("category", it) }
-            type?.let { parameter("type", it) }
-            parameter("pageNumber", pageNumber)
-            parameter("pageSize", pageSize)
-        }.body()
-
-    /**
-     * Get all prompts without pagination.
-     */
-    suspend fun getAllPrompts(): PromptListResponse =
-        client.get {
-            url { path("api/prompts/all") }
-        }.body()
-
-    /**
      * Add a prompt to an existing group.
      */
     suspend fun addPromptToGroup(groupId: String, request: AddPromptToGroupRequest): Prompt =
@@ -101,23 +75,6 @@ class PromptsApi constructor(
             url { path("api/prompts/groups/$groupId/prompts") }
             setBody(request)
         }.body()
-
-    /**
-     * Get a single prompt by ID.
-     */
-    suspend fun getPrompt(promptId: String): Prompt =
-        client.get {
-            url { path("api/prompts/$promptId") }
-        }.body()
-
-    /**
-     * Delete a single prompt by ID.
-     */
-    suspend fun deletePrompt(promptId: String) {
-        client.delete {
-            url { path("api/prompts/$promptId") }
-        }
-    }
 
     /**
      * Update the production tag for a prompt.

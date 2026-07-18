@@ -2,7 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="files">ファイル</string>
-    <string name="upload">アップロード</string>
     <string name="delete">削除</string>
     <string name="cancel">キャンセル</string>
     <string name="done">完了</string>
@@ -48,14 +47,8 @@
     <string name="page_of">%2$d ページ中 %1$d ページ</string>
     <string name="page_cd">%2$s ページ中 %1$d ページ</string>
     <string name="could_not_render_pdf">PDFのプレビューを表示できませんでした</string>
-    <string name="failed_to_download_pdf">PDFのダウンロードに失敗しました</string>
-    <string name="failed_to_render_pdf">PDFの表示に失敗しました</string>
     <string name="loading_file_content">ファイルの内容を読み込み中…</string>
     <string name="could_not_load_file_content">ファイルの内容を読み込めませんでした</string>
-    <string name="failed_to_download_file">ファイルのダウンロードに失敗しました</string>
-    <string name="failed_to_load_content">ファイルの内容の読み込みに失敗しました</string>
-    <string name="content_truncated">\n\n--- 内容が切り詰められました（ファイルが大きすぎます）---</string>
-
     <!-- Info row labels -->
     <string name="info_type">種類</string>
     <string name="info_size">サイズ</string>
@@ -64,4 +57,6 @@
 
     <!-- Upload progress -->
     <string name="uploading">アップロード中…</string>
+    <string name="failed_to_download_pdf">PDFのダウンロードに失敗しました</string>
+    <string name="failed_to_render_pdf">PDFの表示に失敗しました</string>
 </resources>

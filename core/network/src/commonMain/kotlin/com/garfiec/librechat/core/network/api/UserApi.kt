@@ -5,8 +5,6 @@ import com.garfiec.librechat.core.model.request.OtpVerificationRequest
 import com.garfiec.librechat.core.model.request.ResendVerificationRequest
 import com.garfiec.librechat.core.model.request.VerifyEmailRequest
 import com.garfiec.librechat.core.model.response.TermsResponse
-import com.garfiec.librechat.core.network.api.dto.UpdatePluginsRequest
-import com.garfiec.librechat.core.network.api.dto.UserUpdateRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -25,12 +23,6 @@ class UserApi constructor(
     suspend fun getUser(): User =
         client.get {
             url { path("api/user") }
-        }.body()
-
-    suspend fun updateUser(update: UserUpdateRequest): User =
-        client.post {
-            url { path("api/user") }
-            setBody(update)
         }.body()
 
     suspend fun deleteUser(token: String? = null, backupCode: String? = null) {
@@ -78,11 +70,5 @@ class UserApi constructor(
             },
         ) {
             url { path("api/user/avatar") }
-        }.body()
-
-    suspend fun updatePlugins(plugins: List<String>): User =
-        client.post {
-            url { path("api/user/plugins") }
-            setBody(UpdatePluginsRequest(plugins = plugins))
         }.body()
 }

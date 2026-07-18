@@ -21,9 +21,6 @@ class ProjectRepositoryImpl(
     override suspend fun createProject(name: String, description: String?): Result<ChatProject> =
         safeApiCall { projectsApi.createProject(name, description) }
 
-    override suspend fun getProject(projectId: String): Result<ChatProject> =
-        safeApiCall { projectsApi.getProject(projectId) }
-
     override suspend fun updateProject(
         projectId: String,
         name: String?,

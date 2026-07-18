@@ -67,12 +67,6 @@ Material 3 theme and shared Compose components used across all feature modules. 
 - `ModelParameterContent` falls back to existing fixed params when no schema available
 - **Gotcha**: Slider step count calculated as `((max - min) / step).toInt()` — ensure step divides range evenly to avoid drift
 
-### Accessibility (`theme/AccessibilityUtils.kt`)
-- `Modifier.minTouchTarget()` — enforces 48dp minimum size
-- `Modifier.semanticHeading()` — marks composable as heading for TalkBack
-- Helper functions: `endpointContentDescription()`, `modelIconContentDescription()`
-- Applied to `LoadingIndicator` and `EmptyState` components
-
 ## Compose Performance Rules
 
 These rules apply to ALL composables across feature modules, not just core:ui.

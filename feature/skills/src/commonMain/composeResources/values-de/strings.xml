@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">Bearbeiten</string>
     <string name="skill_delete">Löschen</string>
-    <string name="skill_show_source">Quelle anzeigen</string>
-    <string name="skill_show_rendered">Gerendert anzeigen</string>
     <string name="skill_category_label">Kategorie: %1$s</string>
     <string name="skill_version_label">Version %1$d</string>
     <string name="skill_delete_confirm_title">Skill löschen?</string>

@@ -116,9 +116,6 @@ class FileRepositoryImpl(
     override suspend fun getAgentFiles(agentId: String): Result<List<FileObject>> =
         safeApiCall { filesExtApi.getAgentFiles(agentId) }
 
-    override suspend fun downloadCode(sessionId: String, fileId: String): Result<ByteArray> =
-        safeApiCall { filesExtApi.downloadCode(sessionId, fileId) }
-
     /**
      * Polls the preview endpoint until terminal or the attempt budget is spent.
      * Budget (~POLL_MAX_ATTEMPTS × POLL_INTERVAL_MS ≈ 60s) brackets the server's

@@ -5,8 +5,6 @@ import com.garfiec.librechat.core.model.mcp.McpApiKeySource
 import com.garfiec.librechat.core.model.mcp.McpAuthorizationType
 import com.garfiec.librechat.core.model.mcp.McpConnectionStatusResponse
 import com.garfiec.librechat.core.model.mcp.McpOAuthConfig
-import com.garfiec.librechat.core.model.mcp.McpOAuthStatus
-import com.garfiec.librechat.core.model.mcp.McpOAuthTokens
 import com.garfiec.librechat.core.model.mcp.McpReinitializeResponse
 import com.garfiec.librechat.core.model.mcp.McpServer
 import com.garfiec.librechat.core.model.mcp.McpServerStatus
@@ -153,21 +151,6 @@ class McpApi constructor(
             url { path("api/mcp/servers/$serverName") }
         }
     }
-
-    suspend fun initiateOAuth(serverName: String): String =
-        client.get {
-            url { path("api/mcp/$serverName/oauth/initiate") }
-        }.body()
-
-    suspend fun getOAuthTokens(flowId: String): McpOAuthTokens =
-        client.get {
-            url { path("api/mcp/oauth/tokens/$flowId") }
-        }.body()
-
-    suspend fun getOAuthStatus(flowId: String): McpOAuthStatus =
-        client.get {
-            url { path("api/mcp/oauth/status/$flowId") }
-        }.body()
 
     private fun parseServerType(type: String?): McpServerType = when (type) {
         "sse" -> McpServerType.SSE

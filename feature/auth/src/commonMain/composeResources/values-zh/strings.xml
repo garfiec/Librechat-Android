@@ -20,15 +20,6 @@
     <string name="no_account_sign_up">还没有账户？注册</string>
     <string name="or_continue_with">或使用以下方式继续</string>
 
-    <!-- OAuth provider labels -->
-    <string name="oauth_google">使用 Google 继续</string>
-    <string name="oauth_github">使用 GitHub 继续</string>
-    <string name="oauth_discord">使用 Discord 继续</string>
-    <string name="oauth_facebook">使用 Facebook 继续</string>
-    <string name="oauth_apple">使用 Apple 继续</string>
-    <string name="oauth_openid">使用 OpenID 继续</string>
-    <string name="oauth_generic">使用 %1$s 继续</string>
-
     <!-- Register -->
     <string name="register_title">创建账户</string>
     <string name="full_name_label">全名</string>

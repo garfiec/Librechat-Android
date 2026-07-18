@@ -2,8 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="agents">Agentes</string>
-    <string name="marketplace">Mercado</string>
-    <string name="search_agents">Buscar agentes…</string>
     <string name="start_chat">Iniciar chat</string>
     <string name="edit">Editar</string>
     <string name="delete">Eliminar</string>
@@ -108,8 +106,6 @@
     <string name="domain_prefix">Dominio: %1$s</string>
     <string name="available_actions_count">Acciones disponibles (%1$d)</string>
     <string name="label_privacy_policy_url">URL de la política de privacidad</string>
-    <string name="label_save_or_create">%1$s</string>
-
     <!-- Auth config dialog -->
     <string name="label_authentication_type">Tipo de autenticación</string>
     <string name="label_api_key_settings">Ajustes de la clave de API</string>
@@ -136,15 +132,6 @@
 
     <!-- Advanced panel -->
     <string name="advanced_settings">Ajustes del modelo</string>
-    <string name="label_temperature">Temperatura</string>
-    <string name="temperature_description">Controla la aleatoriedad. Más baja = más enfocada.</string>
-    <string name="label_top_p">Top P</string>
-    <string name="top_p_description">Umbral de muestreo de núcleo.</string>
-    <string name="label_max_tokens">Máx. de tokens</string>
-    <string name="max_tokens_description">Máximo de tokens en la respuesta. Déjalo vacío para usar el valor predeterminado.</string>
-
-    <!-- Avatar picker -->
-    <!-- (content descriptions above) -->
 
     <!-- Capabilities section -->
     <string name="label_artifacts">Artefactos</string>
@@ -176,8 +163,6 @@
     <string name="tool_auth_code_title">Clave de API del intérprete de código</string>
     <string name="tool_auth_code_description">Introduce la clave de API que el servidor debe usar para ejecutar código en tu nombre. Se almacena en tu cuenta, no en el agente.</string>
     <string name="tool_auth_code_field">Clave de la API de Code de LibreChat</string>
-    <string name="tool_auth_required">Se requiere autenticación para activar esta herramienta</string>
-
     <!-- File Context section -->
     <string name="label_file_context">Contexto de archivos</string>
     <string name="file_context_description">Adjunta archivos que se incluyan siempre como contexto de la conversación</string>
@@ -186,7 +171,6 @@
     <string name="label_file_search">Búsqueda en archivos</string>
     <string name="file_search_description">Permitir que el agente busque en los archivos y documentos subidos</string>
 
-    <!-- Handoff config -->
     <!-- Chain (sequential multi-agent) -->
     <string name="chain_agents_count">Agentes en cadena (%1$d)</string>
     <string name="chain_description">Agentes que se ejecutan en secuencia después de este. El límite es %1$d.</string>
@@ -228,7 +212,6 @@
 
     <!-- Visibility labels -->
     <string name="visibility_private">Privado</string>
-    <string name="visibility_team">Equipo</string>
     <string name="visibility_public">Público</string>
 
     <!-- Support contact section -->
@@ -242,7 +225,6 @@
     <string name="version_number">Versión %1$d</string>
     <string name="version_current">Activa</string>
     <string name="version_no_date">No hay fecha disponible</string>
-    <string name="version_unknown_date">Fecha desconocida</string>
     <string name="version_snapshot_name">Nombre</string>
     <string name="version_snapshot_description">Descripción</string>
     <string name="version_snapshot_instructions">Instrucciones</string>
@@ -250,8 +232,6 @@
     <string name="version_snapshot_capabilities">Capacidades</string>
     <string name="version_snapshot_tools">Herramientas</string>
     <string name="version_snapshot_empty">—</string>
-    <string name="version_restore_confirm">¿Revertir este agente a la versión seleccionada? Se perderán los cambios actuales sin guardar.</string>
-
     <!-- ACL sharing (v0.8.5+) -->
     <string name="acl_sharing_title">Compartir y acceso</string>
     <string name="acl_add_principal">Añadir usuario o grupo</string>
@@ -262,7 +242,6 @@
     <string name="acl_revoke">Revocar</string>
     <string name="acl_search_hint">Buscar usuarios o grupos…</string>
     <string name="acl_search_empty">Sin coincidencias</string>
-    <string name="acl_grant_button">Conceder</string>
     <string name="acl_grant_dialog_title">Añadir usuario o grupo</string>
     <string name="acl_principal_user">Usuario</string>
     <string name="acl_principal_group">Grupo</string>

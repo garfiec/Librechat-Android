@@ -4,14 +4,11 @@
     <string name="cancel">Отмена</string>
     <string name="save">Сохранить</string>
     <string name="delete">Удалить</string>
-    <string name="copy">Копировать</string>
     <string name="edit">Изменить</string>
-    <string name="regenerate">Сгенерировать заново</string>
     <string name="action_rename">Переименовать</string>
     <string name="action_submit">Отправить</string>
     <string name="action_insert">Вставить</string>
     <string name="action_open">Открыть</string>
-    <string name="action_close">Закрыть</string>
     <string name="action_share">Поделиться</string>
     <string name="action_search">Поиск</string>
     <string name="action_archive">В архив</string>
@@ -20,13 +17,8 @@
 
     <!-- Chat screen -->
     <string name="new_chat">Новый чат</string>
-    <string name="send_message">Отправить</string>
-    <string name="stop_generating">Стоп</string>
-    <string name="message_hint">Введите сообщение…</string>
-    <string name="model_parameters">Параметры модели</string>
     <string name="load_preset">Загрузить пресет</string>
     <string name="save_as_preset">Сохранить как пресет</string>
-    <string name="search_models">Поиск моделей…</string>
     <string name="save_and_submit">Сохранить и отправить</string>
     <string name="preset_name_label">Имя пресета</string>
     <string name="code">Код</string>
@@ -53,7 +45,6 @@
     <string name="cd_open_drawer">Открыть панель навигации</string>
     <string name="cd_edit_title">Изменить название</string>
     <string name="cd_more_options">Дополнительно</string>
-    <string name="cd_more_tools">Ещё инструменты</string>
     <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
     <string name="cd_select_model">Выбрать модель</string>
     <string name="cd_librechat">LibreChat</string>
@@ -132,7 +123,6 @@
     <string name="cd_collapse_tool_call">Свернуть вызов инструмента %1$s</string>
     <string name="cd_expand_tool_call">Развернуть вызов инструмента %1$s</string>
     <string name="cd_tool_complete">Завершено</string>
-    <string name="cd_tool_enabled">Включено</string>
     <string name="video_not_supported">Видеоконтент не поддерживается</string>
 
     <!-- Tools bottom sheet -->
@@ -156,7 +146,6 @@
 
     <!-- Attachments -->
     <string name="cd_attach_file">Прикрепить файл</string>
-    <string name="toast_file_attach_unavailable">Вложения файлов пока недоступны на iOS</string>
     <string name="files_count">Файлы (%1$d)</string>
     <string name="cd_attached_file">Прикреплённый файл: %1$s</string>
     <string name="cd_preview_file">Предпросмотр %1$s</string>
@@ -191,30 +180,12 @@
     <string name="fork_start_new">Начать новую беседу с цели</string>
     <string name="fork_start_new_desc">Начать ответвление с выбранного сообщения, а не с корня</string>
 
-    <!-- Image viewer toasts -->
-    <string name="toast_failed_to_load_image">Не удалось загрузить изображение</string>
-    <string name="toast_failed_to_save_image">Не удалось сохранить изображение</string>
-    <string name="toast_image_saved">Изображение сохранено в галерею</string>
-    <string name="toast_failed_to_save_with_error">Не удалось сохранить изображение: %1$s</string>
-    <string name="toast_storage_permission_required">Для сохранения изображений требуется разрешение на доступ к хранилищу</string>
-
     <!-- Image generation -->
     <string name="generating_image">Генерация изображения…</string>
     <string name="image_generated">Изображение сгенерировано</string>
     <string name="cd_generated_image">Сгенерированное изображение</string>
 
-    <!-- Landing page greetings -->
-    <string name="greeting_late_night">Доброй ночи</string>
-    <string name="greeting_weekend_morning">Приятного утра выходного</string>
-    <string name="greeting_weekend_afternoon">Приятного дня выходного</string>
-    <string name="greeting_weekend_evening">Приятного вечера выходного</string>
-    <string name="greeting_early_morning">Доброго раннего утра</string>
-    <string name="greeting_morning">Доброе утро</string>
-    <string name="greeting_afternoon">Добрый день</string>
-    <string name="greeting_evening">Добрый вечер</string>
-
     <!-- Log content -->
-    <string name="log_output">Вывод журнала</string>
     <string name="cd_collapse_log">Свернуть %1$s</string>
     <string name="cd_expand_log">Развернуть %1$s</string>
 
@@ -223,7 +194,6 @@
     <string name="dialog_table">Таблица</string>
 
     <!-- MCP -->
-    <string name="cd_select_mcp_servers">Выбрать серверы MCP</string>
     <string name="cd_mcp_resources">Ресурсы MCP: %1$d элементов</string>
     <string name="cd_mcp_resource">Ресурс MCP: %1$s</string>
 
@@ -284,18 +254,12 @@
     <string name="dialog_title_delete_conversation">Удалить беседу</string>
     <string name="dialog_delete_conversation_message">Это безвозвратно удалит эту беседу. Это нельзя отменить.</string>
 
-    <!-- Chat menu options -->
-    <string name="menu_search">Поиск</string>
-    <string name="menu_rename">Переименовать</string>
-
     <!-- Artifacts -->
     <string name="cd_open_artifact">Открыть артефакт</string>
     <string name="cd_share_artifact">Поделиться артефактом</string>
     <string name="cd_previous_version">Предыдущая версия</string>
     <string name="cd_next_version">Следующая версия</string>
     <string name="artifact_version">v%1$d/%2$d</string>
-    <string name="label_resource">Ресурс</string>
-
     <!-- Prompts -->
     <string name="prompts_library">Библиотека промптов</string>
     <string name="use_in_chat">Использовать в чате</string>
@@ -339,16 +303,9 @@
     <!-- Variable input dialog -->
     <string name="dialog_title_fill_variables">Заполнить переменные</string>
 
-    <!-- Temp chat toggle -->
-    <string name="cd_temp_chat">Временный чат</string>
-    <string name="label_temp_chat">Врем.</string>
-
     <!-- Comparison mode -->
     <string name="continue_with_response">Продолжить с этим ответом</string>
     <string name="waiting_for_response">Ожидание ответа…</string>
-
-    <!-- Slash command menu -->
-    <string name="slash_command_title">/%1$s</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">Ключ не найден. Укажите ключ и попробуйте снова.</string>

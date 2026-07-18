@@ -4,15 +4,10 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentAction
 import com.garfiec.librechat.core.model.AgentCategory
-import com.garfiec.librechat.core.model.AgentExpanded
 import com.garfiec.librechat.core.model.AgentTool
-import com.garfiec.librechat.core.model.ToolAuthStatus
-import com.garfiec.librechat.core.model.ToolCallRecord
-import com.garfiec.librechat.core.model.ToolCallResult
 import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
-import com.garfiec.librechat.core.model.request.ToolCallRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 import com.garfiec.librechat.core.model.response.AgentListResponse
 import io.ktor.client.HttpClient
@@ -113,11 +108,6 @@ class AgentsApi constructor(
             setBody(request)
         }.body()
 
-    suspend fun getAgentExpanded(agentId: String): AgentExpanded =
-        client.get {
-            url { path("api/agents/$agentId/expanded") }
-        }.body()
-
     suspend fun getAgentCategories(): List<AgentCategory> =
         client.get {
             url { path("api/agents/categories") }
@@ -177,21 +167,5 @@ class AgentsApi constructor(
     suspend fun getAvailableTools(): List<AgentTool> =
         client.get {
             url { path("api/agents/tools") }
-        }.body()
-
-    suspend fun getToolCalls(): List<ToolCallRecord> =
-        client.get {
-            url { path("api/agents/tools/calls") }
-        }.body()
-
-    suspend fun getToolAuthStatus(toolId: String): ToolAuthStatus =
-        client.get {
-            url { path("api/agents/tools/$toolId/auth") }
-        }.body()
-
-    suspend fun callTool(toolId: String, request: ToolCallRequest): ToolCallResult =
-        client.post {
-            url { path("api/agents/tools/$toolId/call") }
-            setBody(request)
         }.body()
 }

@@ -20,15 +20,6 @@
     <string name="no_account_sign_up">Vous n\'avez pas de compte ? Inscrivez-vous</string>
     <string name="or_continue_with">Ou continuer avec</string>
 
-    <!-- OAuth provider labels -->
-    <string name="oauth_google">Continuer avec Google</string>
-    <string name="oauth_github">Continuer avec GitHub</string>
-    <string name="oauth_discord">Continuer avec Discord</string>
-    <string name="oauth_facebook">Continuer avec Facebook</string>
-    <string name="oauth_apple">Continuer avec Apple</string>
-    <string name="oauth_openid">Continuer avec OpenID</string>
-    <string name="oauth_generic">Continuer avec %1$s</string>
-
     <!-- Register -->
     <string name="register_title">Créer un compte</string>
     <string name="full_name_label">Nom complet</string>

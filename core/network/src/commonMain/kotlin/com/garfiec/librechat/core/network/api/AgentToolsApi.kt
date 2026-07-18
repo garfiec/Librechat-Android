@@ -16,8 +16,6 @@ import io.ktor.http.path
  *   (routes/agents/tools.js:24, controllers/tools.js:62)
  * - `POST /api/user/plugins` with the rich body that
  *   [UpdateUserPluginAuthRequest] models (controllers/UserController.js:167).
- *   The legacy [UserApi.updatePlugins] posts a different body shape against
- *   the same URL, so we keep both call sites instead of merging.
  */
 class AgentToolsApi(
     private val client: HttpClient,

@@ -44,17 +44,6 @@ class ApiKeysApi constructor(
         return apiKeysResponse.keys
     }
 
-    suspend fun getApiKey(id: String): ApiKey {
-        val response = client.get {
-            url { path("api/api-keys/$id") }
-        }
-        val text = response.bodyAsText()
-        if (text.trimStart().startsWith("<")) {
-            throw IllegalStateException("API keys feature is not available on this server")
-        }
-        return lenientJson.decodeFromString(text)
-    }
-
     suspend fun deleteApiKey(id: String) {
         val response = client.delete {
             url { path("api/api-keys/$id") }

@@ -5,7 +5,6 @@
     <string name="cancel">취소</string>
     <string name="delete">삭제</string>
     <string name="archive">보관</string>
-    <string name="unarchive">보관 해제</string>
     <string name="export">내보내기</string>
     <string name="share">공유</string>
     <string name="duplicate">복제</string>
@@ -28,7 +27,6 @@
     <string name="cd_delete">삭제</string>
 
     <!-- Conversation list screen -->
-    <string name="conversations">대화</string>
     <string name="search_conversations">대화 검색…</string>
     <string name="could_not_load_conversations">대화를 불러올 수 없습니다</string>
     <string name="no_results_found">결과를 찾을 수 없습니다</string>
@@ -37,8 +35,6 @@
     <string name="start_new_chat">새 채팅을 시작하세요</string>
     <string name="unknown_error">알 수 없는 오류가 발생했습니다</string>
     <string name="conversation_exported">대화를 내보냈습니다</string>
-    <string name="export_failed">내보내기 실패: %1$s</string>
-    <string name="import_failed">가져오기 실패: %1$s</string>
     <string name="link_copied">링크가 복사되었습니다!</string>
     <string name="imported_title">가져옴: %1$s</string>
     <string name="copy_of">%1$s의 사본</string>
@@ -74,8 +70,6 @@
     <string name="no_archived_conversations">보관된 대화가 없습니다</string>
     <string name="archived_will_appear_here">보관된 대화가 여기에 표시됩니다</string>
 
-    <!-- Conversation item fallback -->
-    <string name="chat">채팅</string>
     <!-- Drawer strings (moved from :shared) -->
     <string name="agents">에이전트</string>
     <string name="favorites">즐겨찾기</string>

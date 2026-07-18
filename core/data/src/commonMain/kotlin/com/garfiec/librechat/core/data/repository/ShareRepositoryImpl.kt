@@ -4,7 +4,6 @@ import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.SharedLink
-import com.garfiec.librechat.core.model.response.ShareLinkCheckResponse
 import com.garfiec.librechat.core.model.response.SharedLinksResponse
 import com.garfiec.librechat.core.network.api.ShareApi
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
@@ -41,21 +40,9 @@ class ShareRepositoryImpl(
         }
     }
 
-    override suspend fun getSharedLinks(): Result<List<SharedLink>> {
-        return safeApiCall {
-            shareApi.getSharedLinks(isPublic = isPublicFilter()).links
-        }
-    }
-
     override suspend fun getSharedLinksPaginated(cursor: String?): Result<SharedLinksResponse> {
         return safeApiCall {
             shareApi.getSharedLinks(cursor = cursor, isPublic = isPublicFilter())
-        }
-    }
-
-    override suspend fun checkShareLink(conversationId: String): Result<ShareLinkCheckResponse> {
-        return safeApiCall {
-            shareApi.checkShareLink(conversationId)
         }
     }
 

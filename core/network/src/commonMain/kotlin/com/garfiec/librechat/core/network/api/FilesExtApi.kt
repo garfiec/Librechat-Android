@@ -13,9 +13,4 @@ class FilesExtApi constructor(
         client.get {
             url { path("api/files/agent/$agentId") }
         }.body()
-
-    suspend fun downloadCode(sessionId: String, fileId: String): ByteArray =
-        client.get {
-            url { path("api/files/code/download/$sessionId/$fileId") }
-        }.body()
 }

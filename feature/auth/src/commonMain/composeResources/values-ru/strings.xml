@@ -20,15 +20,6 @@
     <string name="no_account_sign_up">Нет аккаунта? Зарегистрироваться</string>
     <string name="or_continue_with">Или продолжить через</string>
 
-    <!-- OAuth provider labels -->
-    <string name="oauth_google">Продолжить через Google</string>
-    <string name="oauth_github">Продолжить через GitHub</string>
-    <string name="oauth_discord">Продолжить через Discord</string>
-    <string name="oauth_facebook">Продолжить через Facebook</string>
-    <string name="oauth_apple">Продолжить через Apple</string>
-    <string name="oauth_openid">Продолжить через OpenID</string>
-    <string name="oauth_generic">Продолжить через %1$s</string>
-
     <!-- Register -->
     <string name="register_title">Создать аккаунт</string>
     <string name="full_name_label">Полное имя</string>

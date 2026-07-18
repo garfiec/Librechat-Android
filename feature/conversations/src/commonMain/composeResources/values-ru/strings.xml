@@ -5,7 +5,6 @@
     <string name="cancel">Отмена</string>
     <string name="delete">Удалить</string>
     <string name="archive">В архив</string>
-    <string name="unarchive">Из архива</string>
     <string name="export">Экспорт</string>
     <string name="share">Поделиться</string>
     <string name="duplicate">Дублировать</string>
@@ -28,7 +27,6 @@
     <string name="cd_delete">Удалить</string>
 
     <!-- Conversation list screen -->
-    <string name="conversations">Беседы</string>
     <string name="search_conversations">Поиск бесед…</string>
     <string name="could_not_load_conversations">Не удалось загрузить беседы</string>
     <string name="no_results_found">Ничего не найдено</string>
@@ -37,8 +35,6 @@
     <string name="start_new_chat">Начните новый чат, чтобы приступить</string>
     <string name="unknown_error">Произошла неизвестная ошибка</string>
     <string name="conversation_exported">Беседа экспортирована</string>
-    <string name="export_failed">Сбой экспорта: %1$s</string>
-    <string name="import_failed">Сбой импорта: %1$s</string>
     <string name="link_copied">Ссылка скопирована!</string>
     <string name="imported_title">Импортировано: %1$s</string>
     <string name="copy_of">Копия %1$s</string>
@@ -74,8 +70,6 @@
     <string name="no_archived_conversations">Нет архивированных бесед</string>
     <string name="archived_will_appear_here">Архивированные беседы появятся здесь</string>
 
-    <!-- Conversation item fallback -->
-    <string name="chat">Чат</string>
     <!-- Drawer strings (moved from :shared) -->
     <string name="agents">Агенты</string>
     <string name="favorites">Избранное</string>

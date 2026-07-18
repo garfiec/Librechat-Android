@@ -4,14 +4,11 @@
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="delete">Delete</string>
-    <string name="copy">Copy</string>
     <string name="edit">Edit</string>
-    <string name="regenerate">Regenerate</string>
     <string name="action_rename">Rename</string>
     <string name="action_submit">Submit</string>
     <string name="action_insert">Insert</string>
     <string name="action_open">Open</string>
-    <string name="action_close">Close</string>
     <string name="action_share">Share</string>
     <string name="action_search">Search</string>
     <string name="action_archive">Archive</string>
@@ -20,13 +17,8 @@
 
     <!-- Chat screen -->
     <string name="new_chat">New Chat</string>
-    <string name="send_message">Send</string>
-    <string name="stop_generating">Stop</string>
-    <string name="message_hint">Type a message\u2026</string>
-    <string name="model_parameters">Model Parameters</string>
     <string name="load_preset">Load Preset</string>
     <string name="save_as_preset">Save as Preset</string>
-    <string name="search_models">Search models\u2026</string>
     <string name="save_and_submit">Save &amp; Submit</string>
     <string name="preset_name_label">Preset name</string>
     <string name="code">Code</string>
@@ -62,7 +54,6 @@
     <string name="cd_open_drawer">Open navigation drawer</string>
     <string name="cd_edit_title">Edit title</string>
     <string name="cd_more_options">More options</string>
-    <string name="cd_more_tools">More tools</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="cd_select_model">Select model</string>
     <string name="cd_librechat">LibreChat</string>
@@ -141,7 +132,6 @@
     <string name="cd_collapse_tool_call">Collapse tool call %1$s</string>
     <string name="cd_expand_tool_call">Expand tool call %1$s</string>
     <string name="cd_tool_complete">Complete</string>
-    <string name="cd_tool_enabled">Enabled</string>
     <string name="video_not_supported">Video content not supported</string>
 
     <!-- Tools bottom sheet -->
@@ -170,7 +160,6 @@
 
     <!-- Attachments -->
     <string name="cd_attach_file">Attach file</string>
-    <string name="toast_file_attach_unavailable">File attachments not available on iOS yet</string>
     <string name="files_count">Files (%1$d)</string>
     <string name="cd_attached_file">Attached file: %1$s</string>
     <string name="cd_preview_file">Preview of %1$s</string>
@@ -205,30 +194,12 @@
     <string name="fork_start_new">Start new conversation from target</string>
     <string name="fork_start_new_desc">Begin the fork from the selected message instead of the root</string>
 
-    <!-- Image viewer toasts -->
-    <string name="toast_failed_to_load_image">Failed to load image</string>
-    <string name="toast_failed_to_save_image">Failed to save image</string>
-    <string name="toast_image_saved">Image saved to gallery</string>
-    <string name="toast_failed_to_save_with_error">Failed to save image: %1$s</string>
-    <string name="toast_storage_permission_required">Storage permission is required to save images</string>
-
     <!-- Image generation -->
     <string name="generating_image">Generating image\u2026</string>
     <string name="image_generated">Image generated</string>
     <string name="cd_generated_image">Generated image</string>
 
-    <!-- Landing page greetings -->
-    <string name="greeting_late_night">Happy late night</string>
-    <string name="greeting_weekend_morning">Happy weekend morning</string>
-    <string name="greeting_weekend_afternoon">Happy weekend afternoon</string>
-    <string name="greeting_weekend_evening">Happy weekend evening</string>
-    <string name="greeting_early_morning">Good early morning</string>
-    <string name="greeting_morning">Good morning</string>
-    <string name="greeting_afternoon">Good afternoon</string>
-    <string name="greeting_evening">Good evening</string>
-
     <!-- Log content -->
-    <string name="log_output">Log Output</string>
     <string name="cd_collapse_log">Collapse %1$s</string>
     <string name="cd_expand_log">Expand %1$s</string>
 
@@ -237,7 +208,6 @@
     <string name="dialog_table">Table</string>
 
     <!-- MCP -->
-    <string name="cd_select_mcp_servers">Select MCP servers</string>
     <string name="cd_mcp_resources">MCP resources: %1$d items</string>
     <string name="cd_mcp_resource">MCP resource: %1$s</string>
 
@@ -263,7 +233,6 @@
 
     <!-- Tool-call generated-file attachments -->
     <string name="attachment_fallback">Attachment</string>
-    <string name="cd_download_attachment">Download %1$s</string>
     <string name="pdf_document">PDF Document</string>
     <string name="pdf_load_failed">Couldn\'t load PDF</string>
     <string name="cd_share_pdf">Share PDF</string>
@@ -307,10 +276,6 @@
     <string name="dialog_title_delete_conversation">Delete conversation</string>
     <string name="dialog_delete_conversation_message">This will permanently delete this conversation. This cannot be undone.</string>
 
-    <!-- Chat menu options -->
-    <string name="menu_search">Search</string>
-    <string name="menu_rename">Rename</string>
-
     <!-- Artifacts -->
     <string name="cd_open_artifact">Open artifact</string>
     <string name="cd_share_artifact">Share artifact</string>
@@ -328,7 +293,6 @@
     <string name="cd_previous_version">Previous version</string>
     <string name="cd_next_version">Next version</string>
     <string name="artifact_version">v%1$d/%2$d</string>
-    <string name="label_resource">Resource</string>
     <string name="artifact_view_source">View source</string>
     <string name="artifact_view_preview">View preview</string>
 
@@ -375,16 +339,9 @@
     <!-- Variable input dialog -->
     <string name="dialog_title_fill_variables">Fill in Variables</string>
 
-    <!-- Temp chat toggle -->
-    <string name="cd_temp_chat">Temporary chat</string>
-    <string name="label_temp_chat">Temp</string>
-
     <!-- Comparison mode -->
     <string name="continue_with_response">Continue with this response</string>
     <string name="waiting_for_response">Waiting for response\u2026</string>
-
-    <!-- Slash command menu -->
-    <string name="slash_command_title">/%1$s</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">No key found. Please provide a key and try again.</string>
@@ -421,12 +378,8 @@
 
     <!-- Context usage gauge (v0.8.7) -->
     <string name="context_usage_label">Context</string>
-    <string name="context_usage_title">Context usage</string>
-    <string name="context_usage_used">Used</string>
-    <string name="context_usage_remaining">Remaining</string>
     <string name="context_usage_window">Context window</string>
     <string name="context_usage_messages">Messages</string>
-    <string name="context_usage_instructions">Instructions</string>
     <string name="context_usage_tools">Tool schemas</string>
     <string name="context_usage_summary">Summary</string>
     <string name="context_usage_system">System</string>

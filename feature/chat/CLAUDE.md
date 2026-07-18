@@ -103,11 +103,10 @@
 - `PromptsViewModel` loads prompt groups from `PromptRepository`
 - `handlePromptMention()` on ChatViewModel inserts prompt command text at `@` position
 
-## Chat Input Toolbar
-- `ChatInputToolbar` renders toggles for enabled tools (web search, code interpreter, file search)
+## Chat Tools
 - Tool state tracked as `Set<String>` in `ChatUiState.enabledTools`
-- `ToolsDropdownMenu` provides overflow for additional tool options
-- Toolbar wired into `ChatInput` above the text field
+- Tool toggles (web search, code interpreter, file search) and MCP servers live in the paged
+  "+" options sheet (`ChatToolsSheetContent`), reached from `ChatInput`'s `onOpenTools`
 
 ## Content Cards
 - `ImageGenCard` renders DALL-E / image generation results (spinner while generating, AsyncImage when done)

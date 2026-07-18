@@ -64,7 +64,6 @@ import com.garfiec.librechat.core.network.api.PermissionsApi
 import com.garfiec.librechat.core.network.api.PresetsApi
 import com.garfiec.librechat.core.network.api.ProjectsApi
 import com.garfiec.librechat.core.network.api.PromptsApi
-import com.garfiec.librechat.core.network.api.SearchApi
 import com.garfiec.librechat.core.network.api.ShareApi
 import com.garfiec.librechat.core.network.api.SkillsApi
 import com.garfiec.librechat.core.network.api.SpeechApi
@@ -147,7 +146,6 @@ class KoinGraphVerificationTest {
             PresetsApi::class,
             ProjectsApi::class,
             PromptsApi::class,
-            SearchApi::class,
             ShareApi::class,
             SkillsApi::class,
             SpeechApi::class,

@@ -15,8 +15,6 @@ interface PromptRepository {
     suspend fun create(request: CreatePromptRequest): Result<PromptGroup>
     suspend fun update(groupId: String, request: UpdatePromptGroupRequest): Result<PromptGroup>
     suspend fun delete(groupId: String): Result<Unit>
-    suspend fun getPrompt(promptId: String): Result<Prompt>
-    suspend fun deletePrompt(promptId: String): Result<Unit>
     suspend fun addPromptToGroup(groupId: String, request: AddPromptToGroupRequest): Result<Prompt>
     suspend fun updatePromptProductionTag(promptId: String, request: UpdatePromptTagRequest): Result<Prompt>
     suspend fun getPromptsByGroupId(groupId: String): Result<List<Prompt>>

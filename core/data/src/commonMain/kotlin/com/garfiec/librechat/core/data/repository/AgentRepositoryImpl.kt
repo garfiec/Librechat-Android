@@ -6,16 +6,11 @@ import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentAction
 import com.garfiec.librechat.core.model.AgentCategory
-import com.garfiec.librechat.core.model.AgentExpanded
 import com.garfiec.librechat.core.model.AgentTool
 import com.garfiec.librechat.core.model.PaginatedAgents
-import com.garfiec.librechat.core.model.ToolAuthStatus
-import com.garfiec.librechat.core.model.ToolCallRecord
-import com.garfiec.librechat.core.model.ToolCallResult
 import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
-import com.garfiec.librechat.core.model.request.ToolCallRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 import com.garfiec.librechat.core.network.api.AgentsApi
 import kotlinx.serialization.json.Json
@@ -115,12 +110,6 @@ class AgentRepositoryImpl(
         }
     }
 
-    override suspend fun getAgentExpanded(id: String): Result<AgentExpanded> {
-        return safeApiCall {
-            agentsApi.getAgentExpanded(id)
-        }
-    }
-
     override suspend fun getAgentCategories(): Result<List<AgentCategory>> {
         return safeApiCall {
             agentsApi.getAgentCategories()
@@ -186,24 +175,6 @@ class AgentRepositoryImpl(
     override suspend fun getAvailableTools(): Result<List<AgentTool>> {
         return safeApiCall {
             agentsApi.getAvailableTools()
-        }
-    }
-
-    override suspend fun getToolCalls(): Result<List<ToolCallRecord>> {
-        return safeApiCall {
-            agentsApi.getToolCalls()
-        }
-    }
-
-    override suspend fun getToolAuthStatus(toolId: String): Result<ToolAuthStatus> {
-        return safeApiCall {
-            agentsApi.getToolAuthStatus(toolId)
-        }
-    }
-
-    override suspend fun callTool(toolId: String, request: ToolCallRequest): Result<ToolCallResult> {
-        return safeApiCall {
-            agentsApi.callTool(toolId, request)
         }
     }
 

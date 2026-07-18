@@ -2,8 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="agents">Агенты</string>
-    <string name="marketplace">Маркетплейс</string>
-    <string name="search_agents">Поиск агентов…</string>
     <string name="start_chat">Начать чат</string>
     <string name="edit">Изменить</string>
     <string name="delete">Удалить</string>
@@ -108,8 +106,6 @@
     <string name="domain_prefix">Домен: %1$s</string>
     <string name="available_actions_count">Доступные действия (%1$d)</string>
     <string name="label_privacy_policy_url">URL политики конфиденциальности</string>
-    <string name="label_save_or_create">%1$s</string>
-
     <!-- Auth config dialog -->
     <string name="label_authentication_type">Тип аутентификации</string>
     <string name="label_api_key_settings">Настройки API-ключа</string>
@@ -136,15 +132,6 @@
 
     <!-- Advanced panel -->
     <string name="advanced_settings">Настройки модели</string>
-    <string name="label_temperature">Температура</string>
-    <string name="temperature_description">Управляет случайностью. Ниже = более сфокусированно.</string>
-    <string name="label_top_p">Top P</string>
-    <string name="top_p_description">Порог сэмплирования по ядру.</string>
-    <string name="label_max_tokens">Макс. токенов</string>
-    <string name="max_tokens_description">Максимальное число токенов в ответе. Оставьте пустым для значения по умолчанию.</string>
-
-    <!-- Avatar picker -->
-    <!-- (content descriptions above) -->
 
     <!-- Capabilities section -->
     <string name="label_artifacts">Артефакты</string>
@@ -176,8 +163,6 @@
     <string name="tool_auth_code_title">API-ключ интерпретатора кода</string>
     <string name="tool_auth_code_description">Введите API-ключ, который сервер должен использовать для выполнения кода от вашего имени. Хранится в вашем аккаунте, а не в агенте.</string>
     <string name="tool_auth_code_field">API-ключ LibreChat Code</string>
-    <string name="tool_auth_required">Для включения этого инструмента требуется аутентификация</string>
-
     <!-- File Context section -->
     <string name="label_file_context">Файловый контекст</string>
     <string name="file_context_description">Прикрепите файлы, которые всегда включаются как контекст беседы</string>
@@ -186,7 +171,6 @@
     <string name="label_file_search">Поиск по файлам</string>
     <string name="file_search_description">Разрешить агенту искать по загруженным файлам и документам</string>
 
-    <!-- Handoff config -->
     <!-- Chain (sequential multi-agent) -->
     <string name="chain_agents_count">Агенты в цепочке (%1$d)</string>
     <string name="chain_description">Агенты, выполняющиеся последовательно после этого. Предел — %1$d.</string>
@@ -228,7 +212,6 @@
 
     <!-- Visibility labels -->
     <string name="visibility_private">Приватный</string>
-    <string name="visibility_team">Команда</string>
     <string name="visibility_public">Публичный</string>
 
     <!-- Support contact section -->
@@ -242,7 +225,6 @@
     <string name="version_number">Версия %1$d</string>
     <string name="version_current">Активная</string>
     <string name="version_no_date">Дата недоступна</string>
-    <string name="version_unknown_date">Неизвестная дата</string>
     <string name="version_snapshot_name">Имя</string>
     <string name="version_snapshot_description">Описание</string>
     <string name="version_snapshot_instructions">Инструкции</string>
@@ -250,8 +232,6 @@
     <string name="version_snapshot_capabilities">Возможности</string>
     <string name="version_snapshot_tools">Инструменты</string>
     <string name="version_snapshot_empty">—</string>
-    <string name="version_restore_confirm">Откатить этого агента к выбранной версии? Текущие несохранённые изменения будут потеряны.</string>
-
     <!-- ACL sharing (v0.8.5+) -->
     <string name="acl_sharing_title">Доступ и совместное использование</string>
     <string name="acl_add_principal">Добавить пользователя или группу</string>
@@ -262,7 +242,6 @@
     <string name="acl_revoke">Отозвать</string>
     <string name="acl_search_hint">Поиск пользователей или групп…</string>
     <string name="acl_search_empty">Совпадений нет</string>
-    <string name="acl_grant_button">Предоставить</string>
     <string name="acl_grant_dialog_title">Добавить пользователя или группу</string>
     <string name="acl_principal_user">Пользователь</string>
     <string name="acl_principal_group">Группа</string>

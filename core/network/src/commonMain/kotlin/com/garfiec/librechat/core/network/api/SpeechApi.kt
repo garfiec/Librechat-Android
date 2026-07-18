@@ -45,13 +45,6 @@ class SpeechApi constructor(
         else -> "ogg"
     }
 
-    suspend fun textToSpeech(request: TextToSpeechRequest): ByteArray =
-        client.post {
-            url { path("api/files/speech/tts") }
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.body()
-
     suspend fun textToSpeechManual(request: TextToSpeechRequest): ByteArray =
         client.post {
             url { path("api/files/speech/tts/manual") }

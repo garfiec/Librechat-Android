@@ -6,7 +6,6 @@
     <string name="delete">Delete</string>
     <string name="save">Save</string>
     <string name="archive">Archive</string>
-    <string name="unarchive">Unarchive</string>
     <string name="export">Export</string>
     <string name="share">Share</string>
     <string name="duplicate">Duplicate</string>
@@ -29,7 +28,6 @@
     <string name="cd_delete">Delete</string>
 
     <!-- Conversation list screen -->
-    <string name="conversations">Conversations</string>
     <string name="search_conversations">Search conversations\u2026</string>
     <string name="could_not_load_conversations">Could not load conversations</string>
     <string name="no_results_found">No results found</string>
@@ -38,8 +36,6 @@
     <string name="start_new_chat">Start a new chat to begin</string>
     <string name="unknown_error">An unknown error occurred</string>
     <string name="conversation_exported">Conversation exported</string>
-    <string name="export_failed">Export failed: %1$s</string>
-    <string name="import_failed">Import failed: %1$s</string>
     <string name="link_copied">Link copied!</string>
     <string name="imported_title">Imported: %1$s</string>
     <string name="copy_of">Copy of %1$s</string>
@@ -54,7 +50,6 @@
     <string name="project_none">No project</string>
     <string name="project_create">Create project</string>
     <string name="project_new_name">New project name</string>
-    <string name="project_no_projects">No projects yet</string>
     <string name="project_empty_chats">No chats in this project yet</string>
     <string name="project_sort_label">Sort</string>
     <string name="project_sort_updated">Recently updated</string>
@@ -64,7 +59,6 @@
     <string name="project_delete">Delete project</string>
     <string name="project_delete_confirm">Delete project "%1$s"? Conversations stay, but are removed from the project.</string>
     <string name="project_open">Open</string>
-    <string name="project_show_all">Show all</string>
     <string name="project_unassigned">Unassigned</string>
     <string name="projects_all">All projects</string>
     <string name="project_new">New project</string>
@@ -99,8 +93,6 @@
     <string name="no_archived_conversations">No archived conversations</string>
     <string name="archived_will_appear_here">Archived conversations will appear here</string>
 
-    <!-- Conversation item fallback -->
-    <string name="chat">Chat</string>
     <!-- Drawer strings (moved from :shared) -->
     <string name="agents">Agents</string>
     <string name="cd_collapse_section">Collapse section</string>

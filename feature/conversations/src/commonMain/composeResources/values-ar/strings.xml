@@ -5,7 +5,6 @@
     <string name="cancel">إلغاء</string>
     <string name="delete">حذف</string>
     <string name="archive">أرشفة</string>
-    <string name="unarchive">إلغاء الأرشفة</string>
     <string name="export">تصدير</string>
     <string name="share">مشاركة</string>
     <string name="duplicate">تكرار</string>
@@ -28,7 +27,6 @@
     <string name="cd_delete">حذف</string>
 
     <!-- Conversation list screen -->
-    <string name="conversations">المحادثات</string>
     <string name="search_conversations">البحث في المحادثات…</string>
     <string name="could_not_load_conversations">تعذّر تحميل المحادثات</string>
     <string name="no_results_found">لم يتم العثور على نتائج</string>
@@ -37,8 +35,6 @@
     <string name="start_new_chat">ابدأ محادثة جديدة للبدء</string>
     <string name="unknown_error">حدث خطأ غير معروف</string>
     <string name="conversation_exported">تم تصدير المحادثة</string>
-    <string name="export_failed">فشل التصدير: %1$s</string>
-    <string name="import_failed">فشل الاستيراد: %1$s</string>
     <string name="link_copied">تم نسخ الرابط!</string>
     <string name="imported_title">تم الاستيراد: %1$s</string>
     <string name="copy_of">نسخة من %1$s</string>
@@ -74,8 +70,6 @@
     <string name="no_archived_conversations">لا توجد محادثات مؤرشفة</string>
     <string name="archived_will_appear_here">ستظهر المحادثات المؤرشفة هنا</string>
 
-    <!-- Conversation item fallback -->
-    <string name="chat">محادثة</string>
     <!-- Drawer strings (moved from :shared) -->
     <string name="agents">الوكلاء</string>
     <string name="favorites">المفضلة</string>

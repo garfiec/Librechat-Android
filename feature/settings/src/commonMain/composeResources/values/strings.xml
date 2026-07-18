@@ -43,7 +43,6 @@
     <string name="cd_make_private">Make private</string>
     <string name="cd_make_public">Make public</string>
     <string name="cd_preview_voice">Preview voice</string>
-    <string name="cd_qr_code">QR code for authenticator app</string>
     <string name="cd_reinitialize">Reinitialize</string>
     <string name="cd_avatar_preview">Avatar preview</string>
     <string name="cd_selected">Selected</string>
@@ -60,15 +59,12 @@
 
     <!-- Section headers -->
     <string name="section_about">About</string>
-    <string name="section_account">Account</string>
     <string name="section_advanced">Advanced</string>
     <string name="section_appearance">Appearance</string>
     <string name="section_balance">Balance</string>
     <string name="section_chat_preferences">Chat Preferences</string>
     <string name="section_conversations">Conversations</string>
     <string name="section_danger_zone">Danger Zone</string>
-    <string name="section_data_management">Data Management</string>
-    <string name="section_general">General</string>
     <string name="section_language">Language</string>
     <string name="section_layout">Layout</string>
     <string name="section_mcp_servers">MCP Servers</string>
@@ -78,8 +74,6 @@
     <string name="section_profile">Profile</string>
     <string name="section_security">Security</string>
     <string name="section_speech">Speech</string>
-    <string name="section_tablet">Tablet</string>
-
     <!-- Screen titles -->
     <string name="title_account">Account</string>
     <string name="title_api_keys">API Keys</string>
@@ -172,14 +166,10 @@
     <string name="starred_models_top">At top, no grouping</string>
     <string name="chat_header_title">Chat header</string>
     <string name="chat_header_summary_format">%1$s · %2$s</string>
-    <string name="chat_header_content_title">Chat header content</string>
-    <string name="chat_header_content_desc">Choose what the chat top bar shows</string>
     <string name="chat_header_content_label">Content</string>
     <string name="chat_header_content_title_option">Conversation title</string>
     <string name="chat_header_content_model">Selected model</string>
     <string name="chat_header_content_none">Nothing</string>
-    <string name="chat_header_alignment_title">Chat header alignment</string>
-    <string name="chat_header_alignment_desc">Choose how the chat top bar bubble is positioned</string>
     <string name="chat_header_alignment_label">Alignment</string>
     <string name="chat_header_alignment_left">Left</string>
     <string name="chat_header_alignment_center">Center</string>
@@ -285,11 +275,7 @@
     <string name="dialog_title_clear_conversations">Clear All Conversations</string>
     <string name="dialog_clear_conversations_message">This will permanently delete all your conversations. This action cannot be undone.</string>
     <string name="clear_all">Clear All</string>
-    <string name="export_coming_soon">Export is coming soon</string>
-    <string name="error_could_not_load_settings">Could not load settings</string>
-
     <!-- Diagnostic logs (issue #96) -->
-    <string name="section_diagnostic_logs">Diagnostic Logs</string>
     <string name="export_diagnostic_logs">Export diagnostic logs</string>
     <string name="export_diagnostic_logs_with_size">Export diagnostic logs (%1$s)</string>
     <string name="exporting_logs">Exporting…</string>
@@ -330,7 +316,6 @@
     <string name="tts_source_device">Device (built-in)</string>
     <string name="tts_source_server">Server</string>
     <string name="tts_voice_label">Voice</string>
-    <string name="tts_engine_label">Engine</string>
     <string name="tts_system_default">System default</string>
     <string name="tts_speech_rate">Speech Rate: %1$.1fx</string>
     <string name="tts_pitch">Pitch: %1$.1f</string>
@@ -385,15 +370,7 @@
     <string name="dialog_delete_server_message">Are you sure you want to delete \"%1$s\"?</string>
     <string name="error_failed_to_load_servers">Failed to load servers</string>
     <string name="mcp_tools_count">%1$d tool%2$s</string>
-    <string name="mcp_tools_available">%1$d tool%2$s available</string>
-    <string name="mcp_all_tools">All MCP Tools</string>
-    <string name="mcp_tools_for_server">Tools: %1$s</string>
     <string name="no_tools_available">No tools available</string>
-    <string name="mcp_tool_server">Server: %1$s</string>
-
-    <!-- MCP tools sheet -->
-    <string name="mcp_server_unknown">Unknown</string>
-
     <!-- Fork settings -->
     <string name="fork_mode_direct_path">Visible messages</string>
     <string name="fork_mode_direct_path_desc">Only the direct path of messages to the selected message</string>

@@ -2,7 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="files">Fichiers</string>
-    <string name="upload">Téléverser</string>
     <string name="delete">Supprimer</string>
     <string name="cancel">Annuler</string>
     <string name="done">Terminé</string>
@@ -48,14 +47,8 @@
     <string name="page_of">Page %1$d sur %2$d</string>
     <string name="page_cd">Page %1$d sur %2$s</string>
     <string name="could_not_render_pdf">Impossible d\'afficher l\'aperçu du PDF</string>
-    <string name="failed_to_download_pdf">Échec du téléchargement du PDF</string>
-    <string name="failed_to_render_pdf">Échec de l\'affichage du PDF</string>
     <string name="loading_file_content">Chargement du contenu du fichier…</string>
     <string name="could_not_load_file_content">Impossible de charger le contenu du fichier</string>
-    <string name="failed_to_download_file">Échec du téléchargement du fichier</string>
-    <string name="failed_to_load_content">Échec du chargement du contenu du fichier</string>
-    <string name="content_truncated">\n\n--- Contenu tronqué (fichier trop volumineux) ---</string>
-
     <!-- Info row labels -->
     <string name="info_type">Type</string>
     <string name="info_size">Taille</string>
@@ -64,4 +57,6 @@
 
     <!-- Upload progress -->
     <string name="uploading">Téléversement…</string>
+    <string name="failed_to_download_pdf">Échec du téléchargement du PDF</string>
+    <string name="failed_to_render_pdf">Échec de l\'affichage du PDF</string>
 </resources>

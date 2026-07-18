@@ -4,16 +4,11 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentAction
 import com.garfiec.librechat.core.model.AgentCategory
-import com.garfiec.librechat.core.model.AgentExpanded
 import com.garfiec.librechat.core.model.AgentTool
 import com.garfiec.librechat.core.model.PaginatedAgents
-import com.garfiec.librechat.core.model.ToolAuthStatus
-import com.garfiec.librechat.core.model.ToolCallRecord
-import com.garfiec.librechat.core.model.ToolCallResult
 import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
-import com.garfiec.librechat.core.model.request.ToolCallRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 
 interface AgentRepository {
@@ -41,7 +36,6 @@ interface AgentRepository {
     suspend fun deleteAgent(id: String): Result<Unit>
     suspend fun duplicateAgent(id: String): Result<Agent>
     suspend fun revertAgent(id: String, request: RevertAgentRequest): Result<Agent>
-    suspend fun getAgentExpanded(id: String): Result<AgentExpanded>
     suspend fun getAgentCategories(): Result<List<AgentCategory>>
 
     // Avatar
@@ -60,7 +54,4 @@ interface AgentRepository {
 
     // Tools
     suspend fun getAvailableTools(): Result<List<AgentTool>>
-    suspend fun getToolCalls(): Result<List<ToolCallRecord>>
-    suspend fun getToolAuthStatus(toolId: String): Result<ToolAuthStatus>
-    suspend fun callTool(toolId: String, request: ToolCallRequest): Result<ToolCallResult>
 }

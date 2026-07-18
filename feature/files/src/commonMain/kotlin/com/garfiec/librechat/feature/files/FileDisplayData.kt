@@ -20,7 +20,5 @@ data class FilePreviewDisplayData(
     val formattedSize: String,
     val createdAt: String?,
     val source: String?,
-    val previewUrl: String?,
     val userId: String?,
-    val downloadUrl: String?,
 )

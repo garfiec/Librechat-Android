@@ -20,15 +20,6 @@
     <string name="no_account_sign_up">ليس لديك حساب؟ سجّل الآن</string>
     <string name="or_continue_with">أو تابع باستخدام</string>
 
-    <!-- OAuth provider labels -->
-    <string name="oauth_google">المتابعة باستخدام Google</string>
-    <string name="oauth_github">المتابعة باستخدام GitHub</string>
-    <string name="oauth_discord">المتابعة باستخدام Discord</string>
-    <string name="oauth_facebook">المتابعة باستخدام Facebook</string>
-    <string name="oauth_apple">المتابعة باستخدام Apple</string>
-    <string name="oauth_openid">المتابعة باستخدام OpenID</string>
-    <string name="oauth_generic">المتابعة باستخدام %1$s</string>
-
     <!-- Register -->
     <string name="register_title">إنشاء حساب</string>
     <string name="full_name_label">الاسم الكامل</string>

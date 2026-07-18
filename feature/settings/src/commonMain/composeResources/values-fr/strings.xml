@@ -43,7 +43,6 @@
     <string name="cd_make_private">Rendre privé</string>
     <string name="cd_make_public">Rendre public</string>
     <string name="cd_preview_voice">Aperçu de la voix</string>
-    <string name="cd_qr_code">Code QR pour l\'application d\'authentification</string>
     <string name="cd_reinitialize">Réinitialiser</string>
     <string name="cd_avatar_preview">Aperçu de l\'avatar</string>
     <string name="cd_selected">Sélectionné</string>
@@ -60,15 +59,12 @@
 
     <!-- Section headers -->
     <string name="section_about">À propos</string>
-    <string name="section_account">Compte</string>
     <string name="section_advanced">Avancé</string>
     <string name="section_appearance">Apparence</string>
     <string name="section_balance">Solde</string>
     <string name="section_chat_preferences">Préférences de discussion</string>
     <string name="section_conversations">Conversations</string>
     <string name="section_danger_zone">Zone de danger</string>
-    <string name="section_data_management">Gestion des données</string>
-    <string name="section_general">Général</string>
     <string name="section_language">Langue</string>
     <string name="section_layout">Disposition</string>
     <string name="section_mcp_servers">Serveurs MCP</string>
@@ -78,8 +74,6 @@
     <string name="section_profile">Profil</string>
     <string name="section_security">Sécurité</string>
     <string name="section_speech">Voix</string>
-    <string name="section_tablet">Tablette</string>
-
     <!-- Screen titles -->
     <string name="title_account">Compte</string>
     <string name="title_api_keys">Clés API</string>
@@ -165,13 +159,9 @@
     <string name="starred_models_off">Désactivé</string>
     <string name="starred_models_grouped">Groupe repliable en haut</string>
     <string name="starred_models_top">En haut, sans regroupement</string>
-    <string name="chat_header_content_title">Contenu de l'en-tête du chat</string>
-    <string name="chat_header_content_desc">Choisissez ce qu'affiche la barre supérieure du chat</string>
     <string name="chat_header_content_title_option">Titre de la conversation</string>
     <string name="chat_header_content_model">Modèle sélectionné</string>
     <string name="chat_header_content_none">Rien</string>
-    <string name="chat_header_alignment_title">Alignement de l'en-tête du chat</string>
-    <string name="chat_header_alignment_desc">Choisissez la position de la bulle de la barre supérieure du chat</string>
     <string name="chat_header_alignment_left">Gauche</string>
     <string name="chat_header_alignment_center">Centre</string>
     <string name="chat_header_alignment_fill">Pleine largeur</string>
@@ -262,11 +252,7 @@
     <string name="dialog_title_clear_conversations">Effacer toutes les conversations</string>
     <string name="dialog_clear_conversations_message">Ceci supprimera définitivement toutes vos conversations. Cette action est irréversible.</string>
     <string name="clear_all">Tout effacer</string>
-    <string name="export_coming_soon">L\'exportation arrive bientôt</string>
-    <string name="error_could_not_load_settings">Impossible de charger les paramètres</string>
-
     <!-- Diagnostic logs (issue #96) -->
-    <string name="section_diagnostic_logs">Journaux de diagnostic</string>
     <string name="export_diagnostic_logs">Exporter les journaux de diagnostic</string>
     <string name="export_diagnostic_logs_with_size">Exporter les journaux de diagnostic (%1$s)</string>
     <string name="exporting_logs">Exportation…</string>
@@ -307,7 +293,6 @@
     <string name="tts_source_device">Appareil (intégré)</string>
     <string name="tts_source_server">Serveur</string>
     <string name="tts_voice_label">Voix</string>
-    <string name="tts_engine_label">Moteur</string>
     <string name="tts_system_default">Par défaut du système</string>
     <string name="tts_speech_rate">Débit de parole : %1$.1fx</string>
     <string name="tts_pitch">Hauteur : %1$.1f</string>
@@ -362,15 +347,7 @@
     <string name="dialog_delete_server_message">Voulez-vous vraiment supprimer \"%1$s\" ?</string>
     <string name="error_failed_to_load_servers">Échec du chargement des serveurs</string>
     <string name="mcp_tools_count">%1$d outil%2$s</string>
-    <string name="mcp_tools_available">%1$d outil%2$s disponible(s)</string>
-    <string name="mcp_all_tools">Tous les outils MCP</string>
-    <string name="mcp_tools_for_server">Outils : %1$s</string>
     <string name="no_tools_available">Aucun outil disponible</string>
-    <string name="mcp_tool_server">Serveur : %1$s</string>
-
-    <!-- MCP tools sheet -->
-    <string name="mcp_server_unknown">Inconnu</string>
-
     <!-- Fork settings -->
     <string name="fork_mode_direct_path">Messages visibles</string>
     <string name="fork_mode_direct_path_desc">Uniquement le chemin direct des messages jusqu\'au message sélectionné</string>

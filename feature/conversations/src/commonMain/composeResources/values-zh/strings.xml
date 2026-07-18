@@ -5,7 +5,6 @@
     <string name="cancel">取消</string>
     <string name="delete">删除</string>
     <string name="archive">归档</string>
-    <string name="unarchive">取消归档</string>
     <string name="export">导出</string>
     <string name="share">分享</string>
     <string name="duplicate">复制副本</string>
@@ -28,7 +27,6 @@
     <string name="cd_delete">删除</string>
 
     <!-- Conversation list screen -->
-    <string name="conversations">对话</string>
     <string name="search_conversations">搜索对话…</string>
     <string name="could_not_load_conversations">无法加载对话</string>
     <string name="no_results_found">未找到结果</string>
@@ -37,8 +35,6 @@
     <string name="start_new_chat">开始新聊天</string>
     <string name="unknown_error">发生未知错误</string>
     <string name="conversation_exported">对话已导出</string>
-    <string name="export_failed">导出失败：%1$s</string>
-    <string name="import_failed">导入失败：%1$s</string>
     <string name="link_copied">链接已复制！</string>
     <string name="imported_title">已导入：%1$s</string>
     <string name="copy_of">%1$s 的副本</string>
@@ -74,8 +70,6 @@
     <string name="no_archived_conversations">没有已归档对话</string>
     <string name="archived_will_appear_here">已归档的对话将显示在此处</string>
 
-    <!-- Conversation item fallback -->
-    <string name="chat">聊天</string>
     <!-- Drawer strings (moved from :shared) -->
     <string name="agents">智能体</string>
     <string name="favorites">收藏</string>

@@ -48,11 +48,6 @@ class ProjectsApi(
             setBody(CreateChatProjectRequest(name = name, description = description))
         }.body()
 
-    suspend fun getProject(projectId: String): ChatProject =
-        client.get {
-            url { path("api/projects/$projectId") }
-        }.body()
-
     suspend fun updateProject(
         projectId: String,
         name: String? = null,

@@ -4,14 +4,11 @@
     <string name="cancel">Cancelar</string>
     <string name="save">Salvar</string>
     <string name="delete">Excluir</string>
-    <string name="copy">Copiar</string>
     <string name="edit">Editar</string>
-    <string name="regenerate">Regenerar</string>
     <string name="action_rename">Renomear</string>
     <string name="action_submit">Enviar</string>
     <string name="action_insert">Inserir</string>
     <string name="action_open">Abrir</string>
-    <string name="action_close">Fechar</string>
     <string name="action_share">Compartilhar</string>
     <string name="action_search">Buscar</string>
     <string name="action_archive">Arquivar</string>
@@ -20,13 +17,8 @@
 
     <!-- Chat screen -->
     <string name="new_chat">Nova conversa</string>
-    <string name="send_message">Enviar</string>
-    <string name="stop_generating">Parar</string>
-    <string name="message_hint">Digite uma mensagem…</string>
-    <string name="model_parameters">Parâmetros do modelo</string>
     <string name="load_preset">Carregar predefinição</string>
     <string name="save_as_preset">Salvar como predefinição</string>
-    <string name="search_models">Buscar modelos…</string>
     <string name="save_and_submit">Salvar &amp; enviar</string>
     <string name="preset_name_label">Nome da predefinição</string>
     <string name="code">Código</string>
@@ -53,7 +45,6 @@
     <string name="cd_open_drawer">Abrir menu de navegação</string>
     <string name="cd_edit_title">Editar título</string>
     <string name="cd_more_options">Mais opções</string>
-    <string name="cd_more_tools">Mais ferramentas</string>
     <string name="cd_scroll_to_bottom">Rolar até o final</string>
     <string name="cd_select_model">Selecionar modelo</string>
     <string name="cd_librechat">LibreChat</string>
@@ -132,7 +123,6 @@
     <string name="cd_collapse_tool_call">Recolher chamada de ferramenta %1$s</string>
     <string name="cd_expand_tool_call">Expandir chamada de ferramenta %1$s</string>
     <string name="cd_tool_complete">Concluída</string>
-    <string name="cd_tool_enabled">Ativada</string>
     <string name="video_not_supported">Conteúdo de vídeo não suportado</string>
 
     <!-- Tools bottom sheet -->
@@ -156,7 +146,6 @@
 
     <!-- Attachments -->
     <string name="cd_attach_file">Anexar arquivo</string>
-    <string name="toast_file_attach_unavailable">Anexos de arquivo ainda não disponíveis no iOS</string>
     <string name="files_count">Arquivos (%1$d)</string>
     <string name="cd_attached_file">Arquivo anexado: %1$s</string>
     <string name="cd_preview_file">Visualização de %1$s</string>
@@ -191,30 +180,12 @@
     <string name="fork_start_new">Iniciar nova conversa a partir do alvo</string>
     <string name="fork_start_new_desc">Começar a bifurcação a partir da mensagem selecionada, em vez da raiz</string>
 
-    <!-- Image viewer toasts -->
-    <string name="toast_failed_to_load_image">Falha ao carregar a imagem</string>
-    <string name="toast_failed_to_save_image">Falha ao salvar a imagem</string>
-    <string name="toast_image_saved">Imagem salva na galeria</string>
-    <string name="toast_failed_to_save_with_error">Falha ao salvar a imagem: %1$s</string>
-    <string name="toast_storage_permission_required">É necessária permissão de armazenamento para salvar imagens</string>
-
     <!-- Image generation -->
     <string name="generating_image">Gerando imagem…</string>
     <string name="image_generated">Imagem gerada</string>
     <string name="cd_generated_image">Imagem gerada</string>
 
-    <!-- Landing page greetings -->
-    <string name="greeting_late_night">Boa madrugada</string>
-    <string name="greeting_weekend_morning">Bom fim de semana de manhã</string>
-    <string name="greeting_weekend_afternoon">Bom fim de semana à tarde</string>
-    <string name="greeting_weekend_evening">Bom fim de semana à noite</string>
-    <string name="greeting_early_morning">Bom amanhecer</string>
-    <string name="greeting_morning">Bom dia</string>
-    <string name="greeting_afternoon">Boa tarde</string>
-    <string name="greeting_evening">Boa noite</string>
-
     <!-- Log content -->
-    <string name="log_output">Saída do log</string>
     <string name="cd_collapse_log">Recolher %1$s</string>
     <string name="cd_expand_log">Expandir %1$s</string>
 
@@ -223,7 +194,6 @@
     <string name="dialog_table">Tabela</string>
 
     <!-- MCP -->
-    <string name="cd_select_mcp_servers">Selecionar servidores MCP</string>
     <string name="cd_mcp_resources">Recursos MCP: %1$d itens</string>
     <string name="cd_mcp_resource">Recurso MCP: %1$s</string>
 
@@ -284,18 +254,12 @@
     <string name="dialog_title_delete_conversation">Excluir conversa</string>
     <string name="dialog_delete_conversation_message">Isso excluirá permanentemente esta conversa. Esta ação não pode ser desfeita.</string>
 
-    <!-- Chat menu options -->
-    <string name="menu_search">Buscar</string>
-    <string name="menu_rename">Renomear</string>
-
     <!-- Artifacts -->
     <string name="cd_open_artifact">Abrir artefato</string>
     <string name="cd_share_artifact">Compartilhar artefato</string>
     <string name="cd_previous_version">Versão anterior</string>
     <string name="cd_next_version">Próxima versão</string>
     <string name="artifact_version">v%1$d/%2$d</string>
-    <string name="label_resource">Recurso</string>
-
     <!-- Prompts -->
     <string name="prompts_library">Biblioteca de prompts</string>
     <string name="use_in_chat">Usar na conversa</string>
@@ -339,16 +303,9 @@
     <!-- Variable input dialog -->
     <string name="dialog_title_fill_variables">Preencher variáveis</string>
 
-    <!-- Temp chat toggle -->
-    <string name="cd_temp_chat">Conversa temporária</string>
-    <string name="label_temp_chat">Temp</string>
-
     <!-- Comparison mode -->
     <string name="continue_with_response">Continuar com esta resposta</string>
     <string name="waiting_for_response">Aguardando resposta…</string>
-
-    <!-- Slash command menu -->
-    <string name="slash_command_title">/%1$s</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">Nenhuma chave encontrada. Forneça uma chave e tente novamente.</string>

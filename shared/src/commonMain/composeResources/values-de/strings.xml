@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Connectivity -->
-    <string name="no_connection">Keine Internetverbindung</string>
-
     <!-- Drawer -->
     <string name="settings">Einstellungen</string>
 
     <!-- Content descriptions -->
     <string name="cd_back_to_conversations">Zurück zu den Unterhaltungen</string>
-
-    <!-- Search -->
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">Backend-Versionskonflikt</string>

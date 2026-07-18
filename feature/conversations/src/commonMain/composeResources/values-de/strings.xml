@@ -5,7 +5,6 @@
     <string name="cancel">Abbrechen</string>
     <string name="delete">Löschen</string>
     <string name="archive">Archivieren</string>
-    <string name="unarchive">Aus Archiv holen</string>
     <string name="export">Exportieren</string>
     <string name="share">Teilen</string>
     <string name="duplicate">Duplizieren</string>
@@ -28,7 +27,6 @@
     <string name="cd_delete">Löschen</string>
 
     <!-- Conversation list screen -->
-    <string name="conversations">Unterhaltungen</string>
     <string name="search_conversations">Unterhaltungen suchen…</string>
     <string name="could_not_load_conversations">Unterhaltungen konnten nicht geladen werden</string>
     <string name="no_results_found">Keine Ergebnisse gefunden</string>
@@ -37,8 +35,6 @@
     <string name="start_new_chat">Starte einen neuen Chat, um zu beginnen</string>
     <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten</string>
     <string name="conversation_exported">Unterhaltung exportiert</string>
-    <string name="export_failed">Export fehlgeschlagen: %1$s</string>
-    <string name="import_failed">Import fehlgeschlagen: %1$s</string>
     <string name="link_copied">Link kopiert!</string>
     <string name="imported_title">Importiert: %1$s</string>
     <string name="copy_of">Kopie von %1$s</string>
@@ -74,8 +70,6 @@
     <string name="no_archived_conversations">Keine archivierten Unterhaltungen</string>
     <string name="archived_will_appear_here">Archivierte Unterhaltungen erscheinen hier</string>
 
-    <!-- Conversation item fallback -->
-    <string name="chat">Chat</string>
     <!-- Drawer strings (moved from :shared) -->
     <string name="agents">Agenten</string>
     <string name="favorites">Favoriten</string>

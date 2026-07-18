@@ -15,8 +15,4 @@ object CookieHelper {
         }
         return null
     }
-
-    fun buildCookieHeader(refreshToken: String): String {
-        return "refreshToken=$refreshToken"
-    }
 }

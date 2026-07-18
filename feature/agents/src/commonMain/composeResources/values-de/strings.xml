@@ -2,8 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="agents">Agenten</string>
-    <string name="marketplace">Marketplace</string>
-    <string name="search_agents">Agenten suchen…</string>
     <string name="start_chat">Chat starten</string>
     <string name="edit">Bearbeiten</string>
     <string name="delete">Löschen</string>
@@ -108,8 +106,6 @@
     <string name="domain_prefix">Domain: %1$s</string>
     <string name="available_actions_count">Verfügbare Aktionen (%1$d)</string>
     <string name="label_privacy_policy_url">URL der Datenschutzerklärung</string>
-    <string name="label_save_or_create">%1$s</string>
-
     <!-- Auth config dialog -->
     <string name="label_authentication_type">Authentifizierungstyp</string>
     <string name="label_api_key_settings">API-Schlüssel-Einstellungen</string>
@@ -136,15 +132,6 @@
 
     <!-- Advanced panel -->
     <string name="advanced_settings">Modelleinstellungen</string>
-    <string name="label_temperature">Temperatur</string>
-    <string name="temperature_description">Steuert die Zufälligkeit. Niedriger = fokussierter.</string>
-    <string name="label_top_p">Top P</string>
-    <string name="top_p_description">Cutoff für Nucleus-Sampling.</string>
-    <string name="label_max_tokens">Max. Tokens</string>
-    <string name="max_tokens_description">Maximale Anzahl Tokens in der Antwort. Leer lassen für Standard.</string>
-
-    <!-- Avatar picker -->
-    <!-- (content descriptions above) -->
 
     <!-- Capabilities section -->
     <string name="label_artifacts">Artefakte</string>
@@ -176,8 +163,6 @@
     <string name="tool_auth_code_title">Code-Interpreter-API-Schlüssel</string>
     <string name="tool_auth_code_description">Gib den API-Schlüssel ein, den der Server verwenden soll, um Code in deinem Namen auszuführen. In deinem Konto gespeichert, nicht im Agenten.</string>
     <string name="tool_auth_code_field">LibreChat Code API-Schlüssel</string>
-    <string name="tool_auth_required">Authentifizierung erforderlich, um dieses Tool zu aktivieren</string>
-
     <!-- File Context section -->
     <string name="label_file_context">Dateikontext</string>
     <string name="file_context_description">Dateien anhängen, die immer als Gesprächskontext einbezogen werden</string>
@@ -186,7 +171,6 @@
     <string name="label_file_search">Dateisuche</string>
     <string name="file_search_description">Dem Agenten erlauben, hochgeladene Dateien und Dokumente zu durchsuchen</string>
 
-    <!-- Handoff config -->
     <!-- Chain (sequential multi-agent) -->
     <string name="chain_agents_count">Ketten-Agenten (%1$d)</string>
     <string name="chain_description">Agenten, die nach diesem in Reihenfolge ausgeführt werden. Limit ist %1$d.</string>
@@ -228,7 +212,6 @@
 
     <!-- Visibility labels -->
     <string name="visibility_private">Privat</string>
-    <string name="visibility_team">Team</string>
     <string name="visibility_public">Öffentlich</string>
 
     <!-- Support contact section -->
@@ -242,7 +225,6 @@
     <string name="version_number">Version %1$d</string>
     <string name="version_current">Aktiv</string>
     <string name="version_no_date">Kein Datum verfügbar</string>
-    <string name="version_unknown_date">Unbekanntes Datum</string>
     <string name="version_snapshot_name">Name</string>
     <string name="version_snapshot_description">Beschreibung</string>
     <string name="version_snapshot_instructions">Anweisungen</string>
@@ -250,8 +232,6 @@
     <string name="version_snapshot_capabilities">Funktionen</string>
     <string name="version_snapshot_tools">Tools</string>
     <string name="version_snapshot_empty">—</string>
-    <string name="version_restore_confirm">Diesen Agenten auf die ausgewählte Version zurücksetzen? Aktuelle ungespeicherte Änderungen gehen verloren.</string>
-
     <!-- ACL sharing (v0.8.5+) -->
     <string name="acl_sharing_title">Teilen &amp; Zugriff</string>
     <string name="acl_add_principal">Benutzer oder Gruppe hinzufügen</string>
@@ -262,7 +242,6 @@
     <string name="acl_revoke">Widerrufen</string>
     <string name="acl_search_hint">Benutzer oder Gruppen suchen…</string>
     <string name="acl_search_empty">Keine Treffer</string>
-    <string name="acl_grant_button">Gewähren</string>
     <string name="acl_grant_dialog_title">Benutzer oder Gruppe hinzufügen</string>
     <string name="acl_principal_user">Benutzer</string>
     <string name="acl_principal_group">Gruppe</string>

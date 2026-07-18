@@ -2,7 +2,6 @@ package com.garfiec.librechat.core.network.api
 
 import com.garfiec.librechat.core.model.SharedLink
 import com.garfiec.librechat.core.model.request.CreateShareRequest
-import com.garfiec.librechat.core.model.response.ShareLinkCheckResponse
 import com.garfiec.librechat.core.model.response.SharedLinksResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -34,16 +33,6 @@ class ShareApi constructor(
         client.post {
             url { path("api/share/$conversationId") }
             setBody(CreateShareRequest(targetMessageId = targetMessageId))
-        }.body()
-
-    suspend fun getShareLink(shareId: String): SharedLink =
-        client.get {
-            url { path("api/share/$shareId") }
-        }.body()
-
-    suspend fun checkShareLink(conversationId: String): ShareLinkCheckResponse =
-        client.get {
-            url { path("api/share/link/$conversationId") }
         }.body()
 
     suspend fun toggleShareVisibility(shareId: String): SharedLink =

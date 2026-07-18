@@ -43,7 +43,6 @@
     <string name="cd_make_private">비공개로 전환</string>
     <string name="cd_make_public">공개로 전환</string>
     <string name="cd_preview_voice">음성 미리듣기</string>
-    <string name="cd_qr_code">인증 앱용 QR 코드</string>
     <string name="cd_reinitialize">다시 초기화</string>
     <string name="cd_avatar_preview">아바타 미리보기</string>
     <string name="cd_selected">선택됨</string>
@@ -60,15 +59,12 @@
 
     <!-- Section headers -->
     <string name="section_about">정보</string>
-    <string name="section_account">계정</string>
     <string name="section_advanced">고급</string>
     <string name="section_appearance">화면 설정</string>
     <string name="section_balance">잔액</string>
     <string name="section_chat_preferences">채팅 환경설정</string>
     <string name="section_conversations">대화</string>
     <string name="section_danger_zone">위험 구역</string>
-    <string name="section_data_management">데이터 관리</string>
-    <string name="section_general">일반</string>
     <string name="section_language">언어</string>
     <string name="section_layout">레이아웃</string>
     <string name="section_mcp_servers">MCP 서버</string>
@@ -78,8 +74,6 @@
     <string name="section_profile">프로필</string>
     <string name="section_security">보안</string>
     <string name="section_speech">음성</string>
-    <string name="section_tablet">태블릿</string>
-
     <!-- Screen titles -->
     <string name="title_account">계정</string>
     <string name="title_api_keys">API 키</string>
@@ -165,13 +159,9 @@
     <string name="starred_models_off">끔</string>
     <string name="starred_models_grouped">상단에 접을 수 있는 그룹</string>
     <string name="starred_models_top">상단에 표시, 그룹화 없음</string>
-    <string name="chat_header_content_title">채팅 헤더 내용</string>
-    <string name="chat_header_content_desc">채팅 상단 바에 표시할 내용을 선택하세요</string>
     <string name="chat_header_content_title_option">대화 제목</string>
     <string name="chat_header_content_model">선택한 모델</string>
     <string name="chat_header_content_none">없음</string>
-    <string name="chat_header_alignment_title">채팅 헤더 정렬</string>
-    <string name="chat_header_alignment_desc">채팅 상단 바 버블의 위치를 선택하세요</string>
     <string name="chat_header_alignment_left">왼쪽</string>
     <string name="chat_header_alignment_center">가운데</string>
     <string name="chat_header_alignment_fill">전체 너비</string>
@@ -262,11 +252,7 @@
     <string name="dialog_title_clear_conversations">모든 대화 지우기</string>
     <string name="dialog_clear_conversations_message">모든 대화를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.</string>
     <string name="clear_all">모두 지우기</string>
-    <string name="export_coming_soon">내보내기 기능은 곧 제공됩니다</string>
-    <string name="error_could_not_load_settings">설정을 불러올 수 없습니다</string>
-
     <!-- Diagnostic logs (issue #96) -->
-    <string name="section_diagnostic_logs">진단 로그</string>
     <string name="export_diagnostic_logs">진단 로그 내보내기</string>
     <string name="export_diagnostic_logs_with_size">진단 로그 내보내기 (%1$s)</string>
     <string name="exporting_logs">내보내는 중…</string>
@@ -307,7 +293,6 @@
     <string name="tts_source_device">기기 (내장)</string>
     <string name="tts_source_server">서버</string>
     <string name="tts_voice_label">음성</string>
-    <string name="tts_engine_label">엔진</string>
     <string name="tts_system_default">시스템 기본값</string>
     <string name="tts_speech_rate">말하기 속도: %1$.1fx</string>
     <string name="tts_pitch">음높이: %1$.1f</string>
@@ -362,15 +347,7 @@
     <string name="dialog_delete_server_message">\"%1$s\"을(를) 삭제하시겠습니까?</string>
     <string name="error_failed_to_load_servers">서버를 불러오지 못했습니다</string>
     <string name="mcp_tools_count">도구 %1$d개%2$s</string>
-    <string name="mcp_tools_available">도구 %1$d개%2$s 사용 가능</string>
-    <string name="mcp_all_tools">모든 MCP 도구</string>
-    <string name="mcp_tools_for_server">도구: %1$s</string>
     <string name="no_tools_available">사용 가능한 도구가 없습니다</string>
-    <string name="mcp_tool_server">서버: %1$s</string>
-
-    <!-- MCP tools sheet -->
-    <string name="mcp_server_unknown">알 수 없음</string>
-
     <!-- Fork settings -->
     <string name="fork_mode_direct_path">표시된 메시지</string>
     <string name="fork_mode_direct_path_desc">선택한 메시지까지의 직접 경로 메시지만</string>

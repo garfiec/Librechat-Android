@@ -45,18 +45,6 @@ class PromptRepositoryImpl(
         }
     }
 
-    override suspend fun getPrompt(promptId: String): Result<Prompt> {
-        return safeApiCall {
-            promptsApi.getPrompt(promptId)
-        }
-    }
-
-    override suspend fun deletePrompt(promptId: String): Result<Unit> {
-        return safeApiCall {
-            promptsApi.deletePrompt(promptId)
-        }
-    }
-
     override suspend fun addPromptToGroup(groupId: String, request: AddPromptToGroupRequest): Result<Prompt> {
         return safeApiCall {
             promptsApi.addPromptToGroup(groupId, request)

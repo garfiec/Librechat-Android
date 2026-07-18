@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">Edit</string>
     <string name="skill_delete">Delete</string>
-    <string name="skill_show_source">Show source</string>
-    <string name="skill_show_rendered">Show rendered</string>
     <string name="skill_category_label">Category: %1$s</string>
     <string name="skill_version_label">Version %1$d</string>
     <string name="skill_delete_confirm_title">Delete skill?</string>

@@ -2,7 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="files">文件</string>
-    <string name="upload">上传</string>
     <string name="delete">删除</string>
     <string name="cancel">取消</string>
     <string name="done">完成</string>
@@ -48,14 +47,8 @@
     <string name="page_of">第 %1$d 页，共 %2$d 页</string>
     <string name="page_cd">第 %1$d 页，共 %2$s 页</string>
     <string name="could_not_render_pdf">无法渲染 PDF 预览</string>
-    <string name="failed_to_download_pdf">PDF 下载失败</string>
-    <string name="failed_to_render_pdf">PDF 渲染失败</string>
     <string name="loading_file_content">正在加载文件内容…</string>
     <string name="could_not_load_file_content">无法加载文件内容</string>
-    <string name="failed_to_download_file">文件下载失败</string>
-    <string name="failed_to_load_content">文件内容加载失败</string>
-    <string name="content_truncated">\n\n--- 内容已截断（文件过大）---</string>
-
     <!-- Info row labels -->
     <string name="info_type">类型</string>
     <string name="info_size">大小</string>
@@ -64,4 +57,6 @@
 
     <!-- Upload progress -->
     <string name="uploading">上传中…</string>
+    <string name="failed_to_download_pdf">PDF 下载失败</string>
+    <string name="failed_to_render_pdf">PDF 渲染失败</string>
 </resources>

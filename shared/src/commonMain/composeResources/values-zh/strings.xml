@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Connectivity -->
-    <string name="no_connection">无网络连接</string>
-
     <!-- Drawer -->
     <string name="settings">设置</string>
 
     <!-- Content descriptions -->
     <string name="cd_back_to_conversations">返回对话</string>
-
-    <!-- Search -->
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">后端版本不匹配</string>

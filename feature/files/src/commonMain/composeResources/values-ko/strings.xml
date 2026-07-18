@@ -2,7 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="files">파일</string>
-    <string name="upload">업로드</string>
     <string name="delete">삭제</string>
     <string name="cancel">취소</string>
     <string name="done">완료</string>
@@ -48,14 +47,8 @@
     <string name="page_of">%2$d페이지 중 %1$d페이지</string>
     <string name="page_cd">%2$s페이지 중 %1$d페이지</string>
     <string name="could_not_render_pdf">PDF 미리보기를 렌더링할 수 없습니다</string>
-    <string name="failed_to_download_pdf">PDF 다운로드에 실패했습니다</string>
-    <string name="failed_to_render_pdf">PDF 렌더링에 실패했습니다</string>
     <string name="loading_file_content">파일 내용 불러오는 중…</string>
     <string name="could_not_load_file_content">파일 내용을 불러올 수 없습니다</string>
-    <string name="failed_to_download_file">파일 다운로드에 실패했습니다</string>
-    <string name="failed_to_load_content">파일 내용을 불러오지 못했습니다</string>
-    <string name="content_truncated">\n\n--- 내용이 잘렸습니다 (파일이 너무 큼) ---</string>
-
     <!-- Info row labels -->
     <string name="info_type">유형</string>
     <string name="info_size">크기</string>
@@ -64,4 +57,6 @@
 
     <!-- Upload progress -->
     <string name="uploading">업로드 중…</string>
+    <string name="failed_to_download_pdf">PDF 다운로드에 실패했습니다</string>
+    <string name="failed_to_render_pdf">PDF 렌더링에 실패했습니다</string>
 </resources>

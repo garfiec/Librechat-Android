@@ -12,11 +12,9 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
-import com.garfiec.librechat.core.model.request.AddPromptToGroupRequest
 import com.garfiec.librechat.core.model.request.CreatePromptData
 import com.garfiec.librechat.core.model.request.CreatePromptGroupData
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
-import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.feature.chat.prompts.components.PromptSortOrder
 import com.garfiec.librechat.feature.chat.prompts.components.extractVariables
@@ -245,25 +243,6 @@ class PromptsViewModel(
         }
     }
 
-    fun updateGroup(groupId: String, name: String?, oneliner: String?, command: String?) {
-        viewModelScope.launch {
-            val request = UpdatePromptGroupRequest(
-                name = name,
-                oneliner = oneliner,
-                command = command,
-            )
-            try {
-                promptRepository.update(groupId, request)
-                refresh()
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to update prompt" }
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to update prompt",
-                )
-            }
-        }
-    }
-
     fun deleteGroup(groupId: String) {
         viewModelScope.launch {
             try {
@@ -275,24 +254,6 @@ class PromptsViewModel(
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to delete prompt",
                 )
-            }
-        }
-    }
-
-    fun addPromptVersion(groupId: String, promptText: String) {
-        viewModelScope.launch {
-            val request = AddPromptToGroupRequest(prompt = promptText, type = "text")
-            when (val result = promptRepository.addPromptToGroup(groupId, request)) {
-                is Result.Success -> {
-                    // Reload group to see updated versions
-                    selectGroup(groupId)
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message ?: "Failed to add prompt version",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
             }
         }
     }
@@ -311,25 +272,6 @@ class PromptsViewModel(
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
                         error = result.message ?: "Failed to update production tag",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
-    fun deletePromptVersion(promptId: String) {
-        viewModelScope.launch {
-            when (val result = promptRepository.deletePrompt(promptId)) {
-                is Result.Success -> {
-                    val groupId = _uiState.value.selectedGroup?.id
-                    if (groupId != null) {
-                        selectGroup(groupId)
-                    }
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message ?: "Failed to delete prompt version",
                     )
                 }
                 is Result.Loading -> { /* no-op */ }

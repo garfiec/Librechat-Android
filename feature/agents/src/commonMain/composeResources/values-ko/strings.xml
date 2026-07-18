@@ -2,8 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="agents">에이전트</string>
-    <string name="marketplace">마켓플레이스</string>
-    <string name="search_agents">에이전트 검색…</string>
     <string name="start_chat">채팅 시작</string>
     <string name="edit">편집</string>
     <string name="delete">삭제</string>
@@ -108,8 +106,6 @@
     <string name="domain_prefix">도메인: %1$s</string>
     <string name="available_actions_count">사용 가능한 작업 (%1$d)</string>
     <string name="label_privacy_policy_url">개인정보처리방침 URL</string>
-    <string name="label_save_or_create">%1$s</string>
-
     <!-- Auth config dialog -->
     <string name="label_authentication_type">인증 유형</string>
     <string name="label_api_key_settings">API 키 설정</string>
@@ -136,15 +132,6 @@
 
     <!-- Advanced panel -->
     <string name="advanced_settings">모델 설정</string>
-    <string name="label_temperature">Temperature</string>
-    <string name="temperature_description">무작위성을 제어합니다. 낮을수록 더 집중적입니다.</string>
-    <string name="label_top_p">Top P</string>
-    <string name="top_p_description">Nucleus 샘플링 컷오프.</string>
-    <string name="label_max_tokens">최대 토큰</string>
-    <string name="max_tokens_description">응답의 최대 토큰 수입니다. 기본값을 사용하려면 비워 두세요.</string>
-
-    <!-- Avatar picker -->
-    <!-- (content descriptions above) -->
 
     <!-- Capabilities section -->
     <string name="label_artifacts">아티팩트</string>
@@ -176,8 +163,6 @@
     <string name="tool_auth_code_title">코드 인터프리터 API 키</string>
     <string name="tool_auth_code_description">서버가 사용자를 대신해 코드를 실행하는 데 사용할 API 키를 입력하세요. 에이전트가 아닌 계정에 저장됩니다.</string>
     <string name="tool_auth_code_field">LibreChat Code API 키</string>
-    <string name="tool_auth_required">이 도구를 사용하려면 인증이 필요합니다</string>
-
     <!-- File Context section -->
     <string name="label_file_context">파일 컨텍스트</string>
     <string name="file_context_description">항상 대화 컨텍스트로 포함되는 파일을 첨부합니다</string>
@@ -186,7 +171,6 @@
     <string name="label_file_search">파일 검색</string>
     <string name="file_search_description">에이전트가 업로드한 파일과 문서를 검색하도록 사용 설정합니다</string>
 
-    <!-- Handoff config -->
     <!-- Chain (sequential multi-agent) -->
     <string name="chain_agents_count">체인 에이전트 (%1$d)</string>
     <string name="chain_description">이 에이전트 이후에 순차적으로 실행되는 에이전트입니다. 한도는 %1$d개입니다.</string>
@@ -228,7 +212,6 @@
 
     <!-- Visibility labels -->
     <string name="visibility_private">비공개</string>
-    <string name="visibility_team">팀</string>
     <string name="visibility_public">공개</string>
 
     <!-- Support contact section -->
@@ -242,7 +225,6 @@
     <string name="version_number">버전 %1$d</string>
     <string name="version_current">활성</string>
     <string name="version_no_date">날짜 없음</string>
-    <string name="version_unknown_date">알 수 없는 날짜</string>
     <string name="version_snapshot_name">이름</string>
     <string name="version_snapshot_description">설명</string>
     <string name="version_snapshot_instructions">지침</string>
@@ -250,8 +232,6 @@
     <string name="version_snapshot_capabilities">기능</string>
     <string name="version_snapshot_tools">도구</string>
     <string name="version_snapshot_empty">—</string>
-    <string name="version_restore_confirm">이 에이전트를 선택한 버전으로 되돌리시겠습니까? 현재 저장되지 않은 변경 사항은 손실됩니다.</string>
-
     <!-- ACL sharing (v0.8.5+) -->
     <string name="acl_sharing_title">공유 &amp; 접근</string>
     <string name="acl_add_principal">사용자 또는 그룹 추가</string>
@@ -262,7 +242,6 @@
     <string name="acl_revoke">해제</string>
     <string name="acl_search_hint">사용자 또는 그룹 검색…</string>
     <string name="acl_search_empty">일치하는 항목 없음</string>
-    <string name="acl_grant_button">부여</string>
     <string name="acl_grant_dialog_title">사용자 또는 그룹 추가</string>
     <string name="acl_principal_user">사용자</string>
     <string name="acl_principal_group">그룹</string>

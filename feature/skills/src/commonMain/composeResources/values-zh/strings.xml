@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">编辑</string>
     <string name="skill_delete">删除</string>
-    <string name="skill_show_source">显示源码</string>
-    <string name="skill_show_rendered">显示渲染结果</string>
     <string name="skill_category_label">类别：%1$s</string>
     <string name="skill_version_label">版本 %1$d</string>
     <string name="skill_delete_confirm_title">删除技能？</string>

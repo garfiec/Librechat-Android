@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Connectivity -->
-    <string name="no_connection">Sem conexão com a internet</string>
-
     <!-- Drawer -->
     <string name="settings">Configurações</string>
 
     <!-- Content descriptions -->
     <string name="cd_back_to_conversations">Voltar às conversas</string>
-
-    <!-- Search -->
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">Incompatibilidade de versão do backend</string>

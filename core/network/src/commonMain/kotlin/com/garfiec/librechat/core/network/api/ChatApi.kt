@@ -2,7 +2,6 @@ package com.garfiec.librechat.core.network.api
 
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.model.request.ChatAbortRequest
-import com.garfiec.librechat.core.model.response.ActiveJobsResponse
 import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.core.model.response.ChatStartResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
@@ -62,11 +61,6 @@ class ChatApi constructor(
         client.post {
             url { path("api/agents/chat/abort") }
             setBody(ChatAbortRequest(abortKey = streamId, endpoint = "agents"))
-        }.body()
-
-    suspend fun getActiveJobs(): ActiveJobsResponse =
-        client.get {
-            url { path("api/agents/chat/active") }
         }.body()
 
     suspend fun getChatStatus(conversationId: String): ChatStatusResponse =

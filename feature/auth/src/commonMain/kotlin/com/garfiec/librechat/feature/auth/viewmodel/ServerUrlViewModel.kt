@@ -18,7 +18,6 @@ data class ServerUrlUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isValidated: Boolean = false,
-    val hasExistingUrl: Boolean = false,
     val showHttpWarning: Boolean = false,
 )
 
@@ -54,7 +53,6 @@ class ServerUrlViewModel(
             if (existingUrl.isNotBlank()) {
                 _uiState.value = _uiState.value.copy(
                     url = existingUrl,
-                    hasExistingUrl = true,
                 )
             }
         }

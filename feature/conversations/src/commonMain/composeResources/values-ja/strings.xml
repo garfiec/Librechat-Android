@@ -5,7 +5,6 @@
     <string name="cancel">キャンセル</string>
     <string name="delete">削除</string>
     <string name="archive">アーカイブ</string>
-    <string name="unarchive">アーカイブを解除</string>
     <string name="export">エクスポート</string>
     <string name="share">共有</string>
     <string name="duplicate">複製</string>
@@ -28,7 +27,6 @@
     <string name="cd_delete">削除</string>
 
     <!-- Conversation list screen -->
-    <string name="conversations">会話</string>
     <string name="search_conversations">会話を検索…</string>
     <string name="could_not_load_conversations">会話を読み込めませんでした</string>
     <string name="no_results_found">結果が見つかりません</string>
@@ -37,8 +35,6 @@
     <string name="start_new_chat">新しいチャットを開始しましょう</string>
     <string name="unknown_error">不明なエラーが発生しました</string>
     <string name="conversation_exported">会話をエクスポートしました</string>
-    <string name="export_failed">エクスポートに失敗しました: %1$s</string>
-    <string name="import_failed">インポートに失敗しました: %1$s</string>
     <string name="link_copied">リンクをコピーしました！</string>
     <string name="imported_title">インポート済み: %1$s</string>
     <string name="copy_of">%1$s のコピー</string>
@@ -74,8 +70,6 @@
     <string name="no_archived_conversations">アーカイブ済みの会話がありません</string>
     <string name="archived_will_appear_here">アーカイブした会話はここに表示されます</string>
 
-    <!-- Conversation item fallback -->
-    <string name="chat">チャット</string>
     <!-- Drawer strings (moved from :shared) -->
     <string name="agents">エージェント</string>
     <string name="favorites">お気に入り</string>

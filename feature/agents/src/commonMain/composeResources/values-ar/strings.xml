@@ -2,8 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="agents">الوكلاء</string>
-    <string name="marketplace">المتجر</string>
-    <string name="search_agents">البحث في الوكلاء…</string>
     <string name="start_chat">بدء محادثة</string>
     <string name="edit">تعديل</string>
     <string name="delete">حذف</string>
@@ -108,8 +106,6 @@
     <string name="domain_prefix">النطاق: %1$s</string>
     <string name="available_actions_count">الإجراءات المتاحة (%1$d)</string>
     <string name="label_privacy_policy_url">رابط سياسة الخصوصية</string>
-    <string name="label_save_or_create">%1$s</string>
-
     <!-- Auth config dialog -->
     <string name="label_authentication_type">نوع المصادقة</string>
     <string name="label_api_key_settings">إعدادات مفتاح API</string>
@@ -136,15 +132,6 @@
 
     <!-- Advanced panel -->
     <string name="advanced_settings">إعدادات النموذج</string>
-    <string name="label_temperature">درجة الحرارة</string>
-    <string name="temperature_description">تتحكم في العشوائية. أقل = أكثر تركيزًا.</string>
-    <string name="label_top_p">Top P</string>
-    <string name="top_p_description">حد أخذ عينات النواة.</string>
-    <string name="label_max_tokens">الحد الأقصى للرموز</string>
-    <string name="max_tokens_description">الحد الأقصى للرموز في الرد. اتركه فارغًا للقيمة الافتراضية.</string>
-
-    <!-- Avatar picker -->
-    <!-- (content descriptions above) -->
 
     <!-- Capabilities section -->
     <string name="label_artifacts">العناصر التفاعلية</string>
@@ -176,8 +163,6 @@
     <string name="tool_auth_code_title">مفتاح API لمفسّر الكود</string>
     <string name="tool_auth_code_description">أدخل مفتاح API الذي يجب أن يستخدمه الخادم لتشغيل الكود نيابة عنك. يُخزّن في حسابك، وليس في الوكيل.</string>
     <string name="tool_auth_code_field">مفتاح LibreChat Code API</string>
-    <string name="tool_auth_required">المصادقة مطلوبة لتفعيل هذه الأداة</string>
-
     <!-- File Context section -->
     <string name="label_file_context">سياق الملفات</string>
     <string name="file_context_description">إرفاق ملفات تُضمّن دائمًا كسياق للمحادثة</string>
@@ -186,7 +171,6 @@
     <string name="label_file_search">البحث في الملفات</string>
     <string name="file_search_description">تمكين الوكيل من البحث في الملفات والمستندات المرفوعة</string>
 
-    <!-- Handoff config -->
     <!-- Chain (sequential multi-agent) -->
     <string name="chain_agents_count">وكلاء السلسلة (%1$d)</string>
     <string name="chain_description">الوكلاء الذين يعملون بالتسلسل بعد هذا الوكيل. الحد الأقصى هو %1$d.</string>
@@ -228,7 +212,6 @@
 
     <!-- Visibility labels -->
     <string name="visibility_private">خاص</string>
-    <string name="visibility_team">فريق</string>
     <string name="visibility_public">عام</string>
 
     <!-- Support contact section -->
@@ -242,7 +225,6 @@
     <string name="version_number">الإصدار %1$d</string>
     <string name="version_current">نشط</string>
     <string name="version_no_date">لا يوجد تاريخ متاح</string>
-    <string name="version_unknown_date">تاريخ غير معروف</string>
     <string name="version_snapshot_name">الاسم</string>
     <string name="version_snapshot_description">الوصف</string>
     <string name="version_snapshot_instructions">التعليمات</string>
@@ -250,8 +232,6 @@
     <string name="version_snapshot_capabilities">الإمكانات</string>
     <string name="version_snapshot_tools">الأدوات</string>
     <string name="version_snapshot_empty">—</string>
-    <string name="version_restore_confirm">استرجاع هذا الوكيل إلى الإصدار المحدد؟ ستُفقد التغييرات الحالية غير المحفوظة.</string>
-
     <!-- ACL sharing (v0.8.5+) -->
     <string name="acl_sharing_title">المشاركة والوصول</string>
     <string name="acl_add_principal">إضافة مستخدم أو مجموعة</string>
@@ -262,7 +242,6 @@
     <string name="acl_revoke">إبطال</string>
     <string name="acl_search_hint">البحث عن المستخدمين أو المجموعات…</string>
     <string name="acl_search_empty">لا توجد تطابقات</string>
-    <string name="acl_grant_button">منح</string>
     <string name="acl_grant_dialog_title">إضافة مستخدم أو مجموعة</string>
     <string name="acl_principal_user">مستخدم</string>
     <string name="acl_principal_group">مجموعة</string>

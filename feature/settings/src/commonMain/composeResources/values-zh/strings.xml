@@ -43,7 +43,6 @@
     <string name="cd_make_private">设为私有</string>
     <string name="cd_make_public">设为公开</string>
     <string name="cd_preview_voice">试听语音</string>
-    <string name="cd_qr_code">身份验证器应用的二维码</string>
     <string name="cd_reinitialize">重新初始化</string>
     <string name="cd_avatar_preview">头像预览</string>
     <string name="cd_selected">已选择</string>
@@ -60,15 +59,12 @@
 
     <!-- Section headers -->
     <string name="section_about">关于</string>
-    <string name="section_account">账户</string>
     <string name="section_advanced">高级</string>
     <string name="section_appearance">外观</string>
     <string name="section_balance">余额</string>
     <string name="section_chat_preferences">聊天偏好</string>
     <string name="section_conversations">对话</string>
     <string name="section_danger_zone">危险操作区</string>
-    <string name="section_data_management">数据管理</string>
-    <string name="section_general">通用</string>
     <string name="section_language">语言</string>
     <string name="section_layout">布局</string>
     <string name="section_mcp_servers">MCP 服务器</string>
@@ -78,8 +74,6 @@
     <string name="section_profile">个人资料</string>
     <string name="section_security">安全</string>
     <string name="section_speech">语音</string>
-    <string name="section_tablet">平板</string>
-
     <!-- Screen titles -->
     <string name="title_account">账户</string>
     <string name="title_api_keys">API 密钥</string>
@@ -165,13 +159,9 @@
     <string name="starred_models_off">关闭</string>
     <string name="starred_models_grouped">顶部可折叠分组</string>
     <string name="starred_models_top">置于顶部，不分组</string>
-    <string name="chat_header_content_title">聊天标题栏内容</string>
-    <string name="chat_header_content_desc">选择聊天顶栏显示的内容</string>
     <string name="chat_header_content_title_option">对话标题</string>
     <string name="chat_header_content_model">所选模型</string>
     <string name="chat_header_content_none">无</string>
-    <string name="chat_header_alignment_title">聊天标题栏对齐</string>
-    <string name="chat_header_alignment_desc">选择聊天顶栏气泡的位置</string>
     <string name="chat_header_alignment_left">左对齐</string>
     <string name="chat_header_alignment_center">居中</string>
     <string name="chat_header_alignment_fill">填满宽度</string>
@@ -262,11 +252,7 @@
     <string name="dialog_title_clear_conversations">清除所有对话</string>
     <string name="dialog_clear_conversations_message">这将永久删除你的所有对话。此操作无法撤销。</string>
     <string name="clear_all">全部清除</string>
-    <string name="export_coming_soon">导出功能即将推出</string>
-    <string name="error_could_not_load_settings">无法加载设置</string>
-
     <!-- Diagnostic logs (issue #96) -->
-    <string name="section_diagnostic_logs">诊断日志</string>
     <string name="export_diagnostic_logs">导出诊断日志</string>
     <string name="export_diagnostic_logs_with_size">导出诊断日志（%1$s）</string>
     <string name="exporting_logs">导出中…</string>
@@ -307,7 +293,6 @@
     <string name="tts_source_device">设备（内置）</string>
     <string name="tts_source_server">服务器</string>
     <string name="tts_voice_label">语音</string>
-    <string name="tts_engine_label">引擎</string>
     <string name="tts_system_default">跟随系统</string>
     <string name="tts_speech_rate">语速：%1$.1fx</string>
     <string name="tts_pitch">音调：%1$.1f</string>
@@ -362,15 +347,7 @@
     <string name="dialog_delete_server_message">确定要删除 \"%1$s\" 吗？</string>
     <string name="error_failed_to_load_servers">加载服务器失败</string>
     <string name="mcp_tools_count">%1$d 个工具%2$s</string>
-    <string name="mcp_tools_available">有 %1$d 个工具%2$s可用</string>
-    <string name="mcp_all_tools">所有 MCP 工具</string>
-    <string name="mcp_tools_for_server">工具：%1$s</string>
     <string name="no_tools_available">没有可用的工具</string>
-    <string name="mcp_tool_server">服务器：%1$s</string>
-
-    <!-- MCP tools sheet -->
-    <string name="mcp_server_unknown">未知</string>
-
     <!-- Fork settings -->
     <string name="fork_mode_direct_path">可见消息</string>
     <string name="fork_mode_direct_path_desc">仅包含到所选消息的直接消息路径</string>

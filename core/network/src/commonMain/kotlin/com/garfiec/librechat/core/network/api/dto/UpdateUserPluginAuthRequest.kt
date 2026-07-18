@@ -4,9 +4,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Rich `POST /api/user/plugins` body used by the tool-auth dialog (upstream
- * controllers/UserController.js:167). Distinct from the legacy
- * [UpdatePluginsRequest] which posts `{ plugins: List<String> }` against the
- * same URL -- the controller switches on field presence.
+ * controllers/UserController.js:167). The controller switches on field presence.
  */
 @Serializable
 data class UpdateUserPluginAuthRequest(

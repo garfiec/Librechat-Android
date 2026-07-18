@@ -3,7 +3,6 @@ package com.garfiec.librechat.core.data.repository
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
-import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
 import com.garfiec.librechat.core.data.db.dao.DraftDao
 import com.garfiec.librechat.core.data.db.entity.DraftEntity
 import kotlinx.coroutines.CoroutineDispatcher
@@ -11,7 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -122,13 +120,6 @@ class DraftRepositoryImpl(
         }
         draftDao.deleteDraftForAccount(conversationId, accountId)
     }
-
-    override fun observeAllDrafts(): Flow<Map<String, String>> =
-        activeAccountProvider.flatMapAccountOrEmpty(emptyMap()) { account ->
-            draftDao.observeDraftsForAccount(account.value).map { entities ->
-                entities.associate { it.conversationId to it.text }
-            }
-        }
 
     // accountId is `<sha256 hex>:<Mongo id>` and conversationId is a Mongo id or the new-chat sentinel;
     // none contain a space, so a single space unambiguously separates the two halves of the key.

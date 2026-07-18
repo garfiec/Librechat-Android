@@ -4,14 +4,11 @@
     <string name="cancel">取消</string>
     <string name="save">保存</string>
     <string name="delete">删除</string>
-    <string name="copy">复制</string>
     <string name="edit">编辑</string>
-    <string name="regenerate">重新生成</string>
     <string name="action_rename">重命名</string>
     <string name="action_submit">提交</string>
     <string name="action_insert">插入</string>
     <string name="action_open">打开</string>
-    <string name="action_close">关闭</string>
     <string name="action_share">分享</string>
     <string name="action_search">搜索</string>
     <string name="action_archive">归档</string>
@@ -20,13 +17,8 @@
 
     <!-- Chat screen -->
     <string name="new_chat">新建聊天</string>
-    <string name="send_message">发送</string>
-    <string name="stop_generating">停止</string>
-    <string name="message_hint">输入消息…</string>
-    <string name="model_parameters">模型参数</string>
     <string name="load_preset">加载预设</string>
     <string name="save_as_preset">另存为预设</string>
-    <string name="search_models">搜索模型…</string>
     <string name="save_and_submit">保存并提交</string>
     <string name="preset_name_label">预设名称</string>
     <string name="code">代码</string>
@@ -53,7 +45,6 @@
     <string name="cd_open_drawer">打开导航抽屉</string>
     <string name="cd_edit_title">编辑标题</string>
     <string name="cd_more_options">更多选项</string>
-    <string name="cd_more_tools">更多工具</string>
     <string name="cd_scroll_to_bottom">滚动到底部</string>
     <string name="cd_select_model">选择模型</string>
     <string name="cd_librechat">LibreChat</string>
@@ -132,7 +123,6 @@
     <string name="cd_collapse_tool_call">收起工具调用 %1$s</string>
     <string name="cd_expand_tool_call">展开工具调用 %1$s</string>
     <string name="cd_tool_complete">已完成</string>
-    <string name="cd_tool_enabled">已启用</string>
     <string name="video_not_supported">不支持视频内容</string>
 
     <!-- Tools bottom sheet -->
@@ -156,7 +146,6 @@
 
     <!-- Attachments -->
     <string name="cd_attach_file">附加文件</string>
-    <string name="toast_file_attach_unavailable">iOS 上暂不支持附加文件</string>
     <string name="files_count">文件（%1$d）</string>
     <string name="cd_attached_file">已附加文件：%1$s</string>
     <string name="cd_preview_file">%1$s 的预览</string>
@@ -191,30 +180,12 @@
     <string name="fork_start_new">从目标处开始新对话</string>
     <string name="fork_start_new_desc">从所选消息而非根消息开始分叉</string>
 
-    <!-- Image viewer toasts -->
-    <string name="toast_failed_to_load_image">图片加载失败</string>
-    <string name="toast_failed_to_save_image">图片保存失败</string>
-    <string name="toast_image_saved">图片已保存到相册</string>
-    <string name="toast_failed_to_save_with_error">图片保存失败：%1$s</string>
-    <string name="toast_storage_permission_required">保存图片需要存储权限</string>
-
     <!-- Image generation -->
     <string name="generating_image">正在生成图片…</string>
     <string name="image_generated">图片已生成</string>
     <string name="cd_generated_image">生成的图片</string>
 
-    <!-- Landing page greetings -->
-    <string name="greeting_late_night">夜深了</string>
-    <string name="greeting_weekend_morning">周末早上好</string>
-    <string name="greeting_weekend_afternoon">周末下午好</string>
-    <string name="greeting_weekend_evening">周末晚上好</string>
-    <string name="greeting_early_morning">清晨好</string>
-    <string name="greeting_morning">早上好</string>
-    <string name="greeting_afternoon">下午好</string>
-    <string name="greeting_evening">晚上好</string>
-
     <!-- Log content -->
-    <string name="log_output">日志输出</string>
     <string name="cd_collapse_log">收起 %1$s</string>
     <string name="cd_expand_log">展开 %1$s</string>
 
@@ -223,7 +194,6 @@
     <string name="dialog_table">表格</string>
 
     <!-- MCP -->
-    <string name="cd_select_mcp_servers">选择 MCP 服务器</string>
     <string name="cd_mcp_resources">MCP 资源：%1$d 项</string>
     <string name="cd_mcp_resource">MCP 资源：%1$s</string>
 
@@ -284,18 +254,12 @@
     <string name="dialog_title_delete_conversation">删除对话</string>
     <string name="dialog_delete_conversation_message">这将永久删除此对话。此操作无法撤销。</string>
 
-    <!-- Chat menu options -->
-    <string name="menu_search">搜索</string>
-    <string name="menu_rename">重命名</string>
-
     <!-- Artifacts -->
     <string name="cd_open_artifact">打开 artifact</string>
     <string name="cd_share_artifact">分享 artifact</string>
     <string name="cd_previous_version">上一个版本</string>
     <string name="cd_next_version">下一个版本</string>
     <string name="artifact_version">v%1$d/%2$d</string>
-    <string name="label_resource">资源</string>
-
     <!-- Prompts -->
     <string name="prompts_library">提示词库</string>
     <string name="use_in_chat">在聊天中使用</string>
@@ -339,16 +303,9 @@
     <!-- Variable input dialog -->
     <string name="dialog_title_fill_variables">填写变量</string>
 
-    <!-- Temp chat toggle -->
-    <string name="cd_temp_chat">临时聊天</string>
-    <string name="label_temp_chat">临时</string>
-
     <!-- Comparison mode -->
     <string name="continue_with_response">使用此回复继续</string>
     <string name="waiting_for_response">等待回复…</string>
-
-    <!-- Slash command menu -->
-    <string name="slash_command_title">/%1$s</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">未找到密钥。请提供密钥后重试。</string>

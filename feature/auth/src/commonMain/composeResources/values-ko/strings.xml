@@ -20,15 +20,6 @@
     <string name="no_account_sign_up">계정이 없으신가요? 회원가입</string>
     <string name="or_continue_with">또는 다음으로 계속</string>
 
-    <!-- OAuth provider labels -->
-    <string name="oauth_google">Google로 계속</string>
-    <string name="oauth_github">GitHub로 계속</string>
-    <string name="oauth_discord">Discord로 계속</string>
-    <string name="oauth_facebook">Facebook으로 계속</string>
-    <string name="oauth_apple">Apple로 계속</string>
-    <string name="oauth_openid">OpenID로 계속</string>
-    <string name="oauth_generic">%1$s(으)로 계속</string>
-
     <!-- Register -->
     <string name="register_title">계정 만들기</string>
     <string name="full_name_label">이름</string>

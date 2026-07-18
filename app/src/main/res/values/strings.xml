@@ -1,31 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LibreChat</string>
-
     <!-- Connectivity -->
     <string name="no_connection">No internet connection</string>
-
-    <!-- Drawer -->
-    <string name="new_chat">New chat</string>
-    <string name="favorites">Favorites</string>
-    <string name="no_conversations_found">No conversations found</string>
-    <string name="remove_bookmark">Remove bookmark</string>
-    <string name="bookmark">Bookmark</string>
-    <string name="agents">Agents</string>
-    <string name="files">Files</string>
-    <string name="settings">Settings</string>
-
-    <!-- Content descriptions -->
-    <string name="cd_search">Search</string>
-    <string name="cd_clear_search">Clear search</string>
-    <string name="cd_back_to_conversations">Back to conversations</string>
-
-    <!-- Search -->
-    <string name="search_conversations_placeholder">Search conversations\u2026</string>
-
-    <!-- Version mismatch dialog -->
-    <string name="version_mismatch_title">Backend Version Mismatch</string>
-    <string name="version_mismatch_message">This app was built for LibreChat v%1$s, but your server is running v%2$s. Some features may not work correctly.</string>
-    <string name="dismiss">Dismiss</string>
-    <string name="dont_warn_again">Don\'t warn again</string>
 </resources>

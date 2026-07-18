@@ -1,18 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Connectivity -->
-    <string name="no_connection">No internet connection</string>
-
     <!-- Drawer -->
     <string name="settings">Settings</string>
 
-    <!-- Account switcher -->
-    <string name="cd_switch_account">Switch account</string>
-
     <!-- Content descriptions -->
     <string name="cd_back_to_conversations">Back to conversations</string>
-
-    <!-- Search -->
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">Backend Version Mismatch</string>

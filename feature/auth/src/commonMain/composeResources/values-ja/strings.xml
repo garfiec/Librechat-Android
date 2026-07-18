@@ -20,15 +20,6 @@
     <string name="no_account_sign_up">アカウントをお持ちでないですか？サインアップ</string>
     <string name="or_continue_with">または次で続行</string>
 
-    <!-- OAuth provider labels -->
-    <string name="oauth_google">Googleで続行</string>
-    <string name="oauth_github">GitHubで続行</string>
-    <string name="oauth_discord">Discordで続行</string>
-    <string name="oauth_facebook">Facebookで続行</string>
-    <string name="oauth_apple">Appleで続行</string>
-    <string name="oauth_openid">OpenIDで続行</string>
-    <string name="oauth_generic">%1$s で続行</string>
-
     <!-- Register -->
     <string name="register_title">アカウントを作成</string>
     <string name="full_name_label">氏名</string>

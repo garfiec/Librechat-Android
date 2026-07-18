@@ -2,7 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="files">Dateien</string>
-    <string name="upload">Hochladen</string>
     <string name="delete">Löschen</string>
     <string name="cancel">Abbrechen</string>
     <string name="done">Fertig</string>
@@ -48,14 +47,8 @@
     <string name="page_of">Seite %1$d von %2$d</string>
     <string name="page_cd">Seite %1$d von %2$s</string>
     <string name="could_not_render_pdf">PDF-Vorschau konnte nicht gerendert werden</string>
-    <string name="failed_to_download_pdf">PDF konnte nicht heruntergeladen werden</string>
-    <string name="failed_to_render_pdf">PDF konnte nicht gerendert werden</string>
     <string name="loading_file_content">Dateiinhalt wird geladen…</string>
     <string name="could_not_load_file_content">Dateiinhalt konnte nicht geladen werden</string>
-    <string name="failed_to_download_file">Datei konnte nicht heruntergeladen werden</string>
-    <string name="failed_to_load_content">Dateiinhalt konnte nicht geladen werden</string>
-    <string name="content_truncated">\n\n--- Inhalt gekürzt (Datei zu groß) ---</string>
-
     <!-- Info row labels -->
     <string name="info_type">Typ</string>
     <string name="info_size">Größe</string>
@@ -64,4 +57,6 @@
 
     <!-- Upload progress -->
     <string name="uploading">Wird hochgeladen…</string>
+    <string name="failed_to_download_pdf">PDF konnte nicht heruntergeladen werden</string>
+    <string name="failed_to_render_pdf">PDF konnte nicht gerendert werden</string>
 </resources>

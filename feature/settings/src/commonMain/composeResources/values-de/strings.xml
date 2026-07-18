@@ -43,7 +43,6 @@
     <string name="cd_make_private">Privat machen</string>
     <string name="cd_make_public">Öffentlich machen</string>
     <string name="cd_preview_voice">Stimme anhören</string>
-    <string name="cd_qr_code">QR-Code für Authenticator-App</string>
     <string name="cd_reinitialize">Neu initialisieren</string>
     <string name="cd_avatar_preview">Avatar-Vorschau</string>
     <string name="cd_selected">Ausgewählt</string>
@@ -60,15 +59,12 @@
 
     <!-- Section headers -->
     <string name="section_about">Info</string>
-    <string name="section_account">Konto</string>
     <string name="section_advanced">Erweitert</string>
     <string name="section_appearance">Darstellung</string>
     <string name="section_balance">Guthaben</string>
     <string name="section_chat_preferences">Chat-Einstellungen</string>
     <string name="section_conversations">Unterhaltungen</string>
     <string name="section_danger_zone">Gefahrenzone</string>
-    <string name="section_data_management">Datenverwaltung</string>
-    <string name="section_general">Allgemein</string>
     <string name="section_language">Sprache</string>
     <string name="section_layout">Layout</string>
     <string name="section_mcp_servers">MCP-Server</string>
@@ -78,8 +74,6 @@
     <string name="section_profile">Profil</string>
     <string name="section_security">Sicherheit</string>
     <string name="section_speech">Sprache</string>
-    <string name="section_tablet">Tablet</string>
-
     <!-- Screen titles -->
     <string name="title_account">Konto</string>
     <string name="title_api_keys">API-Schlüssel</string>
@@ -165,13 +159,9 @@
     <string name="starred_models_off">Aus</string>
     <string name="starred_models_grouped">Einklappbare Gruppe oben</string>
     <string name="starred_models_top">Oben, ohne Gruppierung</string>
-    <string name="chat_header_content_title">Inhalt der Chat-Kopfzeile</string>
-    <string name="chat_header_content_desc">Wählen Sie, was die Chat-Leiste anzeigt</string>
     <string name="chat_header_content_title_option">Unterhaltungstitel</string>
     <string name="chat_header_content_model">Ausgewähltes Modell</string>
     <string name="chat_header_content_none">Nichts</string>
-    <string name="chat_header_alignment_title">Ausrichtung der Chat-Kopfzeile</string>
-    <string name="chat_header_alignment_desc">Wählen Sie, wie die Sprechblase der Chat-Leiste positioniert wird</string>
     <string name="chat_header_alignment_left">Links</string>
     <string name="chat_header_alignment_center">Zentriert</string>
     <string name="chat_header_alignment_fill">Volle Breite</string>
@@ -262,11 +252,7 @@
     <string name="dialog_title_clear_conversations">Alle Unterhaltungen löschen</string>
     <string name="dialog_clear_conversations_message">Dies löscht alle deine Unterhaltungen dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="clear_all">Alle löschen</string>
-    <string name="export_coming_soon">Export ist bald verfügbar</string>
-    <string name="error_could_not_load_settings">Einstellungen konnten nicht geladen werden</string>
-
     <!-- Diagnostic logs (issue #96) -->
-    <string name="section_diagnostic_logs">Diagnoseprotokolle</string>
     <string name="export_diagnostic_logs">Diagnoseprotokolle exportieren</string>
     <string name="export_diagnostic_logs_with_size">Diagnoseprotokolle exportieren (%1$s)</string>
     <string name="exporting_logs">Wird exportiert…</string>
@@ -307,7 +293,6 @@
     <string name="tts_source_device">Gerät (integriert)</string>
     <string name="tts_source_server">Server</string>
     <string name="tts_voice_label">Stimme</string>
-    <string name="tts_engine_label">Engine</string>
     <string name="tts_system_default">Systemstandard</string>
     <string name="tts_speech_rate">Sprechgeschwindigkeit: %1$.1fx</string>
     <string name="tts_pitch">Tonhöhe: %1$.1f</string>
@@ -362,15 +347,7 @@
     <string name="dialog_delete_server_message">Möchtest du \"%1$s\" wirklich löschen?</string>
     <string name="error_failed_to_load_servers">Server konnten nicht geladen werden</string>
     <string name="mcp_tools_count">%1$d Tool%2$s</string>
-    <string name="mcp_tools_available">%1$d Tool%2$s verfügbar</string>
-    <string name="mcp_all_tools">Alle MCP-Tools</string>
-    <string name="mcp_tools_for_server">Tools: %1$s</string>
     <string name="no_tools_available">Keine Tools verfügbar</string>
-    <string name="mcp_tool_server">Server: %1$s</string>
-
-    <!-- MCP tools sheet -->
-    <string name="mcp_server_unknown">Unbekannt</string>
-
     <!-- Fork settings -->
     <string name="fork_mode_direct_path">Sichtbare Nachrichten</string>
     <string name="fork_mode_direct_path_desc">Nur der direkte Pfad der Nachrichten bis zur ausgewählten Nachricht</string>

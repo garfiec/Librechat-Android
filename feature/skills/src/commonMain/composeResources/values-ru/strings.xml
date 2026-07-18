@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">Изменить</string>
     <string name="skill_delete">Удалить</string>
-    <string name="skill_show_source">Показать исходник</string>
-    <string name="skill_show_rendered">Показать отрисованное</string>
     <string name="skill_category_label">Категория: %1$s</string>
     <string name="skill_version_label">Версия %1$d</string>
     <string name="skill_delete_confirm_title">Удалить навык?</string>

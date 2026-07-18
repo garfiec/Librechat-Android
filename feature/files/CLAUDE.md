@@ -37,8 +37,8 @@
 - File preview on tap (non-image files)
 
 ### File Type Filtering
-- `FileTypeFilterBar` — horizontal FilterChip row: All, Images, Documents, Audio, Video
-- Filters by MIME type prefix in `FilesViewModel`
+- `FilesScreen` renders an inline `ScrollableTabRow` (All, Images, Documents, Audio, Video)
+- Filters by MIME type prefix in `FilesViewModel` (`FileTypeFilter`)
 
 ### Upload Progress
 - `UploadProgressCard` — animated card with filename, LinearProgressIndicator, cancel button

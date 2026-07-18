@@ -17,8 +17,6 @@
     <!-- Detail -->
     <string name="skill_edit">Editar</string>
     <string name="skill_delete">Eliminar</string>
-    <string name="skill_show_source">Mostrar fuente</string>
-    <string name="skill_show_rendered">Mostrar renderizado</string>
     <string name="skill_category_label">Categoría: %1$s</string>
     <string name="skill_version_label">Versión %1$d</string>
     <string name="skill_delete_confirm_title">¿Eliminar habilidad?</string>

@@ -39,7 +39,6 @@ interface FileRepository {
     ): Result<Unit>
     suspend fun downloadFile(userId: String, fileId: String): Result<ByteArray>
     suspend fun getAgentFiles(agentId: String): Result<List<FileObject>>
-    suspend fun downloadCode(sessionId: String, fileId: String): Result<ByteArray>
 
     /**
      * Polls `GET /api/files/:fileId/preview` until the status is terminal

@@ -11,7 +11,6 @@ import com.garfiec.librechat.core.model.response.ProjectListResponse
 interface ProjectRepository {
     suspend fun listProjects(cursor: String? = null): Result<ProjectListResponse>
     suspend fun createProject(name: String, description: String? = null): Result<ChatProject>
-    suspend fun getProject(projectId: String): Result<ChatProject>
     suspend fun updateProject(
         projectId: String,
         name: String? = null,

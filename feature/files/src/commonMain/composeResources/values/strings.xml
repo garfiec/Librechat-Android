@@ -2,7 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="files">Files</string>
-    <string name="upload">Upload</string>
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
     <string name="done">Done</string>
@@ -53,14 +52,8 @@
     <string name="page_of">Page %1$d of %2$d</string>
     <string name="page_cd">Page %1$d of %2$s</string>
     <string name="could_not_render_pdf">Could not render PDF preview</string>
-    <string name="failed_to_download_pdf">Failed to download PDF</string>
-    <string name="failed_to_render_pdf">Failed to render PDF</string>
     <string name="loading_file_content">Loading file content…</string>
     <string name="could_not_load_file_content">Could not load file content</string>
-    <string name="failed_to_download_file">Failed to download file</string>
-    <string name="failed_to_load_content">Failed to load file content</string>
-    <string name="content_truncated">\n\n--- Content truncated (file too large) ---</string>
-
     <!-- Info row labels -->
     <string name="info_type">Type</string>
     <string name="info_size">Size</string>
@@ -69,4 +62,6 @@
 
     <!-- Upload progress -->
     <string name="uploading">Uploading…</string>
+    <string name="failed_to_download_pdf">Failed to download PDF</string>
+    <string name="failed_to_render_pdf">Failed to render PDF</string>
 </resources>

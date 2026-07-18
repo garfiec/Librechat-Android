@@ -18,10 +18,6 @@ class ApiKeyRepositoryImpl(
         apiKeysApi.listApiKeys()
     }
 
-    override suspend fun getApiKey(id: String): Result<ApiKey> = safeApiCall {
-        apiKeysApi.getApiKey(id)
-    }
-
     override suspend fun deleteApiKey(id: String): Result<Unit> = safeApiCall {
         apiKeysApi.deleteApiKey(id)
     }

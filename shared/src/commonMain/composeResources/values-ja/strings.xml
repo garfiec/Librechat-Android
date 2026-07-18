@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Connectivity -->
-    <string name="no_connection">インターネット接続がありません</string>
-
     <!-- Drawer -->
     <string name="settings">設定</string>
 
     <!-- Content descriptions -->
     <string name="cd_back_to_conversations">会話に戻る</string>
-
-    <!-- Search -->
 
     <!-- Version mismatch dialog -->
     <string name="version_mismatch_title">バックエンドのバージョン不一致</string>

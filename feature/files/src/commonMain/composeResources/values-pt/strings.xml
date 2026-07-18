@@ -2,7 +2,6 @@
 <resources>
     <!-- Common actions -->
     <string name="files">Arquivos</string>
-    <string name="upload">Enviar</string>
     <string name="delete">Excluir</string>
     <string name="cancel">Cancelar</string>
     <string name="done">Concluído</string>
@@ -48,14 +47,8 @@
     <string name="page_of">Página %1$d de %2$d</string>
     <string name="page_cd">Página %1$d de %2$s</string>
     <string name="could_not_render_pdf">Não foi possível renderizar a visualização do PDF</string>
-    <string name="failed_to_download_pdf">Falha ao baixar o PDF</string>
-    <string name="failed_to_render_pdf">Falha ao renderizar o PDF</string>
     <string name="loading_file_content">Carregando conteúdo do arquivo…</string>
     <string name="could_not_load_file_content">Não foi possível carregar o conteúdo do arquivo</string>
-    <string name="failed_to_download_file">Falha ao baixar o arquivo</string>
-    <string name="failed_to_load_content">Falha ao carregar o conteúdo do arquivo</string>
-    <string name="content_truncated">\n\n--- Conteúdo truncado (arquivo muito grande) ---</string>
-
     <!-- Info row labels -->
     <string name="info_type">Tipo</string>
     <string name="info_size">Tamanho</string>
@@ -64,4 +57,6 @@
 
     <!-- Upload progress -->
     <string name="uploading">Enviando…</string>
+    <string name="failed_to_download_pdf">Falha ao baixar o PDF</string>
+    <string name="failed_to_render_pdf">Falha ao renderizar o PDF</string>
 </resources>

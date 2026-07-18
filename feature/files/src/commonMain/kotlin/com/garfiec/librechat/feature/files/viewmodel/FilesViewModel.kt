@@ -617,9 +617,7 @@ class FilesViewModel(
             formattedSize = formatFileSize(bytes),
             createdAt = createdAt,
             source = source,
-            previewUrl = buildImagePreviewUrl(),
             userId = user,
-            downloadUrl = buildFileUrl(),
         )
     }
 
