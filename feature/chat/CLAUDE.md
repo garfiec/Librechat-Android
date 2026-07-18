@@ -25,9 +25,10 @@
   (`MessagesState`) because all five couple them.
 - Adding a field: put it on the owning slice, add a flat compat accessor on `ChatUiState`, and
   add the slice to the writer of whichever delegate(s) own it.
-- **Chrome/hot collection split (Android `ChatScreen`).** The screen collects `uiState` twice:
-  `ChatContent` (the thread subtree) at full rate, the rest — top bar, composer, dialogs, sheets,
-  effects ("chrome") — as `map { it.neutralizeStreamingChurn() }.distinctUntilChanged()`
+- **Chrome/hot collection split (both `ChatScreen` actuals).** The screen collects `uiState` twice:
+  the thread subtree (`ChatContent` on Android, `IosChatBody` on iOS) at full rate, the rest — top
+  bar, composer, dialogs, sheets, effects ("chrome") — as
+  `map { it.neutralizeStreamingChurn() }.distinctUntilChanged()`
   (`ChatChromeEquivalence.kt`), so the 50ms flush doesn't re-execute the whole screen ~20×/s.
   The neutralized fields are always empty on the chrome's copy — chrome must not read them; if it
   needs one, drop it from `neutralizeStreamingChurn`. New high-frequency streaming fields go in

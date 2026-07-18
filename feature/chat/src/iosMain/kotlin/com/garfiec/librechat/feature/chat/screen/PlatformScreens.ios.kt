@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.EndpointConstants
@@ -62,6 +63,9 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.asString
+import com.garfiec.librechat.feature.chat.viewmodel.neutralizeStreamingChurn
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -89,13 +93,12 @@ actual fun ChatScreen(
         koinViewModel {
             parametersOf(conversationId, initialAgentId, isTemporaryRoute, initialEndpoint, initialModel)
         }
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Chrome-rate state; IosChatBody collects at full rate. Never read a neutralized field here.
+    val uiState by remember(viewModel) {
+        viewModel.uiState.map { it.neutralizeStreamingChurn() }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(viewModel.uiState.value.neutralizeStreamingChurn())
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
-
-    val isLandingPage = uiState.screenState == ChatScreenState.LANDING
-    val isLoading = uiState.screenState == ChatScreenState.LOADING
-    val hasMessages = uiState.displayMessages.isNotEmpty() || uiState.isStreaming
 
     val useKatex = prefs.latexRenderer == LatexRenderer.KATEX
     val fontSizeMultiplier = when (uiState.chatFontSize) {
@@ -227,112 +230,24 @@ actual fun ChatScreen(
         val topContentPadding = with(LocalDensity.current) {
             maxOf(statusBarTop + 56.dp, topBarHeightPx.toDp())
         }
-        // Non-scrolling bodies (landing, loading) clear the floating bar with a plain top padding;
-        // only the active MessageList takes the inset as scrollable contentPadding.
-        val topPaddedFill = Modifier
-            .fillMaxSize()
-            .padding(top = topContentPadding)
-        // Streaming-bubble sender label for the active (primary) model: the agent's
-        // display name under the agents endpoint, else the raw model id.
-        val senderName = run {
-            val model = uiState.selectedModel
-            if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
-                uiState.agents.find { it.id == model }?.name ?: model
-            } else {
-                model ?: stringResource(Res.string.sender_assistant)
-            }
-        }
         Box(
             modifier = Modifier.fillMaxSize(),
         ) {
-            when {
-                isLandingPage && !hasMessages -> {
-                    Box(
-                        modifier = topPaddedFill,
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        LandingContent(
-                            selectedModel = uiState.selectedModel,
-                            selectedAgentName = agentName,
-                        )
-                    }
-                }
-                isLoading && uiState.displayMessages.isEmpty() -> {
-                    Box(
-                        modifier = topPaddedFill,
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(36.dp))
-                    }
-                }
-                uiState.comparisonState.isEnabled -> {
-                    ComparisonPanes(
-                        uiState = uiState,
-                        viewModel = viewModel,
-                        displayModel = displayModel,
-                        senderName = senderName,
-                        fontSizeMultiplier = fontSizeMultiplier,
-                        showImageDescriptions = prefs.showImageDescriptions,
-                        chatLayoutStyle = prefs.chatLayoutStyle,
-                        showAvatars = prefs.showAvatars,
-                        showBubbles = prefs.showBubbles,
-                        useKatex = useKatex,
-                        bottomContentPadding = bottomContentPadding,
-                        onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
-                        onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
-                        onComparisonTabChange = { activeComparisonTab = it },
-                        modifier = topPaddedFill,
-                    )
-                }
-                else -> {
-                    val singleDisplayMessages = remember(uiState.displayMessages) {
-                        collapseParallelToPrimary(uiState.displayMessages)
-                    }
-                    MessageList(
-                        displayMessages = singleDisplayMessages,
-                        isStreaming = uiState.isStreaming,
-                        streamingContent = uiState.streamingContent,
-                        activeToolCalls = uiState.activeToolCalls,
-                        streamingAttachments = uiState.streamingAttachments,
-                        onSiblingNavigation = viewModel::switchBranch,
-                        onEditMessage = viewModel::startEditing,
-                        onRegenerateMessage = { messageId -> viewModel.regenerateMessage(messageId) },
-                        onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
-                        onFeedback = viewModel::submitFeedback,
-                        onContinue = { viewModel.continueGeneration() },
-                        onReadAloud = viewModel::readAloud,
-                        onFork = viewModel::showForkOptions,
-                        currentlyReadingMessageId = uiState.currentlyReadingMessageId,
-                        editingMessageId = uiState.editingMessageId,
-                        editingText = uiState.editingText,
-                        onEditTextChange = viewModel::onEditTextChanged,
-                        onEditSaveAndSubmit = viewModel::submitEdit,
-                        onEditSaveOnly = viewModel::saveEditOnly,
-                        onEditCancel = viewModel::cancelEditing,
-                        baseUrl = uiState.serverUrl,
-                        fontSizeMultiplier = fontSizeMultiplier,
-                        isRefreshing = uiState.isRefreshingMessages,
-                        onRefresh = viewModel::refreshMessages,
-                        userAvatarUrl = uiState.userAvatarUrl,
-                        userName = uiState.userName,
-                        selectedEndpoint = uiState.selectedEndpoint,
-                        streamingSenderName = senderName,
-                        showImageDescriptions = prefs.showImageDescriptions,
-                        chatLayoutStyle = prefs.chatLayoutStyle,
-                        showAvatars = prefs.showAvatars,
-                        showBubbles = prefs.showBubbles,
-                        useKatex = useKatex,
-                        searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
-                        searchMatchIndices = uiState.searchMatchIndices,
-                        currentSearchMatchIndex = uiState.currentSearchMatchIndex,
-                        searchFocusRequest = uiState.searchFocusRequest,
-                        onSearchScrollHandle = viewModel::onSearchScrollHandled,
-                        bottomContentPadding = bottomContentPadding,
-                        topContentPadding = topContentPadding,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
+            IosChatBody(
+                viewModel = viewModel,
+                agentName = agentName,
+                displayModel = displayModel,
+                fontSizeMultiplier = fontSizeMultiplier,
+                showImageDescriptions = prefs.showImageDescriptions,
+                chatLayoutStyle = prefs.chatLayoutStyle,
+                showAvatars = prefs.showAvatars,
+                showBubbles = prefs.showBubbles,
+                useKatex = useKatex,
+                bottomContentPadding = bottomContentPadding,
+                topContentPadding = topContentPadding,
+                onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
+                onComparisonTabChange = { activeComparisonTab = it },
+            )
 
             // ChatInput overlays at the bottom so gradient shows content behind
             val isAnyStreaming = uiState.isStreaming ||
@@ -542,6 +457,137 @@ actual fun ChatScreen(
             },
         )
     }
+    }
+}
+
+/**
+ * The landing greeting, loading spinner, comparison panes, or message list for the current
+ * [ChatScreenState].
+ *
+ * Collects `viewModel.uiState` at full rate — the one subtree that re-renders per streaming flush.
+ */
+@Composable
+private fun IosChatBody(
+    viewModel: ChatViewModel,
+    agentName: String?,
+    displayModel: String?,
+    fontSizeMultiplier: Float,
+    showImageDescriptions: Boolean,
+    chatLayoutStyle: String,
+    showAvatars: Boolean,
+    showBubbles: Boolean,
+    useKatex: Boolean,
+    bottomContentPadding: Dp,
+    topContentPadding: Dp,
+    onShowSecondaryModelSheet: () -> Unit,
+    onComparisonTabChange: (Int) -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isLandingPage = uiState.screenState == ChatScreenState.LANDING
+    val isLoading = uiState.screenState == ChatScreenState.LOADING
+    val hasMessages = uiState.displayMessages.isNotEmpty() || uiState.isStreaming
+    // Non-scrolling bodies (landing, loading) clear the floating bar with a plain top padding;
+    // only the active MessageList takes the inset as scrollable contentPadding.
+    val topPaddedFill = Modifier
+        .fillMaxSize()
+        .padding(top = topContentPadding)
+    // Streaming-bubble sender label for the active (primary) model: the agent's
+    // display name under the agents endpoint, else the raw model id.
+    val senderName = run {
+        val model = uiState.selectedModel
+        if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
+            uiState.agents.find { it.id == model }?.name ?: model
+        } else {
+            model ?: stringResource(Res.string.sender_assistant)
+        }
+    }
+    when {
+        isLandingPage && !hasMessages -> {
+            Box(
+                modifier = topPaddedFill,
+                contentAlignment = Alignment.Center,
+            ) {
+                LandingContent(
+                    selectedModel = uiState.selectedModel,
+                    selectedAgentName = agentName,
+                )
+            }
+        }
+        isLoading && uiState.displayMessages.isEmpty() -> {
+            Box(
+                modifier = topPaddedFill,
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(36.dp))
+            }
+        }
+        uiState.comparisonState.isEnabled -> {
+            ComparisonPanes(
+                uiState = uiState,
+                viewModel = viewModel,
+                displayModel = displayModel,
+                senderName = senderName,
+                fontSizeMultiplier = fontSizeMultiplier,
+                showImageDescriptions = showImageDescriptions,
+                chatLayoutStyle = chatLayoutStyle,
+                showAvatars = showAvatars,
+                showBubbles = showBubbles,
+                useKatex = useKatex,
+                bottomContentPadding = bottomContentPadding,
+                onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
+                onShowSecondaryModelSheet = onShowSecondaryModelSheet,
+                onComparisonTabChange = onComparisonTabChange,
+                modifier = topPaddedFill,
+            )
+        }
+        else -> {
+            val singleDisplayMessages = remember(uiState.displayMessages) {
+                collapseParallelToPrimary(uiState.displayMessages)
+            }
+            MessageList(
+                displayMessages = singleDisplayMessages,
+                isStreaming = uiState.isStreaming,
+                streamingContent = uiState.streamingContent,
+                activeToolCalls = uiState.activeToolCalls,
+                streamingAttachments = uiState.streamingAttachments,
+                onSiblingNavigation = viewModel::switchBranch,
+                onEditMessage = viewModel::startEditing,
+                onRegenerateMessage = { messageId -> viewModel.regenerateMessage(messageId) },
+                onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
+                onFeedback = viewModel::submitFeedback,
+                onContinue = { viewModel.continueGeneration() },
+                onReadAloud = viewModel::readAloud,
+                onFork = viewModel::showForkOptions,
+                currentlyReadingMessageId = uiState.currentlyReadingMessageId,
+                editingMessageId = uiState.editingMessageId,
+                editingText = uiState.editingText,
+                onEditTextChange = viewModel::onEditTextChanged,
+                onEditSaveAndSubmit = viewModel::submitEdit,
+                onEditSaveOnly = viewModel::saveEditOnly,
+                onEditCancel = viewModel::cancelEditing,
+                baseUrl = uiState.serverUrl,
+                fontSizeMultiplier = fontSizeMultiplier,
+                isRefreshing = uiState.isRefreshingMessages,
+                onRefresh = viewModel::refreshMessages,
+                userAvatarUrl = uiState.userAvatarUrl,
+                userName = uiState.userName,
+                selectedEndpoint = uiState.selectedEndpoint,
+                streamingSenderName = senderName,
+                showImageDescriptions = showImageDescriptions,
+                chatLayoutStyle = chatLayoutStyle,
+                showAvatars = showAvatars,
+                showBubbles = showBubbles,
+                useKatex = useKatex,
+                searchQuery = if (uiState.isSearchOpen) uiState.searchQuery else null,
+                searchMatchIndices = uiState.searchMatchIndices,
+                currentSearchMatchIndex = uiState.currentSearchMatchIndex,
+                searchFocusRequest = uiState.searchFocusRequest,
+                onSearchScrollHandle = viewModel::onSearchScrollHandled,
+                bottomContentPadding = bottomContentPadding,
+                topContentPadding = topContentPadding,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
