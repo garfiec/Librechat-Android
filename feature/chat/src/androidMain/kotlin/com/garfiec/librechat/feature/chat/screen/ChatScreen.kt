@@ -120,9 +120,11 @@ actual fun ChatScreen(
             parametersOf(conversationId, initialAgentId, isTemporaryRoute, initialEndpoint, initialModel)
         }
     // Chrome-rate state; ChatContent collects at full rate. Never read a neutralized field here.
-    val uiState by remember(viewModel) {
+    val chromeFlow = remember(viewModel) {
         viewModel.uiState.map { it.neutralizeStreamingChurn() }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(viewModel.uiState.value.neutralizeStreamingChurn())
+    }
+    val initialChrome = remember(viewModel) { viewModel.uiState.value.neutralizeStreamingChurn() }
+    val uiState by chromeFlow.collectAsStateWithLifecycle(initialChrome)
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val shareLinkUrl by viewModel.shareLinkUrl.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()

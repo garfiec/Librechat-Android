@@ -94,9 +94,11 @@ actual fun ChatScreen(
             parametersOf(conversationId, initialAgentId, isTemporaryRoute, initialEndpoint, initialModel)
         }
     // Chrome-rate state; IosChatBody collects at full rate. Never read a neutralized field here.
-    val uiState by remember(viewModel) {
+    val chromeFlow = remember(viewModel) {
         viewModel.uiState.map { it.neutralizeStreamingChurn() }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(viewModel.uiState.value.neutralizeStreamingChurn())
+    }
+    val initialChrome = remember(viewModel) { viewModel.uiState.value.neutralizeStreamingChurn() }
+    val uiState by chromeFlow.collectAsStateWithLifecycle(initialChrome)
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
 
@@ -142,7 +144,7 @@ actual fun ChatScreen(
     // Secondary model on comparison tab 1, primary otherwise. Hoisted so IosChatInput and
     // ChatOptionsSheetHost share one computation rather than each re-running the agents scan.
     val isSecondaryTab = uiState.comparisonState.isEnabled && activeComparisonTab == 1
-    val selectedModelDisplay = if (isSecondaryTab) {
+    val effectiveSelectedModelDisplay = if (isSecondaryTab) {
         viewModel.getSecondaryModelDisplayName()
             ?: uiState.comparisonState.secondaryModel
             ?: displayModel
@@ -273,7 +275,7 @@ actual fun ChatScreen(
                 isTranscribing = uiState.isTranscribing,
                 onStartRecording = viewModel::startRecording,
                 onStopRecording = viewModel::stopRecording,
-                selectedModelDisplay = selectedModelDisplay,
+                selectedModelDisplay = effectiveSelectedModelDisplay,
                 isCodeInterpreterAvailable = uiState.isCodeInterpreterAvailable,
                 attachedFiles = attachedFiles,
                 onRemoveFile = viewModel::removeFile,
@@ -333,7 +335,7 @@ actual fun ChatScreen(
         uiState = uiState,
         viewModel = viewModel,
         isSecondaryTab = isSecondaryTab,
-        selectedModelDisplay = selectedModelDisplay,
+        selectedModelDisplay = effectiveSelectedModelDisplay,
         onAttachFiles = onAttachFilesAction,
         onTakePhoto = onTakePhotoAction,
         onPickPhotos = onPickPhotosAction,
