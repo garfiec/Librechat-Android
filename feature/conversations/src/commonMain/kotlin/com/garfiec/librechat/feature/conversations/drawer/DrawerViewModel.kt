@@ -28,6 +28,7 @@ import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListActionsDelegate
 import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListEvent
 import com.garfiec.librechat.feature.conversations.viewmodel.ProjectActionsDelegate
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -179,16 +180,34 @@ class DrawerViewModel(
             }
             .stateIn(viewModelScope, SharingStarted.Eagerly, DrawerPermissionFlags())
 
+    /**
+     * All three conversation sections, mapped to row data.
+     *
+     * Kept deliberately upstream of `searchQuery`: that flow changes on every keystroke, and folding
+     * it into this combine would re-map all three lists per character — including the grouped list,
+     * which ConversationListStateHolder debounces at 300ms and which is therefore usually identical
+     * to the previous keystroke's. Splitting it out means a keystroke only re-assembles
+     * [DrawerUiState] from rows that were already mapped.
+     */
+    private val displayConversations: Flow<DrawerDisplaySnapshot> = combine(
+        conversationListStateHolder.groupedConversations,
+        favoriteConversations,
+        pinnedConversations,
+        conversationListStateHolder.activeConversationId,
+        configRepository.endpointConfigs,
+    ) { grouped, favConvos, pinnedConvos, activeId, endpointConfigs ->
+        DrawerDisplaySnapshot(
+            grouped = grouped.map { (group, convos) ->
+                group to convos.map { it.toDrawerDisplayData(activeId, endpointConfigs) }
+            },
+            favorites = favConvos.map { it.toDrawerDisplayData(activeId, endpointConfigs) },
+            pinned = pinnedConvos.map { it.toDrawerDisplayData(activeId, endpointConfigs) },
+        )
+    }
+
     val drawerUiState: StateFlow<DrawerUiState> = combine(
-        combine(
-            conversationListStateHolder.groupedConversations,
-            conversationListStateHolder.activeConversationId,
-            favoriteConversations,
-            pinnedConversations,
-            conversationListStateHolder.searchQuery,
-        ) { grouped, activeId, favConvos, pinnedConvos, query ->
-            DrawerDataSnapshot(grouped, activeId, favConvos, pinnedConvos, query)
-        },
+        displayConversations,
+        conversationListStateHolder.searchQuery,
         combine(
             conversationListStateHolder.isRefreshing,
             conversationListStateHolder.isLoadingMore,
@@ -197,21 +216,14 @@ class DrawerViewModel(
             Triple(refreshing, loadingMore, hasMore)
         },
         drawerPermissionFlags,
-        configRepository.endpointConfigs,
         drawerActionMenuState,
-    ) { data, refreshState, perms, endpointConfigs, actionMenu ->
+    ) { display, query, refreshState, perms, actionMenu ->
         val (refreshing, loadingMore, hasMore) = refreshState
         DrawerUiState(
-            groupedConversations = data.grouped.map { (group, convos) ->
-                group to convos.map { it.toDrawerDisplayData(data.activeId, endpointConfigs) }
-            },
-            favoriteConversations = data.favConvos.map {
-                it.toDrawerDisplayData(data.activeId, endpointConfigs)
-            },
-            pinnedConversations = data.pinnedConvos.map {
-                it.toDrawerDisplayData(data.activeId, endpointConfigs)
-            },
-            searchQuery = data.query,
+            groupedConversations = display.grouped,
+            favoriteConversations = display.favorites,
+            pinnedConversations = display.pinned,
+            searchQuery = query,
             isRefreshing = refreshing,
             isLoadingMore = loadingMore,
             hasMore = hasMore,

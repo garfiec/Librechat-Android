@@ -47,6 +47,7 @@ import com.garfiec.librechat.core.ui.components.LoadingIndicator
 import com.garfiec.librechat.feature.conversations.components.ConversationActions
 import com.garfiec.librechat.feature.conversations.components.ConversationItem
 import com.garfiec.librechat.feature.conversations.components.DateGroupHeader
+import com.garfiec.librechat.feature.conversations.components.ProvideRelativeTimeReference
 import com.garfiec.librechat.feature.conversations.components.TagPicker
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import com.garfiec.librechat.feature.conversations.export.ExportFormatPicker
@@ -193,35 +194,38 @@ fun ProjectChatsScreen(
                     icon = Icons.Default.Forum,
                 )
                 else -> {
-                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                        uiState.groupedConversations.forEach { (dateGroup, displayItems) ->
-                            stickyHeader(key = "header_$dateGroup") { DateGroupHeader(label = dateGroup) }
-                            items(
-                                items = displayItems,
-                                key = { it.conversationId },
-                                contentType = { "conversation" },
-                            ) { displayData ->
-                                ConversationItem(
-                                    data = displayData,
-                                    onClick = { onConversationClick(displayData.conversationId) },
-                                    onActionsClick = {
-                                        selectedConversation = viewModel.getConversation(displayData.conversationId)
-                                    },
-                                    bookmarksEnabled = uiState.bookmarksEnabled,
-                                )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 52.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant,
-                                )
+                    // One ticker for the whole list, so relative-time labels advance while it is open.
+                    ProvideRelativeTimeReference {
+                        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                            uiState.groupedConversations.forEach { (dateGroup, displayItems) ->
+                                stickyHeader(key = "header_$dateGroup") { DateGroupHeader(label = dateGroup) }
+                                items(
+                                    items = displayItems,
+                                    key = { it.conversationId },
+                                    contentType = { "conversation" },
+                                ) { displayData ->
+                                    ConversationItem(
+                                        data = displayData,
+                                        onClick = { onConversationClick(displayData.conversationId) },
+                                        onActionsClick = {
+                                            selectedConversation = viewModel.getConversation(displayData.conversationId)
+                                        },
+                                        bookmarksEnabled = uiState.bookmarksEnabled,
+                                    )
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 52.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                    )
+                                }
                             }
-                        }
-                        if (uiState.isLoading && uiState.conversationCount > 0) {
-                            item(key = "loading_more") {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            if (uiState.isLoading && uiState.conversationCount > 0) {
+                                item(key = "loading_more") {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                    }
                                 }
                             }
                         }

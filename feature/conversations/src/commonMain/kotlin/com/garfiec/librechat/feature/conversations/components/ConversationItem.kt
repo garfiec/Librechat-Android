@@ -21,16 +21,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.garfiec.librechat.core.common.extensions.toInstantOrNull
+import com.garfiec.librechat.core.common.extensions.toRelativeTimeString
 import com.garfiec.librechat.core.model.EModelEndpoint
 import com.garfiec.librechat.core.ui.components.EndpointIcon
 import com.garfiec.librechat.feature.conversations.resources.*
 import com.garfiec.librechat.feature.conversations.resources.Res
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Clock
-import kotlin.time.Instant
 
 @Composable
 fun ConversationItem(
@@ -40,8 +36,12 @@ fun ConversationItem(
     modifier: Modifier = Modifier,
     bookmarksEnabled: Boolean = true,
 ) {
-    val relativeTime = remember(data.updatedAt) {
-        data.updatedAt?.toInstantOrNull()?.toRelativeTimeString() ?: ""
+    // Keyed on the reference as well as the row: the reference is what advances with the wall clock,
+    // so without it in the key this memo would outlive the label's correctness (see
+    // LocalRelativeTimeReference).
+    val reference = LocalRelativeTimeReference.current
+    val relativeTime = remember(data.updatedAt, reference) {
+        data.updatedAt?.toRelativeTimeString(reference) ?: ""
     }
 
     val endpointLabel = remember(data.endpoint) {
@@ -131,31 +131,6 @@ fun ConversationItem(
                 contentDescription = stringResource(Res.string.cd_conversation_actions),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-private fun Instant.toRelativeTimeString(): String {
-    val now = Clock.System.now()
-    val duration = now - this
-    val minutes = duration.inWholeMinutes
-    val hours = duration.inWholeHours
-    val days = duration.inWholeDays
-
-    return when {
-        minutes < 1 -> "Just now"
-        minutes < 60 -> "${minutes}m ago"
-        hours < 24 -> "${hours}h ago"
-        days < 7 -> "${days}d ago"
-        else -> {
-            val date = toLocalDateTime(TimeZone.currentSystemDefault()).date
-            val monthAbbr = when (date.monthNumber) {
-                1 -> "Jan"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Apr"
-                5 -> "May"; 6 -> "Jun"; 7 -> "Jul"; 8 -> "Aug"
-                9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; 12 -> "Dec"
-                else -> ""
-            }
-            "$monthAbbr ${date.dayOfMonth}"
         }
     }
 }

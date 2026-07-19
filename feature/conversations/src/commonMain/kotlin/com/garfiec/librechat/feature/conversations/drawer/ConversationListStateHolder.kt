@@ -1,11 +1,10 @@
 package com.garfiec.librechat.feature.conversations.drawer
 
 import co.touchlab.kermit.Logger
-import com.garfiec.librechat.core.common.extensions.toInstantOrNull
-import com.garfiec.librechat.core.common.extensions.toRelativeDateGroup
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.model.Conversation
+import com.garfiec.librechat.feature.conversations.viewmodel.groupedByDateBucket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -179,15 +178,5 @@ class ConversationListStateHolder(
 
     private fun groupConversationsByDate(
         conversations: List<Conversation>,
-    ): List<Pair<String, List<Conversation>>> {
-        if (conversations.isEmpty()) return emptyList()
-        return conversations
-            .groupBy { conversation ->
-                conversation.updatedAt
-                    ?.toInstantOrNull()
-                    ?.toRelativeDateGroup()
-                    ?: "Unknown"
-            }
-            .toList()
-    }
+    ): List<Pair<String, List<Conversation>>> = conversations.groupedByDateBucket()
 }

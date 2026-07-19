@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.conversations.drawer
 
 import androidx.compose.runtime.Immutable
 import com.garfiec.librechat.core.model.ConversationTag
+import kotlin.time.Instant
 
 /**
  * Lightweight snapshot of fields DrawerConversationItem actually renders.
@@ -13,7 +14,11 @@ data class DrawerConversationDisplayData(
     val title: String,
     val model: String?,
     val endpoint: String?,
-    val relativeTime: String,
+    // Parsed timestamp, formatted at render time by the row (see DrawerConversationItem).
+    // Deliberately NOT a pre-formatted "5m ago": that depends on the clock, so baking it into this
+    // immutable snapshot leaves it stale until an unrelated Room emission re-runs the mapping.
+    // Parsing, by contrast, is clock-independent and so stays upstream in the mapping.
+    val updatedAt: Instant?,
     val isActive: Boolean,
     val isFavorite: Boolean,
     val isPinned: Boolean,
