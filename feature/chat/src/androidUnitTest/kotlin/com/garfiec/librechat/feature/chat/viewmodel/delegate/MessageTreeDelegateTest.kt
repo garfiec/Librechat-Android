@@ -8,6 +8,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.MessageTreeHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
+import com.garfiec.librechat.feature.chat.viewmodel.RetryInfo
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,26 @@ class MessageTreeDelegateTest {
         assertThat(result.displayMessages.map { it.message.messageId }).containsExactly("u1", "a1").inOrder()
         assertThat(result.displayMessages.last().message.text).isEqualTo("hello there")
         assertThat(result.screenState).isEqualTo(ChatScreenState.ACTIVE)
+    }
+
+    @Test
+    fun `finalizeChatDisplay clears a lingering retry banner`() {
+        val optimistic = message("u1", isUser = true)
+        val (delegate, flow) = delegateWith(
+            ChatUiState(
+                content = MessagesState(
+                    messages = listOf(optimistic),
+                    isStreaming = true,
+                    retryInfo = RetryInfo(attempt = 2, maxAttempts = 5),
+                ),
+            ),
+        )
+
+        delegate.finalizeChatDisplay(
+            StreamEvent.Final(responseMessage = message("a1", parentId = "u1")),
+        )
+
+        assertThat(flow.value.content.retryInfo).isNull()
     }
 
     @Test

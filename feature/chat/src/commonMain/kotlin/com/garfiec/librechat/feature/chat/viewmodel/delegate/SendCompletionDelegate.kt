@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
+import com.garfiec.librechat.feature.chat.util.abortWasPersistedServerSide
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.SendCompletionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.shouldRequestTitleGeneration
@@ -103,6 +104,10 @@ class SendCompletionDelegate(
      *
      * @param completedResponseText the streamed response text, for auto-read.
      * @param shouldAutoRead false for edit/regenerate/continue (no auto-TTS).
+     * @param aborted true when the stream ended because the turn was stopped. The frame is a
+     *   deliberately poorer final (stub `conversation`, hardcoded `New Chat` title, no `text`),
+     *   so the conversation save is skipped and the title is re-read from the server rather than
+     *   generated — see the call sites below.
      */
     fun onFinal(
         event: StreamEvent.Final,
@@ -113,6 +118,7 @@ class SendCompletionDelegate(
         isHandedOffNewChat: Boolean,
         isComparison: Boolean,
         originAccount: AccountId?,
+        aborted: Boolean = false,
     ) {
         val finalConversation = event.conversation
         // Belt-and-braces: if no handoff seeded the selection and the initial GET 404'd
@@ -131,7 +137,11 @@ class SendCompletionDelegate(
         // them from the conversation list, so don't cache them to Room either (it would
         // leak a temp chat into the local list the server hides).
         val isTemporary = handle.state.isTemporaryChat || finalConversation?.isTemporary == true
-        if (finalConversation?.conversationId != null && !isTemporary) {
+        // An aborted final carries only a stub conversation — `{ conversationId }` plus a
+        // hardcoded "New Chat" title — not the real record. Caching it would overwrite the good
+        // row (title included) with placeholder data, which the web client never notices because
+        // it has no local store. Skip the save; the title refresh below re-reads the real one.
+        if (finalConversation?.conversationId != null && !isTemporary && !aborted) {
             handle.scope.launch {
                 conversationRepository.saveConversation(finalConversation, originAccount)
             }
@@ -160,19 +170,38 @@ class SendCompletionDelegate(
                     // canonical fields (refreshed anyway on the next open) while re-rendering
                     // the list with value-different instances — the completion flash.
                     val finalizedTurn = treeDelegate.finalizeChatDisplay(event)
-                    cacheTurn(finalizedTurn, originAccount)
+                    // A stopped turn is cached only when the server actually persisted it.
+                    // Otherwise the row would be a local invention: `getMessages` upserts and
+                    // never deletes what the server didn't return, so a blank assistant bubble
+                    // would survive every reload until an explicit pull-to-refresh.
+                    if (!aborted || event.abortWasPersistedServerSide()) {
+                        cacheTurn(finalizedTurn, originAccount)
+                    }
                 }
-                val shouldGenerate = shouldRequestTitleGeneration(
-                    isNewConversation = isNewConversation,
-                    isHandedOffNewChat = isHandedOffNewChat,
-                    currentTitle = handle.state.conversationTitle,
-                    alreadyRequested = titleGenerationRequested,
-                )
-                if (shouldGenerate) {
-                    titleGenerationRequested = true
-                    generateAndSetTitle(conversationId, originAccount)
+                if (aborted) {
+                    // Do NOT run gen_title on a stopped turn. With the default `immediate` title
+                    // timing the server already fired title generation in parallel with the reply
+                    // and keeps a title that finished before the Stop — so the title may well
+                    // exist already. With `final` timing the server skips it outright and the
+                    // long-poll would just 404 after its backoff, while latching
+                    // titleGenerationRequested would suppress a later genuine attempt.
+                    // Either way the right move is to re-read, not to generate — and network-first,
+                    // since the cached row still holds the "New Chat" placeholder that a
+                    // cache-first read would happily return.
+                    refreshTitleFromServer(conversationId, originAccount)
                 } else {
-                    refreshConversationTitle(conversationId, originAccount)
+                    val shouldGenerate = shouldRequestTitleGeneration(
+                        isNewConversation = isNewConversation,
+                        isHandedOffNewChat = isHandedOffNewChat,
+                        currentTitle = handle.state.conversationTitle,
+                        alreadyRequested = titleGenerationRequested,
+                    )
+                    if (shouldGenerate) {
+                        titleGenerationRequested = true
+                        generateAndSetTitle(conversationId, originAccount)
+                    } else {
+                        refreshConversationTitle(conversationId, originAccount)
+                    }
                 }
             }
         }
@@ -192,6 +221,21 @@ class SendCompletionDelegate(
         handle.scope.launch {
             runCatching { messageRepository.cacheMessages(turn, originAccount) }
                 .onFailure { Logger.e(it) { "Failed to cache final messages for the completed turn" } }
+        }
+    }
+
+    /**
+     * Network-first title re-read, for the stopped-turn path. [refreshConversationTitle]'s
+     * cache-first `getConversation` can't be reused here: the aborted turn never wrote a real
+     * conversation row, so the cache still holds the "New Chat" placeholder and would satisfy the
+     * read without ever asking the server. `refreshConversation` also upserts, so a title found
+     * this way propagates to the Room-observing conversation list.
+     */
+    private fun refreshTitleFromServer(conversationId: String, originAccount: AccountId?) {
+        handle.scope.launch {
+            val fetched = conversationRepository.refreshConversation(conversationId, originAccount).getOrNull()
+                ?: return@launch
+            handle.update { conversation = conversation.copy(conversationTitle = fetched.title) }
         }
     }
 

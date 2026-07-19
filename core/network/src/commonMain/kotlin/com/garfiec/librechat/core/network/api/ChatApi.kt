@@ -57,10 +57,24 @@ class ChatApi constructor(
         }
     }
 
-    suspend fun abortChat(streamId: String): ChatAbortResponse =
+    /**
+     * POST /api/agents/chat/abort — asks the server to stop the in-flight turn.
+     *
+     * The response is only an ack (`{ success, aborted }`); it does NOT carry the turn. The
+     * server ends the run by emitting a `final` frame flagged `aborted` over the SSE stream the
+     * client is already collecting, so callers must keep that stream open and let the turn
+     * finalize through the normal event flow.
+     */
+    suspend fun abortChat(streamId: String, isTemporary: Boolean): ChatAbortResponse =
         client.post {
             url { path("api/agents/chat/abort") }
-            setBody(ChatAbortRequest(abortKey = streamId, endpoint = "agents"))
+            setBody(
+                ChatAbortRequest(
+                    abortKey = streamId,
+                    endpoint = "agents",
+                    isTemporary = isTemporary,
+                ),
+            )
         }.body()
 
     suspend fun getChatStatus(conversationId: String): ChatStatusResponse =

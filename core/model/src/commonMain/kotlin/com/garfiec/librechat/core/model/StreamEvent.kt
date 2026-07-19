@@ -59,6 +59,22 @@ sealed interface StreamEvent {
         val requestMessage: Message? = null,
         val responseMessage: Message? = null,
         val parseErrors: List<String> = emptyList(),
+        /**
+         * The turn ended because it was aborted (user Stop), not because the model finished.
+         * The server emits this frame over the SSE stream on abort — the abort POST itself only
+         * acks — so it also covers a stop issued from another client on the same conversation.
+         *
+         * An aborted frame is deliberately poorer than a completed one: it carries `content`
+         * parts but no `text`, a stub `conversation`, and a hardcoded `New Chat` title. Callers
+         * that persist or apply those fields must special-case it.
+         */
+        val aborted: Boolean = false,
+        /**
+         * Aborted before the `created` milestone, so the server saved nothing at all —
+         * [responseMessage] and [conversation] are both null. The turn never existed
+         * server-side; there is nothing to reconcile against on a later load.
+         */
+        val earlyAbort: Boolean = false,
     ) : StreamEvent {
         val hasParseErrors: Boolean get() = parseErrors.isNotEmpty()
     }

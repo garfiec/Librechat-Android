@@ -222,6 +222,12 @@ class SseEventMapper(private val json: Json) {
             requestMessage = requestMessage,
             responseMessage = responseMessage,
             parseErrors = parseErrors,
+            // A stopped turn ends with a `final` frame carrying these flags rather than a
+            // separate event type, so Stop reaches the chat layer through the normal stream.
+            // Safe casts, not `.jsonPrimitive`: that accessor throws on a non-primitive, and a
+            // malformed flag must not take down an otherwise-usable final event.
+            aborted = (root["aborted"] as? JsonPrimitive)?.booleanOrNull == true,
+            earlyAbort = (root["earlyAbort"] as? JsonPrimitive)?.booleanOrNull == true,
         )
     }
 
