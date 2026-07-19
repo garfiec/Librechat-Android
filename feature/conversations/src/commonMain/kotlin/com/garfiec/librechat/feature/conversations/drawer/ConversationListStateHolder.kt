@@ -1,14 +1,18 @@
 package com.garfiec.librechat.feature.conversations.drawer
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.extensions.RelativeTimeReference
+import com.garfiec.librechat.core.common.extensions.dayBoundaryReferences
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.model.Conversation
+import com.garfiec.librechat.feature.conversations.viewmodel.DatedConversation
 import com.garfiec.librechat.feature.conversations.viewmodel.groupedByDateBucket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +24,9 @@ import kotlinx.coroutines.launch
 class ConversationListStateHolder(
     private val conversationRepository: ConversationRepository,
     private val scope: CoroutineScope,
+    // Injectable so tests can supply a finite flow: the production one never completes, and a
+    // repeating delay makes `advanceUntilIdle()` advance virtual time forever.
+    private val dayBoundaries: Flow<RelativeTimeReference> = dayBoundaryReferences(),
 ) {
 
     companion object {
@@ -29,8 +36,8 @@ class ConversationListStateHolder(
     private val _recentConversations = MutableStateFlow<List<Conversation>>(emptyList())
     val recentConversations: StateFlow<List<Conversation>> = _recentConversations.asStateFlow()
 
-    private val _groupedConversations = MutableStateFlow<List<Pair<String, List<Conversation>>>>(emptyList())
-    val groupedConversations: StateFlow<List<Pair<String, List<Conversation>>>> = _groupedConversations.asStateFlow()
+    private val _groupedConversations = MutableStateFlow<List<Pair<String, List<DatedConversation>>>>(emptyList())
+    val groupedConversations: StateFlow<List<Pair<String, List<DatedConversation>>>> = _groupedConversations.asStateFlow()
 
     private val _activeConversationId = MutableStateFlow<String?>(null)
     val activeConversationId: StateFlow<String?> = _activeConversationId.asStateFlow()
@@ -54,6 +61,7 @@ class ConversationListStateHolder(
     init {
         observeConversations()
         observeSearchQuery()
+        observeDayBoundary()
         loadInitialConversations()
     }
 
@@ -67,17 +75,35 @@ class ConversationListStateHolder(
                         // is a client-side filter over live Room data, so a delete/rename/pin/favorite
                         // (which re-emits Room) must reflect in the visible results immediately, not
                         // wait for the next query keystroke (Punted Bug #25, drawer side).
-                        val query = _searchQuery.value
-                        _groupedConversations.value = if (query.isBlank()) {
-                            groupConversationsByDate(result.data.withoutPinned())
-                        } else {
-                            groupConversationsByDate(filterByQuery(result.data, query))
-                        }
+                        regroup()
                     }
                 }
             } catch (e: Exception) {
                 Logger.w(e) { "Failed to observe conversations" }
             }
+        }
+    }
+
+    /**
+     * Re-bucket at each local midnight. Date groups are clock-dependent, and a conversation crossing
+     * midnight changes *section*, not just label — so unlike a row's "5m ago" this cannot be fixed
+     * by reformatting at render time. Without this, a drawer left open overnight keeps yesterday's
+     * sections until some unrelated Room emission happens to regroup.
+     */
+    private fun observeDayBoundary() {
+        scope.launch {
+            dayBoundaries.collect { regroup() }
+        }
+    }
+
+    /** Rebuilds [_groupedConversations] from the current cache, honouring any active search. */
+    private fun regroup() {
+        val conversations = _recentConversations.value
+        val query = _searchQuery.value
+        _groupedConversations.value = if (query.isBlank()) {
+            groupConversationsByDate(conversations.withoutPinned())
+        } else {
+            groupConversationsByDate(filterByQuery(conversations, query))
         }
     }
 
@@ -133,8 +159,7 @@ class ConversationListStateHolder(
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
         if (query.isBlank()) {
-            _groupedConversations.value =
-                groupConversationsByDate(_recentConversations.value.withoutPinned())
+            regroup()
         }
     }
 
@@ -178,5 +203,5 @@ class ConversationListStateHolder(
 
     private fun groupConversationsByDate(
         conversations: List<Conversation>,
-    ): List<Pair<String, List<Conversation>>> = conversations.groupedByDateBucket()
+    ): List<Pair<String, List<DatedConversation>>> = conversations.groupedByDateBucket()
 }

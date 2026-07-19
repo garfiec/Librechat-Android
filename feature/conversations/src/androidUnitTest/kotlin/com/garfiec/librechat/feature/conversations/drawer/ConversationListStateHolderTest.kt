@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -46,7 +47,9 @@ class ConversationListStateHolderTest {
     }
 
     private fun visibleIds(holder: ConversationListStateHolder) =
-        holder.groupedConversations.value.flatMap { it.second }.mapNotNull { it.conversationId }
+        holder.groupedConversations.value
+            .flatMap { it.second }
+            .mapNotNull { it.conversation.conversationId }
 
     @Test
     fun `delete during active drawer search removes the row without a query change`() = runTest {
@@ -56,7 +59,7 @@ class ConversationListStateHolderTest {
         val roomFlow = MutableStateFlow<Result<List<Conversation>>>(Result.Success(convos))
         every { conversationRepository.observeConversations(any()) } returns roomFlow
 
-        val holder = ConversationListStateHolder(conversationRepository, scope)
+        val holder = ConversationListStateHolder(conversationRepository, scope, dayBoundaries = emptyFlow())
         advanceUntilIdle()
 
         holder.onSearchQueryChanged("Alpha")
@@ -75,7 +78,7 @@ class ConversationListStateHolderTest {
         val roomFlow = MutableStateFlow<Result<List<Conversation>>>(Result.Success(convos))
         every { conversationRepository.observeConversations(any()) } returns roomFlow
 
-        val holder = ConversationListStateHolder(conversationRepository, scope)
+        val holder = ConversationListStateHolder(conversationRepository, scope, dayBoundaries = emptyFlow())
         advanceUntilIdle()
 
         holder.onSearchQueryChanged("Alpha")
@@ -87,7 +90,7 @@ class ConversationListStateHolderTest {
         advanceUntilIdle()
 
         val titles = holder.groupedConversations.value.flatMap { it.second }
-            .associate { it.conversationId to it.title }
+            .associate { it.conversation.conversationId to it.conversation.title }
         assertThat(titles["c1"]).isEqualTo("Alpha One Renamed")
         assertThat(titles.keys).containsExactly("c1", "c2")
     }

@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.conversations.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.garfiec.librechat.core.common.extensions.RelativeTimeReference
 import com.garfiec.librechat.core.common.extensions.toInstantOrNull
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -24,6 +25,7 @@ import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -71,6 +73,10 @@ class ConversationListViewModel(
     private val conversationImporter: ConversationImporter,
     private val roleRepository: RoleRepository,
     private val configRepository: ConfigRepository,
+    // Koin-provided rather than defaulted, so `viewModelOf` (and the static `verify()` coverage it
+    // buys) still applies. Tests inject a finite flow: the production one never completes, and a
+    // repeating delay makes `advanceUntilIdle()` advance virtual time forever.
+    private val dayBoundaries: Flow<RelativeTimeReference>,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ConversationListUiState())
@@ -188,8 +194,14 @@ class ConversationListViewModel(
 
     private fun observeGroupedConversations() {
         viewModelScope.launch {
-            combine(_conversations, configRepository.endpointConfigs) { convos, configs ->
-                groupConversationsByDate(convos, configs) to convos.size
+            // dayBoundaryReferences() re-groups at local midnight: date sections are clock-dependent
+            // and membership (not just the label) changes when the date rolls over.
+            combine(
+                _conversations,
+                configRepository.endpointConfigs,
+                dayBoundaries,
+            ) { convos, configs, reference ->
+                groupConversationsByDate(convos, configs, reference) to convos.size
             }.collect { (grouped, count) ->
                 _uiState.value = _uiState.value.copy(
                     groupedConversations = grouped,

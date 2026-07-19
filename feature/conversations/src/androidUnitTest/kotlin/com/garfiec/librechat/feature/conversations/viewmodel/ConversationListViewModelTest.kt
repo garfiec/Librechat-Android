@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.conversations.viewmodel
 
+import com.garfiec.librechat.core.common.extensions.RelativeTimeReference
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -99,6 +100,10 @@ class ConversationListViewModelTest {
         conversationImporter = conversationImporter,
         roleRepository = roleRepository,
         configRepository = configRepository,
+        // Single emission. The production flow re-arms at each midnight and never completes, which
+        // would make advanceUntilIdle() advance virtual time forever. `combine` needs at least one
+        // emission from every source, so this can't be emptyFlow().
+        dayBoundaries = flowOf(RelativeTimeReference.current()),
     )
 
     @Test

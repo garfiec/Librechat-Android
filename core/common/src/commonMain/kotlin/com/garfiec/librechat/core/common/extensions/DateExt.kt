@@ -24,11 +24,13 @@ data class RelativeTimeReference(
     val timeZone: TimeZone,
 ) {
     /**
-     * Lazy on purpose: only [toRelativeDateGroup] reads this. [toRelativeTimeString] — the per-row
-     * formatter, called once per visible row with a default reference — never does, and computing
-     * it eagerly would charge every one of those rows a `toLocalDateTime` it has no use for.
+     * Eager, and cheap to keep that way: references are hoisted, so this is computed roughly once
+     * per list emission and once per clock tick — never per row. (An earlier revision made this
+     * `by lazy` back when every row built its own reference from the default argument; that is no
+     * longer how any production call site works, and `by lazy` would now add a volatile read to
+     * [toRelativeDateGroup]'s per-row path to save a handful of conversions a minute.)
      */
-    val today: LocalDate by lazy { now.toLocalDateTime(timeZone).date }
+    val today: LocalDate = now.toLocalDateTime(timeZone).date
 
     companion object {
         fun current(): RelativeTimeReference =
@@ -60,8 +62,8 @@ fun Instant.toRelativeDateGroup(
  * passes. Either way the label rots.
  *
  * To get a label that actually advances, the caller must supply a [reference] that changes — see
- * `rememberRelativeTimeReference` in feature/conversations, which ticks one and thereby invalidates
- * exactly the composables reading it.
+ * `ProvideRelativeTimeReference` / `LocalRelativeTimeReference` in feature/conversations, which
+ * tick one and thereby invalidate exactly the composables reading it.
  */
 fun Instant.toRelativeTimeString(
     reference: RelativeTimeReference = RelativeTimeReference.current(),

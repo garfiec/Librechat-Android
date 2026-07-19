@@ -3,6 +3,8 @@ package com.garfiec.librechat.feature.conversations.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.garfiec.librechat.core.common.extensions.RelativeTimeReference
+import com.garfiec.librechat.core.common.extensions.dayBoundaryReferences
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -18,6 +20,7 @@ import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.feature.conversations.components.ConversationDisplayData
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -61,6 +64,10 @@ class ProjectChatsViewModel(
     private val conversationExporter: ConversationExporter,
     private val roleRepository: RoleRepository,
     private val configRepository: ConfigRepository,
+    // Defaulted rather than Koin-provided: this one is built by an explicit `viewModel { }` block
+    // (projectId arrives via parametersOf), so a default costs no DI wiring. Tests override it —
+    // the production flow never completes, which would hang `advanceUntilIdle()`.
+    private val dayBoundaries: Flow<RelativeTimeReference> = dayBoundaryReferences(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProjectChatsUiState())
@@ -91,8 +98,14 @@ class ProjectChatsViewModel(
 
     private fun observeGrouped() {
         viewModelScope.launch {
-            combine(_conversations, configRepository.endpointConfigs) { convos, configs ->
-                groupConversationsByDate(convos, configs) to convos.size
+            // dayBoundaryReferences() re-groups at local midnight: date sections are clock-dependent
+            // and membership (not just the label) changes when the date rolls over.
+            combine(
+                _conversations,
+                configRepository.endpointConfigs,
+                dayBoundaries,
+            ) { convos, configs, reference ->
+                groupConversationsByDate(convos, configs, reference) to convos.size
             }.collect { (grouped, count) ->
                 _uiState.value = _uiState.value.copy(groupedConversations = grouped, conversationCount = count)
             }

@@ -73,27 +73,6 @@ class DateExtTest {
         )
     }
 
-    /**
-     * The list paths hoist a shared [RelativeTimeReference] out of their loops instead of letting
-     * each row resolve `Clock.System.now()` / `TimeZone.currentSystemDefault()`. That is only a safe
-     * optimization while an explicitly-passed reference produces the same answer as the default one,
-     * so pin it here — a drift in either overload's logic should fail loudly.
-     *
-     * The instants are chosen to sit mid-bucket (5 minutes / 3 days old) so the microseconds between
-     * the `current()` captured here and the one the default resolves internally cannot straddle a
-     * bucket edge and flake. They are recent enough that both formatters exercise their
-     * elapsed-time branches, which is what makes the assertion meaningful.
-     */
-    @Test
-    fun explicitReferenceMatchesDefaultForBothFormatters() {
-        val current = RelativeTimeReference.current()
-        val minutesAgo = current.now - 5.minutes
-        val daysAgo = current.now - 3.days
-
-        assertEquals(minutesAgo.toRelativeTimeString(), minutesAgo.toRelativeTimeString(current))
-        assertEquals(daysAgo.toRelativeDateGroup(), daysAgo.toRelativeDateGroup(current))
-    }
-
     @Test
     fun toInstantOrNullRejectsMalformedInput() {
         assertEquals(null, "not-a-timestamp".toInstantOrNull())

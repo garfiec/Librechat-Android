@@ -22,14 +22,19 @@ data class ConversationDisplayData(
     val endpointIconUrl: String? = null,
 )
 
+/**
+ * [parsedUpdatedAt] lets a caller that has already parsed the timestamp (grouping does, to pick a
+ * date bucket) hand it in rather than making this parse the same string a second time.
+ */
 fun Conversation.toDisplayData(
     endpointConfigs: Map<String, EndpointConfig>,
+    parsedUpdatedAt: Instant? = updatedAt?.toInstantOrNull(),
 ): ConversationDisplayData = ConversationDisplayData(
     conversationId = conversationId ?: "",
     title = title ?: "New Chat",
     endpoint = endpoint,
     model = model,
-    updatedAt = updatedAt?.toInstantOrNull(),
+    updatedAt = parsedUpdatedAt,
     isBookmarked = SAVED_TAG in tags,
     endpointIconUrl = resolveEndpointIconUrl(endpointConfigs),
 )

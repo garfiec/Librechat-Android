@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.model.resolveEndpointIconUrl
+import kotlin.time.Instant
 
 /**
  * The drawer's conversation sections, already mapped to row data.
@@ -19,9 +20,14 @@ internal data class DrawerDisplaySnapshot(
     val pinned: List<DrawerConversationDisplayData> = emptyList(),
 )
 
+/**
+ * [parsedUpdatedAt] lets a caller that has already parsed the timestamp (grouping does, to pick a
+ * date bucket) hand it in rather than making this parse the same string a second time.
+ */
 internal fun Conversation.toDrawerDisplayData(
     activeConversationId: String?,
     endpointConfigs: Map<String, EndpointConfig>,
+    parsedUpdatedAt: Instant? = updatedAt?.toInstantOrNull(),
 ): DrawerConversationDisplayData {
     val convId = conversationId ?: ""
     return DrawerConversationDisplayData(
@@ -29,7 +35,7 @@ internal fun Conversation.toDrawerDisplayData(
         title = title ?: "New Chat",
         model = model,
         endpoint = endpoint,
-        updatedAt = updatedAt?.toInstantOrNull(),
+        updatedAt = parsedUpdatedAt,
         isActive = convId == activeConversationId,
         isFavorite = SAVED_TAG in tags,
         isPinned = pinned == true,
