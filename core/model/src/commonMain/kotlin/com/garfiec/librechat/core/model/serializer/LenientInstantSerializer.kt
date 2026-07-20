@@ -8,6 +8,9 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.nullable
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.time.Instant
 
 /**
@@ -29,8 +32,21 @@ internal object LenientInstantSerializer : KSerializer<Instant?> {
         PrimitiveSerialDescriptor("LenientInstant", PrimitiveKind.STRING).nullable
 
     override fun deserialize(decoder: Decoder): Instant? {
-        // With a nullable descriptor this serializer receives explicit JSON nulls itself, so the
-        // null mark must be consumed here — decodeString() on a null crashes.
+        // decodeString() cannot degrade a structured value ({"$date": …}, an array): it throws with
+        // the lexer left mid-value, so the exception fails the *enclosing* payload decode — the
+        // exact loss this serializer exists to prevent. decodeJsonElement() consumes whatever token
+        // is present, letting any non-string shape degrade to null.
+        if (decoder is JsonDecoder) {
+            val primitive = decoder.decodeJsonElement() as? JsonPrimitive ?: return null
+            if (primitive is JsonNull) return null
+            return try {
+                Instant.parse(primitive.content)
+            } catch (_: Exception) {
+                null
+            }
+        }
+        // Non-JSON formats: with a nullable descriptor this serializer receives explicit nulls
+        // itself, so the null mark must be consumed here — decodeString() on a null crashes.
         if (!decoder.decodeNotNullMark()) {
             decoder.decodeNull()
             return null

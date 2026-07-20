@@ -58,6 +58,8 @@ val networkModule = module {
     includes(networkPlatformModule)
 
     single {
+        // Hand-mirrored by LenientInstantSerializerTest in core/model (which cannot depend on this
+        // module) — a settings change here must be copied into that test's `networkJson`.
         Json {
             ignoreUnknownKeys = true
             isLenient = true

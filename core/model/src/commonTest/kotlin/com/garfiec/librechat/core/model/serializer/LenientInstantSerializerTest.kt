@@ -55,6 +55,23 @@ class LenientInstantSerializerTest {
         assertNull(networkJson.decodeFromString<Host>("""{"at":"not-a-timestamp"}""").at)
     }
 
+    /**
+     * Non-string tokens must degrade too, not just garbage strings: a decodeString-based
+     * implementation throws on a structured value with the lexer mid-value, failing the whole
+     * enclosing payload. The object form is what a Mongo-extended-JSON export would carry.
+     */
+    @Test
+    fun structuredOrNumericTimestampDecodesToNull() {
+        assertNull(
+            networkJson.decodeFromString<Host>("""{"at":{"${'$'}date":"2026-03-28T10:00:00.000Z"}}""").at,
+        )
+        assertNull(networkJson.decodeFromString<Host>("""{"at":["2026-03-28T10:00:00.000Z"]}""").at)
+        // Bare number under both configs — isLenient only rescues this for the network Json.
+        assertNull(networkJson.decodeFromString<Host>("""{"at":1745000000000}""").at)
+        assertNull(exportJson.decodeFromString<Host>("""{"at":1745000000000}""").at)
+        assertNull(exportJson.decodeFromString<Host>("""{"at":{"nested":true}}""").at)
+    }
+
     /** Exports written by older app versions contain explicit `"updatedAt": null`. */
     @Test
     fun explicitJsonNullDecodesToNull() {

@@ -100,9 +100,9 @@ class ConversationListStateHolder(
         val conversations = _recentConversations.value
         val query = _searchQuery.value
         _groupedConversations.value = if (query.isBlank()) {
-            groupConversationsByDate(conversations.withoutPinned())
+            conversations.withoutPinned().groupedByDateBucket()
         } else {
-            groupConversationsByDate(filterByQuery(conversations, query))
+            filterByQuery(conversations, query).groupedByDateBucket()
         }
     }
 
@@ -171,7 +171,7 @@ class ConversationListStateHolder(
                 .debounce(SEARCH_DEBOUNCE_MS)
                 .collectLatest { query ->
                     _groupedConversations.value =
-                        groupConversationsByDate(filterByQuery(_recentConversations.value, query))
+                        filterByQuery(_recentConversations.value, query).groupedByDateBucket()
                 }
         }
     }
@@ -199,8 +199,4 @@ class ConversationListStateHolder(
      * so this is only applied on the non-search grouping paths.
      */
     private fun List<Conversation>.withoutPinned(): List<Conversation> = filterNot { it.pinned == true }
-
-    private fun groupConversationsByDate(
-        conversations: List<Conversation>,
-    ): List<Pair<String, List<Conversation>>> = conversations.groupedByDateBucket()
 }

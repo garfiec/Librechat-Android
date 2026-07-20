@@ -20,11 +20,8 @@ import com.garfiec.librechat.feature.conversations.components.toDisplayData
  */
 internal fun List<Conversation>.groupedByDateBucket(
     reference: RelativeTimeReference = RelativeTimeReference.current(),
-): List<Pair<String, List<Conversation>>> {
-    if (isEmpty()) return emptyList()
-    return groupBy { it.updatedAt?.toRelativeDateGroup(reference) ?: "Unknown" }
-        .toList()
-}
+): List<Pair<String, List<Conversation>>> =
+    groupBy { it.updatedAt?.toRelativeDateGroup(reference) ?: "Unknown" }.toList()
 
 /**
  * Flattens conversations into date-grouped display rows. Shared by the all-conversations list and
