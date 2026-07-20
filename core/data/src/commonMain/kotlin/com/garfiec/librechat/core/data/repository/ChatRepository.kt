@@ -37,10 +37,13 @@ interface ChatRepository {
      * Asks the server to stop the in-flight turn. The response is only an ack — the stopped
      * turn arrives as an `aborted` final frame on the SSE stream, which must stay open.
      *
+     * [streamId] may be null (Stop before the `created` milestone assigns a conversation id):
+     * when no id resolves, the abort route falls back to the caller's most recent active job.
+     *
      * [isTemporary] is forwarded so the server stamps the partial it persists with the temp-chat
      * expiry; omitting it leaves the row with no TTL. See [ChatAbortRequest].
      */
-    suspend fun abortChat(streamId: String, isTemporary: Boolean = false): Result<Unit>
+    suspend fun abortChat(streamId: String?, isTemporary: Boolean = false): Result<Unit>
     suspend fun checkStreamStatus(conversationId: String): ChatStatusResponse
     fun resumeStream(conversationId: String): Flow<StreamEvent>
 }

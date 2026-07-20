@@ -88,7 +88,7 @@ class ChatRepositoryImpl(
         emitAll(sseClient.connect(streamUrl, connectivityFlow = connectivityObserver.isConnected))
     }.flowOn(dispatcher)
 
-    override suspend fun abortChat(streamId: String, isTemporary: Boolean): Result<Unit> = safeApiCall {
+    override suspend fun abortChat(streamId: String?, isTemporary: Boolean): Result<Unit> = safeApiCall {
         chatApi.abortChat(streamId, isTemporary)
     }
 

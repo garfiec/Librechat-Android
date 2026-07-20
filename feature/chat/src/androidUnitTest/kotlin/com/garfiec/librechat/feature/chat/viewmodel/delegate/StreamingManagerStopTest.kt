@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -39,6 +40,9 @@ import org.junit.Test
  * Cancelling the collector (the original bug) threw that frame away, which is why the stopped
  * reply vanished. The tests below pin that, plus the stop-specific handling keyed off the flag
  * and the local fallback for when the abort request itself fails.
+ *
+ * Virtual-time note: an acked abort arms the 15s watchdog, so tests inside the abort window use
+ * [runCurrent] — `advanceUntilIdle` would fast-forward the delay and fire the watchdog mid-test.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StreamingManagerStopTest {
@@ -109,10 +113,10 @@ class StreamingManagerStopTest {
             delegate.launchStream(events.receiveAsFlow())
 
             events.send(StreamEvent.ContentDelta(chunk = "partial answer"))
-            advanceUntilIdle()
+            runCurrent()
 
             delegate.stopGeneration()
-            advanceUntilIdle()
+            runCurrent()
 
             // Still live: the abort was requested but the turn has not ended yet.
             coVerify(exactly = 1) { chatRepository.abortChat("conv-1") }
@@ -120,7 +124,7 @@ class StreamingManagerStopTest {
 
             // The server now ends the run over the same stream.
             events.send(abortedFinal())
-            advanceUntilIdle()
+            runCurrent()
 
             // Finalized through the normal completion path, carrying the partial that would have
             // been discarded had Stop cancelled the collector.
@@ -207,7 +211,7 @@ class StreamingManagerStopTest {
 
             delegate.stopGeneration()
             delegate.stopGeneration() // double-tap: the stream is still live, isStreaming still true
-            advanceUntilIdle()
+            runCurrent()
             gate.complete(Result.Success(Unit))
             advanceUntilIdle()
 
@@ -216,11 +220,12 @@ class StreamingManagerStopTest {
 
     /**
      * When the abort request fails there is no frame coming, so the stream would hang in its
-     * streaming state. The local fallback ends it — preserving the partial and re-reading the
-     * server for whatever it managed to persist.
+     * streaming state. The local fallback ends it — preserving the partial. It must NOT refetch:
+     * the server may not have persisted anything yet (it saves only after emitting the frame),
+     * and the optimistic user message was never written to Room, so a reload here can lose both.
      */
     @Test
-    fun `a failed abort stops the stream locally and reloads`() = runTest(StandardTestDispatcher()) {
+    fun `a failed abort stops the stream locally without reloading`() = runTest(StandardTestDispatcher()) {
         coEvery { chatRepository.abortChat("conv-1") } returns Result.Error(message = "Job not found")
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, flow) = delegateWith(this)
@@ -233,8 +238,9 @@ class StreamingManagerStopTest {
 
         assertThat(flow.value.isStreaming).isFalse()
         assertThat(flow.value.streamingContent).isEqualTo("half an answer")
-        verify(exactly = 1) { reloadConversation("conv-1") }
-        verify { comparisonDelegate.endStreaming(clearContent = true) }
+        verify(exactly = 0) { reloadConversation(any()) }
+        // The partial panes survive too — same intent as preserving streamingContent.
+        verify { comparisonDelegate.endStreaming(clearContent = false) }
         // The hold is re-asserted so a follow-up queued mid-round-trip keeps its affordance.
         verify(atLeast = 1) { queueDelegate.pause() }
         events.close()
@@ -259,11 +265,36 @@ class StreamingManagerStopTest {
         coVerify(exactly = 2) { chatRepository.abortChat("conv-1") }
     }
 
+    /**
+     * Stop before the `created` milestone has assigned a conversation id. The abort still goes
+     * out — with a null key, which the route resolves to the caller's most recent active job —
+     * instead of silently doing nothing while the reply keeps generating.
+     */
     @Test
-    fun `stop is a no-op with no conversation`() = runTest(StandardTestDispatcher()) {
+    fun `stop before the conversation exists still aborts via the user-scoped fallback`() =
+        runTest(StandardTestDispatcher()) {
+            coEvery { chatRepository.abortChat(null) } returns Result.Success(Unit)
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, _) = delegateWith(
+                this,
+                streamingState().let { it.copy(conversation = it.conversation.copy(conversationId = null)) },
+            )
+            delegate.launchStream(events.receiveAsFlow())
+
+            delegate.stopGeneration()
+            runCurrent()
+
+            coVerify(exactly = 1) { chatRepository.abortChat(null) }
+            events.close()
+            advanceUntilIdle()
+        }
+
+    /** A dead screen's Stop must not abort-by-fallback some other conversation's job. */
+    @Test
+    fun `stop is a no-op when nothing is streaming`() = runTest(StandardTestDispatcher()) {
         val (delegate, _) = delegateWith(
             this,
-            streamingState().let { it.copy(conversation = it.conversation.copy(conversationId = null)) },
+            streamingState().let { it.copy(content = it.content.copy(isStreaming = false)) },
         )
 
         delegate.stopGeneration()
