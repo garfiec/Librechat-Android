@@ -198,11 +198,7 @@ class DrawerViewModel(
     ) { grouped, favConvos, pinnedConvos, activeId, endpointConfigs ->
         DrawerDisplaySnapshot(
             grouped = grouped.map { (group, convos) ->
-                // Grouping already parsed updatedAt to pick the bucket — reuse it rather than
-                // parsing the same string again per row.
-                group to convos.map {
-                    it.conversation.toDrawerDisplayData(activeId, endpointConfigs, it.updatedAt)
-                }
+                group to convos.map { it.toDrawerDisplayData(activeId, endpointConfigs) }
             },
             favorites = favConvos.map { it.toDrawerDisplayData(activeId, endpointConfigs) },
             pinned = pinnedConvos.map { it.toDrawerDisplayData(activeId, endpointConfigs) },

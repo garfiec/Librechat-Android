@@ -1,7 +1,9 @@
 package com.garfiec.librechat.core.model
 
+import com.garfiec.librechat.core.model.serializer.LenientInstantSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 @Serializable
 data class Conversation(
@@ -45,11 +47,14 @@ data class Conversation(
     /** True for a temporary chat (v0.8.6): not persisted to normal history and
      *  expired/cleaned up server-side after [expiredAt]. Server-derived. */
     val isTemporary: Boolean? = null,
-    /** ISO-8601 expiry for a temporary chat, computed server-side from the
-     *  interface `temporaryChatRetention` setting. Null for permanent chats. */
-    val expiredAt: String? = null,
-    val createdAt: String? = null,
-    val updatedAt: String? = null,
+    /** Expiry for a temporary chat, computed server-side from the interface
+     *  `temporaryChatRetention` setting. Null for permanent chats. */
+    @Serializable(with = LenientInstantSerializer::class)
+    val expiredAt: Instant? = null,
+    @Serializable(with = LenientInstantSerializer::class)
+    val createdAt: Instant? = null,
+    @Serializable(with = LenientInstantSerializer::class)
+    val updatedAt: Instant? = null,
 )
 
 /**

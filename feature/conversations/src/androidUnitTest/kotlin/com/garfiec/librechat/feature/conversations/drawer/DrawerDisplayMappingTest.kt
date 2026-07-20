@@ -73,15 +73,16 @@ class DrawerDisplayMappingTest {
     }
 
     /**
-     * The mapping parses the timestamp but must NOT format it. Parsing is clock-independent, so
-     * doing it once here beats doing it per row; formatting is clock-dependent, so doing it here
-     * would freeze the label at whenever the mapping last ran — the stale-"Just now" bug.
+     * The mapping carries the timestamp through untouched — it must NOT format it. Formatting is
+     * clock-dependent, so doing it here would freeze the label at whenever the mapping last ran —
+     * the stale-"Just now" bug. (Malformed wire timestamps are handled upstream, at
+     * deserialization: see LenientInstantSerializerTest.)
      */
     @Test
-    fun updatedAtIsParsedNotFormatted() {
+    fun updatedAtIsCopiedNotFormatted() {
         val convo = Conversation(
             conversationId = "c1",
-            updatedAt = "2026-07-19T12:00:00Z",
+            updatedAt = Instant.parse("2026-07-19T12:00:00Z"),
         )
 
         val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap())
@@ -92,16 +93,6 @@ class DrawerDisplayMappingTest {
     @Test
     fun updatedAtNullSurvivesMapping() {
         val convo = Conversation(conversationId = "c1", updatedAt = null)
-
-        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap())
-
-        assertThat(data.updatedAt).isNull()
-    }
-
-    /** Malformed timestamps must not throw in the mapping — they degrade to a blank label. */
-    @Test
-    fun malformedUpdatedAtBecomesNull() {
-        val convo = Conversation(conversationId = "c1", updatedAt = "not-a-timestamp")
 
         val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap())
 

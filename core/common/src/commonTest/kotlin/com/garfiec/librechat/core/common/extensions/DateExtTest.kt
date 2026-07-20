@@ -73,10 +73,4 @@ class DateExtTest {
         )
     }
 
-    @Test
-    fun toInstantOrNullRejectsMalformedInput() {
-        assertEquals(null, "not-a-timestamp".toInstantOrNull())
-        assertEquals(null, "".toInstantOrNull())
-        assertEquals(Instant.parse("2026-07-19T12:00:00Z"), "2026-07-19T12:00:00Z".toInstantOrNull())
-    }
 }

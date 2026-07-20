@@ -1,26 +1,11 @@
 package com.garfiec.librechat.feature.conversations.viewmodel
 
 import com.garfiec.librechat.core.common.extensions.RelativeTimeReference
-import com.garfiec.librechat.core.common.extensions.toInstantOrNull
 import com.garfiec.librechat.core.common.extensions.toRelativeDateGroup
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.feature.conversations.components.ConversationDisplayData
 import com.garfiec.librechat.feature.conversations.components.toDisplayData
-import kotlin.time.Instant
-
-/**
- * A conversation paired with its parsed `updatedAt`.
- *
- * Exists so the timestamp is parsed exactly once per conversation per emission. Bucketing needs the
- * `Instant` to pick a date group and the display mapping needs it for the row, and without carrying
- * it between the two, both ends call `Instant.parse` on the same string — on the main thread, for
- * every conversation, on every Room emission.
- */
-data class DatedConversation(
-    val conversation: Conversation,
-    val updatedAt: Instant?,
-)
 
 /**
  * Buckets conversations by date label (Today / Yesterday / Previous 7 Days / … / month-year),
@@ -35,10 +20,9 @@ data class DatedConversation(
  */
 internal fun List<Conversation>.groupedByDateBucket(
     reference: RelativeTimeReference = RelativeTimeReference.current(),
-): List<Pair<String, List<DatedConversation>>> {
+): List<Pair<String, List<Conversation>>> {
     if (isEmpty()) return emptyList()
-    return map { DatedConversation(it, it.updatedAt?.toInstantOrNull()) }
-        .groupBy { it.updatedAt?.toRelativeDateGroup(reference) ?: "Unknown" }
+    return groupBy { it.updatedAt?.toRelativeDateGroup(reference) ?: "Unknown" }
         .toList()
 }
 
@@ -51,6 +35,6 @@ internal fun groupConversationsByDate(
     endpointConfigs: Map<String, EndpointConfig>,
     reference: RelativeTimeReference = RelativeTimeReference.current(),
 ): List<Pair<String, List<ConversationDisplayData>>> =
-    conversations.groupedByDateBucket(reference).map { (group, dated) ->
-        group to dated.map { it.conversation.toDisplayData(endpointConfigs, it.updatedAt) }
+    conversations.groupedByDateBucket(reference).map { (group, convos) ->
+        group to convos.map { it.toDisplayData(endpointConfigs) }
     }

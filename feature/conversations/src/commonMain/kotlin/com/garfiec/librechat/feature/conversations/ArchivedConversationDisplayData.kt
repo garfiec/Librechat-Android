@@ -9,7 +9,6 @@ data class ArchivedConversationDisplayData(
     val title: String,
     val endpoint: String,
     val model: String?,
-    val archivedAt: String?,
 )
 
 fun Conversation.toArchivedDisplayData() = ArchivedConversationDisplayData(
@@ -17,5 +16,4 @@ fun Conversation.toArchivedDisplayData() = ArchivedConversationDisplayData(
     title = title ?: "New Chat",
     endpoint = endpoint ?: "chat",
     model = model,
-    archivedAt = updatedAt,
 )

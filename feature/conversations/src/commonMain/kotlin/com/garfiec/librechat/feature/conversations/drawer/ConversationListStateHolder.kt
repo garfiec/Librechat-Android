@@ -6,7 +6,6 @@ import com.garfiec.librechat.core.common.extensions.dayBoundaryReferences
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.model.Conversation
-import com.garfiec.librechat.feature.conversations.viewmodel.DatedConversation
 import com.garfiec.librechat.feature.conversations.viewmodel.groupedByDateBucket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -36,8 +35,8 @@ class ConversationListStateHolder(
     private val _recentConversations = MutableStateFlow<List<Conversation>>(emptyList())
     val recentConversations: StateFlow<List<Conversation>> = _recentConversations.asStateFlow()
 
-    private val _groupedConversations = MutableStateFlow<List<Pair<String, List<DatedConversation>>>>(emptyList())
-    val groupedConversations: StateFlow<List<Pair<String, List<DatedConversation>>>> = _groupedConversations.asStateFlow()
+    private val _groupedConversations = MutableStateFlow<List<Pair<String, List<Conversation>>>>(emptyList())
+    val groupedConversations: StateFlow<List<Pair<String, List<Conversation>>>> = _groupedConversations.asStateFlow()
 
     private val _activeConversationId = MutableStateFlow<String?>(null)
     val activeConversationId: StateFlow<String?> = _activeConversationId.asStateFlow()
@@ -203,5 +202,5 @@ class ConversationListStateHolder(
 
     private fun groupConversationsByDate(
         conversations: List<Conversation>,
-    ): List<Pair<String, List<DatedConversation>>> = conversations.groupedByDateBucket()
+    ): List<Pair<String, List<Conversation>>> = conversations.groupedByDateBucket()
 }

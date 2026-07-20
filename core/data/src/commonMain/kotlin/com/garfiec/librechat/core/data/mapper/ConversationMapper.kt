@@ -25,8 +25,10 @@ fun Conversation.toEntity(): ConversationEntity = ConversationEntity(
     iconURL = iconURL,
     greeting = greeting,
     modelParams = null,
-    createdAt = parseTimestamp(createdAt),
-    updatedAt = parseTimestamp(updatedAt),
+    // The entity columns are non-null and drive `ORDER BY updatedAt DESC` — a null timestamp
+    // must stamp "now" rather than 0L, or the row sinks to the bottom of the list.
+    createdAt = createdAt?.toEpochMilliseconds() ?: Clock.System.now().toEpochMilliseconds(),
+    updatedAt = updatedAt?.toEpochMilliseconds() ?: Clock.System.now().toEpochMilliseconds(),
 )
 
 fun ConversationEntity.toModel(): Conversation = Conversation(
@@ -47,21 +49,8 @@ fun ConversationEntity.toModel(): Conversation = Conversation(
     },
     iconURL = iconURL,
     greeting = greeting,
-    createdAt = formatTimestamp(createdAt),
-    updatedAt = formatTimestamp(updatedAt),
+    createdAt = Instant.fromEpochMilliseconds(createdAt),
+    updatedAt = Instant.fromEpochMilliseconds(updatedAt),
 )
 
 fun List<ConversationEntity>.toModels(): List<Conversation> = map { it.toModel() }
-
-private fun parseTimestamp(dateString: String?): Long {
-    if (dateString == null) return Clock.System.now().toEpochMilliseconds()
-    return try {
-        Instant.parse(dateString).toEpochMilliseconds()
-    } catch (_: Exception) {
-        Clock.System.now().toEpochMilliseconds()
-    }
-}
-
-private fun formatTimestamp(epochMillis: Long): String {
-    return Instant.fromEpochMilliseconds(epochMillis).toString()
-}

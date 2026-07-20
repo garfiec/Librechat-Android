@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.model
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 class ConversationSerializationTest {
 
@@ -50,8 +51,8 @@ class ConversationSerializationTest {
             spec = "openAI",
             tools = listOf("web_search", "code_interpreter"),
             webSearch = true,
-            createdAt = "2026-03-28T10:00:00Z",
-            updatedAt = "2026-03-28T11:00:00Z",
+            createdAt = Instant.parse("2026-03-28T10:00:00Z"),
+            updatedAt = Instant.parse("2026-03-28T11:00:00Z"),
         )
         val encoded = json.encodeToString(Conversation.serializer(), original)
         val decoded = json.decodeFromString(Conversation.serializer(), encoded)

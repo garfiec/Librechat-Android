@@ -4,7 +4,6 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.extensions.RelativeTimeReference
-import com.garfiec.librechat.core.common.extensions.toInstantOrNull
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -174,11 +173,11 @@ class ConversationListViewModel(
      * True when `this` (a Room row) is at least as fresh as [other] (a server search hit), by
      * `updatedAt`. Local edits stamp `updatedAt = now`, so they compare newer and are reflected;
      * a cross-device change not yet synced leaves Room strictly older, so it is not swapped in.
-     * Falls back to `false` (keep the server hit) when either timestamp is missing/unparseable.
+     * Falls back to `false` (keep the server hit) when either timestamp is missing.
      */
     private fun Conversation.isNotOlderThan(other: Conversation): Boolean {
-        val mine = updatedAt?.toInstantOrNull() ?: return false
-        val theirs = other.updatedAt?.toInstantOrNull() ?: return false
+        val mine = updatedAt ?: return false
+        val theirs = other.updatedAt ?: return false
         return mine >= theirs
     }
 

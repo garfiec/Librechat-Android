@@ -7,9 +7,6 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-fun String.toInstantOrNull(): Instant? =
-    try { Instant.parse(this) } catch (_: Exception) { null }
-
 /**
  * "Now", as the relative formatters below see it.
  *

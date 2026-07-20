@@ -32,6 +32,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConversationListViewModelTest {
@@ -56,12 +57,12 @@ class ConversationListViewModelTest {
         Conversation(
             conversationId = "convo-1",
             title = "First Conversation",
-            updatedAt = "2026-02-19T10:00:00.000Z",
+            updatedAt = Instant.parse("2026-02-19T10:00:00.000Z"),
         ),
         Conversation(
             conversationId = "convo-2",
             title = "Second Conversation",
-            updatedAt = "2026-02-19T09:00:00.000Z",
+            updatedAt = Instant.parse("2026-02-19T09:00:00.000Z"),
         ),
     )
 
@@ -613,12 +614,12 @@ class ConversationListViewModelTest {
         val freshHit = Conversation(
             conversationId = "convo-1",
             title = "Fresh Title",
-            updatedAt = "2026-02-19T12:00:00.000Z",
+            updatedAt = Instant.parse("2026-02-19T12:00:00.000Z"),
         )
         val staleRoom = Conversation(
             conversationId = "convo-1",
             title = "Stale Title",
-            updatedAt = "2026-02-19T10:00:00.000Z",
+            updatedAt = Instant.parse("2026-02-19T10:00:00.000Z"),
         )
         val roomFlow = MutableStateFlow<Result<List<Conversation>>>(Result.Success(listOf(staleRoom)))
         every { conversationRepository.observeConversations(any()) } returns roomFlow
@@ -669,7 +670,7 @@ class ConversationListViewModelTest {
             title = "OpenRouter chat",
             endpoint = "OpenRouter",
             iconURL = null,
-            updatedAt = "2026-02-19T10:00:00.000Z",
+            updatedAt = Instant.parse("2026-02-19T10:00:00.000Z"),
         )
         every { conversationRepository.observeConversations(any()) } returns flowOf(
             Result.Success(listOf(convo)),

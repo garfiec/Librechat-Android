@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConversationListStateHolderTest {
@@ -30,8 +31,8 @@ class ConversationListStateHolderTest {
     private val conversationRepository = mockk<ConversationRepository>(relaxed = true)
 
     private val convos = listOf(
-        Conversation(conversationId = "c1", title = "Alpha One", updatedAt = "2026-02-19T10:00:00.000Z"),
-        Conversation(conversationId = "c2", title = "Alpha Two", updatedAt = "2026-02-19T09:00:00.000Z"),
+        Conversation(conversationId = "c1", title = "Alpha One", updatedAt = Instant.parse("2026-02-19T10:00:00.000Z")),
+        Conversation(conversationId = "c2", title = "Alpha Two", updatedAt = Instant.parse("2026-02-19T09:00:00.000Z")),
     )
 
     @Before
@@ -49,7 +50,7 @@ class ConversationListStateHolderTest {
     private fun visibleIds(holder: ConversationListStateHolder) =
         holder.groupedConversations.value
             .flatMap { it.second }
-            .mapNotNull { it.conversation.conversationId }
+            .mapNotNull { it.conversationId }
 
     @Test
     fun `delete during active drawer search removes the row without a query change`() = runTest {
@@ -90,7 +91,7 @@ class ConversationListStateHolderTest {
         advanceUntilIdle()
 
         val titles = holder.groupedConversations.value.flatMap { it.second }
-            .associate { it.conversation.conversationId to it.conversation.title }
+            .associate { it.conversationId to it.title }
         assertThat(titles["c1"]).isEqualTo("Alpha One Renamed")
         assertThat(titles.keys).containsExactly("c1", "c2")
     }
