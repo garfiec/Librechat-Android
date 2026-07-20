@@ -12,8 +12,10 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
+import com.garfiec.librechat.feature.chat.viewmodel.PLACEHOLDER_CONVERSATION_TITLE
 import com.garfiec.librechat.feature.chat.viewmodel.SendCompletionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.shouldRequestTitleGeneration
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -235,12 +237,28 @@ class SendCompletionDelegate(
      * conversation row, so the cache still holds the "New Chat" placeholder and would satisfy the
      * read without ever asking the server. `refreshConversation` also upserts, so a title found
      * this way propagates to the Room-observing conversation list.
+     *
+     * Retried past the placeholder, and never a downgrade: the server's title save is gated on
+     * the request's unwind, so a read fired the instant the aborted final lands races it and can
+     * return "New Chat" — the same emit-then-persist race as the messages, one layer up. On-device
+     * this showed as a stopped first turn's title reverting from the TitleUpdate-delivered title
+     * to the placeholder (and the racing read's upsert made it sticky in the drawer). So: apply
+     * only a real title; on a placeholder, retry after a beat — a retry that finds the real title
+     * also re-upserts, healing the row the first read poisoned. If every read returns the
+     * placeholder (title generation genuinely cancelled in-flight by the Stop), the in-memory
+     * title — possibly already set by TitleUpdate — is left untouched.
      */
     private fun refreshTitleFromServer(conversationId: String, originAccount: AccountId?) {
         handle.scope.launch {
-            val fetched = conversationRepository.refreshConversation(conversationId, originAccount).getOrNull()
-                ?: return@launch
-            handle.update { conversation = conversation.copy(conversationTitle = fetched.title) }
+            repeat(ABORT_TITLE_READ_ATTEMPTS) { attempt ->
+                if (attempt > 0) delay(ABORT_TITLE_RETRY_DELAY_MS)
+                val title = conversationRepository.refreshConversation(conversationId, originAccount)
+                    .getOrNull()?.title
+                if (!title.isNullOrBlank() && title != PLACEHOLDER_CONVERSATION_TITLE) {
+                    handle.update { conversation = conversation.copy(conversationTitle = title) }
+                    return@launch
+                }
+            }
         }
     }
 
@@ -273,5 +291,15 @@ class SendCompletionDelegate(
                 is Result.Loading -> { /* no-op */ }
             }
         }
+    }
+
+    private companion object {
+        /**
+         * Total reads of the aborted-turn title, first one immediate. The server's title save
+         * completes at the request's unwind — typically well under a second after the aborted
+         * final — so one or two spaced retries comfortably outlast the race without polling.
+         */
+        const val ABORT_TITLE_READ_ATTEMPTS = 3
+        const val ABORT_TITLE_RETRY_DELAY_MS = 2_000L
     }
 }

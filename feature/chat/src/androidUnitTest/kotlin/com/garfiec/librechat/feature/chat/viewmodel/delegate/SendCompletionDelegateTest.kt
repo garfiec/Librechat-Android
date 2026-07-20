@@ -1,8 +1,10 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.DraftRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
+import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.AbortFrameFixtures
@@ -16,6 +18,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.SendCompletionHandle
 import com.google.common.truth.Truth.assertThat
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -133,7 +136,9 @@ class SendCompletionDelegateTest {
     @Test
     fun `an aborted turn never saves the stub conversation and re-reads the title network-first`() =
         runTest(StandardTestDispatcher()) {
-            val (delegate, _) = delegateWith(this)
+            coEvery { conversationRepository.refreshConversation(any(), any()) } returns
+                Result.Success(Conversation(conversationId = AbortFrameFixtures.CONVERSATION_ID, title = "Real Title"))
+            val (delegate, flow) = delegateWith(this)
 
             delegate.finalArrives(AbortFrameFixtures.persistedAbortFrame().applyAbortContract())
             advanceUntilIdle()
@@ -146,6 +151,51 @@ class SendCompletionDelegateTest {
             // the placeholder).
             coVerify(exactly = 0) { conversationRepository.generateTitle(any(), any()) }
             coVerify(exactly = 1) { conversationRepository.refreshConversation(any(), any()) }
+            assertThat(flow.value.conversation.conversationTitle).isEqualTo("Real Title")
+        }
+
+    /**
+     * The server's title save is gated on the request's unwind, so the first post-abort read
+     * races it and can return the placeholder — the on-device symptom was a stopped first turn
+     * reverting from its TitleUpdate-delivered title to "New Chat". The re-read must retry past
+     * the placeholder; the retry that finds the real title also re-upserts, healing the row the
+     * racing read poisoned.
+     */
+    @Test
+    fun `the aborted title re-read retries past the placeholder`() = runTest(StandardTestDispatcher()) {
+        coEvery { conversationRepository.refreshConversation(any(), any()) } returnsMany listOf(
+            Result.Success(Conversation(conversationId = AbortFrameFixtures.CONVERSATION_ID, title = "New Chat")),
+            Result.Success(Conversation(conversationId = AbortFrameFixtures.CONVERSATION_ID, title = "Real Title")),
+        )
+        val (delegate, flow) = delegateWith(this)
+
+        delegate.finalArrives(AbortFrameFixtures.persistedAbortFrame().applyAbortContract())
+        advanceUntilIdle()
+
+        assertThat(flow.value.conversation.conversationTitle).isEqualTo("Real Title")
+        coVerify(exactly = 2) { conversationRepository.refreshConversation(any(), any()) }
+    }
+
+    /**
+     * When every read returns the placeholder (the Stop genuinely cancelled title generation
+     * in flight), the in-memory title — possibly already delivered via the TitleUpdate SSE
+     * event — must not be downgraded to "New Chat".
+     */
+    @Test
+    fun `a placeholder-only title re-read never downgrades the in-memory title`() =
+        runTest(StandardTestDispatcher()) {
+            coEvery { conversationRepository.refreshConversation(any(), any()) } returns
+                Result.Success(Conversation(conversationId = AbortFrameFixtures.CONVERSATION_ID, title = "New Chat"))
+            val state = baseState().let {
+                it.copy(conversation = it.conversation.copy(conversationTitle = "History of Computing Essay"))
+            }
+            val (delegate, flow) = delegateWith(this, state)
+
+            delegate.finalArrives(AbortFrameFixtures.persistedAbortFrame().applyAbortContract())
+            advanceUntilIdle()
+
+            assertThat(flow.value.conversation.conversationTitle).isEqualTo("History of Computing Essay")
+            coVerify(exactly = 3) { conversationRepository.refreshConversation(any(), any()) }
         }
 
     @Test
