@@ -410,7 +410,7 @@ class StreamingManagerDelegate(
         // An aborted frame is poorer than a completed one (skeletal request, no `text`), and we
         // persist it where the web client doesn't — so normalize once here, before anything
         // renders or caches it. See normalizeAbortedFrame.
-        val event = if (aborted) rawEvent.normalizeAbortedFrame(handle.state.messages) else rawEvent
+        val event = if (aborted) rawEvent.normalizeAbortedFrame() else rawEvent
         // Flush the tail of the buffer before it is read below; endStream repeats this
         // idempotently at the end.
         stopStreamingUpdater()

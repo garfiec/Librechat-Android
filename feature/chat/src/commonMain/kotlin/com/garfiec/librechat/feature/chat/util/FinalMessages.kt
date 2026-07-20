@@ -21,45 +21,27 @@ fun StreamEvent.Final.finalMessages(): List<Message> =
     listOfNotNull(requestMessage, resolvedResponseMessage())
 
 /**
- * Adapts an aborted final event for display: when the response's parent — the turn's user
- * message — is already in [messages], drop the frame's `requestMessage` so
- * `finalizeChatDisplay` backfills from the richer in-memory copy instead. An aborted frame
- * carries a skeletal request (`messageId`, `parentMessageId`, `conversationId`, `text`,
- * `quotes`, `isCreatedByUser` — no files, attachments, sender, or createdAt), and
- * `mergeFinalMessagesInMemory` replaces wholesale by id, so without this the optimistic
- * message's attachments would be stripped on screen *and* in the cached turn. When the parent
- * is NOT in memory (a backend that didn't adopt the client-minted id), the skeletal copy is
- * still better than losing the request entirely, so it's kept.
- */
-fun StreamEvent.Final.preferInMemoryRequest(messages: List<Message>): StreamEvent.Final {
-    val parentId = resolvedResponseMessage()?.parentMessageId ?: return this
-    if (requestMessage == null) return this
-    return if (messages.any { it.messageId == parentId }) copy(requestMessage = null) else this
-}
-
-/**
  * Prepares an aborted final for the normal completion path.
  *
  * An aborted frame is deliberately poorer than a completed one, and we persist it locally where
  * the web client does not — so it gets normalized once, here, before anything renders or caches
- * it: the skeletal request is swapped for the in-memory copy (see [preferInMemoryRequest]), and
- * the missing `text` is rebuilt from the content parts. The server computes that same `text`
+ * it: the missing `text` is rebuilt from the content parts. The server computes that same `text`
  * with `parseTextParts` when it saves its own row and simply omits it from the frame, so
  * backfilling makes the cached row match what a later fetch will return instead of drifting
- * from it.
+ * from it. (The frame's skeletal `requestMessage` needs no handling here — the monotonic
+ * `mergedOver` merge gap-fills it over the richer in-memory optimistic message.)
  */
-fun StreamEvent.Final.normalizeAbortedFrame(messages: List<Message>): StreamEvent.Final {
-    val normalized = preferInMemoryRequest(messages)
-    val response = normalized.resolvedResponseMessage() ?: return normalized
-    if (response.text.isNotBlank()) return normalized
+fun StreamEvent.Final.normalizeAbortedFrame(): StreamEvent.Final {
+    val response = resolvedResponseMessage() ?: return this
+    if (response.text.isNotBlank()) return this
     val rebuilt = response.content?.textFromParts().orEmpty()
-    if (rebuilt.isBlank()) return normalized
+    if (rebuilt.isBlank()) return this
     val withText = response.copy(text = rebuilt)
     // The response arrives in whichever slot the backend used; put it back in the same one.
-    return if (normalized.responseMessage != null) {
-        normalized.copy(responseMessage = withText)
+    return if (responseMessage != null) {
+        copy(responseMessage = withText)
     } else {
-        normalized.copy(message = withText)
+        copy(message = withText)
     }
 }
 

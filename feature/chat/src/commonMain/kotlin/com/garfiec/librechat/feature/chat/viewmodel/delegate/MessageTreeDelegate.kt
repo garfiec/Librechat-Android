@@ -91,12 +91,13 @@ class MessageTreeDelegate(
      * rows to disk. Keeping that "never touch Room" decision in the caller lets both share
      * this merge.
      *
-     * Returns the completed turn (request then response) for the caller to persist, so the
-     * cached rows can't drift from the screen. The request is backfilled from its in-memory
-     * parent when the payload omits it — the server adopts the client-minted id (PR #139), so
-     * the response's parentMessageId matches the optimistic user message, which was never
-     * written to Room during streaming and would otherwise be lost on reopen. Temp chats
-     * ignore the return value.
+     * Returns the completed turn (request then response) for the caller to persist — resolved
+     * from the POST-merge state, not the raw event, so the cached rows are the same merged
+     * instances the screen shows (caching the frame's skeletal request would diverge disk from
+     * display). The request resolves via the response's parentMessageId when the payload omits
+     * it — the server adopts the client-minted id (PR #139), so it matches the optimistic user
+     * message, which was never written to Room during streaming and would otherwise be lost on
+     * reopen. Temp chats ignore the return value.
      */
     fun finalizeChatDisplay(event: StreamEvent.Final): List<Message> {
         // Defensive: upstream 0.8.7 sets responseMessage.attachments before saving, but the app
@@ -140,11 +141,12 @@ class MessageTreeDelegate(
             )
         }
         if (finalMessages.isEmpty()) return emptyList()
-        val request = event.requestMessage
-            ?: response?.parentMessageId?.let { parentId ->
-                handle.state.messages.firstOrNull { it.messageId == parentId }
-            }
-        return listOfNotNull(request, response)
+        val merged = handle.state.messages
+        val request = (event.requestMessage?.messageId ?: response?.parentMessageId)
+            ?.let { id -> merged.firstOrNull { it.messageId == id } }
+        val mergedResponse = response?.messageId
+            ?.let { id -> merged.firstOrNull { it.messageId == id } }
+        return listOfNotNull(request, mergedResponse)
     }
 }
 
