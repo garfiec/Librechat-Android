@@ -352,8 +352,10 @@ class ChatViewModel(
         officePreviewDelegate = officePreviewDelegate,
         completionDelegate = completionDelegate,
         queueDelegate = queueDelegate,
+        treeDelegate = treeDelegate,
         emitUserKeyError = { _userKeyErrors.trySend(it) },
         reloadConversation = ::loadConversation,
+        restoreUnsentInput = ::restoreUnsentInput,
         isNewConversation = { isNewConversation },
         isHandedOffNewChat = { isHandedOffNewChat },
     )
@@ -691,6 +693,23 @@ class ChatViewModel(
     /**
      * Restores a previously saved draft for the given key (conversation ID or [NEW_CHAT_DRAFT_KEY]).
      */
+    /**
+     * Puts an early-aborted turn's text back into the composer (the un-send flow: the Stop
+     * landed before the server persisted anything, so the optimistic bubble was removed).
+     * Yields to anything the user has since typed — same rule as [restoreDraft] — and persists
+     * as a draft so the restored text survives process death, same as [onInputChanged].
+     */
+    private fun restoreUnsentInput(text: String) {
+        _uiState.update {
+            if (it.inputText.isBlank()) it.copy(composer = it.composer.copy(inputText = text)) else it
+        }
+        if (_uiState.value.inputText != text) return
+        val draftKey = _uiState.value.conversationId ?: NEW_CHAT_DRAFT_KEY
+        viewModelScope.launch {
+            draftRepository.saveDraft(draftKey, text)
+        }
+    }
+
     private fun restoreDraft(draftKey: String) {
         viewModelScope.launch {
             // awaitDraft (not getDraft) so a first launch that opens the chat screen while identity is
@@ -1102,7 +1121,7 @@ class ChatViewModel(
                 error = null,
             )
         }
-        streamingManager.beginStreaming(isEdit = false)
+        streamingManager.beginStreaming(isEdit = false, optimisticUserMessageId = optimisticMessage.messageId)
 
         val isAgent = spec.endpoint == EndpointConstants.AGENTS
         Logger.d {

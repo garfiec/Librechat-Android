@@ -16,7 +16,7 @@ import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.RetryInfo
-import com.garfiec.librechat.feature.chat.util.normalizeAbortedFrame
+import com.garfiec.librechat.feature.chat.util.applyAbortContract
 import com.garfiec.librechat.feature.chat.viewmodel.StreamingHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -45,10 +45,16 @@ class StreamingManagerDelegate(
     private val officePreviewDelegate: OfficePreviewDelegate,
     private val completionDelegate: SendCompletionDelegate,
     private val queueDelegate: MessageQueueDelegate,
+    private val treeDelegate: MessageTreeDelegate,
     /** Emits a typed user-provided-key error for one-shot UI surfacing (snackbar + CTA). */
     private val emitUserKeyError: (UserKeyError) -> Unit,
     /** Reloads the conversation from the server (VM-owned Room observer). */
     private val reloadConversation: (String) -> Unit,
+    /**
+     * Puts an early-aborted (never-persisted) turn's text back into the composer. Lives on the
+     * ViewModel because streaming writes are scoped away from the composer slice.
+     */
+    private val restoreUnsentInput: (String) -> Unit,
     private val isNewConversation: () -> Boolean,
     private val isHandedOffNewChat: () -> Boolean,
 ) {
@@ -141,14 +147,23 @@ class StreamingManagerDelegate(
         private set
 
     /**
+     * The messageId minted for THIS turn's optimistic user-message insert (new send, or the
+     * edited sibling on an edit-user turn); null when the turn re-submitted a pre-existing
+     * persisted message (regenerate / continue / edit-AI). Consumed by the early-abort un-send:
+     * only a message this turn invented may be removed.
+     */
+    private var currentTurnOptimisticUserMessageId: String? = null
+
+    /**
      * Resets the streaming-internal session state (buffer, edit flag, traces) and starts the
      * throttled updater. Does NOT touch UI state — callers that already mutate UI state
      * for their send (e.g. the optimistic-insert path) use this; [prepareForStreaming] wraps
      * it with the standard streaming-field reset.
      */
-    fun beginStreaming(isEdit: Boolean) {
+    fun beginStreaming(isEdit: Boolean, optimisticUserMessageId: String? = null) {
         isEditOrRegenerate = isEdit
         startStreamSession()
+        currentTurnOptimisticUserMessageId = optimisticUserMessageId
         // Capture the origin account at stream start so a post-switch finalize attributes to it.
         streamOriginAccountId = activeAccountProvider.currentAccountId()
         streamingBuffer.clear()
@@ -162,7 +177,7 @@ class StreamingManagerDelegate(
      * Resets streaming-related UI state and the buffer in preparation for a new stream
      * (edit, regenerate, or continue).
      */
-    fun prepareForStreaming(isEdit: Boolean) {
+    fun prepareForStreaming(isEdit: Boolean, optimisticUserMessageId: String? = null) {
         handle.update {
             content = content.copy(
                 isStreaming = true,
@@ -172,7 +187,7 @@ class StreamingManagerDelegate(
             )
             error = null
         }
-        beginStreaming(isEdit)
+        beginStreaming(isEdit, optimisticUserMessageId)
     }
 
     /**
@@ -211,6 +226,9 @@ class StreamingManagerDelegate(
         abortWatchdogJob?.cancel()
         abortWatchdogJob = null
         abortRequested = false
+        // A resumed stream re-enters without beginStreaming's assignment; never let a previous
+        // turn's optimistic id leak into it (the un-send would remove the wrong message).
+        currentTurnOptimisticUserMessageId = null
     }
 
     private suspend fun collectStreamSafely(stream: Flow<StreamEvent>) {
@@ -407,10 +425,6 @@ class StreamingManagerDelegate(
         // the event rather than off local stop state, so an abort issued from another client on
         // the same conversation is treated identically.
         val aborted = rawEvent.aborted
-        // An aborted frame is poorer than a completed one (skeletal request, no `text`), and we
-        // persist it where the web client doesn't — so normalize once here, before anything
-        // renders or caches it. See normalizeAbortedFrame.
-        val event = if (aborted) rawEvent.normalizeAbortedFrame() else rawEvent
         // Flush the tail of the buffer before it is read below; endStream repeats this
         // idempotently at the end.
         stopStreamingUpdater()
@@ -418,6 +432,24 @@ class StreamingManagerDelegate(
         // `ready` SSE update may never arrive once the run closes) now falls back
         // to polling GET /api/files/:id/preview. De-duped + bounded in the delegate.
         officePreviewDelegate.onStreamEnded()
+        // Early abort: the Stop landed before the server's `created` milestone, so NOTHING was
+        // persisted — not even the user message. Un-send the turn (remove the optimistic bubble,
+        // hand its text back to the composer) instead of finalizing: any bubble kept here would
+        // be silently dropped by the next sync. Mirrors the web client's early-abort handling.
+        // No completionDelegate.onFinal — there is no conversation save, cache, title, or TTS
+        // for a turn that never existed.
+        if (aborted && rawEvent.earlyAbort) {
+            val unsentText = currentTurnOptimisticUserMessageId
+                ?.let { id -> handle.state.messages.firstOrNull { it.messageId == id }?.text }
+            treeDelegate.unsendOptimisticTurn(currentTurnOptimisticUserMessageId)
+            unsentText?.takeIf { it.isNotBlank() }?.let(restoreUnsentInput)
+            endStream(StreamEndReason.Finalized(aborted = true))
+            return
+        }
+        // Make the aborted frame agree with what the server persisted — rebuild the missing
+        // `text` for a persisted response, DROP a response the server never saved — once, here,
+        // before anything renders or caches it. See applyAbortContract.
+        val event = if (aborted) rawEvent.applyAbortContract() else rawEvent
         val isComparison = handle.state.comparisonState.isEnabled
         val conversationId = handle.state.conversationId
             ?: event.conversation?.conversationId

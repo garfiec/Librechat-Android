@@ -13,6 +13,8 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 import org.junit.Test
 
 /**
@@ -127,5 +129,78 @@ class MessageTreeDelegateTest {
         delegate.finalizeChatDisplay(StreamEvent.Final())
 
         assertThat(flow.value.messages).containsExactly(optimistic)
+    }
+
+    @Test
+    fun `finalizeChatDisplay returns the merged instances for caching`() {
+        // The optimistic message is richer than the frame's skeletal request; what gets cached
+        // must be the merged (gap-filled) copy the screen shows, not the frame's.
+        val optimistic = message("u1", text = "hi", isUser = true).copy(sender = "User", createdAt = "t0")
+        val (delegate, _) = delegateWith(
+            ChatUiState(content = MessagesState(messages = listOf(optimistic), isStreaming = true)),
+        )
+        val event = StreamEvent.Final(
+            requestMessage = message("u1", text = "hi", isUser = true), // skeletal
+            responseMessage = message("a1", parentId = "u1", text = "reply"),
+        )
+
+        val turn = delegate.finalizeChatDisplay(event)
+
+        assertThat(turn.map { it.messageId }).containsExactly("u1", "a1").inOrder()
+        assertThat(turn.first().sender).isEqualTo("User")
+        assertThat(turn.first().createdAt).isEqualTo("t0")
+    }
+
+    @Test
+    fun `unsendOptimisticTurn removes the minted message and clears streaming in one emission`() {
+        val prior = message("p1", isUser = true)
+        val optimistic = message("u1", parentId = "p1", text = "unsent", isUser = true)
+        val (delegate, flow) = delegateWith(
+            ChatUiState(
+                content = MessagesState(
+                    messages = listOf(prior, optimistic),
+                    displayMessages = buildActiveMessagePath(listOf(prior, optimistic)),
+                    isStreaming = true,
+                    streamingContent = "half",
+                ),
+            ),
+        )
+        // Count state emissions during the call: removal + path rebuild + streaming clear must
+        // be ONE update (the completion-flash discipline, #169). An Unconfined collector on a
+        // StateFlow observes every assignment synchronously.
+        var emissions = 0
+        val collector = CoroutineScope(Dispatchers.Unconfined).launch {
+            flow.drop(1).collect { emissions++ }
+        }
+        delegate.unsendOptimisticTurn("u1")
+        collector.cancel()
+
+        val after = flow.value
+        assertThat(emissions).isEqualTo(1)
+        assertThat(after.messages.map { it.messageId }).containsExactly("p1")
+        assertThat(after.displayMessages.map { it.message.messageId }).containsExactly("p1")
+        assertThat(after.isStreaming).isFalse()
+        assertThat(after.streamingContent).isEmpty()
+    }
+
+    @Test
+    fun `unsendOptimisticTurn with a null id keeps the tree and only clears streaming`() {
+        // Regenerate/continue/edit-AI: the turn's user message is a persisted row — never remove it.
+        val persisted = message("u1", isUser = true)
+        val (delegate, flow) = delegateWith(
+            ChatUiState(
+                content = MessagesState(
+                    messages = listOf(persisted),
+                    isStreaming = true,
+                    streamingContent = "half",
+                ),
+            ),
+        )
+
+        delegate.unsendOptimisticTurn(null)
+
+        assertThat(flow.value.messages).containsExactly(persisted)
+        assertThat(flow.value.isStreaming).isFalse()
+        assertThat(flow.value.streamingContent).isEmpty()
     }
 }

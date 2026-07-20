@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.feature.chat.util.AbortFrameFixtures
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ConversationMetaState
@@ -52,6 +53,8 @@ class StreamingManagerStopTest {
     private val completionDelegate = mockk<SendCompletionDelegate>(relaxed = true)
     private val queueDelegate = mockk<MessageQueueDelegate>(relaxed = true)
     private val reloadConversation = mockk<(String) -> Unit>(relaxed = true)
+    private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
+    private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
 
     private fun message(id: String, parentId: String? = null, isUser: Boolean = false) = Message(
         messageId = id,
@@ -84,18 +87,18 @@ class StreamingManagerStopTest {
             officePreviewDelegate = mockk(relaxed = true),
             completionDelegate = completionDelegate,
             queueDelegate = queueDelegate,
+            treeDelegate = treeDelegate,
             emitUserKeyError = {},
             reloadConversation = reloadConversation,
+            restoreUnsentInput = restoreUnsentInput,
             isNewConversation = { false },
             isHandedOffNewChat = { false },
         )
         return delegate to flow
     }
 
-    private fun abortedFinal() = StreamEvent.Final(
-        responseMessage = message("a1", parentId = "u1"),
-        aborted = true,
-    )
+    /** The realistic wire shape: content parts present, no text. See AbortFrameFixtures. */
+    private fun abortedFinal() = AbortFrameFixtures.persistedAbortFrame()
 
     /**
      * The regression test for the original bug. The stream must still be collecting after Stop,
@@ -288,6 +291,59 @@ class StreamingManagerStopTest {
             events.close()
             advanceUntilIdle()
         }
+
+    /**
+     * Early abort: the Stop landed before the server's `created` milestone, so NOTHING was
+     * persisted — not even the user message. The turn is un-sent (optimistic bubble removed,
+     * text handed back to the composer) instead of finalized; the next sync would have silently
+     * dropped any bubble kept here.
+     */
+    @Test
+    fun `an early abort un-sends the optimistic turn and restores the draft`() =
+        runTest(StandardTestDispatcher()) {
+            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(Unit)
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, _) = delegateWith(this)
+            delegate.beginStreaming(isEdit = false, optimisticUserMessageId = "u1")
+            delegate.launchStream(events.receiveAsFlow())
+
+            delegate.stopGeneration()
+            runCurrent()
+            events.send(AbortFrameFixtures.earlyAbortFrame())
+            runCurrent()
+
+            verify(exactly = 1) { treeDelegate.unsendOptimisticTurn("u1") }
+            // The optimistic message's own text (from state), not the frame's.
+            verify(exactly = 1) { restoreUnsentInput("text-u1") }
+            // Nothing was saved server-side: no completion work at all — no conversation save,
+            // no cacheTurn, no title refresh, no TTS.
+            verify(exactly = 0) {
+                completionDelegate.onFinal(any(), any(), any(), any(), any(), any(), any(), any(), any())
+            }
+            verify(atLeast = 1) { queueDelegate.pause() }
+            events.close()
+            advanceUntilIdle()
+        }
+
+    /**
+     * Regenerate/continue/edit-AI resubmit a PERSISTED user message — an early abort on those
+     * turns must not remove it (there is no minted optimistic id).
+     */
+    @Test
+    fun `an early abort on a regenerate removes no message`() = runTest(StandardTestDispatcher()) {
+        val events = Channel<StreamEvent>(Channel.UNLIMITED)
+        val (delegate, _) = delegateWith(this)
+        delegate.beginStreaming(isEdit = true) // no optimistic id: resubmit of a persisted turn
+        delegate.launchStream(events.receiveAsFlow())
+
+        events.send(AbortFrameFixtures.earlyAbortFrame())
+        runCurrent()
+
+        verify(exactly = 1) { treeDelegate.unsendOptimisticTurn(null) }
+        verify(exactly = 0) { restoreUnsentInput(any()) }
+        events.close()
+        advanceUntilIdle()
+    }
 
     /** A dead screen's Stop must not abort-by-fallback some other conversation's job. */
     @Test

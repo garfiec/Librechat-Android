@@ -1,111 +1,146 @@
 package com.garfiec.librechat.feature.chat.util
 
 import com.garfiec.librechat.core.model.ContentType
-import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * Covers the aborted-frame helpers. The skeletal-request problem is handled by the monotonic
- * `mergedOver` merge (see TemporaryChatMergeTest), so these tests cover the text rebuild and
- * the persisted-server-side predicate.
+ * Covers the exact-abort-contract helpers, using frames shaped as the server actually emits
+ * them ([AbortFrameFixtures]). [parseTextParts] and [abortPersistedServerSide] mirror server
+ * logic verbatim (parsers.ts / the abort route's save gate) — behavior changes here should
+ * trace back to an upstream diff, not local preference.
  */
 class FinalMessagesTest {
 
-    private fun message(
-        id: String,
-        parentId: String? = null,
-        text: String = "msg-$id",
-        isUser: Boolean = false,
-    ) = Message(
-        messageId = id,
-        conversationId = "conv-1",
-        parentMessageId = parentId,
-        text = text,
-        isCreatedByUser = isUser,
-    )
-
-    private fun textPart(text: String) = MessageContentPart(type = ContentType.TEXT, text = text)
+    // ---- parseTextParts ----
 
     @Test
-    fun `normalize rebuilds the missing text from content parts`() {
-        val event = StreamEvent.Final(
-            responseMessage = message("a1", parentId = "u1", text = "").copy(
-                content = listOf(textPart("Half an"), textPart("answer")),
-            ),
-            aborted = true,
+    fun `joins text parts with the server's space rule`() {
+        val parts = listOf(
+            MessageContentPart(type = ContentType.TEXT, text = "Half an"),
+            MessageContentPart(type = ContentType.TEXT, text = "answer"),
         )
-
-        val normalized = event.normalizeAbortedFrame()
-
-        // Space inserted between parts that would otherwise run together — matches the server's
-        // own parseTextParts, so the cached row equals the row a later fetch returns.
-        assertThat(normalized.responseMessage?.text).isEqualTo("Half an answer")
+        assertThat(parseTextParts(parts)).isEqualTo("Half an answer")
     }
 
     @Test
-    fun `normalize leaves an existing text alone`() {
-        val event = StreamEvent.Final(
-            responseMessage = message("a1", parentId = "u1", text = "already here").copy(
-                content = listOf(textPart("different")),
-            ),
-            aborted = true,
+    fun `includes THINK parts like the server's skipReasoning=false call`() {
+        // Stopping a reasoning model mid-think: the server persists the reasoning as `text`
+        // (parseTextParts is called without skipReasoning on the abort path).
+        val parts = listOf(
+            MessageContentPart(type = ContentType.THINK, think = "reasoning so far"),
+            MessageContentPart(type = ContentType.TEXT, text = "and a sentence"),
         )
-
-        assertThat(event.normalizeAbortedFrame().responseMessage?.text)
-            .isEqualTo("already here")
+        assertThat(parseTextParts(parts)).isEqualTo("reasoning so far and a sentence")
     }
 
     @Test
-    fun `normalize backfills the legacy message slot too`() {
-        val event = StreamEvent.Final(
-            message = message("a1", parentId = "u1", text = "").copy(content = listOf(textPart("partial"))),
-            aborted = true,
+    fun `the space rule compares against a literal space not whitespace`() {
+        // A chunk ending in a newline still gets the separator — the server checks `!= ' '`,
+        // not isWhitespace(). The old client port used isWhitespace() and drifted by one space.
+        val parts = listOf(
+            MessageContentPart(type = ContentType.TEXT, text = "line one\n"),
+            MessageContentPart(type = ContentType.TEXT, text = "line two"),
         )
-
-        val normalized = event.normalizeAbortedFrame()
-
-        assertThat(normalized.message?.text).isEqualTo("partial")
-        assertThat(normalized.responseMessage).isNull()
+        assertThat(parseTextParts(parts)).isEqualTo("line one\n line two")
     }
 
     @Test
-    fun `a stopped turn with content counts as persisted server-side`() {
-        val event = StreamEvent.Final(
-            responseMessage = message("a1", parentId = "u1").copy(content = listOf(textPart("partial"))),
-            aborted = true,
+    fun `skips non-text parts and empty values without inserting separators`() {
+        val parts = listOf(
+            MessageContentPart(type = ContentType.TEXT, text = "start"),
+            MessageContentPart(type = ContentType.TOOL_CALL),
+            MessageContentPart(type = ContentType.TEXT, text = ""),
+            MessageContentPart(type = ContentType.TEXT, text = "end"),
         )
+        assertThat(parseTextParts(parts)).isEqualTo("start end")
+    }
 
-        assertThat(event.abortWasPersistedServerSide()).isTrue()
+    // ---- abortPersistedServerSide: the 4-way save gate ----
+
+    @Test
+    fun `a stopped turn with content and a real response id counts as persisted`() {
+        assertThat(AbortFrameFixtures.persistedAbortFrame().abortPersistedServerSide()).isTrue()
+    }
+
+    @Test
+    fun `a synthesized response id means the server skipped the save`() {
+        // The `${userMessageId}_` fallback id is the frame's tell that jobData.responseMessageId
+        // was null — one of the four gate conditions — even though content is present.
+        assertThat(AbortFrameFixtures.synthesizedIdAbortFrame().abortPersistedServerSide()).isFalse()
     }
 
     @Test
     fun `a stopped turn with no content parts was not persisted`() {
-        // The server filters its content before both saving and emitting, so an empty list here
-        // means it saved nothing — caching it would strand a blank bubble no reload can clear.
-        val emptyContent = StreamEvent.Final(
-            responseMessage = message("a1", parentId = "u1").copy(content = emptyList()),
-            aborted = true,
-        )
-        assertThat(emptyContent.abortWasPersistedServerSide()).isFalse()
+        assertThat(AbortFrameFixtures.contentlessAbortFrame().abortPersistedServerSide()).isFalse()
+    }
 
-        val nullContent = StreamEvent.Final(
-            responseMessage = message("a1", parentId = "u1"),
-            aborted = true,
-        )
-        assertThat(nullContent.abortWasPersistedServerSide()).isFalse()
+    @Test
+    fun `a missing request message fails the gate`() {
+        val frame = AbortFrameFixtures.persistedAbortFrame().copy(requestMessage = null)
+        assertThat(frame.abortPersistedServerSide()).isFalse()
     }
 
     @Test
     fun `an early abort was never persisted`() {
-        val event = StreamEvent.Final(
-            responseMessage = message("a1", parentId = "u1").copy(content = listOf(textPart("x"))),
-            aborted = true,
-            earlyAbort = true,
-        )
+        assertThat(AbortFrameFixtures.earlyAbortFrame().abortPersistedServerSide()).isFalse()
+    }
 
-        assertThat(event.abortWasPersistedServerSide()).isFalse()
+    // ---- applyAbortContract ----
+
+    @Test
+    fun `a persisted response gets its text rebuilt from the content parts`() {
+        val normalized = AbortFrameFixtures.persistedAbortFrame().applyAbortContract()
+
+        // Matches the server's own parseTextParts row, so the cached copy equals what a later
+        // fetch returns.
+        assertThat(normalized.responseMessage?.text).isEqualTo("partial answer")
+        assertThat(normalized.requestMessage).isNotNull()
+    }
+
+    @Test
+    fun `an unpersisted response is dropped from both slots`() {
+        val normalized = AbortFrameFixtures.contentlessAbortFrame().applyAbortContract()
+
+        // The server saved no response row: merging one would mint a phantom leaf that the next
+        // send uses as a parentMessageId the server has never heard of.
+        assertThat(normalized.responseMessage).isNull()
+        assertThat(normalized.message).isNull()
+        // The user turn IS persisted on a non-early abort — it must survive for caching.
+        assertThat(normalized.requestMessage).isNotNull()
+    }
+
+    @Test
+    fun `a synthesized-id response is dropped even with content present`() {
+        val normalized = AbortFrameFixtures.synthesizedIdAbortFrame().applyAbortContract()
+
+        assertThat(normalized.responseMessage).isNull()
+    }
+
+    @Test
+    fun `an existing text is left alone`() {
+        val frame = AbortFrameFixtures.persistedAbortFrame()
+        val withText = frame.copy(responseMessage = frame.responseMessage?.copy(text = "already here"))
+
+        assertThat(withText.applyAbortContract().responseMessage?.text).isEqualTo("already here")
+    }
+
+    @Test
+    fun `the rebuild lands in the legacy message slot when the backend used it`() {
+        val frame = AbortFrameFixtures.persistedAbortFrame()
+        val legacy = frame.copy(message = frame.responseMessage, responseMessage = null)
+
+        val normalized = legacy.applyAbortContract()
+
+        assertThat(normalized.message?.text).isEqualTo("partial answer")
+        assertThat(normalized.responseMessage).isNull()
+    }
+
+    @Test
+    fun `an unaborted frame passes through untouched`() {
+        val frame = StreamEvent.Final(responseMessage = AbortFrameFixtures.abortedResponse())
+        assertThat(frame.applyAbortContract()).isEqualTo(frame)
     }
 }

@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.feature.chat.util.AbortFrameFixtures
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -45,6 +46,8 @@ class StreamingManagerLifecycleTest {
     private val completionDelegate = mockk<SendCompletionDelegate>(relaxed = true)
     private val queueDelegate = mockk<MessageQueueDelegate>(relaxed = true)
     private val reloadConversation = mockk<(String) -> Unit>(relaxed = true)
+    private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
+    private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
 
     private fun message(id: String, isUser: Boolean = false) = Message(
         messageId = id,
@@ -76,18 +79,18 @@ class StreamingManagerLifecycleTest {
             officePreviewDelegate = mockk(relaxed = true),
             completionDelegate = completionDelegate,
             queueDelegate = queueDelegate,
+            treeDelegate = treeDelegate,
             emitUserKeyError = {},
             reloadConversation = reloadConversation,
+            restoreUnsentInput = restoreUnsentInput,
             isNewConversation = { false },
             isHandedOffNewChat = { false },
         )
         return delegate to flow
     }
 
-    private fun abortedFinal() = StreamEvent.Final(
-        responseMessage = message("a1"),
-        aborted = true,
-    )
+    /** The realistic wire shape: content parts present, no text. See AbortFrameFixtures. */
+    private fun abortedFinal() = AbortFrameFixtures.persistedAbortFrame()
 
     /**
      * THE regression test: stop, background the app, and the aborted final lands while

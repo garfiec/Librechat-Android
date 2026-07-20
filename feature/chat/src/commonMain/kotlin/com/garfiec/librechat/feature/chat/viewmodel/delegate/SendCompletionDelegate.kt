@@ -11,7 +11,6 @@ import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
-import com.garfiec.librechat.feature.chat.util.abortWasPersistedServerSide
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.SendCompletionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.shouldRequestTitleGeneration
@@ -155,7 +154,7 @@ class SendCompletionDelegate(
                 // also skipped server-side for temp chats, so there's nothing to refresh.
                 treeDelegate.finalizeChatDisplay(event)
             } else {
-                if (isComparison) {
+                if (isComparison && !aborted) {
                     // A comparison persists as ONE response message whose content parts carry
                     // per-agent attribution (added agent suffixed ____N). The Final event doesn't
                     // model that split, so reload from the server to materialize the attributed
@@ -169,14 +168,20 @@ class SendCompletionDelegate(
                     // locally. No `GET /messages` round-trip: it only re-fetched invisible
                     // canonical fields (refreshed anyway on the next open) while re-rendering
                     // the list with value-different instances — the completion flash.
+                    //
+                    // A STOPPED comparison turn takes this path too: the reload above would race
+                    // the server's post-frame persistence (it emits the aborted frame BEFORE
+                    // saving), returning the conversation without the partial — the vanishing-
+                    // partial bug in comparison clothes. The frame's response already passed
+                    // applyAbortContract, so it is either genuinely persisted or absent; the
+                    // frozen pane buffers (comparisonDelegate.onFinal) cover rendering, and
+                    // reopen rehydration reads the cached attributed tail.
                     val finalizedTurn = treeDelegate.finalizeChatDisplay(event)
-                    // A stopped turn is cached only when the server actually persisted it.
-                    // Otherwise the row would be a local invention: `getMessages` upserts and
-                    // never deletes what the server didn't return, so a blank assistant bubble
-                    // would survive every reload until an explicit pull-to-refresh.
-                    if (!aborted || event.abortWasPersistedServerSide()) {
-                        cacheTurn(finalizedTurn, originAccount)
-                    }
+                    // Cache unconditionally: applyAbortContract already dropped any response the
+                    // server didn't persist, and on a non-early abort the request message IS
+                    // server-persisted — caching it is required, since this is the only write
+                    // that persists the optimistic user message at all.
+                    cacheTurn(finalizedTurn, originAccount)
                 }
                 if (aborted) {
                     // Do NOT run gen_title on a stopped turn. With the default `immediate` title

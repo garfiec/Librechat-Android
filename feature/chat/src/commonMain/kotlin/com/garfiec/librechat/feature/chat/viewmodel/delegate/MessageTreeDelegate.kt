@@ -148,6 +148,42 @@ class MessageTreeDelegate(
             ?.let { id -> merged.firstOrNull { it.messageId == id } }
         return listOfNotNull(request, mergedResponse)
     }
+
+    /**
+     * Un-sends the current turn after an early abort: the Stop landed before the server's
+     * `created` milestone, so nothing was persisted — not even the user message. Keeping the
+     * optimistic bubble would bake in a known inconsistency (the next sync silently drops it),
+     * so remove it and let the caller restore its text to the composer, mirroring the web
+     * client's early-abort handling.
+     *
+     * [userMessageId] is the id minted for THIS turn's optimistic insert; null when the turn
+     * re-submitted a pre-existing persisted message (regenerate / continue / edit-AI) — those
+     * must not be removed, so a null id only clears the streaming fields.
+     *
+     * ONE `handle.update`: removal, path rebuild, and streaming-field clear are a single
+     * StateFlow emission — the same atomicity discipline as [finalizeChatDisplay] (#169).
+     */
+    fun unsendOptimisticTurn(userMessageId: String?) {
+        handle.update {
+            val remaining = if (userMessageId == null) {
+                content.messages
+            } else {
+                content.messages.filterNot { it.messageId == userMessageId }
+            }
+            content = content.copy(
+                messages = remaining,
+                displayMessages = buildActiveMessagePath(remaining, content.activeBranches),
+                isStreaming = false,
+                streamingContent = "",
+                retryInfo = null,
+                activeToolCalls = emptyList(),
+                streamingAttachments = emptyList(),
+                // Defensive: earlyAbort means `created` never fired, so no handoff seeded this —
+                // but clearing keeps the invariant "finalize/unsend always retires the seed".
+                pendingResumeUserMessage = null,
+            )
+        }
+    }
 }
 
 /**

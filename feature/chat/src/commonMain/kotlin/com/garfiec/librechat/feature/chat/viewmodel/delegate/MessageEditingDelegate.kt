@@ -188,7 +188,10 @@ class MessageEditingDelegate(
         isRegenerate: Boolean = false,
         isContinued: Boolean = false,
     ) {
-        streamingManager.prepareForStreaming(isEdit = true)
+        // userMessageId is non-null only for the edit-user path, whose optimistic sibling this
+        // turn minted; regenerate/continue/edit-AI resubmit a persisted message the early-abort
+        // un-send must never remove.
+        streamingManager.prepareForStreaming(isEdit = true, optimisticUserMessageId = userMessageId)
 
         val state = handle.state
         val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
