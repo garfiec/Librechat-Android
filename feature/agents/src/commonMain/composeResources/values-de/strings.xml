@@ -45,7 +45,7 @@
     <!-- Detail screen -->
     <string name="agent_title">Agent</string>
     <string name="delete_agent">Agent löschen</string>
-    <string name="delete_agent_confirm">Möchtest du \"%1$s\" wirklich löschen? Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="delete_agent_confirm">Möchtest du "%1$s" wirklich löschen? Dies kann nicht rückgängig gemacht werden.</string>
     <string name="delete_this_agent">diesen Agenten</string>
     <string name="by_author">von %1$s</string>
     <string name="label_description">Beschreibung</string>
@@ -252,7 +252,7 @@
     <string name="agent_tools_title">Agent-Tools</string>
     <string name="select_tools_description">Wähle Tools aus, die dein Agent verwenden soll</string>
     <string name="search_tools_hint">Tools suchen…</string>
-    <string name="no_tools_matching">Keine Tools passend zu \"%1$s\"</string>
+    <string name="no_tools_matching">Keine Tools passend zu "%1$s"</string>
     <string name="no_tools_available">Keine Tools verfügbar</string>
 
     <!-- Per-capability file attachments -->
@@ -271,7 +271,7 @@
     <string name="add_skills">Skills hinzufügen</string>
     <string name="select_skills">Skills auswählen</string>
     <string name="search_skills_hint">Skills suchen…</string>
-    <string name="no_skills_matching">Keine Skills passend zu \"%1$s\"</string>
+    <string name="no_skills_matching">Keine Skills passend zu "%1$s"</string>
     <string name="no_skills_available">Keine Skills verfügbar</string>
     <string name="skills_done">Fertig</string>
 

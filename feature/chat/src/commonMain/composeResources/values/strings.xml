@@ -124,7 +124,7 @@
 
     <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
     <string name="office_preview_preparing">Preparing preview of %1$s…</string>
-    <string name="office_preview_failed">Couldn\'t preview %1$s (%2$s)</string>
+    <string name="office_preview_failed">Couldn't preview %1$s (%2$s)</string>
     <string name="office_preview_unavailable">%1$s — preview not available</string>
 
     <!-- Content descriptions - Tool calls -->
@@ -234,7 +234,7 @@
     <!-- Tool-call generated-file attachments -->
     <string name="attachment_fallback">Attachment</string>
     <string name="pdf_document">PDF Document</string>
-    <string name="pdf_load_failed">Couldn\'t load PDF</string>
+    <string name="pdf_load_failed">Couldn't load PDF</string>
     <string name="cd_share_pdf">Share PDF</string>
     <string name="cd_open_pdf">Open PDF</string>
     <string name="retry">Retry</string>
@@ -357,10 +357,10 @@
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
     <string name="send_block_select_agent">Select an agent before sending your message.</string>
     <string name="send_block_select_model">Select a model before sending your message.</string>
-    <string name="send_block_agents_unavailable">Agents aren\'t available on this server. Please pick a different model.</string>
-    <string name="send_block_agent_not_available">The selected agent isn\'t available on this server. Please pick a different agent.</string>
-    <string name="send_block_model_not_available">The selected model isn\'t available on this server. Please pick a different model.</string>
-    <string name="send_block_model_load_failed">Couldn\'t load the selected model yet. Please try again or pick a different model.</string>
+    <string name="send_block_agents_unavailable">Agents aren't available on this server. Please pick a different model.</string>
+    <string name="send_block_agent_not_available">The selected agent isn't available on this server. Please pick a different agent.</string>
+    <string name="send_block_model_not_available">The selected model isn't available on this server. Please pick a different model.</string>
+    <string name="send_block_model_load_failed">Couldn't load the selected model yet. Please try again or pick a different model.</string>
 
     <!-- Conversation media gallery ("Show all media") -->
     <string name="action_show_all_media">Show all media</string>

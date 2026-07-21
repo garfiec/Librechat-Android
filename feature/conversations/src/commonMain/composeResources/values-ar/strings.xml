@@ -47,7 +47,7 @@
     <string name="rename_dialog_message">أدخل عنوانًا جديدًا لهذه المحادثة.</string>
     <string name="title_label">العنوان</string>
     <string name="delete_conversation">حذف المحادثة</string>
-    <string name="delete_confirmation_message">هل أنت متأكد أنك تريد حذف \"%1$s\"؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="delete_confirmation_message">هل أنت متأكد أنك تريد حذف "%1$s"؟ لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="this_conversation">هذه المحادثة</string>
 
     <!-- Tag picker -->

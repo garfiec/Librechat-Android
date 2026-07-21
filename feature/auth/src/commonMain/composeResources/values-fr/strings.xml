@@ -5,9 +5,9 @@
     <string name="server_url_placeholder">https://votre-serveur.com</string>
     <string name="server_url_connect">Se connecter</string>
     <string name="connect_to_librechat">Se connecter à LibreChat</string>
-    <string name="enter_server_url_hint">Saisissez l\'URL de votre serveur pour commencer</string>
+    <string name="enter_server_url_hint">Saisissez l'URL de votre serveur pour commencer</string>
     <string name="insecure_connection_title">Connexion non sécurisée</string>
-    <string name="insecure_connection_message">Vous vous connectez via HTTP. Vos identifiants de connexion et vos messages seront envoyés sans chiffrement et pourraient être interceptés par d\'autres personnes sur le réseau.\n\nN\'utilisez HTTP que pour les serveurs de développement local.</string>
+    <string name="insecure_connection_message">Vous vous connectez via HTTP. Vos identifiants de connexion et vos messages seront envoyés sans chiffrement et pourraient être interceptés par d'autres personnes sur le réseau.\n\nN'utilisez HTTP que pour les serveurs de développement local.</string>
     <string name="connect_anyway">Se connecter quand même</string>
     <string name="cancel">Annuler</string>
 
@@ -17,15 +17,15 @@
     <string name="password_label">Mot de passe</string>
     <string name="continue_button">Continuer</string>
     <string name="forgot_password">Mot de passe oublié ?</string>
-    <string name="no_account_sign_up">Vous n\'avez pas de compte ? Inscrivez-vous</string>
+    <string name="no_account_sign_up">Vous n'avez pas de compte ? Inscrivez-vous</string>
     <string name="or_continue_with">Ou continuer avec</string>
 
     <!-- Register -->
     <string name="register_title">Créer un compte</string>
     <string name="full_name_label">Nom complet</string>
-    <string name="username_label">Nom d\'utilisateur</string>
+    <string name="username_label">Nom d'utilisateur</string>
     <string name="confirm_password_label">Confirmer le mot de passe</string>
-    <string name="sign_up">S\'inscrire</string>
+    <string name="sign_up">S'inscrire</string>
     <string name="have_account_sign_in">Vous avez déjà un compte ? Connectez-vous</string>
 
     <!-- Forgot Password -->
@@ -51,24 +51,24 @@
     <string name="two_factor_title">Authentification à deux facteurs</string>
     <string name="enter_verification_code">Saisissez le code de vérification</string>
     <string name="enter_backup_code">Saisissez le code de secours</string>
-    <string name="authenticator_prompt">Saisissez le code à 6 chiffres de votre application d\'authentification</string>
-    <string name="backup_code_prompt">Saisissez l\'un de vos codes de secours</string>
+    <string name="authenticator_prompt">Saisissez le code à 6 chiffres de votre application d'authentification</string>
+    <string name="backup_code_prompt">Saisissez l'un de vos codes de secours</string>
     <string name="verify">Vérifier</string>
-    <string name="use_authenticator_code">Utiliser le code de l\'application d\'authentification</string>
+    <string name="use_authenticator_code">Utiliser le code de l'application d'authentification</string>
     <string name="use_backup_code">Utiliser un code de secours</string>
     <string name="backup_code_label">Code de secours</string>
 
     <!-- Verify Email -->
-    <string name="verify_email_title">Vérifier l\'e-mail</string>
+    <string name="verify_email_title">Vérifier l'e-mail</string>
     <string name="verification_link_sent">Nous avons envoyé un lien de vérification à</string>
-    <string name="click_link_to_verify">Cliquez sur le lien dans l\'e-mail pour vérifier votre compte.</string>
+    <string name="click_link_to_verify">Cliquez sur le lien dans l'e-mail pour vérifier votre compte.</string>
     <string name="verification_email_sent">E-mail de vérification envoyé !</string>
-    <string name="resend_verification_email">Renvoyer l\'e-mail de vérification</string>
+    <string name="resend_verification_email">Renvoyer l'e-mail de vérification</string>
     <string name="resend_in_seconds">Renvoyer dans %1$ds</string>
 
     <!-- Terms -->
-    <string name="terms_title">Conditions d\'utilisation</string>
-    <string name="i_accept">J\'accepte</string>
+    <string name="terms_title">Conditions d'utilisation</string>
+    <string name="i_accept">J'accepte</string>
     <string name="retry">Réessayer</string>
 
     <!-- Common -->

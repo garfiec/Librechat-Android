@@ -45,7 +45,7 @@
     <!-- Detail screen -->
     <string name="agent_title">智能体</string>
     <string name="delete_agent">删除智能体</string>
-    <string name="delete_agent_confirm">确定要删除 \"%1$s\" 吗？此操作无法撤销。</string>
+    <string name="delete_agent_confirm">确定要删除 "%1$s" 吗？此操作无法撤销。</string>
     <string name="delete_this_agent">此智能体</string>
     <string name="by_author">作者：%1$s</string>
     <string name="label_description">描述</string>
@@ -252,7 +252,7 @@
     <string name="agent_tools_title">智能体工具</string>
     <string name="select_tools_description">为你的智能体选择要使用的工具</string>
     <string name="search_tools_hint">搜索工具…</string>
-    <string name="no_tools_matching">没有与 \"%1$s\" 匹配的工具</string>
+    <string name="no_tools_matching">没有与 "%1$s" 匹配的工具</string>
     <string name="no_tools_available">没有可用的工具</string>
 
     <!-- Per-capability file attachments -->
@@ -271,7 +271,7 @@
     <string name="add_skills">添加技能</string>
     <string name="select_skills">选择技能</string>
     <string name="search_skills_hint">搜索技能…</string>
-    <string name="no_skills_matching">没有与 \"%1$s\" 匹配的技能</string>
+    <string name="no_skills_matching">没有与 "%1$s" 匹配的技能</string>
     <string name="no_skills_available">没有可用的技能</string>
     <string name="skills_done">完成</string>
 

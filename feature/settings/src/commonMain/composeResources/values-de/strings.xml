@@ -309,7 +309,7 @@
     <string name="add_memory">Erinnerung hinzufügen</string>
     <string name="edit_memory">Erinnerung bearbeiten</string>
     <string name="dialog_title_delete_memory">Erinnerung löschen</string>
-    <string name="dialog_delete_memory_message">Möchtest du die Erinnerung \"%1$s\" wirklich löschen?</string>
+    <string name="dialog_delete_memory_message">Möchtest du die Erinnerung "%1$s" wirklich löschen?</string>
     <string name="memory_key_label">Schlüssel</string>
     <string name="memory_value_label">Wert</string>
 
@@ -344,7 +344,7 @@
     <string name="mcp_oauth_scope">Scope</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">Server löschen</string>
-    <string name="dialog_delete_server_message">Möchtest du \"%1$s\" wirklich löschen?</string>
+    <string name="dialog_delete_server_message">Möchtest du "%1$s" wirklich löschen?</string>
     <string name="error_failed_to_load_servers">Server konnten nicht geladen werden</string>
     <string name="mcp_tools_count">%1$d Tool%2$s</string>
     <string name="no_tools_available">Keine Tools verfügbar</string>
@@ -379,7 +379,7 @@
     <string name="no_api_keys">Keine API-Schlüssel</string>
     <string name="no_api_keys_desc">Erstelle einen API-Schlüssel, um programmatisch auf die API zuzugreifen.</string>
     <string name="dialog_title_delete_api_key">API-Schlüssel löschen</string>
-    <string name="dialog_delete_api_key_message">Möchtest du den API-Schlüssel \"%1$s\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="dialog_delete_api_key_message">Möchtest du den API-Schlüssel "%1$s" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="created_prefix">Erstellt: %1$s</string>
 
     <!-- API Key create dialog -->
@@ -395,13 +395,13 @@
     <string name="no_presets">Keine Vorlagen</string>
     <string name="no_presets_desc">Speichere Vorlagen über den Chat-Bildschirm, um sie hier zu verwalten</string>
     <string name="dialog_title_delete_preset">Vorlage löschen</string>
-    <string name="dialog_delete_preset_message">Möchtest du \"%1$s\" wirklich löschen?</string>
+    <string name="dialog_delete_preset_message">Möchtest du "%1$s" wirklich löschen?</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">Keine geteilten Links</string>
     <string name="no_shared_links_desc">Teile eine Unterhaltung, um sie hier zu sehen</string>
     <string name="dialog_title_delete_shared_link">Geteilten Link löschen</string>
-    <string name="dialog_delete_shared_link_message">Dies entfernt den geteilten Link für \"%1$s\". Niemand mit dem Link kann mehr darauf zugreifen.</string>
+    <string name="dialog_delete_shared_link_message">Dies entfernt den geteilten Link für "%1$s". Niemand mit dem Link kann mehr darauf zugreifen.</string>
     <string name="visibility_public">Öffentlich</string>
     <string name="visibility_private">Privat</string>
     <string name="error_failed_to_load_memories">Erinnerungen konnten nicht geladen werden</string>

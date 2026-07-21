@@ -47,7 +47,7 @@
     <string name="rename_dialog_message">Введите новое название для этой беседы.</string>
     <string name="title_label">Название</string>
     <string name="delete_conversation">Удалить беседу</string>
-    <string name="delete_confirmation_message">Вы уверены, что хотите удалить \"%1$s\"? Это действие нельзя отменить.</string>
+    <string name="delete_confirmation_message">Вы уверены, что хотите удалить "%1$s"? Это действие нельзя отменить.</string>
     <string name="this_conversation">эту беседу</string>
 
     <!-- Tag picker -->

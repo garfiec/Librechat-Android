@@ -37,7 +37,7 @@
     <string name="delete_count_files">¿Eliminar %1$d archivo%2$s?</string>
     <string name="action_cannot_be_undone">Esta acción no se puede deshacer.</string>
     <string name="delete_file_question">¿Eliminar archivo?</string>
-    <string name="delete_file_message">¿Eliminar \"%1$s\"? Esta acción no se puede deshacer.</string>
+    <string name="delete_file_message">¿Eliminar "%1$s"? Esta acción no se puede deshacer.</string>
     <string name="this_file">este archivo</string>
 
     <!-- File preview -->

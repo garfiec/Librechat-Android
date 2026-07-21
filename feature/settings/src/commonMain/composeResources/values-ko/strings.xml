@@ -309,7 +309,7 @@
     <string name="add_memory">메모리 추가</string>
     <string name="edit_memory">메모리 편집</string>
     <string name="dialog_title_delete_memory">메모리 삭제</string>
-    <string name="dialog_delete_memory_message">메모리 \"%1$s\"을(를) 삭제하시겠습니까?</string>
+    <string name="dialog_delete_memory_message">메모리 "%1$s"을(를) 삭제하시겠습니까?</string>
     <string name="memory_key_label">키</string>
     <string name="memory_value_label">값</string>
 
@@ -344,7 +344,7 @@
     <string name="mcp_oauth_scope">Scope</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">서버 삭제</string>
-    <string name="dialog_delete_server_message">\"%1$s\"을(를) 삭제하시겠습니까?</string>
+    <string name="dialog_delete_server_message">"%1$s"을(를) 삭제하시겠습니까?</string>
     <string name="error_failed_to_load_servers">서버를 불러오지 못했습니다</string>
     <string name="mcp_tools_count">도구 %1$d개%2$s</string>
     <string name="no_tools_available">사용 가능한 도구가 없습니다</string>
@@ -379,7 +379,7 @@
     <string name="no_api_keys">API 키 없음</string>
     <string name="no_api_keys_desc">프로그래밍 방식으로 API에 접근하려면 API 키를 생성하세요.</string>
     <string name="dialog_title_delete_api_key">API 키 삭제</string>
-    <string name="dialog_delete_api_key_message">API 키 \"%1$s\"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
+    <string name="dialog_delete_api_key_message">API 키 "%1$s"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="created_prefix">생성: %1$s</string>
 
     <!-- API Key create dialog -->
@@ -395,13 +395,13 @@
     <string name="no_presets">프리셋 없음</string>
     <string name="no_presets_desc">채팅 화면에서 프리셋을 저장하면 여기에서 관리할 수 있습니다</string>
     <string name="dialog_title_delete_preset">프리셋 삭제</string>
-    <string name="dialog_delete_preset_message">\"%1$s\"을(를) 삭제하시겠습니까?</string>
+    <string name="dialog_delete_preset_message">"%1$s"을(를) 삭제하시겠습니까?</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">공유 링크 없음</string>
     <string name="no_shared_links_desc">대화를 공유하면 여기에 표시됩니다</string>
     <string name="dialog_title_delete_shared_link">공유 링크 삭제</string>
-    <string name="dialog_delete_shared_link_message">\"%1$s\"의 공유 링크를 제거합니다. 링크를 가진 사람은 더 이상 접근할 수 없습니다.</string>
+    <string name="dialog_delete_shared_link_message">"%1$s"의 공유 링크를 제거합니다. 링크를 가진 사람은 더 이상 접근할 수 없습니다.</string>
     <string name="visibility_public">공개</string>
     <string name="visibility_private">비공개</string>
     <string name="error_failed_to_load_memories">메모리를 불러오지 못했습니다</string>

@@ -20,7 +20,7 @@
     <string name="skill_category_label">类别：%1$s</string>
     <string name="skill_version_label">版本 %1$d</string>
     <string name="skill_delete_confirm_title">删除技能？</string>
-    <string name="skill_delete_confirm_message">这将永久删除 \"%1$s\"。此操作无法撤销。</string>
+    <string name="skill_delete_confirm_message">这将永久删除 "%1$s"。此操作无法撤销。</string>
     <string name="skill_empty_body">此技能没有内容。</string>
     <string name="skill_active_label">已启用</string>
     <string name="skill_active_description">让此技能可在聊天中使用。</string>

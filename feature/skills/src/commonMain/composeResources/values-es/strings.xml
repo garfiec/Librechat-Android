@@ -20,7 +20,7 @@
     <string name="skill_category_label">Categoría: %1$s</string>
     <string name="skill_version_label">Versión %1$d</string>
     <string name="skill_delete_confirm_title">¿Eliminar habilidad?</string>
-    <string name="skill_delete_confirm_message">Esto elimina permanentemente \"%1$s\". Esta acción no se puede deshacer.</string>
+    <string name="skill_delete_confirm_message">Esto elimina permanentemente "%1$s". Esta acción no se puede deshacer.</string>
     <string name="skill_empty_body">Esta habilidad no tiene contenido.</string>
     <string name="skill_active_label">Activa</string>
     <string name="skill_active_description">Hacer que esta habilidad esté disponible para usar en los chats.</string>

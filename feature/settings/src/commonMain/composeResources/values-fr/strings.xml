@@ -22,7 +22,7 @@
     <string name="cd_add_memory">Ajouter une mémoire</string>
     <string name="cd_add_server">Ajouter un serveur</string>
     <string name="cd_back">Retour</string>
-    <string name="cd_change_avatar">Changer l\'avatar</string>
+    <string name="cd_change_avatar">Changer l'avatar</string>
     <string name="cd_choose_image">Choisir une image</string>
     <string name="cd_collapse_tools">Réduire les outils</string>
     <string name="cd_copy_api_key">Copier la clé API</string>
@@ -44,16 +44,16 @@
     <string name="cd_make_public">Rendre public</string>
     <string name="cd_preview_voice">Aperçu de la voix</string>
     <string name="cd_reinitialize">Réinitialiser</string>
-    <string name="cd_avatar_preview">Aperçu de l\'avatar</string>
+    <string name="cd_avatar_preview">Aperçu de l'avatar</string>
     <string name="cd_selected">Sélectionné</string>
     <string name="cd_selected_avatar">Avatar sélectionné</string>
-    <string name="cd_stop_voice_preview">Arrêter l\'aperçu de la voix</string>
+    <string name="cd_stop_voice_preview">Arrêter l'aperçu de la voix</string>
     <string name="cd_test_tts_voice">Tester la voix TTS sélectionnée</string>
     <string name="cd_toggle_auto_read">Activer/désactiver la lecture automatique des réponses</string>
-    <string name="cd_toggle_auto_send_stt">Activer/désactiver l\'envoi automatique après la dictée</string>
+    <string name="cd_toggle_auto_send_stt">Activer/désactiver l'envoi automatique après la dictée</string>
     <string name="cd_toggle_memories">Activer/désactiver les mémoires</string>
     <string name="cd_tts_voice_selector">Sélectionner la voix TTS. Actuellement %1$s</string>
-    <string name="cd_user_avatar">Avatar de l\'utilisateur</string>
+    <string name="cd_user_avatar">Avatar de l'utilisateur</string>
     <string name="cd_view_all_tools">Voir tous les outils</string>
     <string name="cd_view_tools">Voir les outils</string>
 
@@ -99,11 +99,11 @@
     <string name="theme_dark">Sombre</string>
 
     <!-- Accent color -->
-    <string name="accent_color">Couleur d\'accentuation</string>
+    <string name="accent_color">Couleur d'accentuation</string>
     <string name="accent_color_custom">Personnalisée</string>
     <string name="accent_color_hex">Hex</string>
-    <string name="use_wallpaper_colors">Utiliser les couleurs du fond d\'écran</string>
-    <string name="use_wallpaper_colors_desc">Adapter l\'accentuation de l\'application au fond d\'écran du système (Material You)</string>
+    <string name="use_wallpaper_colors">Utiliser les couleurs du fond d'écran</string>
+    <string name="use_wallpaper_colors_desc">Adapter l'accentuation de l'application au fond d'écran du système (Material You)</string>
 
     <!-- Settings rows -->
     <string name="language">Langue</string>
@@ -115,19 +115,19 @@
     <string name="commands">Commandes</string>
     <string name="commands_enabled_count">%1$d activée(s)</string>
     <string name="api_keys">Clés API</string>
-    <string name="api_keys_subtitle">Gérer les clés API pour l\'accès programmatique</string>
+    <string name="api_keys_subtitle">Gérer les clés API pour l'accès programmatique</string>
     <string name="presets">Préréglages</string>
     <string name="presets_subtitle">Gérer les préréglages de conversation</string>
     <string name="favorites">Favoris</string>
     <string name="favorites_subtitle">Gérer les agents et modèles épinglés</string>
     <string name="favorites_title">Favoris</string>
-    <string name="favorites_empty_title">Aucun favori pour l\'instant</string>
+    <string name="favorites_empty_title">Aucun favori pour l'instant</string>
     <string name="favorites_empty_message">Épinglez des agents ou des modèles depuis le sélecteur de modèle pour les voir ici.</string>
     <string name="favorites_count_of">%1$d sur %2$d</string>
     <string name="favorites_unpin_cd">Désépingler le favori</string>
 
     <!-- About info -->
-    <string name="app_version_label">Version de l\'application</string>
+    <string name="app_version_label">Version de l'application</string>
     <string name="app_build_label">Build</string>
     <string name="server_label">Serveur</string>
     <string name="server_not_configured">Non configuré</string>
@@ -149,11 +149,11 @@
     <string name="chat_layout_thread">Fil</string>
     <string name="chat_layout_two_sided">Discussion à deux côtés</string>
     <string name="chat_layout_thread_desc">Tous les messages alignés à gauche avec avatar et nom</string>
-    <string name="chat_layout_two_sided_desc">Messages de l\'utilisateur à droite, agent à gauche</string>
+    <string name="chat_layout_two_sided_desc">Messages de l'utilisateur à droite, agent à gauche</string>
     <string name="show_bubbles">Afficher les bulles</string>
     <string name="show_bubbles_desc">Ajouter des arrière-plans en bulles arrondies aux messages</string>
     <string name="show_avatars">Afficher les avatars</string>
-    <string name="show_avatars_desc">Afficher les avatars de l\'utilisateur et de l\'agent à côté des messages</string>
+    <string name="show_avatars_desc">Afficher les avatars de l'utilisateur et de l'agent à côté des messages</string>
     <string name="starred_models_title">Modèles favoris</string>
     <string name="starred_models_desc">Afficher vos modèles et agents épinglés en haut du sélecteur de modèle</string>
     <string name="starred_models_off">Désactivé</string>
@@ -175,17 +175,17 @@
     <string name="latex_native">Texte brut (rapide)</string>
     <string name="latex_native_desc">Affiche la source LaTeX brute pour de meilleures performances de défilement</string>
     <string name="auto_scroll">Défilement automatique pendant le streaming</string>
-    <string name="auto_scroll_desc">Faire défiler automatiquement vers le nouveau contenu pendant la génération d\'une réponse</string>
+    <string name="auto_scroll_desc">Faire défiler automatiquement vers le nouveau contenu pendant la génération d'une réponse</string>
     <string name="show_thinking_blocks">Afficher les blocs de réflexion</string>
-    <string name="show_thinking_blocks_desc">Afficher les étapes de raisonnement du modèle lorsqu\'elles sont disponibles</string>
-    <string name="show_image_descriptions">Afficher les descriptions d\'images</string>
-    <string name="show_image_descriptions_desc">Afficher les invites d\'image générées par l\'IA sous les images</string>
-    <string name="dismiss_keyboard_on_send">Masquer le clavier après l\'envoi</string>
-    <string name="dismiss_keyboard_on_send_desc">Masquer automatiquement le clavier après l\'envoi d\'un message</string>
+    <string name="show_thinking_blocks_desc">Afficher les étapes de raisonnement du modèle lorsqu'elles sont disponibles</string>
+    <string name="show_image_descriptions">Afficher les descriptions d'images</string>
+    <string name="show_image_descriptions_desc">Afficher les invites d'image générées par l'IA sous les images</string>
+    <string name="dismiss_keyboard_on_send">Masquer le clavier après l'envoi</string>
+    <string name="dismiss_keyboard_on_send_desc">Masquer automatiquement le clavier après l'envoi d'un message</string>
 
     <!-- Artifacts -->
     <string name="section_artifacts">Artefacts</string>
-    <string name="artifacts_section_desc">Afficher les artefacts directement dans la discussion au lieu d\'une carte à ouvrir d\'une pression. Appuyez sur un artefact intégré pour ouvrir l\'affichage plein écran.</string>
+    <string name="artifacts_section_desc">Afficher les artefacts directement dans la discussion au lieu d'une carte à ouvrir d'une pression. Appuyez sur un artefact intégré pour ouvrir l'affichage plein écran.</string>
     <string name="inline_artifact_mermaid">Diagrammes Mermaid</string>
     <string name="inline_artifact_mermaid_desc">Afficher les organigrammes et diagrammes Mermaid en ligne</string>
     <string name="inline_artifact_svg">Images SVG</string>
@@ -199,19 +199,19 @@
 
     <!-- Security -->
     <string name="two_factor_auth">Authentification à deux facteurs</string>
-    <string name="enable_two_factor">Activer l\'authentification à deux facteurs</string>
-    <string name="disable_two_factor">Désactiver l\'authentification à deux facteurs</string>
+    <string name="enable_two_factor">Activer l'authentification à deux facteurs</string>
+    <string name="disable_two_factor">Désactiver l'authentification à deux facteurs</string>
     <string name="view_backup_codes">Voir les codes de secours</string>
 
     <!-- 2FA setup dialog -->
-    <string name="dialog_title_enable_2fa">Activer l\'authentification à deux facteurs</string>
-    <string name="dialog_title_disable_2fa">Désactiver l\'authentification à deux facteurs</string>
-    <string name="twofa_scan_instructions">Copiez l\'URI ci-dessous et collez-le dans votre application d\'authentification (par ex. Google Authenticator, Authy), puis saisissez le code de vérification.</string>
-    <string name="twofa_disable_instructions">Saisissez le code de votre application d\'authentification pour désactiver la 2FA.</string>
+    <string name="dialog_title_enable_2fa">Activer l'authentification à deux facteurs</string>
+    <string name="dialog_title_disable_2fa">Désactiver l'authentification à deux facteurs</string>
+    <string name="twofa_scan_instructions">Copiez l'URI ci-dessous et collez-le dans votre application d'authentification (par ex. Google Authenticator, Authy), puis saisissez le code de vérification.</string>
+    <string name="twofa_disable_instructions">Saisissez le code de votre application d'authentification pour désactiver la 2FA.</string>
     <string name="hint_verification_code">Code de vérification</string>
 
     <!-- OTP verification dialogs -->
-    <string name="otp_title_verify_identity">Vérifier l\'identité</string>
+    <string name="otp_title_verify_identity">Vérifier l'identité</string>
     <string name="otp_desc_delete_account">Saisissez votre code 2FA pour supprimer votre compte.</string>
     <string name="otp_desc_reenroll_2fa">Saisissez votre code 2FA actuel pour vous réinscrire.</string>
     <string name="otp_desc_regenerate_backup_codes">Saisissez votre code 2FA pour régénérer les codes de secours.</string>
@@ -223,7 +223,7 @@
 
     <!-- Backup codes dialog -->
     <string name="dialog_title_backup_codes">Codes de secours</string>
-    <string name="backup_codes_instructions">Conservez ces codes de secours en lieu sûr. Chaque code ne peut être utilisé qu\'une seule fois.</string>
+    <string name="backup_codes_instructions">Conservez ces codes de secours en lieu sûr. Chaque code ne peut être utilisé qu'une seule fois.</string>
 
     <!-- Danger zone -->
     <string name="delete_account">Supprimer le compte</string>
@@ -266,11 +266,11 @@
     <string name="auto_send_after_speech">Envoi automatique après la dictée</string>
     <string name="auto_send_after_speech_desc">Envoyer automatiquement le message après la fin de la reconnaissance vocale</string>
     <string name="auto_read_responses">Lecture automatique des réponses</string>
-    <string name="auto_read_responses_desc">Lire automatiquement les réponses de l\'IA à voix haute via la synthèse vocale</string>
+    <string name="auto_read_responses_desc">Lire automatiquement les réponses de l'IA à voix haute via la synthèse vocale</string>
     <string name="tts_voice">Voix TTS</string>
     <string name="test_voice">Tester la voix</string>
     <string name="no_server_tts_voices">Aucune voix TTS de serveur disponible. Les fonctions vocales ne sont peut-être pas configurées sur le serveur.</string>
-    <string name="using_device_tts">Utilisation du moteur de synthèse vocale de l\'appareil. Configurez la voix et la vitesse dans les Paramètres de synthèse vocale ci-dessous.</string>
+    <string name="using_device_tts">Utilisation du moteur de synthèse vocale de l'appareil. Configurez la voix et la vitesse dans les Paramètres de synthèse vocale ci-dessous.</string>
     <string name="speech_to_text_settings">Paramètres de reconnaissance vocale</string>
     <string name="text_to_speech_settings">Paramètres de synthèse vocale</string>
 
@@ -281,11 +281,11 @@
     <string name="stt_engine_browser">Intégré</string>
     <string name="stt_engine_external">Serveur</string>
     <string name="stt_hint_browser">Utilise le moteur de reconnaissance vocale intégré de votre appareil pour la transcription en direct.</string>
-    <string name="stt_hint_external">Envoie l\'audio à votre serveur pour la reconnaissance vocale (Whisper). La reconnaissance vocale doit être activée sur votre serveur.</string>
-    <string name="stt_on_device_toggle">Reconnaissance sur l\'appareil</string>
+    <string name="stt_hint_external">Envoie l'audio à votre serveur pour la reconnaissance vocale (Whisper). La reconnaissance vocale doit être activée sur votre serveur.</string>
+    <string name="stt_on_device_toggle">Reconnaissance sur l'appareil</string>
     <string name="stt_on_device_toggle_desc">Transcrit sur cet appareil plutôt que dans le cloud. Bascule sur la reconnaissance cloud si indisponible.</string>
     <string name="stt_end_of_speech_toggle">Arrêter quand je fais une pause</string>
-    <string name="stt_end_of_speech_toggle_desc">Termine la dictée automatiquement dès que vous arrêtez de parler, au lieu de continuer jusqu\'à ce que vous touchiez arrêter. Avec l\'envoi automatique après la parole activé, le message est envoyé en mode mains libres.</string>
+    <string name="stt_end_of_speech_toggle_desc">Termine la dictée automatiquement dès que vous arrêtez de parler, au lieu de continuer jusqu'à ce que vous touchiez arrêter. Avec l'envoi automatique après la parole activé, le message est envoyé en mode mains libres.</string>
     <string name="stt_auto_detect">Détection automatique</string>
 
     <!-- TTS detail dialog -->
@@ -296,27 +296,27 @@
     <string name="tts_system_default">Par défaut du système</string>
     <string name="tts_speech_rate">Débit de parole : %1$.1fx</string>
     <string name="tts_pitch">Hauteur : %1$.1f</string>
-    <string name="tts_cache_audio">Mettre l\'audio en cache</string>
+    <string name="tts_cache_audio">Mettre l'audio en cache</string>
     <string name="tts_preview_text">Ceci est un aperçu de la voix sélectionnée.</string>
-    <string name="tts_stop_preview">Arrêter l\'aperçu</string>
+    <string name="tts_stop_preview">Arrêter l'aperçu</string>
     <string name="tts_preview_voice">Aperçu de la voix</string>
 
     <!-- Memories -->
     <string name="enable_memories">Activer les mémoires</string>
-    <string name="enable_memories_desc">Permettre à l\'IA de mémoriser des informations entre les conversations</string>
-    <string name="no_memories_saved">Aucune mémoire enregistrée pour l\'instant</string>
+    <string name="enable_memories_desc">Permettre à l'IA de mémoriser des informations entre les conversations</string>
+    <string name="no_memories_saved">Aucune mémoire enregistrée pour l'instant</string>
     <string name="memories_add_hint">Appuyez sur le bouton + pour ajouter une mémoire</string>
     <string name="add_memory">Ajouter une mémoire</string>
     <string name="edit_memory">Modifier la mémoire</string>
     <string name="dialog_title_delete_memory">Supprimer la mémoire</string>
-    <string name="dialog_delete_memory_message">Voulez-vous vraiment supprimer la mémoire \"%1$s\" ?</string>
+    <string name="dialog_delete_memory_message">Voulez-vous vraiment supprimer la mémoire "%1$s" ?</string>
     <string name="memory_key_label">Clé</string>
     <string name="memory_value_label">Valeur</string>
 
     <!-- MCP -->
     <string name="add_mcp_server">Ajouter un serveur MCP</string>
     <string name="edit_mcp_server">Modifier le serveur MCP</string>
-    <string name="mcp_not_available">MCP n\'est pas disponible sur ce serveur</string>
+    <string name="mcp_not_available">MCP n'est pas disponible sur ce serveur</string>
     <string name="no_mcp_servers">Aucun serveur MCP configuré</string>
     <string name="mcp_add_hint">Appuyez sur le bouton + pour ajouter un serveur</string>
     <string name="mcp_name_label">Nom</string>
@@ -334,27 +334,27 @@
     <string name="mcp_auth_bearer">Bearer</string>
     <string name="mcp_auth_basic">Basic</string>
     <string name="mcp_auth_custom">Personnalisé</string>
-    <string name="mcp_header_name_label">Nom de l\'en-tête</string>
+    <string name="mcp_header_name_label">Nom de l'en-tête</string>
     <string name="mcp_header_name_placeholder">X-API-Key</string>
     <string name="mcp_api_key_label">Clé API</string>
     <string name="mcp_oauth_client_id">ID client</string>
     <string name="mcp_oauth_client_secret">Secret client</string>
-    <string name="mcp_oauth_auth_url">URL d\'autorisation</string>
+    <string name="mcp_oauth_auth_url">URL d'autorisation</string>
     <string name="mcp_oauth_token_url">URL du jeton</string>
     <string name="mcp_oauth_scope">Portée</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">Supprimer le serveur</string>
-    <string name="dialog_delete_server_message">Voulez-vous vraiment supprimer \"%1$s\" ?</string>
+    <string name="dialog_delete_server_message">Voulez-vous vraiment supprimer "%1$s" ?</string>
     <string name="error_failed_to_load_servers">Échec du chargement des serveurs</string>
     <string name="mcp_tools_count">%1$d outil%2$s</string>
     <string name="no_tools_available">Aucun outil disponible</string>
     <!-- Fork settings -->
     <string name="fork_mode_direct_path">Messages visibles</string>
-    <string name="fork_mode_direct_path_desc">Uniquement le chemin direct des messages jusqu\'au message sélectionné</string>
+    <string name="fork_mode_direct_path_desc">Uniquement le chemin direct des messages jusqu'au message sélectionné</string>
     <string name="fork_mode_include_branches">Inclure les branches</string>
     <string name="fork_mode_include_branches_desc">Chemin direct plus les messages frères à chaque niveau</string>
-    <string name="fork_mode_target_level">Tout jusqu\'au niveau cible</string>
-    <string name="fork_mode_target_level_desc">Tous les messages et branches jusqu\'au niveau du message cible (par défaut)</string>
+    <string name="fork_mode_target_level">Tout jusqu'au niveau cible</string>
+    <string name="fork_mode_target_level_desc">Tous les messages et branches jusqu'au niveau du message cible (par défaut)</string>
 
     <!-- Language selector -->
     <string name="hint_search_languages">Rechercher des langues</string>
@@ -362,24 +362,24 @@
     <!-- Personalization dialog -->
     <string name="enable_personalization">Activer la personnalisation</string>
     <string name="about_you_label">À propos de vous</string>
-    <string name="about_you_hint">Que doit savoir l\'IA à votre sujet pour le contexte ?</string>
-    <string name="response_style_label">Comment l\'IA doit-elle répondre ?</string>
+    <string name="about_you_hint">Que doit savoir l'IA à votre sujet pour le contexte ?</string>
+    <string name="response_style_label">Comment l'IA doit-elle répondre ?</string>
     <string name="response_style_hint">Ton, format ou style préféré pour les réponses</string>
 
     <!-- Commands screen -->
     <string name="no_commands_available">Aucune commande disponible</string>
 
     <!-- Avatar upload dialog -->
-    <string name="dialog_title_update_avatar">Mettre à jour l\'avatar</string>
-    <string name="avatar_choose_hint">Appuyez sur l\'icône de l\'appareil photo pour choisir une image</string>
+    <string name="dialog_title_update_avatar">Mettre à jour l'avatar</string>
+    <string name="avatar_choose_hint">Appuyez sur l'icône de l'appareil photo pour choisir une image</string>
 
     <!-- API Keys screen -->
     <string name="api_keys_not_available">Clés API non disponibles</string>
-    <string name="api_keys_not_supported">Cette fonctionnalité n\'est pas prise en charge sur la version de votre serveur.</string>
+    <string name="api_keys_not_supported">Cette fonctionnalité n'est pas prise en charge sur la version de votre serveur.</string>
     <string name="no_api_keys">Aucune clé API</string>
-    <string name="no_api_keys_desc">Créez une clé API pour accéder à l\'API de manière programmatique.</string>
+    <string name="no_api_keys_desc">Créez une clé API pour accéder à l'API de manière programmatique.</string>
     <string name="dialog_title_delete_api_key">Supprimer la clé API</string>
-    <string name="dialog_delete_api_key_message">Voulez-vous vraiment supprimer la clé API \"%1$s\" ? Cette action est irréversible.</string>
+    <string name="dialog_delete_api_key_message">Voulez-vous vraiment supprimer la clé API "%1$s" ? Cette action est irréversible.</string>
     <string name="created_prefix">Créée le : %1$s</string>
 
     <!-- API Key create dialog -->
@@ -393,15 +393,15 @@
 
     <!-- Preset manager -->
     <string name="no_presets">Aucun préréglage</string>
-    <string name="no_presets_desc">Enregistrez des préréglages depuis l\'écran de discussion pour les gérer ici</string>
+    <string name="no_presets_desc">Enregistrez des préréglages depuis l'écran de discussion pour les gérer ici</string>
     <string name="dialog_title_delete_preset">Supprimer le préréglage</string>
-    <string name="dialog_delete_preset_message">Voulez-vous vraiment supprimer \"%1$s\" ?</string>
+    <string name="dialog_delete_preset_message">Voulez-vous vraiment supprimer "%1$s" ?</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">Aucun lien partagé</string>
     <string name="no_shared_links_desc">Partagez une conversation pour la voir ici</string>
     <string name="dialog_title_delete_shared_link">Supprimer le lien partagé</string>
-    <string name="dialog_delete_shared_link_message">Ceci supprimera le lien partagé pour \"%1$s\". Quiconque possède le lien ne pourra plus y accéder.</string>
+    <string name="dialog_delete_shared_link_message">Ceci supprimera le lien partagé pour "%1$s". Quiconque possède le lien ne pourra plus y accéder.</string>
     <string name="visibility_public">Public</string>
     <string name="visibility_private">Privé</string>
     <string name="error_failed_to_load_memories">Échec du chargement des mémoires</string>
@@ -411,7 +411,7 @@
     <string name="provider_keys_subtitle">Définissez vos propres clés pour les points de terminaison qui les nécessitent</string>
     <string name="provider_keys_dialog_title">Définir la clé API pour %1$s</string>
     <string name="provider_keys_status_set_expires">Expire dans %1$s</string>
-    <string name="provider_keys_status_set_never">Votre clé n\'expirera jamais</string>
+    <string name="provider_keys_status_set_never">Votre clé n'expirera jamais</string>
     <string name="provider_keys_status_unset">Non définie</string>
     <string name="provider_keys_status_expired">Expirée</string>
     <string name="provider_keys_status_loading">Vérification du statut de la clé…</string>
@@ -419,12 +419,12 @@
     <string name="provider_keys_field_base_url_label">URL de base</string>
     <string name="provider_keys_field_base_url_optional_suffix">(Facultatif)</string>
     <string name="provider_keys_field_api_key_for_endpoint">Clé API %1$s</string>
-    <string name="provider_keys_field_api_url_for_endpoint">URL de l\'API %1$s</string>
+    <string name="provider_keys_field_api_url_for_endpoint">URL de l'API %1$s</string>
 
     <string name="provider_keys_field_azure_api_key">Clé API Azure OpenAI</string>
-    <string name="provider_keys_field_azure_instance">Nom de l\'instance Azure</string>
+    <string name="provider_keys_field_azure_instance">Nom de l'instance Azure</string>
     <string name="provider_keys_field_azure_deployment">Nom du déploiement Azure</string>
-    <string name="provider_keys_field_azure_api_version">Version de l\'API Azure</string>
+    <string name="provider_keys_field_azure_api_version">Version de l'API Azure</string>
 
     <string name="provider_keys_field_google_api_key">Clé API Google</string>
     <string name="provider_keys_field_google_gemini_api">(API Gemini)</string>
@@ -436,8 +436,8 @@
     <string name="provider_keys_field_google_paste_only_hint">Collez le JSON du compte de service ci-dessous.</string>
     <string name="provider_keys_field_google_service_key_or_gemini">Clé de service Google ou clé API Gemini</string>
 
-    <string name="provider_keys_field_bedrock_access_key_id">ID de clé d\'accès</string>
-    <string name="provider_keys_field_bedrock_secret_access_key">Clé d\'accès secrète</string>
+    <string name="provider_keys_field_bedrock_access_key_id">ID de clé d'accès</string>
+    <string name="provider_keys_field_bedrock_secret_access_key">Clé d'accès secrète</string>
     <string name="provider_keys_field_bedrock_session_token">Jeton de session</string>
     <string name="provider_keys_field_bedrock_session_token_optional_suffix">(Facultatif)</string>
 
@@ -448,7 +448,7 @@
     <string name="provider_keys_revoke_all">Révoquer les clés</string>
     <string name="provider_keys_revoke_all_confirm">Voulez-vous vraiment révoquer toutes les clés ?</string>
     <string name="provider_keys_revoke_all_failed">Échec de la révocation de toutes les clés</string>
-    <string name="provider_keys_save_failed">Échec de l\'enregistrement de la clé API. Veuillez réessayer.</string>
+    <string name="provider_keys_save_failed">Échec de l'enregistrement de la clé API. Veuillez réessayer.</string>
     <string name="provider_keys_save_success">Clé API enregistrée avec succès</string>
 
     <string name="provider_keys_expiry_label">Expire</string>
@@ -460,7 +460,7 @@
     <string name="provider_keys_expiry_30d">dans 30 jours</string>
     <string name="provider_keys_expiry_never">jamais</string>
 
-    <string name="provider_keys_empty_title">Aucun point de terminaison ne nécessite de clés fournies par l\'utilisateur</string>
+    <string name="provider_keys_empty_title">Aucun point de terminaison ne nécessite de clés fournies par l'utilisateur</string>
     <string name="provider_keys_empty_desc">Les points de terminaison qui nécessitent votre propre clé API apparaîtront ici.</string>
     <string name="provider_keys_revoke_all_action">Tout révoquer</string>
 
@@ -468,7 +468,7 @@
     <string name="role_skills_settings_row">Accès aux compétences (admin)</string>
     <string name="role_skills_title">Accès aux compétences</string>
     <string name="role_skills_back">Retour</string>
-    <string name="role_skills_description">Contrôlez les capacités de compétences dont dispose chaque rôle. Les modifications s\'appliquent à tous les utilisateurs ayant le rôle sélectionné.</string>
+    <string name="role_skills_description">Contrôlez les capacités de compétences dont dispose chaque rôle. Les modifications s'appliquent à tous les utilisateurs ayant le rôle sélectionné.</string>
     <string name="role_skills_role_label">Rôle</string>
     <string name="role_skills_use">Utiliser les compétences</string>
     <string name="role_skills_create">Créer &amp; modifier des compétences</string>

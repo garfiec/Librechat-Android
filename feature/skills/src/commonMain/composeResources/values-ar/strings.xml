@@ -20,7 +20,7 @@
     <string name="skill_category_label">الفئة: %1$s</string>
     <string name="skill_version_label">الإصدار %1$d</string>
     <string name="skill_delete_confirm_title">حذف المهارة؟</string>
-    <string name="skill_delete_confirm_message">سيؤدي هذا إلى حذف \"%1$s\" نهائيًا. لا يمكن التراجع عن ذلك.</string>
+    <string name="skill_delete_confirm_message">سيؤدي هذا إلى حذف "%1$s" نهائيًا. لا يمكن التراجع عن ذلك.</string>
     <string name="skill_empty_body">لا تحتوي هذه المهارة على محتوى.</string>
     <string name="skill_active_label">نشط</string>
     <string name="skill_active_description">اجعل هذه المهارة متاحة للاستخدام في المحادثات.</string>

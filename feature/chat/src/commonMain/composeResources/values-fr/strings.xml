@@ -29,7 +29,7 @@
     <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
     <string name="chat_agent_fallback_label">Agent</string>
     <string name="compare_models">Comparer les modèles</string>
-    <string name="how_can_i_help">Comment puis-je vous aider aujourd\'hui ?</string>
+    <string name="how_can_i_help">Comment puis-je vous aider aujourd'hui ?</string>
     <string name="recording">Enregistrement…</string>
     <string name="hint_message_model">Message à %1$s</string>
     <string name="hint_message">Message…</string>
@@ -38,13 +38,13 @@
     <string name="cd_open_tools_menu">Ouvrir le menu des outils</string>
     <string name="cd_paste_image">Coller une image depuis le presse-papiers</string>
     <string name="cd_message_input">Champ de saisie de message</string>
-    <string name="cd_stop_voice_recording">Arrêter l\'enregistrement vocal</string>
-    <string name="cd_start_voice_recording">Démarrer l\'enregistrement vocal</string>
+    <string name="cd_stop_voice_recording">Arrêter l'enregistrement vocal</string>
+    <string name="cd_start_voice_recording">Démarrer l'enregistrement vocal</string>
     <string name="cd_stop_generation">Arrêter la génération</string>
     <string name="cd_send_message">Envoyer le message</string>
     <string name="cd_open_drawer">Ouvrir le tiroir de navigation</string>
     <string name="cd_edit_title">Modifier le titre</string>
-    <string name="cd_more_options">Plus d\'options</string>
+    <string name="cd_more_options">Plus d'options</string>
     <string name="cd_scroll_to_bottom">Défiler vers le bas</string>
     <string name="cd_select_model">Sélectionner un modèle</string>
     <string name="cd_librechat">LibreChat</string>
@@ -58,7 +58,7 @@
     <string name="cd_regenerate_response">Régénérer la réponse</string>
     <string name="cd_stop_reading">Arrêter la lecture</string>
     <string name="cd_read_aloud">Lire à voix haute</string>
-    <string name="cd_fork_conversation">Bifurquer la conversation à partir d\'ici</string>
+    <string name="cd_fork_conversation">Bifurquer la conversation à partir d'ici</string>
     <string name="cd_previous_response">Réponse précédente</string>
     <string name="cd_next_response">Réponse suivante</string>
     <string name="cd_generating_response">Génération de la réponse</string>
@@ -66,10 +66,10 @@
     <!-- Content descriptions - Images -->
     <string name="cd_fullscreen_image">Image en plein écran</string>
     <string name="cd_close">Fermer</string>
-    <string name="cd_save_to_device">Enregistrer sur l\'appareil</string>
-    <string name="cd_share_image">Partager l\'image</string>
-    <string name="cd_failed_to_load_image">Échec du chargement de l\'image</string>
-    <string name="cd_failed_to_load_generated_image">Échec du chargement de l\'image générée</string>
+    <string name="cd_save_to_device">Enregistrer sur l'appareil</string>
+    <string name="cd_share_image">Partager l'image</string>
+    <string name="cd_failed_to_load_image">Échec du chargement de l'image</string>
+    <string name="cd_failed_to_load_generated_image">Échec du chargement de l'image générée</string>
     <string name="cd_embedded_image">Image intégrée dans le message</string>
 
     <!-- Content descriptions - Search -->
@@ -83,7 +83,7 @@
     <!-- Content descriptions - Code -->
     <string name="cd_copy_code">Copier le code</string>
     <string name="cd_copied">Copié</string>
-    <string name="cd_code_execution_result">Résultat de l\'exécution du code</string>
+    <string name="cd_code_execution_result">Résultat de l'exécution du code</string>
     <string name="cd_exit_code_success">Code de sortie 0 (succès)</string>
     <string name="cd_exit_code_failure">Code de sortie %1$d (échec)</string>
     <string name="exit_code">sortie %1$d</string>
@@ -114,14 +114,14 @@
     <string name="cd_expand_subagent">Développer le sous-agent %1$s</string>
 
     <!-- Office-doc preview attachments (deferred preview, v0.8.6+) -->
-    <string name="office_preview_preparing">Préparation de l\'aperçu de %1$s…</string>
-    <string name="office_preview_failed">Impossible d\'afficher l\'aperçu de %1$s (%2$s)</string>
+    <string name="office_preview_preparing">Préparation de l'aperçu de %1$s…</string>
+    <string name="office_preview_failed">Impossible d'afficher l'aperçu de %1$s (%2$s)</string>
     <string name="office_preview_unavailable">%1$s — aperçu non disponible</string>
 
     <!-- Content descriptions - Tool calls -->
-    <string name="cd_tool_call">Appel d\'outil</string>
-    <string name="cd_collapse_tool_call">Réduire l\'appel d\'outil %1$s</string>
-    <string name="cd_expand_tool_call">Développer l\'appel d\'outil %1$s</string>
+    <string name="cd_tool_call">Appel d'outil</string>
+    <string name="cd_collapse_tool_call">Réduire l'appel d'outil %1$s</string>
+    <string name="cd_expand_tool_call">Développer l'appel d'outil %1$s</string>
     <string name="cd_tool_complete">Terminé</string>
     <string name="video_not_supported">Contenu vidéo non pris en charge</string>
 
@@ -152,7 +152,7 @@
     <string name="cd_remove_file">Supprimer %1$s</string>
 
     <!-- Agent handoff -->
-    <string name="cd_agent_handoff">Passation d\'agent de %1$s à %2$s</string>
+    <string name="cd_agent_handoff">Passation d'agent de %1$s à %2$s</string>
     <string name="cd_handed_off_to">a transmis à</string>
     <string name="agent_unknown">inconnu</string>
     <string name="agent_previous">Agent précédent</string>
@@ -163,11 +163,11 @@
     <string name="cd_play">Lecture</string>
     <string name="cd_play_video">Lire la vidéo</string>
     <string name="audio_no_data">Aucune donnée audio</string>
-    <string name="audio_decode_failed">Échec du décodage de l\'audio</string>
+    <string name="audio_decode_failed">Échec du décodage de l'audio</string>
 
     <!-- Citation -->
     <string name="citation_number">Citation %1$d</string>
-    <string name="cd_open_citation_url">Ouvrir l\'URL de la citation</string>
+    <string name="cd_open_citation_url">Ouvrir l'URL de la citation</string>
 
     <!-- Fork options -->
     <string name="fork_conversation">Bifurquer la conversation</string>
@@ -175,13 +175,13 @@
     <string name="fork_visible_messages_desc">Uniquement le chemin direct des messages</string>
     <string name="fork_include_branches">Inclure les branches</string>
     <string name="fork_include_branches_desc">Chemin direct plus les messages frères</string>
-    <string name="fork_all_to_target">Tout jusqu\'au niveau cible</string>
-    <string name="fork_all_to_target_desc">Tous les messages et branches jusqu\'à ce niveau</string>
+    <string name="fork_all_to_target">Tout jusqu'au niveau cible</string>
+    <string name="fork_all_to_target_desc">Tous les messages et branches jusqu'à ce niveau</string>
     <string name="fork_start_new">Démarrer une nouvelle conversation à partir de la cible</string>
     <string name="fork_start_new_desc">Commencer la bifurcation à partir du message sélectionné au lieu de la racine</string>
 
     <!-- Image generation -->
-    <string name="generating_image">Génération de l\'image…</string>
+    <string name="generating_image">Génération de l'image…</string>
     <string name="image_generated">Image générée</string>
     <string name="cd_generated_image">Image générée</string>
 
@@ -229,7 +229,7 @@
 
     <!-- Preset picker -->
     <string name="select_preset">Sélectionner un préréglage</string>
-    <string name="no_presets_saved">Aucun préréglage enregistré pour l\'instant</string>
+    <string name="no_presets_saved">Aucun préréglage enregistré pour l'instant</string>
     <string name="cd_edit_preset">Modifier %1$s</string>
     <string name="cd_delete_preset">Supprimer %1$s</string>
     <string name="preset_endpoint">Point de terminaison : %1$s</string>
@@ -255,23 +255,23 @@
     <string name="dialog_delete_conversation_message">Ceci supprimera définitivement cette conversation. Cette action est irréversible.</string>
 
     <!-- Artifacts -->
-    <string name="cd_open_artifact">Ouvrir l\'artefact</string>
-    <string name="cd_share_artifact">Partager l\'artefact</string>
+    <string name="cd_open_artifact">Ouvrir l'artefact</string>
+    <string name="cd_share_artifact">Partager l'artefact</string>
     <string name="cd_previous_version">Version précédente</string>
     <string name="cd_next_version">Version suivante</string>
     <string name="artifact_version">v%1$d/%2$d</string>
     <!-- Prompts -->
-    <string name="prompts_library">Bibliothèque d\'invites</string>
+    <string name="prompts_library">Bibliothèque d'invites</string>
     <string name="use_in_chat">Utiliser dans la discussion</string>
     <string name="set_production">Définir comme production</string>
     <string name="prompt_name_label">Nom</string>
     <string name="prompt_description_label">Description</string>
     <string name="prompt_command_label">Commande</string>
-    <string name="prompt_text_label">Texte de l\'invite</string>
-    <string name="prompt_content">Contenu de l\'invite</string>
-    <string name="cd_share_prompt">Partager l\'invite</string>
-    <string name="cd_edit_prompt">Modifier l\'invite</string>
-    <string name="cd_delete_prompt">Supprimer l\'invite</string>
+    <string name="prompt_text_label">Texte de l'invite</string>
+    <string name="prompt_content">Contenu de l'invite</string>
+    <string name="cd_share_prompt">Partager l'invite</string>
+    <string name="cd_edit_prompt">Modifier l'invite</string>
+    <string name="cd_delete_prompt">Supprimer l'invite</string>
     <string name="cd_back">Retour</string>
     <string name="cd_version_history">Historique des versions</string>
     <string name="cd_filter_sort">Filtrer et trier</string>
@@ -297,7 +297,7 @@
     <string name="label_sort_by">Trier par</string>
 
     <!-- Prompt share dialog -->
-    <string name="dialog_title_share_prompt">Partager l\'invite</string>
+    <string name="dialog_title_share_prompt">Partager l'invite</string>
     <string name="label_permission">Autorisation</string>
 
     <!-- Variable input dialog -->
@@ -305,7 +305,7 @@
 
     <!-- Comparison mode -->
     <string name="continue_with_response">Continuer avec cette réponse</string>
-    <string name="waiting_for_response">En attente d\'une réponse…</string>
+    <string name="waiting_for_response">En attente d'une réponse…</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">Aucune clé trouvée. Veuillez fournir une clé et réessayer.</string>
@@ -316,10 +316,10 @@
     <string name="provider_keys_chat_error_cta">Ouvrir les paramètres des clés</string>
 
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
-    <string name="send_block_select_agent">Sélectionnez un agent avant d\'envoyer votre message.</string>
-    <string name="send_block_select_model">Sélectionnez un modèle avant d\'envoyer votre message.</string>
+    <string name="send_block_select_agent">Sélectionnez un agent avant d'envoyer votre message.</string>
+    <string name="send_block_select_model">Sélectionnez un modèle avant d'envoyer votre message.</string>
     <string name="send_block_agents_unavailable">Les agents ne sont pas disponibles sur ce serveur. Veuillez choisir un autre modèle.</string>
-    <string name="send_block_agent_not_available">L\'agent sélectionné n\'est pas disponible sur ce serveur. Veuillez choisir un autre agent.</string>
-    <string name="send_block_model_not_available">Le modèle sélectionné n\'est pas disponible sur ce serveur. Veuillez choisir un autre modèle.</string>
-    <string name="send_block_model_load_failed">Impossible de charger le modèle sélectionné pour l\'instant. Veuillez réessayer ou choisir un autre modèle.</string>
+    <string name="send_block_agent_not_available">L'agent sélectionné n'est pas disponible sur ce serveur. Veuillez choisir un autre agent.</string>
+    <string name="send_block_model_not_available">Le modèle sélectionné n'est pas disponible sur ce serveur. Veuillez choisir un autre modèle.</string>
+    <string name="send_block_model_load_failed">Impossible de charger le modèle sélectionné pour l'instant. Veuillez réessayer ou choisir un autre modèle.</string>
 </resources>

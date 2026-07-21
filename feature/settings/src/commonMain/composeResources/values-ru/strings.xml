@@ -309,7 +309,7 @@
     <string name="add_memory">Добавить запись памяти</string>
     <string name="edit_memory">Изменить запись памяти</string>
     <string name="dialog_title_delete_memory">Удалить запись памяти</string>
-    <string name="dialog_delete_memory_message">Вы уверены, что хотите удалить запись памяти \"%1$s\"?</string>
+    <string name="dialog_delete_memory_message">Вы уверены, что хотите удалить запись памяти "%1$s"?</string>
     <string name="memory_key_label">Ключ</string>
     <string name="memory_value_label">Значение</string>
 
@@ -344,7 +344,7 @@
     <string name="mcp_oauth_scope">Область</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">Удалить сервер</string>
-    <string name="dialog_delete_server_message">Вы уверены, что хотите удалить \"%1$s\"?</string>
+    <string name="dialog_delete_server_message">Вы уверены, что хотите удалить "%1$s"?</string>
     <string name="error_failed_to_load_servers">Не удалось загрузить серверы</string>
     <string name="mcp_tools_count">%1$d инструмент%2$s</string>
     <string name="no_tools_available">Нет доступных инструментов</string>
@@ -379,7 +379,7 @@
     <string name="no_api_keys">Нет API-ключей</string>
     <string name="no_api_keys_desc">Создайте API-ключ для программного доступа к API.</string>
     <string name="dialog_title_delete_api_key">Удалить API-ключ</string>
-    <string name="dialog_delete_api_key_message">Вы уверены, что хотите удалить API-ключ \"%1$s\"? Это действие нельзя отменить.</string>
+    <string name="dialog_delete_api_key_message">Вы уверены, что хотите удалить API-ключ "%1$s"? Это действие нельзя отменить.</string>
     <string name="created_prefix">Создан: %1$s</string>
 
     <!-- API Key create dialog -->
@@ -395,13 +395,13 @@
     <string name="no_presets">Нет пресетов</string>
     <string name="no_presets_desc">Сохраняйте пресеты на экране чата, чтобы управлять ими здесь</string>
     <string name="dialog_title_delete_preset">Удалить пресет</string>
-    <string name="dialog_delete_preset_message">Вы уверены, что хотите удалить \"%1$s\"?</string>
+    <string name="dialog_delete_preset_message">Вы уверены, что хотите удалить "%1$s"?</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">Нет общих ссылок</string>
     <string name="no_shared_links_desc">Поделитесь беседой, чтобы увидеть её здесь</string>
     <string name="dialog_title_delete_shared_link">Удалить общую ссылку</string>
-    <string name="dialog_delete_shared_link_message">Это удалит общую ссылку для \"%1$s\". Никто из тех, у кого есть ссылка, больше не сможет получить к ней доступ.</string>
+    <string name="dialog_delete_shared_link_message">Это удалит общую ссылку для "%1$s". Никто из тех, у кого есть ссылка, больше не сможет получить к ней доступ.</string>
     <string name="visibility_public">Публичная</string>
     <string name="visibility_private">Приватная</string>
     <string name="error_failed_to_load_memories">Не удалось загрузить записи памяти</string>

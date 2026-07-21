@@ -45,7 +45,7 @@
     <!-- Detail screen -->
     <string name="agent_title">에이전트</string>
     <string name="delete_agent">에이전트 삭제</string>
-    <string name="delete_agent_confirm">\"%1$s\"을(를) 삭제하시겠습니까? 되돌릴 수 없습니다.</string>
+    <string name="delete_agent_confirm">"%1$s"을(를) 삭제하시겠습니까? 되돌릴 수 없습니다.</string>
     <string name="delete_this_agent">이 에이전트</string>
     <string name="by_author">작성자: %1$s</string>
     <string name="label_description">설명</string>
@@ -252,7 +252,7 @@
     <string name="agent_tools_title">에이전트 도구</string>
     <string name="select_tools_description">에이전트가 사용할 도구를 선택하세요</string>
     <string name="search_tools_hint">도구 검색…</string>
-    <string name="no_tools_matching">\"%1$s\"과(와) 일치하는 도구가 없습니다</string>
+    <string name="no_tools_matching">"%1$s"과(와) 일치하는 도구가 없습니다</string>
     <string name="no_tools_available">사용 가능한 도구가 없습니다</string>
 
     <!-- Per-capability file attachments -->
@@ -271,7 +271,7 @@
     <string name="add_skills">스킬 추가</string>
     <string name="select_skills">스킬 선택</string>
     <string name="search_skills_hint">스킬 검색…</string>
-    <string name="no_skills_matching">\"%1$s\"과(와) 일치하는 스킬이 없습니다</string>
+    <string name="no_skills_matching">"%1$s"과(와) 일치하는 스킬이 없습니다</string>
     <string name="no_skills_available">사용 가능한 스킬이 없습니다</string>
     <string name="skills_done">완료</string>
 

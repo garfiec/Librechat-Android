@@ -45,7 +45,7 @@
     <!-- Detail screen -->
     <string name="agent_title">Агент</string>
     <string name="delete_agent">Удалить агента</string>
-    <string name="delete_agent_confirm">Вы уверены, что хотите удалить \"%1$s\"? Это нельзя отменить.</string>
+    <string name="delete_agent_confirm">Вы уверены, что хотите удалить "%1$s"? Это нельзя отменить.</string>
     <string name="delete_this_agent">этого агента</string>
     <string name="by_author">автор: %1$s</string>
     <string name="label_description">Описание</string>
@@ -252,7 +252,7 @@
     <string name="agent_tools_title">Инструменты агента</string>
     <string name="select_tools_description">Выберите инструменты, которые сможет использовать ваш агент</string>
     <string name="search_tools_hint">Поиск инструментов…</string>
-    <string name="no_tools_matching">Нет инструментов, соответствующих \"%1$s\"</string>
+    <string name="no_tools_matching">Нет инструментов, соответствующих "%1$s"</string>
     <string name="no_tools_available">Нет доступных инструментов</string>
 
     <!-- Per-capability file attachments -->
@@ -271,7 +271,7 @@
     <string name="add_skills">Добавить навыки</string>
     <string name="select_skills">Выбрать навыки</string>
     <string name="search_skills_hint">Поиск навыков…</string>
-    <string name="no_skills_matching">Нет навыков, соответствующих \"%1$s\"</string>
+    <string name="no_skills_matching">Нет навыков, соответствующих "%1$s"</string>
     <string name="no_skills_available">Нет доступных навыков</string>
     <string name="skills_done">Готово</string>
 

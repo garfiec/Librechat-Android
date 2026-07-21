@@ -20,7 +20,7 @@
     <string name="skill_category_label">Категория: %1$s</string>
     <string name="skill_version_label">Версия %1$d</string>
     <string name="skill_delete_confirm_title">Удалить навык?</string>
-    <string name="skill_delete_confirm_message">Это безвозвратно удалит \"%1$s\". Это нельзя отменить.</string>
+    <string name="skill_delete_confirm_message">Это безвозвратно удалит "%1$s". Это нельзя отменить.</string>
     <string name="skill_empty_body">У этого навыка нет содержимого.</string>
     <string name="skill_active_label">Активен</string>
     <string name="skill_active_description">Сделать этот навык доступным для использования в чатах.</string>

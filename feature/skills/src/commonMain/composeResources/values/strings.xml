@@ -20,7 +20,7 @@
     <string name="skill_category_label">Category: %1$s</string>
     <string name="skill_version_label">Version %1$d</string>
     <string name="skill_delete_confirm_title">Delete skill?</string>
-    <string name="skill_delete_confirm_message">This permanently deletes \"%1$s\". This cannot be undone.</string>
+    <string name="skill_delete_confirm_message">This permanently deletes "%1$s". This cannot be undone.</string>
     <string name="skill_empty_body">This skill has no content.</string>
     <string name="skill_active_label">Active</string>
     <string name="skill_active_description">Make this skill available for use in chats.</string>

@@ -3,5 +3,5 @@
     <!-- Accessibility label for the bottom-sheet drag handle -->
     <string name="cd_drag_handle">Drag handle</string>
     <!-- Inline indicator for a PDF page that failed to render -->
-    <string name="pdf_page_failed">Couldn\'t render this page</string>
+    <string name="pdf_page_failed">Couldn't render this page</string>
 </resources>

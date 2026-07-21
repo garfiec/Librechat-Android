@@ -47,7 +47,7 @@
     <string name="rename_dialog_message">为此对话输入新标题。</string>
     <string name="title_label">标题</string>
     <string name="delete_conversation">删除对话</string>
-    <string name="delete_confirmation_message">确定要删除 \"%1$s\" 吗？此操作无法撤销。</string>
+    <string name="delete_confirmation_message">确定要删除 "%1$s" 吗？此操作无法撤销。</string>
     <string name="this_conversation">此对话</string>
 
     <!-- Tag picker -->

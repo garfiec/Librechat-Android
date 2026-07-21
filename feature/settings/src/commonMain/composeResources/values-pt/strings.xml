@@ -309,7 +309,7 @@
     <string name="add_memory">Adicionar memória</string>
     <string name="edit_memory">Editar memória</string>
     <string name="dialog_title_delete_memory">Excluir memória</string>
-    <string name="dialog_delete_memory_message">Tem certeza de que deseja excluir a memória \"%1$s\"?</string>
+    <string name="dialog_delete_memory_message">Tem certeza de que deseja excluir a memória "%1$s"?</string>
     <string name="memory_key_label">Chave</string>
     <string name="memory_value_label">Valor</string>
 
@@ -344,7 +344,7 @@
     <string name="mcp_oauth_scope">Escopo</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">Excluir servidor</string>
-    <string name="dialog_delete_server_message">Tem certeza de que deseja excluir \"%1$s\"?</string>
+    <string name="dialog_delete_server_message">Tem certeza de que deseja excluir "%1$s"?</string>
     <string name="error_failed_to_load_servers">Falha ao carregar os servidores</string>
     <string name="mcp_tools_count">%1$d ferramenta%2$s</string>
     <string name="no_tools_available">Nenhuma ferramenta disponível</string>
@@ -379,7 +379,7 @@
     <string name="no_api_keys">Nenhuma chave de API</string>
     <string name="no_api_keys_desc">Crie uma chave de API para acessar a API de forma programática.</string>
     <string name="dialog_title_delete_api_key">Excluir chave de API</string>
-    <string name="dialog_delete_api_key_message">Tem certeza de que deseja excluir a chave de API \"%1$s\"? Esta ação não pode ser desfeita.</string>
+    <string name="dialog_delete_api_key_message">Tem certeza de que deseja excluir a chave de API "%1$s"? Esta ação não pode ser desfeita.</string>
     <string name="created_prefix">Criada: %1$s</string>
 
     <!-- API Key create dialog -->
@@ -395,13 +395,13 @@
     <string name="no_presets">Nenhuma predefinição</string>
     <string name="no_presets_desc">Salve predefinições na tela de conversa para gerenciá-las aqui</string>
     <string name="dialog_title_delete_preset">Excluir predefinição</string>
-    <string name="dialog_delete_preset_message">Tem certeza de que deseja excluir \"%1$s\"?</string>
+    <string name="dialog_delete_preset_message">Tem certeza de que deseja excluir "%1$s"?</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">Nenhum link compartilhado</string>
     <string name="no_shared_links_desc">Compartilhe uma conversa para vê-la aqui</string>
     <string name="dialog_title_delete_shared_link">Excluir link compartilhado</string>
-    <string name="dialog_delete_shared_link_message">Isso removerá o link compartilhado de \"%1$s\". Quem tiver o link não conseguirá mais acessá-lo.</string>
+    <string name="dialog_delete_shared_link_message">Isso removerá o link compartilhado de "%1$s". Quem tiver o link não conseguirá mais acessá-lo.</string>
     <string name="visibility_public">Público</string>
     <string name="visibility_private">Privado</string>
     <string name="error_failed_to_load_memories">Falha ao carregar as memórias</string>

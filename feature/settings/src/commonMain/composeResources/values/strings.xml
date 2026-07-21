@@ -303,7 +303,7 @@
     <string name="stt_default">Default</string>
     <string name="stt_engine_browser">Built-in</string>
     <string name="stt_engine_external">Server</string>
-    <string name="stt_hint_browser">Uses your device\'s built-in speech recognizer for live transcription.</string>
+    <string name="stt_hint_browser">Uses your device's built-in speech recognizer for live transcription.</string>
     <string name="stt_hint_external">Uploads audio to your server for speech-to-text (Whisper). Your server must have STT enabled.</string>
     <string name="stt_on_device_toggle">On-device recognition</string>
     <string name="stt_on_device_toggle_desc">Transcribe on this device instead of the cloud. Falls back to the cloud recognizer if unavailable.</string>
@@ -332,7 +332,7 @@
     <string name="add_memory">Add Memory</string>
     <string name="edit_memory">Edit Memory</string>
     <string name="dialog_title_delete_memory">Delete Memory</string>
-    <string name="dialog_delete_memory_message">Are you sure you want to delete the memory \"%1$s\"?</string>
+    <string name="dialog_delete_memory_message">Are you sure you want to delete the memory "%1$s"?</string>
     <string name="memory_key_label">Key</string>
     <string name="memory_value_label">Value</string>
 
@@ -367,7 +367,7 @@
     <string name="mcp_oauth_scope">Scope</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">Delete Server</string>
-    <string name="dialog_delete_server_message">Are you sure you want to delete \"%1$s\"?</string>
+    <string name="dialog_delete_server_message">Are you sure you want to delete "%1$s"?</string>
     <string name="error_failed_to_load_servers">Failed to load servers</string>
     <string name="mcp_tools_count">%1$d tool%2$s</string>
     <string name="no_tools_available">No tools available</string>
@@ -402,7 +402,7 @@
     <string name="no_api_keys">No API keys</string>
     <string name="no_api_keys_desc">Create an API key to access the API programmatically.</string>
     <string name="dialog_title_delete_api_key">Delete API Key</string>
-    <string name="dialog_delete_api_key_message">Are you sure you want to delete the API key \"%1$s\"? This action cannot be undone.</string>
+    <string name="dialog_delete_api_key_message">Are you sure you want to delete the API key "%1$s"? This action cannot be undone.</string>
     <string name="created_prefix">Created: %1$s</string>
 
     <!-- API Key create dialog -->
@@ -411,20 +411,20 @@
     <string name="hint_key_name">Key name</string>
     <string name="hint_key_name_placeholder">e.g. My App</string>
     <string name="dialog_title_api_key_created">API Key Created</string>
-    <string name="api_key_created_warning">Your API key has been created. Copy it now — you won\'t be able to see it again.</string>
+    <string name="api_key_created_warning">Your API key has been created. Copy it now — you won't be able to see it again.</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
 
     <!-- Preset manager -->
     <string name="no_presets">No presets</string>
     <string name="no_presets_desc">Save presets from the chat screen to manage them here</string>
     <string name="dialog_title_delete_preset">Delete preset</string>
-    <string name="dialog_delete_preset_message">Are you sure you want to delete \"%1$s\"?</string>
+    <string name="dialog_delete_preset_message">Are you sure you want to delete "%1$s"?</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">No shared links</string>
     <string name="no_shared_links_desc">Share a conversation to see it here</string>
     <string name="dialog_title_delete_shared_link">Delete Shared Link</string>
-    <string name="dialog_delete_shared_link_message">This will remove the shared link for \"%1$s\". Anyone with the link will no longer be able to access it.</string>
+    <string name="dialog_delete_shared_link_message">This will remove the shared link for "%1$s". Anyone with the link will no longer be able to access it.</string>
     <string name="visibility_public">Public</string>
     <string name="visibility_private">Private</string>
     <string name="error_failed_to_load_memories">Failed to load memories</string>

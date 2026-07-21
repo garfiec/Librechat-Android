@@ -45,7 +45,7 @@
     <!-- Detail screen -->
     <string name="agent_title">وكيل</string>
     <string name="delete_agent">حذف الوكيل</string>
-    <string name="delete_agent_confirm">هل أنت متأكد أنك تريد حذف \"%1$s\"؟ لا يمكن التراجع عن ذلك.</string>
+    <string name="delete_agent_confirm">هل أنت متأكد أنك تريد حذف "%1$s"؟ لا يمكن التراجع عن ذلك.</string>
     <string name="delete_this_agent">هذا الوكيل</string>
     <string name="by_author">بواسطة %1$s</string>
     <string name="label_description">الوصف</string>
@@ -252,7 +252,7 @@
     <string name="agent_tools_title">أدوات الوكيل</string>
     <string name="select_tools_description">اختر الأدوات التي سيستخدمها وكيلك</string>
     <string name="search_tools_hint">البحث في الأدوات…</string>
-    <string name="no_tools_matching">لا توجد أدوات تطابق \"%1$s\"</string>
+    <string name="no_tools_matching">لا توجد أدوات تطابق "%1$s"</string>
     <string name="no_tools_available">لا توجد أدوات متاحة</string>
 
     <!-- Per-capability file attachments -->
@@ -271,7 +271,7 @@
     <string name="add_skills">إضافة مهارات</string>
     <string name="select_skills">اختيار المهارات</string>
     <string name="search_skills_hint">البحث في المهارات…</string>
-    <string name="no_skills_matching">لا توجد مهارات تطابق \"%1$s\"</string>
+    <string name="no_skills_matching">لا توجد مهارات تطابق "%1$s"</string>
     <string name="no_skills_available">لا توجد مهارات متاحة</string>
     <string name="skills_done">تم</string>
 

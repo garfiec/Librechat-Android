@@ -309,7 +309,7 @@
     <string name="add_memory">添加记忆</string>
     <string name="edit_memory">编辑记忆</string>
     <string name="dialog_title_delete_memory">删除记忆</string>
-    <string name="dialog_delete_memory_message">确定要删除记忆 \"%1$s\" 吗？</string>
+    <string name="dialog_delete_memory_message">确定要删除记忆 "%1$s" 吗？</string>
     <string name="memory_key_label">键</string>
     <string name="memory_value_label">值</string>
 
@@ -344,7 +344,7 @@
     <string name="mcp_oauth_scope">作用域</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">删除服务器</string>
-    <string name="dialog_delete_server_message">确定要删除 \"%1$s\" 吗？</string>
+    <string name="dialog_delete_server_message">确定要删除 "%1$s" 吗？</string>
     <string name="error_failed_to_load_servers">加载服务器失败</string>
     <string name="mcp_tools_count">%1$d 个工具%2$s</string>
     <string name="no_tools_available">没有可用的工具</string>
@@ -379,7 +379,7 @@
     <string name="no_api_keys">没有 API 密钥</string>
     <string name="no_api_keys_desc">创建一个 API 密钥以程序化访问 API。</string>
     <string name="dialog_title_delete_api_key">删除 API 密钥</string>
-    <string name="dialog_delete_api_key_message">确定要删除 API 密钥 \"%1$s\" 吗？此操作无法撤销。</string>
+    <string name="dialog_delete_api_key_message">确定要删除 API 密钥 "%1$s" 吗？此操作无法撤销。</string>
     <string name="created_prefix">创建于：%1$s</string>
 
     <!-- API Key create dialog -->
@@ -395,13 +395,13 @@
     <string name="no_presets">没有预设</string>
     <string name="no_presets_desc">从聊天界面保存预设，即可在此管理</string>
     <string name="dialog_title_delete_preset">删除预设</string>
-    <string name="dialog_delete_preset_message">确定要删除 \"%1$s\" 吗？</string>
+    <string name="dialog_delete_preset_message">确定要删除 "%1$s" 吗？</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">没有分享链接</string>
     <string name="no_shared_links_desc">分享一个对话即可在此查看</string>
     <string name="dialog_title_delete_shared_link">删除分享链接</string>
-    <string name="dialog_delete_shared_link_message">这将移除 \"%1$s\" 的分享链接。拥有该链接的人将无法再访问它。</string>
+    <string name="dialog_delete_shared_link_message">这将移除 "%1$s" 的分享链接。拥有该链接的人将无法再访问它。</string>
     <string name="visibility_public">公开</string>
     <string name="visibility_private">私有</string>
     <string name="error_failed_to_load_memories">加载记忆失败</string>

@@ -37,7 +37,7 @@
     <string name="delete_count_files">%1$d Datei%2$s löschen?</string>
     <string name="action_cannot_be_undone">Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="delete_file_question">Datei löschen?</string>
-    <string name="delete_file_message">\"%1$s\" löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="delete_file_message">"%1$s" löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="this_file">diese Datei</string>
 
     <!-- File preview -->

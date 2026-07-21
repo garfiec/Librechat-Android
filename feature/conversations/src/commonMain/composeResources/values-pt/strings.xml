@@ -47,7 +47,7 @@
     <string name="rename_dialog_message">Digite um novo título para esta conversa.</string>
     <string name="title_label">Título</string>
     <string name="delete_conversation">Excluir conversa</string>
-    <string name="delete_confirmation_message">Tem certeza de que deseja excluir \"%1$s\"? Esta ação não pode ser desfeita.</string>
+    <string name="delete_confirmation_message">Tem certeza de que deseja excluir "%1$s"? Esta ação não pode ser desfeita.</string>
     <string name="this_conversation">esta conversa</string>
 
     <!-- Tag picker -->

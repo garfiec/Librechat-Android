@@ -37,7 +37,7 @@
     <string name="delete_count_files">Excluir %1$d arquivo%2$s?</string>
     <string name="action_cannot_be_undone">Esta ação não pode ser desfeita.</string>
     <string name="delete_file_question">Excluir arquivo?</string>
-    <string name="delete_file_message">Excluir \"%1$s\"? Esta ação não pode ser desfeita.</string>
+    <string name="delete_file_message">Excluir "%1$s"? Esta ação não pode ser desfeita.</string>
     <string name="this_file">este arquivo</string>
 
     <!-- File preview -->

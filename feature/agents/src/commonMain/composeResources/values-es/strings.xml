@@ -45,7 +45,7 @@
     <!-- Detail screen -->
     <string name="agent_title">Agente</string>
     <string name="delete_agent">Eliminar agente</string>
-    <string name="delete_agent_confirm">¿Seguro que quieres eliminar \"%1$s\"? Esta acción no se puede deshacer.</string>
+    <string name="delete_agent_confirm">¿Seguro que quieres eliminar "%1$s"? Esta acción no se puede deshacer.</string>
     <string name="delete_this_agent">este agente</string>
     <string name="by_author">por %1$s</string>
     <string name="label_description">Descripción</string>
@@ -252,7 +252,7 @@
     <string name="agent_tools_title">Herramientas del agente</string>
     <string name="select_tools_description">Selecciona las herramientas que usará tu agente</string>
     <string name="search_tools_hint">Buscar herramientas…</string>
-    <string name="no_tools_matching">No hay herramientas que coincidan con \"%1$s\"</string>
+    <string name="no_tools_matching">No hay herramientas que coincidan con "%1$s"</string>
     <string name="no_tools_available">No hay herramientas disponibles</string>
 
     <!-- Per-capability file attachments -->
@@ -271,7 +271,7 @@
     <string name="add_skills">Añadir habilidades</string>
     <string name="select_skills">Seleccionar habilidades</string>
     <string name="search_skills_hint">Buscar habilidades…</string>
-    <string name="no_skills_matching">No hay habilidades que coincidan con \"%1$s\"</string>
+    <string name="no_skills_matching">No hay habilidades que coincidan con "%1$s"</string>
     <string name="no_skills_available">No hay habilidades disponibles</string>
     <string name="skills_done">Hecho</string>
 

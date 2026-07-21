@@ -6,7 +6,7 @@
     <string name="skills_create">Créer une compétence</string>
     <string name="skills_import">Importer une compétence</string>
     <string name="skills_search_hint">Rechercher des compétences…</string>
-    <string name="skills_empty">Aucune compétence pour l\'instant.</string>
+    <string name="skills_empty">Aucune compétence pour l'instant.</string>
 
     <!-- Files -->
     <string name="skill_files_title">Fichiers</string>
@@ -20,8 +20,8 @@
     <string name="skill_category_label">Catégorie : %1$s</string>
     <string name="skill_version_label">Version %1$d</string>
     <string name="skill_delete_confirm_title">Supprimer la compétence ?</string>
-    <string name="skill_delete_confirm_message">Ceci supprime définitivement \"%1$s\". Cette action est irréversible.</string>
-    <string name="skill_empty_body">Cette compétence n\'a aucun contenu.</string>
+    <string name="skill_delete_confirm_message">Ceci supprime définitivement "%1$s". Cette action est irréversible.</string>
+    <string name="skill_empty_body">Cette compétence n'a aucun contenu.</string>
     <string name="skill_active_label">Active</string>
     <string name="skill_active_description">Rendre cette compétence disponible dans les discussions.</string>
 
@@ -31,7 +31,7 @@
     <string name="skill_field_name">Nom</string>
     <string name="skill_field_name_hint">minuscules-en-kebab-case</string>
     <string name="skill_field_name_error">Utilisez des lettres minuscules, des chiffres et des tirets (max 64).</string>
-    <string name="skill_field_display_title">Titre d\'affichage</string>
+    <string name="skill_field_display_title">Titre d'affichage</string>
     <string name="skill_field_description">Description</string>
     <string name="skill_field_description_error">La description est requise (max 1024 caractères).</string>
     <string name="skill_field_body">Contenu (markdown)</string>
@@ -50,7 +50,7 @@
     <string name="skill_acl_search_hint">Rechercher des utilisateurs, des groupes ou des rôles</string>
     <string name="skill_acl_search_empty">Aucune correspondance</string>
     <string name="skill_acl_role">Rôle</string>
-    <string name="skill_acl_revoke">Retirer l\'accès</string>
+    <string name="skill_acl_revoke">Retirer l'accès</string>
     <string name="skill_acl_public_label">Public</string>
     <string name="skill_acl_public_description">Toute personne sur ce serveur peut utiliser cette compétence.</string>
     <string name="skill_acl_principal_user">Utilisateur</string>

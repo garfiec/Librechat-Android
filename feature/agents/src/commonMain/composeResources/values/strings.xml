@@ -45,7 +45,7 @@
     <!-- Detail screen -->
     <string name="agent_title">Agent</string>
     <string name="delete_agent">Delete Agent</string>
-    <string name="delete_agent_confirm">Are you sure you want to delete \"%1$s\"? This cannot be undone.</string>
+    <string name="delete_agent_confirm">Are you sure you want to delete "%1$s"? This cannot be undone.</string>
     <string name="delete_this_agent">this agent</string>
     <string name="by_author">by %1$s</string>
     <string name="label_description">Description</string>
@@ -252,7 +252,7 @@
     <string name="agent_tools_title">Agent Tools</string>
     <string name="select_tools_description">Select tools for your agent to use</string>
     <string name="search_tools_hint">Search tools\u2026</string>
-    <string name="no_tools_matching">No tools matching \"%1$s\"</string>
+    <string name="no_tools_matching">No tools matching "%1$s"</string>
     <string name="no_tools_available">No tools available</string>
 
     <!-- Per-capability file attachments -->
@@ -271,7 +271,7 @@
     <string name="add_skills">Add skills</string>
     <string name="select_skills">Select Skills</string>
     <string name="search_skills_hint">Search skills…</string>
-    <string name="no_skills_matching">No skills matching \"%1$s\"</string>
+    <string name="no_skills_matching">No skills matching "%1$s"</string>
     <string name="no_skills_available">No skills available</string>
     <string name="skills_done">Done</string>
 

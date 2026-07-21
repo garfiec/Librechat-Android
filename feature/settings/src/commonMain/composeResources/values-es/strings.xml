@@ -309,7 +309,7 @@
     <string name="add_memory">Añadir recuerdo</string>
     <string name="edit_memory">Editar recuerdo</string>
     <string name="dialog_title_delete_memory">Eliminar recuerdo</string>
-    <string name="dialog_delete_memory_message">¿Seguro que quieres eliminar el recuerdo \"%1$s\"?</string>
+    <string name="dialog_delete_memory_message">¿Seguro que quieres eliminar el recuerdo "%1$s"?</string>
     <string name="memory_key_label">Clave</string>
     <string name="memory_value_label">Valor</string>
 
@@ -344,7 +344,7 @@
     <string name="mcp_oauth_scope">Ámbito</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">Eliminar servidor</string>
-    <string name="dialog_delete_server_message">¿Seguro que quieres eliminar \"%1$s\"?</string>
+    <string name="dialog_delete_server_message">¿Seguro que quieres eliminar "%1$s"?</string>
     <string name="error_failed_to_load_servers">Error al cargar los servidores</string>
     <string name="mcp_tools_count">%1$d herramienta%2$s</string>
     <string name="no_tools_available">No hay herramientas disponibles</string>
@@ -379,7 +379,7 @@
     <string name="no_api_keys">No hay claves de API</string>
     <string name="no_api_keys_desc">Crea una clave de API para acceder a la API de forma programática.</string>
     <string name="dialog_title_delete_api_key">Eliminar clave de API</string>
-    <string name="dialog_delete_api_key_message">¿Seguro que quieres eliminar la clave de API \"%1$s\"? Esta acción no se puede deshacer.</string>
+    <string name="dialog_delete_api_key_message">¿Seguro que quieres eliminar la clave de API "%1$s"? Esta acción no se puede deshacer.</string>
     <string name="created_prefix">Creada: %1$s</string>
 
     <!-- API Key create dialog -->
@@ -395,13 +395,13 @@
     <string name="no_presets">No hay preajustes</string>
     <string name="no_presets_desc">Guarda preajustes desde la pantalla de chat para gestionarlos aquí</string>
     <string name="dialog_title_delete_preset">Eliminar preajuste</string>
-    <string name="dialog_delete_preset_message">¿Seguro que quieres eliminar \"%1$s\"?</string>
+    <string name="dialog_delete_preset_message">¿Seguro que quieres eliminar "%1$s"?</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">No hay enlaces compartidos</string>
     <string name="no_shared_links_desc">Comparte una conversación para verla aquí</string>
     <string name="dialog_title_delete_shared_link">Eliminar enlace compartido</string>
-    <string name="dialog_delete_shared_link_message">Esto eliminará el enlace compartido de \"%1$s\". Las personas que tengan el enlace ya no podrán acceder a él.</string>
+    <string name="dialog_delete_shared_link_message">Esto eliminará el enlace compartido de "%1$s". Las personas que tengan el enlace ya no podrán acceder a él.</string>
     <string name="visibility_public">Público</string>
     <string name="visibility_private">Privado</string>
     <string name="error_failed_to_load_memories">Error al cargar los recuerdos</string>

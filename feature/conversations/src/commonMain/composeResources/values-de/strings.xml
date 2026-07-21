@@ -47,7 +47,7 @@
     <string name="rename_dialog_message">Gib einen neuen Titel für diese Unterhaltung ein.</string>
     <string name="title_label">Titel</string>
     <string name="delete_conversation">Unterhaltung löschen</string>
-    <string name="delete_confirmation_message">Möchtest du \"%1$s\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="delete_confirmation_message">Möchtest du "%1$s" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="this_conversation">diese Unterhaltung</string>
 
     <!-- Tag picker -->

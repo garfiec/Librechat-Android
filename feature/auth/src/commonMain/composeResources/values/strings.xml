@@ -17,7 +17,7 @@
     <string name="password_label">Password</string>
     <string name="continue_button">Continue</string>
     <string name="forgot_password">Forgot password?</string>
-    <string name="no_account_sign_up">Don\'t have an account? Sign up</string>
+    <string name="no_account_sign_up">Don't have an account? Sign up</string>
     <string name="or_continue_with">Or continue with</string>
 
     <!-- Register -->
@@ -34,7 +34,7 @@
     <string name="enter_email_for_reset">Enter your email to receive a reset link</string>
     <string name="send_reset_link">Send reset link</string>
     <string name="check_your_email">Check your email</string>
-    <string name="reset_link_sent">We\'ve sent a password reset link to %1$s</string>
+    <string name="reset_link_sent">We've sent a password reset link to %1$s</string>
     <string name="back_to_sign_in">Back to sign in</string>
 
     <!-- Reset Password -->
@@ -60,7 +60,7 @@
 
     <!-- Verify Email -->
     <string name="verify_email_title">Verify Email</string>
-    <string name="verification_link_sent">We\'ve sent a verification link to</string>
+    <string name="verification_link_sent">We've sent a verification link to</string>
     <string name="click_link_to_verify">Click the link in the email to verify your account.</string>
     <string name="verification_email_sent">Verification email sent!</string>
     <string name="resend_verification_email">Resend verification email</string>

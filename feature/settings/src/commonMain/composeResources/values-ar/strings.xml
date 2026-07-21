@@ -309,7 +309,7 @@
     <string name="add_memory">إضافة ذاكرة</string>
     <string name="edit_memory">تعديل الذاكرة</string>
     <string name="dialog_title_delete_memory">حذف الذاكرة</string>
-    <string name="dialog_delete_memory_message">هل أنت متأكد أنك تريد حذف الذاكرة \"%1$s\"؟</string>
+    <string name="dialog_delete_memory_message">هل أنت متأكد أنك تريد حذف الذاكرة "%1$s"؟</string>
     <string name="memory_key_label">المفتاح</string>
     <string name="memory_value_label">القيمة</string>
 
@@ -344,7 +344,7 @@
     <string name="mcp_oauth_scope">النطاق</string>
     <string name="mcp_oauth_scope_placeholder">read execute</string>
     <string name="dialog_title_delete_server">حذف الخادم</string>
-    <string name="dialog_delete_server_message">هل أنت متأكد أنك تريد حذف \"%1$s\"؟</string>
+    <string name="dialog_delete_server_message">هل أنت متأكد أنك تريد حذف "%1$s"؟</string>
     <string name="error_failed_to_load_servers">فشل تحميل الخوادم</string>
     <string name="mcp_tools_count">%1$d أداة%2$s</string>
     <string name="no_tools_available">لا توجد أدوات متاحة</string>
@@ -379,7 +379,7 @@
     <string name="no_api_keys">لا توجد مفاتيح API</string>
     <string name="no_api_keys_desc">أنشئ مفتاح API للوصول إلى API برمجيًا.</string>
     <string name="dialog_title_delete_api_key">حذف مفتاح API</string>
-    <string name="dialog_delete_api_key_message">هل أنت متأكد أنك تريد حذف مفتاح API \"%1$s\"؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="dialog_delete_api_key_message">هل أنت متأكد أنك تريد حذف مفتاح API "%1$s"؟ لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="created_prefix">تم الإنشاء: %1$s</string>
 
     <!-- API Key create dialog -->
@@ -395,13 +395,13 @@
     <string name="no_presets">لا توجد إعدادات مسبقة</string>
     <string name="no_presets_desc">احفظ الإعدادات المسبقة من شاشة المحادثة لإدارتها هنا</string>
     <string name="dialog_title_delete_preset">حذف الإعداد المسبق</string>
-    <string name="dialog_delete_preset_message">هل أنت متأكد أنك تريد حذف \"%1$s\"؟</string>
+    <string name="dialog_delete_preset_message">هل أنت متأكد أنك تريد حذف "%1$s"؟</string>
 
     <!-- Shared links -->
     <string name="no_shared_links">لا توجد روابط مشتركة</string>
     <string name="no_shared_links_desc">شارك محادثة لرؤيتها هنا</string>
     <string name="dialog_title_delete_shared_link">حذف الرابط المشترك</string>
-    <string name="dialog_delete_shared_link_message">سيؤدي هذا إلى إزالة الرابط المشترك لـ \"%1$s\". لن يتمكن أي شخص لديه الرابط من الوصول إليه بعد الآن.</string>
+    <string name="dialog_delete_shared_link_message">سيؤدي هذا إلى إزالة الرابط المشترك لـ "%1$s". لن يتمكن أي شخص لديه الرابط من الوصول إليه بعد الآن.</string>
     <string name="visibility_public">عام</string>
     <string name="visibility_private">خاص</string>
     <string name="error_failed_to_load_memories">فشل تحميل الذكريات</string>
