@@ -121,6 +121,14 @@ class StreamingManagerDelegate(
 
         /** onResume found the server-side job gone after a detached (backgrounded) stream. */
         data object ResumeExpired : StreamEndReason
+
+        /**
+         * The foreground resume's `checkStreamStatus` threw. Unlike [ResumeExpired], a transient
+         * failure is NOT proof the stream ended, so preserve the partial and do NOT reload (a
+         * refetch could race the server's still-in-flight persistence and drop it) — same teardown
+         * as [AbortFallback].
+         */
+        data object ResumeFailed : StreamEndReason
     }
 
     /**
@@ -698,7 +706,7 @@ class StreamingManagerDelegate(
                 // If the server already created a conversation, fetch whatever it persisted.
                 handle.state.conversationId?.let(reloadConversation)
             }
-            is StreamEndReason.AbortFallback -> {
+            is StreamEndReason.AbortFallback, is StreamEndReason.ResumeFailed -> {
                 streamJob?.cancel()
                 stopStreamingUpdater()
                 if (handle.state.isStreaming) {
@@ -771,24 +779,30 @@ class StreamingManagerDelegate(
                 val status = chatRepository.checkStreamStatus(conversationId)
                 // A concurrent resume advanced the session (or it ended) while we were suspended:
                 // bail rather than redundantly restart or wipe the now-current stream.
-                if (streamSession != session || isSessionEnded()) return@launch
+                if (isResumeStale(session)) return@launch
                 // A Stop landed during the check: hand off to the abort machinery as above.
                 if (abortRequested) return@launch
                 if (status.active) {
                     handle.update { content = content.copy(isStreaming = true) }
                     resumeStream(conversationId)
                 } else {
+                    // Server confirms the job is gone: safe to wipe and reload (past the persist race).
                     endStream(StreamEndReason.ResumeExpired, session)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Logger.e(e) { "Could not resume stream" }
-                if (streamSession != session || isSessionEnded()) return@launch
-                if (abortRequested) return@launch
-                endStream(StreamEndReason.ResumeExpired, session)
-                handle.update { error = "Could not resume stream" }
+                if (isResumeStale(session) || abortRequested) return@launch
+                // A transient status-check failure is NOT proof the stream ended — preserve the
+                // partial and do not reload (contrast the status==inactive branch above).
+                endStream(StreamEndReason.ResumeFailed, session)
             }
         }
     }
+
+    /** A launched resume decision is stale once a newer stream started or this session ended. */
+    private fun isResumeStale(session: Int) = streamSession != session || isSessionEnded()
 
     /**
      * Shared resume logic: clears the buffer, starts the updater, and launches
@@ -810,9 +824,14 @@ class StreamingManagerDelegate(
     }
 
     fun resumeActiveStreamIfNeeded(conversationId: String) {
+        // Sibling of onResume (runs on conversation open); apply the same hardening so the two
+        // can't race into two resumes, and a pending Stop is never overridden by a restart.
+        if (abortRequested) return
+        val session = streamSession
         scope.launch {
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
+                if (isResumeStale(session) || abortRequested) return@launch
                 if (status.active) {
                     handle.update {
                         content = content.copy(
@@ -822,6 +841,8 @@ class StreamingManagerDelegate(
                     }
                     resumeStream(conversationId)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Logger.d(e) { "No active stream to resume for $conversationId" }
             }

@@ -328,4 +328,55 @@ class StreamingManagerLifecycleTest {
             events2.close()
             advanceUntilIdle()
         }
+
+    /**
+     * A transient checkStreamStatus failure on foreground (a network blip, not an actual expiry)
+     * must NOT be treated as ResumeExpired — that would wipe the in-progress reply and reload,
+     * racing the server's persist. Preserve the partial and do not reload.
+     */
+    @Test
+    fun `a transient resume-check failure preserves the partial instead of wiping`() =
+        runTest(StandardTestDispatcher()) {
+            coEvery { chatRepository.checkStreamStatus("conv-1") } throws RuntimeException("network blip")
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, flow) = delegateWith(this)
+            delegate.launchStream(events.receiveAsFlow())
+            events.send(StreamEvent.ContentDelta(chunk = "half a reply"))
+            runCurrent()
+
+            delegate.onPause() // detaches the collector; isStreaming stays true
+            delegate.onResume() // checkStreamStatus throws
+            advanceUntilIdle()
+
+            assertThat(flow.value.isStreaming).isFalse()
+            assertThat(flow.value.streamingContent).isEqualTo("half a reply")
+            verify(exactly = 0) { reloadConversation(any()) }
+            events.close()
+            advanceUntilIdle()
+        }
+
+    /**
+     * resumeActiveStreamIfNeeded (conversation-open sibling of onResume) must defer while a Stop
+     * is pending — otherwise it can restart a stream the user just stopped.
+     */
+    @Test
+    fun `resumeActiveStreamIfNeeded defers while a stop is pending`() =
+        runTest(StandardTestDispatcher()) {
+            val gate = CompletableDeferred<Result<Unit>>()
+            coEvery { chatRepository.abortChat("conv-1") } coAnswers { gate.await() }
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, _) = delegateWith(this)
+            delegate.launchStream(events.receiveAsFlow())
+            runCurrent()
+            delegate.stopGeneration() // abortRequested = true, ack still gated
+            runCurrent()
+
+            delegate.resumeActiveStreamIfNeeded("conv-1")
+            runCurrent()
+
+            coVerify(exactly = 0) { chatRepository.checkStreamStatus(any()) }
+            gate.complete(Result.Success(Unit))
+            events.close()
+            advanceUntilIdle()
+        }
 }
