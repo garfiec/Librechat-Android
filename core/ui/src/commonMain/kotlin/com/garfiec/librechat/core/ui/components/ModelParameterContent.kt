@@ -70,7 +70,6 @@ data class ModelParameters(
         "fileTokenLimit" -> fileTokenLimit?.toString() ?: ""
         "stop" -> dynamicValues["stop"] ?: ""
         "reasoning_effort", "effort" -> dynamicValues[key] ?: ""
-        "promptCache" -> dynamicValues["promptCache"] ?: "false"
         else -> dynamicValues[key] ?: ""
     }
 
