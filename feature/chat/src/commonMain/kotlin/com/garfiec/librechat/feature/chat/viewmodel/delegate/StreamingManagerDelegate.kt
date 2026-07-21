@@ -620,6 +620,10 @@ class StreamingManagerDelegate(
      * stall timeout. See [abortWatchdogJob].
      */
     private fun armAbortWatchdog(session: Int) {
+        // A delayed abort ack can arrive after its stream ended or after a newer stream started
+        // (its own boundary already re-armed). Arming here would cancel the newer stream's live
+        // watchdog and bind this one to a dead session — leaving the newer stream unguarded.
+        if (session != streamSession || endedSession == session) return
         abortWatchdogJob?.cancel()
         abortWatchdogJob = scope.launch {
             delay(ABORT_FINAL_TIMEOUT_MS)
@@ -752,22 +756,35 @@ class StreamingManagerDelegate(
         // The session ended while backgrounded (the aborted final landed in the still-live
         // collector, or an error tore down): state is already finalized — touch nothing.
         if (isSessionEnded()) return
-        // Abort pending with a live collector: the final is still coming and the watchdog
-        // guards against it never arriving. Leave the stream alone.
-        if (abortRequested && streamJob?.isActive == true) return
+        // A Stop is pending: defer to the abort machinery (watchdog → AbortFallback), which
+        // preserves the partial. Never drive resume/expire here — ResumeExpired would wipe it.
+        // (Broader than a live-collector check: after onPause the collector may be dead, but the
+        // abort still owns teardown.)
+        if (abortRequested) return
         val conversationId = handle.state.conversationId ?: return
+        // Pin the session across the status suspension, exactly as stopGeneration does: a
+        // concurrent resume/stop can bump or end the session while checkStreamStatus is in flight,
+        // and a stale ResumeExpired must not wipe the newer stream's partial.
+        val session = streamSession
         scope.launch {
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
+                // A concurrent resume advanced the session (or it ended) while we were suspended:
+                // bail rather than redundantly restart or wipe the now-current stream.
+                if (streamSession != session || isSessionEnded()) return@launch
+                // A Stop landed during the check: hand off to the abort machinery as above.
+                if (abortRequested) return@launch
                 if (status.active) {
                     handle.update { content = content.copy(isStreaming = true) }
                     resumeStream(conversationId)
                 } else {
-                    endStream(StreamEndReason.ResumeExpired)
+                    endStream(StreamEndReason.ResumeExpired, session)
                 }
             } catch (e: Exception) {
                 Logger.e(e) { "Could not resume stream" }
-                endStream(StreamEndReason.ResumeExpired)
+                if (streamSession != session || isSessionEnded()) return@launch
+                if (abortRequested) return@launch
+                endStream(StreamEndReason.ResumeExpired, session)
                 handle.update { error = "Could not resume stream" }
             }
         }
