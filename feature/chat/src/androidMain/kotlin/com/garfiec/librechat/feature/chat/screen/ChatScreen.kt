@@ -268,16 +268,11 @@ actual fun ChatScreen(
                 positionalThreshold = { distance -> distance * 0.4f },
                 animationSpec = tween(),
             )
-            LaunchedEffect(pullUpSheetHeightPx) {
-                if (pullUpSheetHeightPx > 0) {
-                    pullUpState.updateAnchors(
-                        DraggableAnchors {
-                            PullUpAnchor.Hidden at pullUpSheetHeightPx.toFloat()
-                            PullUpAnchor.Revealed at 0f
-                        },
-                    )
-                }
-            }
+            // Anchors are re-pinned synchronously in the sheet's onSizeChanged (below), not here in a
+            // LaunchedEffect: the Hidden anchor equals the measured height, and a frame-late re-pin left
+            // `offset` (old height) briefly < the new height whenever the hidden sheet's content grew —
+            // tripping the `offset < height` visibility/dim into a one-frame scrim+sheet flash (e.g. the
+            // context gauge appearing mid-stream, or the sheet's rows differing on a chat switch).
             // Dismiss the IME the moment the sheet starts to reveal (the Scaffold uses imePadding()).
             LaunchedEffect(pullUpState, pullUpSheetHeightPx) {
                 snapshotFlow {
@@ -585,7 +580,23 @@ actual fun ChatScreen(
                     // measured height is still 0, so without this the sheet would place at offset 0
                     // (fully revealed) and flash the whole menu open on every chat entry.
                     .graphicsLayer { alpha = if (pullUpSheetHeightPx > 0) 1f else 0f }
-                    .onSizeChanged { pullUpSheetHeightPx = it.height }
+                    // Re-pin the anchors in the SAME layout pass that changes the height, so a settled
+                    // Hidden sheet snaps its offset to the new bottom in lockstep — never a frame where
+                    // the stale offset reads as "revealed". updateAnchors snaps a settled state to the
+                    // closest anchor synchronously (Hidden stays hidden; an open sheet stays open).
+                    .onSizeChanged { size ->
+                        if (size.height != pullUpSheetHeightPx) {
+                            pullUpSheetHeightPx = size.height
+                            if (size.height > 0) {
+                                pullUpState.updateAnchors(
+                                    DraggableAnchors {
+                                        PullUpAnchor.Hidden at size.height.toFloat()
+                                        PullUpAnchor.Revealed at 0f
+                                    },
+                                )
+                            }
+                        }
+                    }
                     .offset {
                         val o = pullUpState.offset
                         IntOffset(0, if (o.isNaN()) pullUpSheetHeightPx else o.roundToInt())
