@@ -90,9 +90,15 @@ class StreamingManagerDelegate(
     private var abortRequested = false
 
     /**
-     * Why a stream session ended. Every termination funnels through [endStream] with one of
-     * these; the reason decides teardown (job cancel, state write, queue policy, reload) in ONE
-     * place instead of each exit path hand-copying its own subset.
+     * Why a stream session ended. Every *event-driven* termination — a Final or Error frame, a
+     * failed abort, the watchdog, a resume that found the job gone — funnels through [endStream]
+     * with one of these; the reason decides teardown (job cancel, state write, queue policy,
+     * reload) in ONE place instead of each exit path hand-copying its own subset.
+     *
+     * Not covered: a flow that completes with neither Final nor Error (a clean SSE EOF or a 404 on
+     * the stream GET). That falls to the `onTerminated` safety net the caller passes to
+     * [launchStream], which clears streaming state directly without a reason. Rare, and a known
+     * gap in the chokepoint — do not treat [endStream] as the *only* teardown path.
      */
     private sealed interface StreamEndReason {
         /**
@@ -563,8 +569,15 @@ class StreamingManagerDelegate(
      * arrives (watchdog).
      *
      * Works even before the `created` milestone assigns a conversation id: the abort route falls
-     * back to the caller's most recent active job when no id resolves, so the request goes out
-     * with a null key rather than silently doing nothing.
+     * back to one of the caller's active jobs when no id resolves, so the request goes out with a
+     * null key rather than silently doing nothing.
+     *
+     * Caveat with concurrent jobs: the server's fallback picks the *oldest* active job (the store
+     * iterates in insertion order and takes the first), not the newest, and [ChatAbortResponse]
+     * discards the `aborted` id the route returns — so the client cannot tell which job it hit. If
+     * a second stream is live server-side (e.g. one left running in the background), a null-key Stop
+     * can abort the wrong one; the still-running local stream then only stops when its watchdog
+     * fires. This is a known gap, tracked for a follow-up, not a guarantee.
      */
     fun stopGeneration() {
         // Nothing to stop: no live collector and no streaming state (a dead screen's Stop must
@@ -616,9 +629,10 @@ class StreamingManagerDelegate(
     }
 
     /**
-     * The single stream-termination chokepoint. Every way a stream session can end — clean or
-     * aborted Final, error, failed abort, watchdog, resume-found-expired — funnels through here,
-     * so teardown steps can't drift apart per exit path again.
+     * The stream-termination chokepoint for every *event-driven* end — clean or aborted Final,
+     * error, failed abort, watchdog, resume-found-expired — so teardown steps can't drift apart
+     * per exit path again. The one exception is a flow that ends with neither Final nor Error,
+     * handled by the `onTerminated` safety net (see [StreamEndReason]); keep new teardown here.
      *
      * Latched per session: runs at most once for [session], and never for a stale session
      * (see [streamSession]). [StreamEndReason.Finalized] deliberately writes no state — the

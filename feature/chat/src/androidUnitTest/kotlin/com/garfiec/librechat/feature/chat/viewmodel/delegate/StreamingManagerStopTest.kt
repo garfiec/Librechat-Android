@@ -269,12 +269,14 @@ class StreamingManagerStopTest {
     }
 
     /**
-     * Stop before the `created` milestone has assigned a conversation id. The abort still goes
-     * out — with a null key, which the route resolves to the caller's most recent active job —
-     * instead of silently doing nothing while the reply keeps generating.
+     * Stop before the `created` milestone has assigned a conversation id. This test asserts only
+     * the client behavior: the abort still goes out with a null key instead of silently doing
+     * nothing while the reply keeps generating. It does NOT verify the server-side fallback's job
+     * selection — that resolves to the caller's *oldest* active job and can hit the wrong one when
+     * several are live (see stopGeneration's KDoc); that behavior is not testable at this layer.
      */
     @Test
-    fun `stop before the conversation exists still aborts via the user-scoped fallback`() =
+    fun `stop before the conversation exists still posts a null-key abort`() =
         runTest(StandardTestDispatcher()) {
             coEvery { chatRepository.abortChat(null) } returns Result.Success(Unit)
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
