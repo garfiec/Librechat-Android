@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import kotlin.math.roundToInt
 
 /**
  * Discrete slider that maps a list of string [options] to slider positions.
@@ -69,7 +70,7 @@ fun DynamicEnumSlider(
         Slider(
             value = index.toFloat(),
             onValueChange = { newPos ->
-                val newIndex = newPos.toInt().coerceIn(0, options.lastIndex)
+                val newIndex = newPos.roundToInt().coerceIn(0, options.lastIndex)
                 onValueChange(options[newIndex])
             },
             valueRange = 0f..options.lastIndex.toFloat(),
