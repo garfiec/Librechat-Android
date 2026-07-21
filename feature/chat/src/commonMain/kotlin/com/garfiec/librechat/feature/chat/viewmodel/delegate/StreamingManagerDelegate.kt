@@ -13,10 +13,10 @@ import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.error.parseUserKeyError
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
+import com.garfiec.librechat.feature.chat.util.applyAbortContract
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.RetryInfo
-import com.garfiec.librechat.feature.chat.util.applyAbortContract
 import com.garfiec.librechat.feature.chat.viewmodel.StreamingHandle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job

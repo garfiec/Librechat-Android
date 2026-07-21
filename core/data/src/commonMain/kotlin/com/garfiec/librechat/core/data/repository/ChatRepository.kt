@@ -33,6 +33,7 @@ interface ChatRepository {
         isTemporary: Boolean = false,
         modelParams: JsonObject? = null,
     ): Flow<StreamEvent>
+
     /**
      * Asks the server to stop the in-flight turn. The response is only an ack — the stopped
      * turn arrives as an `aborted` final frame on the SSE stream, which must stay open.
