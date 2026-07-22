@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -103,7 +104,7 @@ fun LoginScreen(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChanged,
                 label = { Text(stringResource(Res.string.email_label)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("login_email"),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
@@ -118,7 +119,7 @@ fun LoginScreen(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChanged,
                 label = { Text(stringResource(Res.string.password_label)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("login_password"),
                 singleLine = true,
                 visualTransformation = passwordMaskTransformation(),
                 keyboardOptions = KeyboardOptions(
@@ -134,6 +135,7 @@ fun LoginScreen(
                     text = uiState.error!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("login_error"),
                 )
             }
 
@@ -141,7 +143,7 @@ fun LoginScreen(
 
             Button(
                 onClick = viewModel::login,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("login_submit"),
                 enabled = !uiState.isLoading,
             ) {
                 if (uiState.isLoading) {

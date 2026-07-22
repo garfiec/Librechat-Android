@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -136,6 +137,7 @@ fun TwoFactorScreen(
                     text = uiState.error!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("twofa_error"),
                 )
             }
 
@@ -145,7 +147,7 @@ fun TwoFactorScreen(
             // button to move forward.
             Button(
                 onClick = viewModel::submit,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("twofa_verify"),
                 enabled = !uiState.isLoading && if (uiState.isBackupMode) {
                     uiState.backupCode.isNotBlank()
                 } else {
@@ -165,7 +167,10 @@ fun TwoFactorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            TextButton(onClick = viewModel::toggleBackupMode) {
+            TextButton(
+                onClick = viewModel::toggleBackupMode,
+                modifier = Modifier.testTag("twofa_toggle_mode"),
+            ) {
                 Text(
                     if (uiState.isBackupMode) {
                         stringResource(Res.string.use_authenticator_code)
@@ -205,6 +210,7 @@ private fun DigitBoxes(
                 },
                 modifier = Modifier
                     .weight(1f)
+                    .testTag("twofa_digit_$index")
                     .focusRequester(focusRequesters[index]),
                 enabled = enabled,
                 singleLine = true,
@@ -232,7 +238,7 @@ private fun BackupCodeInput(
     OutlinedTextField(
         value = code,
         onValueChange = onCodeChange,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().testTag("twofa_backup_code"),
         enabled = enabled,
         singleLine = true,
         label = { Text(stringResource(Res.string.backup_code_label)) },

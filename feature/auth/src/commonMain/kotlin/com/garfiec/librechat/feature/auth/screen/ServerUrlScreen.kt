@@ -25,10 +25,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.ui.components.testTagsAsResourceIdSubtree
 import com.garfiec.librechat.feature.auth.resources.*
 import com.garfiec.librechat.feature.auth.resources.Res
 import com.garfiec.librechat.feature.auth.viewmodel.ServerUrlViewModel
@@ -94,7 +96,7 @@ fun ServerUrlScreen(
                 onValueChange = viewModel::onUrlChanged,
                 label = { Text(stringResource(Res.string.server_url_label)) },
                 placeholder = { Text(stringResource(Res.string.server_url_placeholder)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("server_url_field"),
                 singleLine = true,
                 isError = uiState.error != null,
                 supportingText = uiState.error?.let { error ->
@@ -107,7 +109,7 @@ fun ServerUrlScreen(
 
             Button(
                 onClick = viewModel::validateAndConnect,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("server_url_connect"),
                 enabled = !uiState.isLoading && uiState.url.isNotBlank(),
             ) {
                 if (uiState.isLoading) {
@@ -138,7 +140,12 @@ private fun HttpWarningDialog(
             Text(stringResource(Res.string.insecure_connection_message))
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(
+                onClick = onConfirm,
+                modifier = Modifier
+                    .testTagsAsResourceIdSubtree()
+                    .testTag("server_url_http_confirm"),
+            ) {
                 Text(
                     text = stringResource(Res.string.connect_anyway),
                     color = MaterialTheme.colorScheme.error,

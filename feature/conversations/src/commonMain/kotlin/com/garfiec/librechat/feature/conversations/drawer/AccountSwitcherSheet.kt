@@ -48,11 +48,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.ui.components.AvatarImage
 import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.core.ui.components.avatarColorForSeed
+import com.garfiec.librechat.core.ui.components.testTagsAsResourceIdSubtree
 import com.garfiec.librechat.feature.conversations.resources.Res
 import com.garfiec.librechat.feature.conversations.resources.accounts
 import com.garfiec.librechat.feature.conversations.resources.add_account
@@ -147,6 +149,7 @@ fun AccountChip(
     Surface(
         onClick = onClick,
         modifier = modifier
+            .testTag("account_chip")
             .graphicsLayer {
                 translationY = dragOffsetY.floatValue
                 // Shrink and fade toward the drag limit, tracking the spring-back on release.
@@ -222,7 +225,7 @@ fun AccountSwitcherSheet(
         dragHandle = { LowProfileDragHandle() },
         sheetState = sheetState,
     ) {
-        Column(modifier = Modifier.navigationBarsPadding()) {
+        Column(modifier = Modifier.testTagsAsResourceIdSubtree().navigationBarsPadding()) {
             Text(
                 text = stringResource(Res.string.accounts),
                 style = MaterialTheme.typography.titleMedium,
@@ -242,6 +245,7 @@ fun AccountSwitcherSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .testTag("account_add")
                     .clickable(onClick = onAddAccount)
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
