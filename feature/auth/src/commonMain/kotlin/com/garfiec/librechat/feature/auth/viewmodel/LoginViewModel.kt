@@ -108,6 +108,16 @@ class LoginViewModel(
         }
     }
 
+    /**
+     * Clears the one-shot 2FA navigation signal once the screen has acted on it. This ViewModel is
+     * retained for the Login entry, so leaving the token set would have the navigation effect re-fire
+     * the moment the user backs out of the 2FA screen — bouncing them straight into it again with no
+     * way to return and correct the email or password.
+     */
+    fun consumeTwoFactorNavigation() {
+        _uiState.value = _uiState.value.copy(twoFactorTempToken = null)
+    }
+
     /** Set once this screen launches its own OAuth round-trip; gates add-mode cookie consumption. */
     private var oAuthLaunched = false
 

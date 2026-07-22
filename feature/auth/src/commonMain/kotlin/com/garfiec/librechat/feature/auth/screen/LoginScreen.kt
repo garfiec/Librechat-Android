@@ -70,6 +70,9 @@ fun LoginScreen(
         val tempToken = uiState.twoFactorTempToken
         if (tempToken != null) {
             currentOnNavigateToTwoFactor(tempToken)
+            // Consume the signal so backing out of the 2FA screen returns here instead of
+            // re-triggering this effect against the retained ViewModel's stale token.
+            viewModel.consumeTwoFactorNavigation()
         }
     }
 

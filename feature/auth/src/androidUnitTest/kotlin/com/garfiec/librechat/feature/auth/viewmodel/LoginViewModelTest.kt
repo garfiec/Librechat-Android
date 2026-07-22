@@ -161,6 +161,26 @@ class LoginViewModelTest {
     }
 
     @Test
+    fun `consumeTwoFactorNavigation clears the temp token`() = runTest {
+        // The Login entry's ViewModel is retained, so an unconsumed token would re-fire the screen's
+        // navigation effect the moment the user backs out of the 2FA screen.
+        coEvery { authRepository.login("user@example.com", "password123") } returns
+            Result.Success(LoginOutcome.TwoFactorRequired("temp-token-123"))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEmailChanged("user@example.com")
+        viewModel.onPasswordChanged("password123")
+        viewModel.login()
+        advanceUntilIdle()
+
+        viewModel.consumeTwoFactorNavigation()
+
+        assertThat(viewModel.uiState.value.twoFactorTempToken).isNull()
+    }
+
+    @Test
     fun `login failure shows error message`() = runTest {
         coEvery { authRepository.login("user@example.com", "wrong") } returns
             Result.Error(message = "Invalid credentials")

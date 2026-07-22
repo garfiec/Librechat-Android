@@ -16,10 +16,15 @@ data class TwoFactorVerifyRequest(
  * Request body for POST /api/auth/2fa/verify-temp.
  * Backend reads { tempToken, token, backupCode } where tempToken is the
  * temporary auth token from login and token is the TOTP code.
+ *
+ * Exactly one of [token] / [backupCode] must be set: the backend branches
+ * `if (token) verifyTOTP else if (backupCode) verifyBackupCode`, so a backup
+ * code sent in [token] is TOTP-verified and always fails. The client `Json` is
+ * configured with `explicitNulls = false`, so the unused field is omitted.
  */
 @Serializable
 data class TwoFactorVerifyTempRequest(
     val tempToken: String,
-    val token: String,
+    val token: String? = null,
     val backupCode: String? = null,
 )

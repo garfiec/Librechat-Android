@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.auth.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,7 +69,7 @@ class TwoFactorViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            when (authRepository.verifyTwoFactor(tempToken, code)) {
+            when (val result = authRepository.verifyTwoFactor(tempToken, code, isBackupCode = state.isBackupMode)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -78,7 +79,11 @@ class TwoFactorViewModel(
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Invalid code. Please try again.",
+                        // Prefer the server's own wording: "invalid code" and "your session expired,
+                        // sign in again" call for different actions, and a flat retry prompt has the
+                        // user typing codes at a tempToken that can no longer succeed.
+                        error = (result.exception as? ApiException)?.message
+                            ?: "Invalid code. Please try again.",
                         digits = List(6) { "" },
                         backupCode = "",
                     )

@@ -58,10 +58,18 @@ class AuthInterceptorPlugin private constructor(
         }
 
         override fun install(plugin: AuthInterceptorPlugin, scope: HttpClient) {
+            // Unauthenticated endpoints: no bearer is attached to them, and — just as importantly —
+            // a 401 from one is the endpoint's own answer (bad credentials, wrong 2FA code, expired
+            // tempToken), never an expired session. They must stay out of the refresh/session-expiry
+            // leg below, or a mistyped 2FA code would trigger a doomed refresh (there is no refresh
+            // token yet mid-login) and eject the user from the flow. `auth/2fa/verify-temp` does not
+            // collide with the authenticated `auth/2fa/verify`, which must keep refreshing.
             val skipPaths = setOf(
                 "auth/login", "auth/register", "auth/refresh",
                 "auth/requestPasswordReset", "auth/resetPassword",
+                "auth/2fa/verify-temp",
             )
+            fun isSkipPath(url: String): Boolean = skipPaths.any { url.contains(it) }
 
             // Attach token to outgoing requests. Runs at State, which is after
             // the SwitchBarrier/defaultRequest phases have applied the base URL —
@@ -76,11 +84,9 @@ class AuthInterceptorPlugin private constructor(
             // pair. Without the barrier (refresh client / tests) fall back to the
             // live active account, preserving legacy behavior.
             scope.requestPipeline.intercept(HttpRequestPipeline.State) {
-                val path = context.url.buildString()
-                val isSkipPath = skipPaths.any { path.contains(it) }
                 val snapshot = context.attributes.getOrNull(RequestIdentityKey)
                 val serverBaseUrl = snapshot?.baseUrl ?: plugin.serverUrlProvider?.getBaseUrl()
-                if (!isSkipPath && plugin.isSameHostAsServer(context.url.host, serverBaseUrl)) {
+                if (!isSkipPath(context.url.buildString()) && plugin.isSameHostAsServer(context.url.host, serverBaseUrl)) {
                     // Explicit branch (not `?:`): a snapshot whose bearer is null must attach
                     // nothing — a pending add-account probe before sign-in has no token yet, and
                     // falling through to the live cache would send the ACTIVE account's bearer to
@@ -97,6 +103,14 @@ class AuthInterceptorPlugin private constructor(
                 val originalCall = execute(request)
 
                 if (originalCall.response.status != HttpStatusCode.Unauthorized) {
+                    return@intercept originalCall
+                }
+
+                // An unauthenticated endpoint's 401 is its own verdict on the credentials just
+                // submitted, not an expired session: pass it through so the caller's UI can show it,
+                // without refreshing (there may be no session at all yet) and without the global
+                // session-expired signal that would tear the user out of the sign-in flow.
+                if (isSkipPath(request.url.buildString())) {
                     return@intercept originalCall
                 }
 

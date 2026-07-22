@@ -106,18 +106,24 @@ class AuthRepositoryImpl(
         return safeApiCall {
             withAuthIdentity(pending) {
                 val result = authApi.login(email, password)
-                if (result.response.twoFactorRequired && result.response.tempToken != null) {
+                if (result.response.twoFAPending) {
                     LoginOutcome.TwoFactorRequired(
                         result.response.tempToken
                             ?: throw IllegalStateException("Server indicated 2FA required but tempToken was null"),
                     )
                 } else {
-                    tokenManager.setTokens(
-                        accessToken = result.response.token ?: "",
-                        refreshToken = result.refreshToken ?: "",
-                    )
+                    // Validate BEFORE staging: a response missing either half is not a session, and
+                    // staging an empty pair would persist a blank token that reads as logged-in on the
+                    // next cold start and 401-storms until the user is bounced back to sign-in.
                     val user = result.response.user
                         ?: throw IllegalStateException("Login succeeded but user was null in response")
+                    val token = result.response.token
+                        ?: throw IllegalStateException("Login succeeded but token was null in response")
+                    tokenManager.setTokens(
+                        accessToken = token,
+                        // Absent is legitimate: the refresh token rides a Set-Cookie the server may omit.
+                        refreshToken = result.refreshToken ?: "",
+                    )
                     // Establish identity (+ run the legacy claim) before session tasks fire, so their
                     // tenant writes are stamped to this account and reads filter to it.
                     establishSession(pending, user)
@@ -150,17 +156,25 @@ class AuthRepositoryImpl(
         }.fireSessionTasksIfLoggedIn(previousAccountId)
     }
 
-    override suspend fun verifyTwoFactor(tempToken: String, code: String): Result<User> {
+    override suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean): Result<User> {
         val pending = accountSwitcher.pendingAdd
         val previousAccountId = activeAccountProvider.currentAccountId()
         return safeApiCall {
             withAuthIdentity(pending) {
-                val result = authApi.verifyTempToken(tempToken = tempToken, totpCode = code)
+                // The backend TOTP-verifies whenever `token` is present, so a backup code has to
+                // travel in its own field or it can never match.
+                val result = authApi.verifyTempToken(
+                    tempToken = tempToken,
+                    totpCode = code.takeUnless { isBackupCode },
+                    backupCode = code.takeIf { isBackupCode },
+                )
+                // Validate before staging — see login().
+                val user = result.response.user ?: throw IllegalStateException("No user in 2FA response")
+                val token = result.response.token ?: throw IllegalStateException("No token in 2FA response")
                 tokenManager.setTokens(
-                    accessToken = result.response.token ?: "",
+                    accessToken = token,
                     refreshToken = result.refreshToken ?: "",
                 )
-                val user = result.response.user ?: throw IllegalStateException("No user in 2FA response")
                 establishSession(pending, user)
                 user
             }

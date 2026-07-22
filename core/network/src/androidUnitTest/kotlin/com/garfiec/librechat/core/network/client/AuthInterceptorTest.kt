@@ -138,6 +138,42 @@ class AuthInterceptorTest {
     }
 
     @Test
+    fun `401 from verify-temp passes through without refresh or session expiry`() = runTest {
+        // A wrong 2FA code (or an expired tempToken) answers 401. There is no session to refresh
+        // mid-login, so refreshing would fail and eject the user from the flow they are still in —
+        // the 401 has to reach the 2FA screen as an ordinary error instead.
+        val tokenManager = FakeTokenManager(accessToken = null, refreshOutcome = RefreshResult.HardExpired)
+        var requestCount = 0
+
+        val engine = MockEngine {
+            requestCount++
+            respond("""{"message":"Invalid 2FA code."}""", HttpStatusCode.Unauthorized)
+        }
+        val client = createClient(tokenManager, engine)
+
+        val response = client.get("https://example.com/api/auth/2fa/verify-temp")
+        assertThat(response.status).isEqualTo(HttpStatusCode.Unauthorized)
+        assertThat(response.bodyAsText()).contains("Invalid 2FA code.")
+        assertThat(requestCount).isEqualTo(1)
+        assertThat(tokenManager.refreshCallCount).isEqualTo(0)
+        assertThat(tokenManager.sessionExpiredCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `401 from the authenticated verify endpoint still refreshes`() = runTest {
+        // Contrast case: `auth/2fa/verify` (post-login, from Settings) is an authenticated call, and
+        // the skip-path prefix must not swallow it along with `verify-temp`.
+        val tokenManager = FakeTokenManager(accessToken = "expired-token", refreshOutcome = RefreshResult.HardExpired)
+
+        val engine = MockEngine { respond("Unauthorized", HttpStatusCode.Unauthorized) }
+        val client = createClient(tokenManager, engine)
+
+        client.get("https://example.com/api/auth/2fa/verify")
+        assertThat(tokenManager.refreshCallCount).isEqualTo(1)
+        assertThat(tokenManager.sessionExpiredCount).isEqualTo(1)
+    }
+
+    @Test
     fun `refreshes token on 401 and retries`() = runTest {
         val tokenManager = FakeTokenManager(
             accessToken = "expired-token",

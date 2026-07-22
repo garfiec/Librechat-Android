@@ -91,8 +91,17 @@ abstract class CommonTokenDataStore(
 
     private fun ensureTokenLoaded(): String? {
         if (!tokenInitialized) loadCacheFromStorage()
-        return cachedAccessToken
+        return cachedAccessToken.nonBlankOrNull()
     }
+
+    /**
+     * A blank token is not a session. Nothing should persist one, but builds before the issue #277 fix
+     * staged `""` when a login response arrived without a token, and that empty string reads as
+     * "authenticated" everywhere the bearer is null-checked — cold-starting those installs into the
+     * app proper, where every request 401s until the session-expired path throws them out. Coercing at
+     * the read boundary lets them start logged out instead. (The refresh path already blank-checks.)
+     */
+    private fun String?.nonBlankOrNull(): String? = this?.takeUnless { it.isBlank() }
 
     // The bare key (null account) is the logged-out / legacy / mid-auth-staging fallback; a resolved
     // account namespaces to `acct:<id>:<base>`. One helper so both token bases scope identically.
@@ -227,11 +236,12 @@ abstract class CommonTokenDataStore(
         // Serve the active account from the in-memory cache (the per-request hot path via the switch
         // barrier's keyed bearer read); fall to storage only for a non-active account's slot. Under
         // stateMutex so the account check and the cache read can't interleave with a select/teardown.
-        if (accountId == activeAccountKey) cachedAccessToken else readValue(accessKey(accountId))
+        val token = if (accountId == activeAccountKey) cachedAccessToken else readValue(accessKey(accountId))
+        token.nonBlankOrNull()
     }
 
     override suspend fun getStagedAccessToken(): String? = stateMutex.withLock {
-        readValue(KEY_ACCESS_TOKEN)
+        readValue(KEY_ACCESS_TOKEN).nonBlankOrNull()
     }
 
     override suspend fun clearStagedTokens() = stateMutex.withLock {

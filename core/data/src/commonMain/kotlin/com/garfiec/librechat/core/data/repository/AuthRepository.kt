@@ -8,7 +8,13 @@ import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 interface AuthRepository {
     suspend fun login(email: String, password: String): Result<LoginOutcome>
     suspend fun loginWithOAuthToken(refreshToken: String): Result<User>
-    suspend fun verifyTwoFactor(tempToken: String, code: String): Result<User>
+
+    /**
+     * Completes a 2FA-pending login. [code] is a TOTP code by default; set [isBackupCode] to send it
+     * as a recovery code instead — the backend verifies the two by different fields and TOTP-verifies
+     * whatever arrives as `token`, so the distinction has to be carried this far.
+     */
+    suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean = false): Result<User>
     suspend fun register(name: String, email: String, username: String, password: String): Result<Unit>
     suspend fun logout(): Result<Unit>
     suspend fun isLoggedIn(): Boolean
