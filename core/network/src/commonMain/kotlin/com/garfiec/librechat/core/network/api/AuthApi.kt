@@ -125,11 +125,7 @@ class AuthApi constructor(
         }.body()
 
     /**
-     * Verify 2FA during login using a temporary token.
      * POST /api/auth/2fa/verify-temp with { tempToken, token: totpCode } or { tempToken, backupCode }.
-     *
-     * Pass exactly one of [totpCode] / [backupCode] — the backend TOTP-verifies whenever `token` is
-     * present and only falls through to the backup-code check when it is absent.
      */
     suspend fun verifyTempToken(
         tempToken: String,

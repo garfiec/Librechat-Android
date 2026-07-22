@@ -54,20 +54,22 @@ import org.koin.dsl.module
 
 expect val networkPlatformModule: Module
 
+/**
+ * Top-level (not inline in the Koin block) so wire-shape tests decode against the shipped instance.
+ * LenientInstantSerializerTest in core/model hand-mirrors these settings — update both together.
+ */
+val librechatJson: Json = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+    encodeDefaults = false
+    explicitNulls = false
+    coerceInputValues = true
+}
+
 val networkModule = module {
     includes(networkPlatformModule)
 
-    single {
-        // Hand-mirrored by LenientInstantSerializerTest in core/model (which cannot depend on this
-        // module) — a settings change here must be copied into that test's `networkJson`.
-        Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-            encodeDefaults = false
-            explicitNulls = false
-            coerceInputValues = true
-        }
-    }
+    single { librechatJson }
 
     // The switch barrier: one gate shared by both HTTP clients and (on iOS) the SSE transport, so a
     // single account switch flips URL + token key + identity atomically for all transports at once.

@@ -51,8 +51,6 @@ class TwoFactorViewModelTest {
 
     @Test
     fun `backup mode submits the code as a backup code`() = runTest {
-        // The backend verifies TOTP and backup codes by different fields, so the mode has to travel
-        // with the code — a backup code sent as a TOTP token can only ever fail.
         coEvery { authRepository.verifyTwoFactor(any(), any(), any()) } returns Result.Success(USER)
 
         val viewModel = createViewModel()
@@ -77,20 +75,40 @@ class TwoFactorViewModelTest {
         val state = viewModel.uiState.value
         assertThat(state.error).isEqualTo("Your temporary session has expired. Please sign in again.")
         assertThat(state.isVerified).isFalse()
-        // The entry is cleared so the user retypes rather than resubmitting the rejected code.
         assertThat(state.digits).containsExactlyElementsIn(List(6) { "" })
+        assertThat(state.codeAttempt).isEqualTo(1)
     }
 
     @Test
-    fun `falls back to a generic message when the failure carries no server message`() = runTest {
+    fun `a network failure is not reported as a bad code and keeps the entry`() = runTest {
         coEvery { authRepository.verifyTwoFactor(any(), any(), any()) } returns
             Result.Error(java.io.IOException("connection reset"), "connection reset")
 
         val viewModel = createViewModel()
-        viewModel.enterDigits("000000")
+        viewModel.enterDigits("123456")
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.error).isEqualTo("Invalid code. Please try again.")
+        val state = viewModel.uiState.value
+        assertThat(state.error).isEqualTo("Couldn't reach the server. Check your connection and try again.")
+        assertThat(state.digits.joinToString("")).isEqualTo("123456")
+        assertThat(state.codeAttempt).isEqualTo(0)
+    }
+
+    @Test
+    fun `retrying after a network failure resubmits the retained code`() = runTest {
+        coEvery { authRepository.verifyTwoFactor(any(), any(), any()) } returns
+            Result.Error(java.io.IOException("connection reset"), "connection reset")
+
+        val viewModel = createViewModel()
+        viewModel.enterDigits("123456")
+        advanceUntilIdle()
+
+        coEvery { authRepository.verifyTwoFactor(any(), any(), any()) } returns Result.Success(USER)
+        viewModel.submit()
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { authRepository.verifyTwoFactor(TEMP_TOKEN, "123456", false) }
+        assertThat(viewModel.uiState.value.isVerified).isTrue()
     }
 
     private companion object {

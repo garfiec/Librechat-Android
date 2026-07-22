@@ -162,8 +162,6 @@ class LoginViewModelTest {
 
     @Test
     fun `consumeTwoFactorNavigation clears the temp token`() = runTest {
-        // The Login entry's ViewModel is retained, so an unconsumed token would re-fire the screen's
-        // navigation effect the moment the user backs out of the 2FA screen.
         coEvery { authRepository.login("user@example.com", "password123") } returns
             Result.Success(LoginOutcome.TwoFactorRequired("temp-token-123"))
 

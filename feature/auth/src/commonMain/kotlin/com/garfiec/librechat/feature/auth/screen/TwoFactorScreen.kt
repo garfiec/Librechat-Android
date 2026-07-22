@@ -126,6 +126,7 @@ fun TwoFactorScreen(
                     digits = uiState.digits,
                     onDigitChange = viewModel::onDigitChanged,
                     enabled = !uiState.isLoading,
+                    focusResetKey = uiState.codeAttempt,
                 )
             }
 
@@ -140,21 +141,25 @@ fun TwoFactorScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (uiState.isBackupMode) {
-                Button(
-                    onClick = viewModel::submit,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading && uiState.backupCode.isNotBlank(),
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text(stringResource(Res.string.verify))
-                    }
+            // A full row normally auto-submits, but a kept entry (network error) needs an explicit
+            // button to move forward.
+            Button(
+                onClick = viewModel::submit,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading && if (uiState.isBackupMode) {
+                    uiState.backupCode.isNotBlank()
+                } else {
+                    uiState.digits.all { it.isNotEmpty() }
+                },
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text(stringResource(Res.string.verify))
                 }
             }
 
@@ -178,6 +183,7 @@ private fun DigitBoxes(
     digits: List<String>,
     onDigitChange: (Int, String) -> Unit,
     enabled: Boolean,
+    focusResetKey: Int,
     modifier: Modifier = Modifier,
 ) {
     val focusRequesters = remember { List(6) { FocusRequester() } }
@@ -210,8 +216,8 @@ private fun DigitBoxes(
         }
     }
 
-    // Focus first box on initial composition
-    LaunchedEffect(Unit) {
+    // Re-focus the first box on each rejected code: disabled boxes drop focus while the request runs.
+    LaunchedEffect(focusResetKey) {
         focusRequesters[0].requestFocus()
     }
 }

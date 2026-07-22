@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
@@ -14,6 +15,7 @@ import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 import com.garfiec.librechat.core.network.api.AuthApi
 import com.garfiec.librechat.core.network.api.UserApi
+import com.garfiec.librechat.core.network.api.dto.LoginResult
 import com.garfiec.librechat.core.network.client.PendingRequestIdentity
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
@@ -100,6 +102,21 @@ class AuthRepositoryImpl(
         ) { userApi.getUser() }
     }
 
+    private suspend fun stageAuthenticatedSession(result: LoginResult): User {
+        val user = result.response.user ?: throw incompleteAuthResponse("user")
+        val token = result.response.token ?: throw incompleteAuthResponse("token")
+        if (result.refreshToken == null) {
+            Logger.w { "Auth response carried no refresh token; this session cannot be renewed" }
+        }
+        tokenManager.setTokens(accessToken = token, refreshToken = result.refreshToken ?: "")
+        return user
+    }
+
+    private fun incompleteAuthResponse(missingField: String): IllegalStateException {
+        Logger.w { "Auth response was missing '$missingField'" }
+        return IllegalStateException("The server's sign-in response was incomplete. Please try again.")
+    }
+
     override suspend fun login(email: String, password: String): Result<LoginOutcome> {
         val pending = accountSwitcher.pendingAdd
         val previousAccountId = activeAccountProvider.currentAccountId()
@@ -112,18 +129,7 @@ class AuthRepositoryImpl(
                             ?: throw IllegalStateException("Server indicated 2FA required but tempToken was null"),
                     )
                 } else {
-                    // Validate BEFORE staging: a response missing either half is not a session, and
-                    // staging an empty pair would persist a blank token that reads as logged-in on the
-                    // next cold start and 401-storms until the user is bounced back to sign-in.
-                    val user = result.response.user
-                        ?: throw IllegalStateException("Login succeeded but user was null in response")
-                    val token = result.response.token
-                        ?: throw IllegalStateException("Login succeeded but token was null in response")
-                    tokenManager.setTokens(
-                        accessToken = token,
-                        // Absent is legitimate: the refresh token rides a Set-Cookie the server may omit.
-                        refreshToken = result.refreshToken ?: "",
-                    )
+                    val user = stageAuthenticatedSession(result)
                     // Establish identity (+ run the legacy claim) before session tasks fire, so their
                     // tenant writes are stamped to this account and reads filter to it.
                     establishSession(pending, user)
@@ -161,20 +167,12 @@ class AuthRepositoryImpl(
         val previousAccountId = activeAccountProvider.currentAccountId()
         return safeApiCall {
             withAuthIdentity(pending) {
-                // The backend TOTP-verifies whenever `token` is present, so a backup code has to
-                // travel in its own field or it can never match.
                 val result = authApi.verifyTempToken(
                     tempToken = tempToken,
                     totpCode = code.takeUnless { isBackupCode },
                     backupCode = code.takeIf { isBackupCode },
                 )
-                // Validate before staging — see login().
-                val user = result.response.user ?: throw IllegalStateException("No user in 2FA response")
-                val token = result.response.token ?: throw IllegalStateException("No token in 2FA response")
-                tokenManager.setTokens(
-                    accessToken = token,
-                    refreshToken = result.refreshToken ?: "",
-                )
+                val user = stageAuthenticatedSession(result)
                 establishSession(pending, user)
                 user
             }

@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.network.api
 
+import com.garfiec.librechat.core.network.di.librechatJson
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -20,31 +21,14 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Test
 
-/**
- * Wire-shape tests for the login + 2FA endpoints, against payloads copied from the upstream
- * controllers (`api/server/controllers/auth/LoginController.js`,
- * `api/server/controllers/auth/TwoFactorAuthController.js`).
- *
- * These exist because issue #277 was a pure naming mismatch — the client modelled the 2FA flag as
- * `twoFactorRequired`, a name that never existed upstream, and `ignoreUnknownKeys` dropped it
- * silently. Nothing in the suite deserialized a real backend body, so no test could see it.
- */
+/** Wire-shape tests for the login + 2FA endpoints, against payloads from the upstream controllers. */
 class AuthApiLoginTest {
 
-    /** Mirrors the client Json in `NetworkModule.kt` — `explicitNulls = false` matters here. */
-    private val json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-        encodeDefaults = false
-        explicitNulls = false
-        coerceInputValues = true
-    }
+    private val json = librechatJson
 
     private fun api(engine: MockEngine): AuthApi = AuthApi(
         HttpClient(engine) {
             install(ContentNegotiation) { json(json) }
-            // AuthApi builds relative paths and sets no Content-Type; the real graph supplies both
-            // via defaultRequest (LibreChatHttpClient.kt).
             defaultRequest {
                 url("https://chat.example.com")
                 contentType(ContentType.Application.Json)
@@ -56,7 +40,6 @@ class AuthApiLoginTest {
 
     @Test
     fun `login parses the twoFAPending challenge`() = runTest {
-        // Verbatim upstream: LoginController returns 200 with no token and no user.
         val engine = MockEngine {
             respond(
                 content = """{"twoFAPending":true,"tempToken":"temp-abc"}""",
@@ -117,8 +100,6 @@ class AuthApiLoginTest {
 
     @Test
     fun `verifyTempToken sends a backup code as backupCode and omits token`() = runTest {
-        // The backend branches `if (token) verifyTOTP else if (backupCode) verifyBackupCode`, so a
-        // backup code that travels in `token` is TOTP-verified and can only ever 401.
         var body: String? = null
         val engine = MockEngine { request ->
             body = String(request.body.toByteArray())

@@ -94,13 +94,6 @@ abstract class CommonTokenDataStore(
         return cachedAccessToken.nonBlankOrNull()
     }
 
-    /**
-     * A blank token is not a session. Nothing should persist one, but builds before the issue #277 fix
-     * staged `""` when a login response arrived without a token, and that empty string reads as
-     * "authenticated" everywhere the bearer is null-checked — cold-starting those installs into the
-     * app proper, where every request 401s until the session-expired path throws them out. Coercing at
-     * the read boundary lets them start logged out instead. (The refresh path already blank-checks.)
-     */
     private fun String?.nonBlankOrNull(): String? = this?.takeUnless { it.isBlank() }
 
     // The bare key (null account) is the logged-out / legacy / mid-auth-staging fallback; a resolved
@@ -186,7 +179,7 @@ abstract class CommonTokenDataStore(
         // restore of already-keyed tokens whose mirror diverged), leave the keyed slot intact.
         // Crash-safe ordering: write the keyed slot, THEN the mirror, and only then drop the staging
         // keys — an interruption before the mirror write re-stages on the next resolve.
-        val stagedAccess = readValue(KEY_ACCESS_TOKEN)
+        val stagedAccess = readValue(KEY_ACCESS_TOKEN).nonBlankOrNull()
         val stagedRefresh = readValue(KEY_REFRESH_TOKEN)
         val rehomed = stagedAccess != null && stagedRefresh != null
         if (rehomed) {
