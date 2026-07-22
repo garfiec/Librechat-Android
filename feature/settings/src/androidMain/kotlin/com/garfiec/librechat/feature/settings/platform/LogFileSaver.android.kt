@@ -7,9 +7,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 
 /**
- * Android diagnostic-log saver. Uses the Storage Access Framework `CreateDocument` contract
- * (`application/json` MIME) and writes [content] via the resolved `OutputStream`. Mirrors the
- * `feature:conversations` `FileSaver` Android actual.
+ * Android diagnostic-log saver. Uses the Storage Access Framework `CreateDocument` contract and
+ * writes [content] via the resolved `OutputStream`. Mirrors the `feature:conversations` `FileSaver`
+ * Android actual.
+ *
+ * The MIME type must stay `application/octet-stream` or SAF appends `.json` to the `.jsonl` name.
  */
 @Composable
 actual fun LogFileSaver(
@@ -21,20 +23,22 @@ actual fun LogFileSaver(
     val context = LocalContext.current
 
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json"),
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
-        if (uri != null && content != null) {
-            try {
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(content.toByteArray())
+        when {
+            uri == null -> onComplete(false, null)
+            content == null -> onComplete(false, "Export data was lost — please try again")
+            else -> try {
+                val outputStream = context.contentResolver.openOutputStream(uri)
+                if (outputStream == null) {
+                    onComplete(false, "Could not open the selected file for writing")
+                } else {
+                    outputStream.use { it.write(content.toByteArray()) }
+                    onComplete(true, null)
                 }
-                onComplete(true, null)
             } catch (e: Exception) {
-                onComplete(false, e.message)
+                onComplete(false, e.message ?: "Could not write export file")
             }
-        } else {
-            // User cancelled the picker.
-            onComplete(false, null)
         }
         onReset()
     }
