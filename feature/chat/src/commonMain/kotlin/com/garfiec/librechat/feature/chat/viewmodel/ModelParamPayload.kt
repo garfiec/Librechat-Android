@@ -42,13 +42,12 @@ object ModelParamPayload {
         for (definition in definitions) {
             val key = definition.key
             val raw = params.getValueForKey(key)
-            // "Changed" is measured against the default composer state (ModelParameters.DEFAULT), NOT
-            // the definition.default — the two can disagree (e.g. Anthropic promptCache's definition
-            // default is "true" but getValueForKey falls back to "false"). Comparing against the composer
-            // default keeps an untouched sheet from emitting anything (including spurious promptCache=false),
-            // while still transmitting any value the user actually changed. Mere presence in `dynamicValues`
-            // is NOT enough — the sheet seeds default-valued entries there on open, which must not be sent.
-            if (raw == ModelParameters.DEFAULT.getValueForKey(key) || raw.isBlank()) continue
+            // Skip any value the server would apply on its own: a blank (unset), the composer baseline
+            // (ModelParameters.DEFAULT), or the provider-specific registry default. The registry default
+            // must be checked too — for a dynamic-only key like promptCache the composer baseline is ""
+            // (empty dynamicValues), so a seeded default-valued entry would otherwise be over-sent. Mere
+            // presence in `dynamicValues` is not "changed": the sheet seeds default-valued entries on open.
+            if (raw.isBlank() || raw == ModelParameters.DEFAULT.getValueForKey(key) || raw == definition.default) continue
             out[key] = encode(definition.type, raw)
         }
         return JsonObject(out)

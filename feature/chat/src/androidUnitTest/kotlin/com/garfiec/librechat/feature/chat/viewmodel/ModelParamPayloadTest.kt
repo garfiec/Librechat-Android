@@ -38,18 +38,21 @@ class ModelParamPayloadTest {
     }
 
     @Test
-    fun `promptCache toggled on is transmitted as a boolean`() {
-        val params = ModelParameters.DEFAULT.copy(dynamicValues = mapOf("promptCache" to "true"))
+    fun `promptCache opt-out is transmitted as a boolean`() {
+        // Anthropic caches by default (registry default "true"), so turning it OFF is a real change and
+        // must be sent — encoded as a JSON boolean, not the string "false".
+        val params = ModelParameters.DEFAULT.copy(dynamicValues = mapOf("promptCache" to "false"))
         val result = build(params)
-        assertTrue(result["promptCache"]!!.jsonPrimitive.boolean)
+        assertEquals(false, result["promptCache"]?.jsonPrimitive?.boolean)
     }
 
     @Test
     fun `default-valued params are not over-sent`() {
-        // Regression guard: the sheet seeds default-valued entries into dynamicValues on open; those
-        // must NOT be transmitted (no promptCache=false, no topP=1.0, etc.) on an untouched chat.
+        // Regression guard: the sheet seeds default-valued entries into dynamicValues on open; a value
+        // equal to its default (the provider registry default for promptCache, the composer default for
+        // top_p/topP) must NOT be transmitted on an untouched chat.
         val seeded = ModelParameters.DEFAULT.copy(
-            dynamicValues = mapOf("promptCache" to "false", "top_p" to "1.0", "topP" to "1.0"),
+            dynamicValues = mapOf("promptCache" to "true", "top_p" to "1.0", "topP" to "1.0"),
         )
         val result = build(seeded)
         assertNull(result["promptCache"])
