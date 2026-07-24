@@ -5,6 +5,10 @@
     <string name="delete">删除</string>
     <string name="cancel">取消</string>
     <string name="done">完成</string>
+    <string name="discard">放弃</string>
+    <string name="keep_selecting">继续选择</string>
+    <string name="discard_selection_title">放弃选择？</string>
+    <string name="discard_selection_message">已选择的文件将被取消选择。</string>
 
     <!-- Content descriptions -->
     <string name="cd_exit_edit_mode">退出编辑模式</string>

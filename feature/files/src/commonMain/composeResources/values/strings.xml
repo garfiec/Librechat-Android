@@ -5,6 +5,12 @@
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
     <string name="done">Done</string>
+    <string name="discard">Discard</string>
+    <string name="keep_selecting">Keep selecting</string>
+
+    <!-- Discard-selection confirmation -->
+    <string name="discard_selection_title">Discard selection?</string>
+    <string name="discard_selection_message">Your selected files will be deselected.</string>
 
     <!-- Content descriptions -->
     <string name="cd_exit_edit_mode">Exit edit mode</string>

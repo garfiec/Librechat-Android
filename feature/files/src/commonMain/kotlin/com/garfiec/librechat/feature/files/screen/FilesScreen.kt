@@ -77,6 +77,7 @@ import coil3.compose.AsyncImage
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.ui.components.EmptyState
 import com.garfiec.librechat.core.ui.components.ErrorBanner
+import com.garfiec.librechat.core.ui.components.PlatformBackHandler
 import com.garfiec.librechat.core.ui.media.MediaActionBar
 import com.garfiec.librechat.core.ui.media.ZoomableMediaPager
 import com.garfiec.librechat.core.ui.media.rememberSaveImageToGallery
@@ -119,6 +120,20 @@ fun FilesScreen(
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var singleDeleteFileId by remember { mutableStateOf<String?>(null) }
     var showSortMenu by remember { mutableStateOf(false) }
+    var showCancelSelectionConfirmation by remember { mutableStateOf(false) }
+
+    val requestExitSelection = {
+        if (uiState.selectedFileIds.isEmpty()) {
+            viewModel.exitSelectionMode()
+        } else {
+            showCancelSelectionConfirmation = true
+        }
+    }
+
+    // Gated so it never arms in picker mode (back should close the picker) or outside selection mode.
+    PlatformBackHandler(enabled = uiState.isSelectionMode && !pickerMode) {
+        requestExitSelection()
+    }
 
     val filePickerLauncher = rememberFilePickerLauncher(
         onFilePick = { fileRef -> viewModel.uploadFile(fileRef) },
@@ -165,7 +180,7 @@ fun FilesScreen(
                 TopAppBar(
                     title = { SelectionCountTitle(uiState.selectedFileIds.size) },
                     navigationIcon = {
-                        IconButton(onClick = { viewModel.exitSelectionMode() }) {
+                        IconButton(onClick = requestExitSelection) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(Res.string.cd_exit_edit_mode),
@@ -421,6 +436,36 @@ fun FilesScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmation = false }) {
                     Text(stringResource(Res.string.cancel))
+                }
+            },
+        )
+    }
+
+    // Cancel-selection confirmation (back gesture / close with files selected)
+    if (showCancelSelectionConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showCancelSelectionConfirmation = false },
+            title = { Text(stringResource(Res.string.discard_selection_title)) },
+            text = {
+                Text(
+                    text = stringResource(Res.string.discard_selection_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.exitSelectionMode()
+                    showCancelSelectionConfirmation = false
+                }) {
+                    Text(
+                        text = stringResource(Res.string.discard),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelSelectionConfirmation = false }) {
+                    Text(stringResource(Res.string.keep_selecting))
                 }
             },
         )

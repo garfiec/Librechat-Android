@@ -5,6 +5,10 @@
     <string name="delete">حذف</string>
     <string name="cancel">إلغاء</string>
     <string name="done">تم</string>
+    <string name="discard">تجاهل</string>
+    <string name="keep_selecting">متابعة التحديد</string>
+    <string name="discard_selection_title">تجاهل التحديد؟</string>
+    <string name="discard_selection_message">سيتم إلغاء تحديد الملفات المحددة.</string>
 
     <!-- Content descriptions -->
     <string name="cd_exit_edit_mode">الخروج من وضع التعديل</string>

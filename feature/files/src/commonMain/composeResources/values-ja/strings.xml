@@ -5,6 +5,10 @@
     <string name="delete">削除</string>
     <string name="cancel">キャンセル</string>
     <string name="done">完了</string>
+    <string name="discard">破棄</string>
+    <string name="keep_selecting">選択を続ける</string>
+    <string name="discard_selection_title">選択を破棄しますか？</string>
+    <string name="discard_selection_message">選択したファイルの選択が解除されます。</string>
 
     <!-- Content descriptions -->
     <string name="cd_exit_edit_mode">編集モードを終了</string>

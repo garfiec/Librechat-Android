@@ -5,6 +5,10 @@
     <string name="delete">Löschen</string>
     <string name="cancel">Abbrechen</string>
     <string name="done">Fertig</string>
+    <string name="discard">Verwerfen</string>
+    <string name="keep_selecting">Weiter auswählen</string>
+    <string name="discard_selection_title">Auswahl verwerfen?</string>
+    <string name="discard_selection_message">Die Auswahl der markierten Dateien wird aufgehoben.</string>
 
     <!-- Content descriptions -->
     <string name="cd_exit_edit_mode">Bearbeitungsmodus verlassen</string>
