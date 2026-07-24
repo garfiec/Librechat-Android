@@ -14,6 +14,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.headersOf
+import io.ktor.serialization.ContentConvertException
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -116,5 +117,26 @@ class AuthApiLoginTest {
         assertThat(sent["tempToken"]?.jsonPrimitive?.content).isEqualTo("temp-abc")
         assertThat(sent["backupCode"]?.jsonPrimitive?.content).isEqualTo("abcd1234")
         assertThat(sent).doesNotContainKey("token")
+    }
+
+    @Test
+    fun `verifyTempToken wraps an undecodable 2xx body as ContentConvertException`() = runTest {
+        // Pins the exact type the repository's classifier keys on: Ktor's ContentNegotiation wraps
+        // every 2xx body decode failure in JsonConvertException (a ContentConvertException), NOT a
+        // bare kotlinx SerializationException. A malformed success body must surface as this type so
+        // the repository can report "code consumed, session incomplete" instead of a connectivity lie.
+        val engine = MockEngine {
+            respond(
+                content = """{"token":"jwt-1","user":{"_id":123}""", // truncated + wrong-typed: undecodable
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+
+        val error = runCatching {
+            api(engine).verifyTempToken(tempToken = "temp-abc", totpCode = "123456")
+        }.exceptionOrNull()
+
+        assertThat(error).isInstanceOf(ContentConvertException::class.java)
     }
 }

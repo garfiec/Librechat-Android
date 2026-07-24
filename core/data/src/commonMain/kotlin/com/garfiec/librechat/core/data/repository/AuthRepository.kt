@@ -3,12 +3,20 @@ package com.garfiec.librechat.core.data.repository
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
+import com.garfiec.librechat.core.model.VerifyTwoFactorOutcome
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 
 interface AuthRepository {
     suspend fun login(email: String, password: String): Result<LoginOutcome>
     suspend fun loginWithOAuthToken(refreshToken: String): Result<User>
-    suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean = false): Result<User>
+
+    /**
+     * Verifies a 2FA temp-token session. Returns a closed [VerifyTwoFactorOutcome] (not a
+     * [Result]) — this repository owns the backend's error contract and classifies every
+     * failure exactly once, so callers get an exhaustive `when` instead of re-deriving
+     * semantics from status codes and exception types.
+     */
+    suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean = false): VerifyTwoFactorOutcome
     suspend fun register(name: String, email: String, username: String, password: String): Result<Unit>
     suspend fun logout(): Result<Unit>
     suspend fun isLoggedIn(): Boolean

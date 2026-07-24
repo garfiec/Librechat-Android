@@ -6,12 +6,14 @@ import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.SessionManager
 import com.garfiec.librechat.core.common.identity.currentAccountId
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.AccountRegistry
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
+import com.garfiec.librechat.core.model.VerifyTwoFactorOutcome
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 import com.garfiec.librechat.core.network.api.AuthApi
 import com.garfiec.librechat.core.network.api.UserApi
@@ -19,8 +21,13 @@ import com.garfiec.librechat.core.network.api.dto.LoginResult
 import com.garfiec.librechat.core.network.client.PendingRequestIdentity
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
+import io.ktor.serialization.ContentConvertException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+
+/** Surfaced when a 2xx auth response yields no usable session (missing fields or unparseable). */
+internal const val INCOMPLETE_AUTH_MESSAGE = "The server's sign-in response was incomplete. Please try again."
 
 class AuthRepositoryImpl(
     private val authApi: AuthApi,
@@ -112,9 +119,12 @@ class AuthRepositoryImpl(
         return user
     }
 
+    // A missing user/token on a 2xx is caught by phase 2's `catch (e: Exception)` (verify) or by
+    // safeApiCall (login/OAuth) exactly as any other Exception — no caller ever discriminates the
+    // type, so a plain IllegalStateException carries the same behaviour with no bespoke class to trace.
     private fun incompleteAuthResponse(missingField: String): IllegalStateException {
         Logger.w { "Auth response was missing '$missingField'" }
-        return IllegalStateException("The server's sign-in response was incomplete. Please try again.")
+        return IllegalStateException(INCOMPLETE_AUTH_MESSAGE)
     }
 
     override suspend fun login(email: String, password: String): Result<LoginOutcome> {
@@ -162,21 +172,74 @@ class AuthRepositoryImpl(
         }.fireSessionTasksIfLoggedIn(previousAccountId)
     }
 
-    override suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean): Result<User> {
+    override suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean): VerifyTwoFactorOutcome {
         val pending = accountSwitcher.pendingAdd
         val previousAccountId = activeAccountProvider.currentAccountId()
-        return safeApiCall {
+
+        // Phase 1 — the wire exchange only. safeApiCall captures its exceptions and
+        // classifyVerifyFailure reads the backend's verdict off them. Nothing local mutates here,
+        // so every exception the classifier sees is genuinely about the request — not a commit fault
+        // misreported as a wire outcome.
+        val wire = safeApiCall {
             withAuthIdentity(pending) {
-                val result = authApi.verifyTempToken(
+                authApi.verifyTempToken(
                     tempToken = tempToken,
                     totpCode = code.takeUnless { isBackupCode },
                     backupCode = code.takeIf { isBackupCode },
                 )
-                val user = stageAuthenticatedSession(result)
+            }
+        }
+        val loginResult = when (wire) {
+            is Result.Success -> wire.data
+            is Result.Error -> return classifyVerifyFailure(wire.exception)
+            is Result.Loading -> error("safeApiCall never returns Loading")
+        }
+
+        // Phase 2 — the server accepted (consumed) the single-use code. Commit atomically under
+        // NonCancellable so a scope death mid-commit can't leave tokens staged without the account
+        // established. A fault here is NOT a wire verdict: the code is already spent, so it maps to
+        // SessionIncomplete (clear the entry, honest message) — never a connectivity lie or a doomed
+        // retry of a consumed code.
+        return try {
+            val user = withContext(NonCancellable) {
+                val user = stageAuthenticatedSession(loginResult)
                 establishSession(pending, user)
                 user
             }
-        }.fireSessionTasksIfLoggedIn(previousAccountId)
+            Result.Success(user).fireSessionTasksIfLoggedIn(previousAccountId)
+            VerifyTwoFactorOutcome.Success(user)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w(e) { "2FA code accepted but session commit failed" }
+            // stageAuthenticatedSession already wrote the token pair; roll it back so a failed commit
+            // can't leave an orphaned session behind (see rollbackStagedSession).
+            rollbackStagedSession(pending)
+            VerifyTwoFactorOutcome.SessionIncomplete(INCOMPLETE_AUTH_MESSAGE)
+        }
+    }
+
+    /**
+     * Undoes the credentials staged in phase 2 when the session commit faults *after* the server has
+     * already consumed the code. Without this the access/refresh pair set by [stageAuthenticatedSession]
+     * lingers in the store with no established account, and a later [TokenManager.onAccountResolved]
+     * could silently re-home a session the user was just told had failed. Best-effort and
+     * NonCancellable so a scope death mid-rollback can't strand the leak.
+     *
+     * The primitive depends on the flow:
+     * - Fresh sign-in ([pending] == null, logged-out target): the staged bare pair — or a keyed slot a
+     *   partly-completed [establishSession] already re-homed via `onAccountResolved` — is the only
+     *   session, so a full [TokenManager.clearTokens] teardown is both safe and complete.
+     * - Add-account ([pending] != null): [AccountSwitcher.completeAdd] already restored the outgoing
+     *   account's binding on its own failure, so only the staged bare pair needs dropping;
+     *   [TokenManager.clearTokens] would tear down the still-live outgoing account.
+     */
+    private suspend fun rollbackStagedSession(pending: PendingAddSession?) {
+        withContext(NonCancellable) {
+            runCatching {
+                if (pending == null) tokenManager.clearTokens() else tokenManager.clearStagedTokens()
+            }.onFailure { Logger.w(it) { "2FA rollback: staged-session clear failed" } }
+        }
     }
 
     override suspend fun register(
@@ -311,4 +374,37 @@ class AuthRepositoryImpl(
             authApi.resetPassword(userId, token, password, confirmPassword)
         }
     }
+}
+
+/**
+ * Classifies a failed 2FA verify **wire exchange** against the backend's contract
+ * (`upstream/api/server/controllers/auth/TwoFactorAuthController.js`):
+ * - 401 is the only status where the server evaluated the submission (wrong/expired code, or
+ *   expired temp session) — the entered code is spent.
+ * - Every other HTTP answer (400 malformed, 429 rate-limited, 5xx fault) refused or failed the
+ *   request *before* judging the code.
+ * - A 2xx whose body couldn't be decoded means the server accepted (consumed) the single-use code
+ *   without yielding a usable session.
+ *
+ * Only wire exceptions reach here (the session commit is classified separately, in phase 2 of
+ * [verifyTwoFactor]). Top-level and internal so unit tests exercise the mapping directly.
+ */
+internal fun classifyVerifyFailure(e: Throwable?): VerifyTwoFactorOutcome = when {
+    // A 2xx the client couldn't decode into a session. Ktor's ContentNegotiation wraps every
+    // response-body decode failure in ContentConvertException (JsonConvertException) — which does
+    // NOT extend kotlinx SerializationException, so we key on the Ktor type. The single-use code was
+    // consumed server-side, so the entry must clear, not invite a doomed retry.
+    //
+    // Deliberate boundary: this treats EVERY undecodable JSON-typed 2xx as "code consumed", including
+    // the rarer case where a proxy/gateway truncates a response that never reached the 2FA controller
+    // (so the code was NOT actually consumed). Clearing is still safe there because the temp token is a
+    // reusable JWT — only the TOTP/backup code is single-use — so the user just enters a fresh code and
+    // the same tempToken re-verifies within seconds. Keeping the entry instead would reintroduce the
+    // spent-code retry this PR set out to remove for the (more likely) genuine backend-consumed case.
+    // A `200 text/html` from a proxy throws NoTransformationFoundException, not a ContentConvertException,
+    // and falls to ConnectionFailure — an HTML 200 usually means the request never reached the backend.
+    e is ContentConvertException -> VerifyTwoFactorOutcome.SessionIncomplete(INCOMPLETE_AUTH_MESSAGE)
+    e is ApiException && e.statusCode == 401 -> VerifyTwoFactorOutcome.CodeRejected(e.message)
+    e is ApiException -> VerifyTwoFactorOutcome.NotEvaluated(e.message)
+    else -> VerifyTwoFactorOutcome.ConnectionFailure
 }
