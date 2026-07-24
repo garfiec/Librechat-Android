@@ -26,7 +26,11 @@ enum class BackendBuildClass {
  * field), e.g. "0.8.7" or "0.8.8-rc1". For [BackendBuildClass.DEV] builds this UNDERSTATES
  * the server: upstream bumps package.json only at rc prep, so a dev build carrying
  * next-release features still reports the previous release. [commitDate] (ISO `yyyy-MM-dd`,
- * committer date of the build commit) disambiguates — see `BackendVersion.supportsFeature`.
+ * UTC committer date of the build commit) disambiguates — see `BackendVersion.supportsFeature`.
+ *
+ * Commit-map resolution covers upstream commits only up to the app's pinned submodule commit;
+ * a server built from a later commit resolves to null (no DetectedBackend at all), so
+ * everything downstream fails closed until the next sync regenerates the map.
  */
 data class DetectedBackend(
     val version: String,

@@ -21,9 +21,13 @@ The canonical API for version comparisons lives in
   recognizes servers built from UNTAGGED upstream dev commits. Upstream bumps package.json only
   at rc prep, so a dev build carrying next-release features still reports the previous release;
   this helper falls back to comparing the server build commit's date (from `BackendCommitMap`)
-  against the ISO date the feature landed upstream (`git log --format=%cs` of the landing
-  commit). Use for features synced ahead of any tag (partial syncs). Fails CLOSED on null
-  `detected`.
+  against the ISO **UTC** date the feature landed upstream
+  (`TZ=UTC git log -1 --date=format-local:%Y-%m-%d --format=%cd <landing-commit>` — NOT `%cs`,
+  which renders per-committer timezones and is non-monotonic on upstream's history). Use for
+  features synced ahead of any tag (partial syncs). Fails CLOSED on null `detected` — note the
+  commit map only covers commits up to the app's pinned submodule commit, so a server built
+  from a LATER commit resolves to null and hides date-gated features until the next
+  sync/regeneration (accepted fail-safe tradeoff).
 
 The detected server version is exposed via `ConfigRepository.detectedBackendVersion`
 (plain string) and `ConfigRepository.detectedBackend` (rich `DetectedBackend`: version +
@@ -79,11 +83,13 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
 - **Prerelease-aware ordering (2026-07-24):** `parse()` now RETAINS the prerelease suffix and
   `isCompatibleOrNewer` orders it (`rc1 < rc2 < final`), enabling rc-granularity gates for rc/partial
   syncs. Because a bare `"0.8.7"` threshold now *excludes* `0.8.7-rc*` servers (the old
-  strip-and-compare treated them as equal), every pre-existing gate threshold was relaxed to the rc1
-  of its line (`"0.8.5"` → `"0.8.5-rc1"`, `"0.8.7"` → `"0.8.7-rc1"`) — the gated features all
-  shipped before their line's rc1 was cut, so this preserves the previously-observed behavior for rc
-  servers exactly. The catalog's "Gated since" column reads as "the release line", with the actual
-  call-site threshold at that line's rc1.
+  strip-and-compare treated them as equal), each pre-existing gate threshold was re-verified against
+  the upstream tags and set to the FIRST version actually carrying its feature:
+  - Relaxed to rc1 (feature present in the rc): `isCollaborative` + `xhigh` → `"0.8.5-rc1"`;
+    move-to-project, Projects browse UI, and ShareRepository's modern-shape check → `"0.8.7-rc1"`.
+  - Kept at the final (feature landed BETWEEN rc1 and final — the old strip-based gates wrongly
+    enabled these on rc servers, now fixed): pin (`POST /api/convos/pin`, upstream 743f57f63)
+    and the context gauge (`/api/endpoints/context-projection`, upstream fdc7e64bb) → `"0.8.7"`.
 - **Partial-sync gates:** features synced from UNTAGGED upstream commits gate via
   `supportsFeature(detected, minVersion, landedDate)` where `minVersion` is the upcoming rc line
   (e.g. `"0.8.8-rc1"` before that tag exists) and `landedDate` is the ISO committer date of the

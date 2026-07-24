@@ -36,6 +36,12 @@ object BackendVersion {
      * sorts BELOW its release (`0.8.8-rc1 < 0.8.8`). Prereleases of the same triple compare
      * by label then numeric suffix (`alpha < beta < rc`, `rc1 < rc2`). Build metadata (`+…`)
      * never reaches here — [parse] strips it.
+     *
+     * CAUTION: data-class `equals` compares [preRelease] as a raw string, so `compareTo` is
+     * NOT consistent with `equals` for spelling variants ("rc1" vs "rc.1" compare equal but
+     * are not `equals`), and the constructor bypasses [parse]'s lowercasing. Compare versions
+     * with the comparison operators / [BackendVersion] helpers, not `==`, and don't use this
+     * type as a map/set key across differently-spelled sources.
      */
     data class SemanticVersion(
         val major: Int,
@@ -168,9 +174,18 @@ object BackendVersion {
      * dev build reports "0.8.7") — [isCompatibleOrNewer] alone would hide the feature. This
      * helper first applies the version gate, then falls back to the build commit's DATE for
      * DEV-classified servers: if the server's build commit is at or after the day the feature
-     * landed upstream, the feature is present. Dates are ISO `yyyy-MM-dd` (committer date of
-     * the upstream commit, `git log --format=%cs`) and compare lexicographically. Upstream
-     * squash-merges onto a linear dev history, so committer dates are effectively monotonic.
+     * landed upstream, the feature is present. Dates are ISO `yyyy-MM-dd` in UTC — derive
+     * landedDate with `TZ=UTC git log -1 --date=format-local:%Y-%m-%d --format=%cd <commit>`,
+     * matching how the commit map bakes dates — and compare lexicographically. Upstream
+     * squash-merges stamp commit times at merge, so in a single timezone the dates are
+     * monotonic (verified over the map window; per-committer-timezone `%cs` dates are NOT
+     * monotonic and must not be used for landedDate).
+     *
+     * Coverage window: the commit map knows tags plus dev commits only UP TO the app's pinned
+     * upstream commit. A server built from a LATER commit resolves to no version at all
+     * (null [detected]), so this helper fails closed — a server tracking upstream `latest`
+     * drifts past the pin within days of a sync, hiding date-gated features again until the
+     * next sync/regeneration. Accepted fail-safe tradeoff; documented in VERSION_GATES.md.
      *
      * Fail-closed on null [detected]: an unresolved server hides date-gated features, matching
      * the VERSION_GATES.md v0.8.7 precedent (surfacing an action that 404s is worse than

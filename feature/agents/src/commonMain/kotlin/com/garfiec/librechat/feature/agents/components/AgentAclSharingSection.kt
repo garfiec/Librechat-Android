@@ -69,7 +69,7 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * v0.8.5+ ACL-based sharing section. List grants, grant new principals, toggle
  * public access, revoke. Gate this composable at the call site behind
- * BackendVersion.isCompatibleOrNewer(actual, "0.8.5"); on older servers, keep
+ * BackendVersion.isCompatibleOrNewer(actual, "0.8.5-rc1"); on older servers, keep
  * showing the legacy [AgentSharingSection].
  */
 @OptIn(ExperimentalMaterial3Api::class)

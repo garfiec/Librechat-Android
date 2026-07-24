@@ -72,7 +72,10 @@ val generateBackendCommitMap = tasks.register("generateBackendCommitMap") {
         var gitCalls = 0
         fun git(vararg args: String): String {
             gitCalls++
-            val proc = ProcessBuilder(listOf("git", *args)).directory(upstreamDir).start()
+            // TZ=UTC so --date=format-local renders committer dates in UTC regardless of the
+            // build machine's timezone — the emitted dates must be machine-independent.
+            val proc = ProcessBuilder(listOf("git", *args)).directory(upstreamDir)
+                .also { it.environment()["TZ"] = "UTC" }.start()
             val out = proc.inputStream.bufferedReader().readText()
             val err = proc.errorStream.bufferedReader().readText()
             if (proc.waitFor() != 0) error("git ${args.joinToString(" ")} failed: $err")
@@ -130,12 +133,17 @@ val generateBackendCommitMap = tasks.register("generateBackendCommitMap") {
             }
         }
 
-        // Commit dates (ISO committer date, %cs): the disambiguator for DEV builds, whose
-        // package.json still reports the previous release. Batch-resolved in chunks — one git call
-        // per 500 commits, not one per commit.
+        // Commit dates (ISO committer date, rendered in UTC): the disambiguator for DEV builds,
+        // whose package.json still reports the previous release. UTC — NOT %cs — because %cs renders
+        // in each committer's own timezone, and upstream's mixed +0900/-0400 committers produce
+        // date-order inversions on a history that is monotonic in real time (GitHub squash-merge
+        // stamps commit times at merge). A single timezone restores monotonic dates. landedDate
+        // values in gates must be derived the same way (see VERSION_GATES.md). Batch-resolved in
+        // chunks — one git call per 500 commits, not one per commit.
         val prefixToDate = hashMapOf<String, String>()
+        val utcDateArgs = arrayOf("-c", "core.pager=cat", "show", "-s", "--date=format-local:%Y-%m-%d", "--format=%H %cd")
         prefixToVersion.keys.chunked(500).forEach { chunk ->
-            git("show", "-s", "--format=%H %cs", *chunk.map { prefixToFullSha.getValue(it) }.toTypedArray())
+            git(*utcDateArgs, *chunk.map { prefixToFullSha.getValue(it) }.toTypedArray())
                 .lineSequence().filter { it.isNotBlank() }.forEach { line ->
                     val (sha, date) = line.split(' ')
                     prefixToDate[sha.take(hashPrefixLen).lowercase()] = date

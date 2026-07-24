@@ -1384,8 +1384,10 @@ class ChatViewModel(
                 Triple(role, config?.interfaceConfig, version)
             }.distinctUntilChanged().collect { (role, iface, version) ->
                 // Context gauge needs the v0.8.7 SSE/endpoints; fail-closed on older/unknown.
+                // Threshold is the FINAL, not rc1: /api/endpoints/context-projection landed
+                // between v0.8.7-rc1 and v0.8.7 (upstream fdc7e64bb), so rc1 servers 404 it.
                 val contextGaugeSupported = version != null &&
-                    BackendVersion.isCompatibleOrNewer(version, "0.8.7-rc1")
+                    BackendVersion.isCompatibleOrNewer(version, "0.8.7")
 
                 // Effective gate = role permission AND interface flag, both fail-open
                 // (null role → permissive; absent/omitted flag → enabled).
