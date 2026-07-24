@@ -1,7 +1,7 @@
 # Upstream Paths to Watch
 
 These are the directories and files in the `upstream/` submodule that matter for mobile parity.
-Use these paths when generating focused diffs between tags.
+Use these paths when generating focused diffs between the current baseline commit (UPSTREAM_VERSION commit=) and the target ref (tag, rc tag, or untagged commit for partial syncs).
 
 ## Server: Routes, Controllers, Middleware, Services
 
@@ -64,7 +64,7 @@ Use these paths when generating focused diffs between tags.
 ## Release Notes (authoritative)
 
 GitHub Releases often explicitly flag breaking changes and migrations that diffs hide.
-For every stable tag between current and target (inclusive):
+For every stable or rc tag between current baseline and target (inclusive; untagged partial targets have no release notes — scan merged PRs and commit subjects instead):
 ```bash
 gh api repos/danny-avila/LibreChat/releases/tags/{tag} --jq .body
 ```
@@ -76,7 +76,7 @@ Upstream has no repo-root `CHANGELOG.md` — release notes on GitHub are the can
 
 Overview:
 ```bash
-cd upstream && git diff {old_tag}..{new_tag} --stat -- \
+cd upstream && git diff {base_commit}..{target_commit} --stat -- \
   api/server/routes/ \
   api/server/controllers/ \
   api/server/middleware/ \
@@ -96,12 +96,12 @@ cd upstream && git diff {old_tag}..{new_tag} --stat -- \
 
 For detailed diffs, run each path separately to keep output manageable:
 ```bash
-cd upstream && git diff {old_tag}..{new_tag} -- packages/data-provider/src/api-endpoints.ts
+cd upstream && git diff {base_commit}..{target_commit} -- packages/data-provider/src/api-endpoints.ts
 ```
 
 ## Commit-message scan (complements the diff)
 
 ```bash
-cd upstream && git log --oneline {old_tag}..{new_tag}
+cd upstream && git log --oneline {base_commit}..{target_commit}
 ```
 Breaking changes are frequently summarized in subject lines (e.g., `BREAKING CHANGE:`, `refactor!:`).
