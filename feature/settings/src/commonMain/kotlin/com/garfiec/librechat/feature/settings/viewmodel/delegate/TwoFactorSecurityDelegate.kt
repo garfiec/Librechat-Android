@@ -65,6 +65,8 @@ class TwoFactorSecurityDelegate(
             stateHandle.update { copy(isTwoFactorLoading = true) }
             when (val result = authRepository.confirmTwoFactor(code)) {
                 is Result.Success -> {
+                    // confirm returns an empty body — the backup codes to display were already
+                    // returned by enable and are held in state; keep them rather than re-reading.
                     stateHandle.update {
                         copy(
                             isTwoFactorLoading = false,
@@ -72,7 +74,6 @@ class TwoFactorSecurityDelegate(
                             showTwoFactorSetupDialog = false,
                             twoFactorOtpauthUrl = null,
                             showBackupCodesDialog = true,
-                            backupCodes = result.data.backupCodes,
                         )
                     }
                 }

@@ -139,4 +139,66 @@ class AuthApiLoginTest {
 
         assertThat(error).isInstanceOf(ContentConvertException::class.java)
     }
+
+    // --- 2FA setup wire shapes (upstream TwoFactorController.js) --------------------------------
+
+    @Test
+    fun `enableTwoFactor parses the camelCase otpauthUrl and backupCodes`() = runTest {
+        // enable2FA: `res.status(200).json({ otpauthUrl, backupCodes: plainCodes })` — camelCase.
+        val engine = MockEngine {
+            respond(
+                content = """{"otpauthUrl":"otpauth://totp/LibreChat:a@b.com?secret=S&issuer=LibreChat","backupCodes":["aaaa1111","bbbb2222"]}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+
+        val response = api(engine).enableTwoFactor()
+
+        assertThat(response.otpauthUrl).contains("secret=S")
+        assertThat(response.backupCodes).containsExactly("aaaa1111", "bbbb2222").inOrder()
+    }
+
+    @Test
+    fun `confirmTwoFactor tolerates the empty 200 body`() = runTest {
+        // confirm2FA: `res.status(200).json()` — an empty body. Must NOT be decoded into an object.
+        val engine = MockEngine {
+            respond(content = "", status = HttpStatusCode.OK, headers = jsonHeaders())
+        }
+
+        api(engine).confirmTwoFactor("123456") // returns Unit; the assertion is that it does not throw
+    }
+
+    @Test
+    fun `regenerateBackupCodes parses backupCodes and ignores backupCodesHash`() = runTest {
+        // regenerateBackupCodes: `res.status(200).json({ backupCodes, backupCodesHash })` — no
+        // otpauthUrl. The hashed objects are unmodeled and dropped via ignoreUnknownKeys.
+        val engine = MockEngine {
+            respond(
+                content = """{"backupCodes":["cccc3333","dddd4444"],"backupCodesHash":[{"codeHash":"x","used":false}]}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+
+        val response = api(engine).regenerateBackupCodes()
+
+        assertThat(response.backupCodes).containsExactly("cccc3333", "dddd4444").inOrder()
+    }
+
+    @Test
+    fun `register parses the message-only body`() = runTest {
+        // registrationController: `res.status(status).send({ message })` — no user object.
+        val engine = MockEngine {
+            respond(
+                content = """{"message":"User registered successfully"}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+
+        val response = api(engine).register("A", "a@b.com", "auser", "pw", "pw")
+
+        assertThat(response.message).isEqualTo("User registered successfully")
+    }
 }

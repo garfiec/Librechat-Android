@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.model.request.ResetPasswordRequest
 import com.garfiec.librechat.core.model.request.TwoFactorDisableRequest
 import com.garfiec.librechat.core.model.request.TwoFactorVerifyRequest
 import com.garfiec.librechat.core.model.request.TwoFactorVerifyTempRequest
+import com.garfiec.librechat.core.model.response.BackupCodesResponse
 import com.garfiec.librechat.core.model.response.LoginResponse
 import com.garfiec.librechat.core.model.response.RefreshResponse
 import com.garfiec.librechat.core.model.response.RegisterResponse
@@ -118,11 +119,13 @@ class AuthApi constructor(
             }
         }.body()
 
-    suspend fun confirmTwoFactor(code: String): TwoFactorSetupResponse =
+    // confirm2FA returns an empty 200 body (`res.status(200).json()`); there is nothing to decode.
+    suspend fun confirmTwoFactor(code: String) {
         client.post {
             url { path("api/auth/2fa/confirm") }
             setBody(TwoFactorConfirmRequest(token = code))
-        }.body()
+        }
+    }
 
     /**
      * POST /api/auth/2fa/verify-temp with { tempToken, token: totpCode } or { tempToken, backupCode }.
@@ -147,7 +150,7 @@ class AuthApi constructor(
         return LoginResult(body, refreshToken)
     }
 
-    suspend fun regenerateBackupCodes(token: String? = null, backupCode: String? = null): TwoFactorSetupResponse =
+    suspend fun regenerateBackupCodes(token: String? = null, backupCode: String? = null): BackupCodesResponse =
         client.post {
             url { path("api/auth/2fa/backup/regenerate") }
             if (token != null || backupCode != null) {

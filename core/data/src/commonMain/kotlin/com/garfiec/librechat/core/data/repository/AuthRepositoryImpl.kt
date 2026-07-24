@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.VerifyTwoFactorOutcome
+import com.garfiec.librechat.core.model.response.BackupCodesResponse
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 import com.garfiec.librechat.core.network.api.AuthApi
 import com.garfiec.librechat.core.network.api.UserApi
@@ -337,7 +338,7 @@ class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun confirmTwoFactor(code: String): Result<TwoFactorSetupResponse> {
+    override suspend fun confirmTwoFactor(code: String): Result<Unit> {
         return safeApiCall {
             authApi.confirmTwoFactor(code)
         }
@@ -349,7 +350,7 @@ class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun regenerateBackupCodes(token: String?, backupCode: String?): Result<TwoFactorSetupResponse> {
+    override suspend fun regenerateBackupCodes(token: String?, backupCode: String?): Result<BackupCodesResponse> {
         return safeApiCall {
             authApi.regenerateBackupCodes(token = token, backupCode = backupCode)
         }

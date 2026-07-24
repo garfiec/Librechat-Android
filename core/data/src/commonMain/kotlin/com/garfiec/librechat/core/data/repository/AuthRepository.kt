@@ -4,6 +4,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.VerifyTwoFactorOutcome
+import com.garfiec.librechat.core.model.response.BackupCodesResponse
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 
 interface AuthRepository {
@@ -34,9 +35,9 @@ interface AuthRepository {
      */
     suspend fun restoreAccountIfNeeded(): Boolean
     suspend fun enableTwoFactor(token: String? = null, backupCode: String? = null): Result<TwoFactorSetupResponse>
-    suspend fun confirmTwoFactor(code: String): Result<TwoFactorSetupResponse>
+    suspend fun confirmTwoFactor(code: String): Result<Unit>
     suspend fun disableTwoFactor(code: String): Result<Unit>
-    suspend fun regenerateBackupCodes(token: String? = null, backupCode: String? = null): Result<TwoFactorSetupResponse>
+    suspend fun regenerateBackupCodes(token: String? = null, backupCode: String? = null): Result<BackupCodesResponse>
     suspend fun requestPasswordReset(email: String): Result<Unit>
     suspend fun resetPassword(userId: String, token: String, password: String, confirmPassword: String): Result<Unit>
 }
