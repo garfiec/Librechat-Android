@@ -136,19 +136,21 @@ fun AgentDetailScreen(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
                         ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.edit)) },
-                                onClick = {
-                                    menuExpanded = false
-                                    uiState.agent?.let { onEdit(it.id) }
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = null,
-                                    )
-                                },
-                            )
+                            if (uiState.canEdit) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.edit)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        uiState.agent?.let { onEdit(it.id) }
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = null,
+                                        )
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(Res.string.duplicate)) },
                                 onClick = {
@@ -163,26 +165,28 @@ fun AgentDetailScreen(
                                     )
                                 },
                             )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(Res.string.delete),
-                                        color = MaterialTheme.colorScheme.error,
-                                    )
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    viewModel.showDeleteConfirmation()
-                                },
-                                enabled = !uiState.isDeleting,
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                },
-                            )
+                            if (uiState.canEdit) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(Res.string.delete),
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                    onClick = {
+                                        menuExpanded = false
+                                        viewModel.showDeleteConfirmation()
+                                    },
+                                    enabled = !uiState.isDeleting,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                )
+                            }
                         }
                     }
                 },
