@@ -26,7 +26,7 @@ class ShareRepositoryImpl(
      */
     private fun isPublicFilter(): Boolean? {
         val version = configRepository.detectedBackendVersion.value
-        val isConfirmedModern = version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7")
+        val isConfirmedModern = version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7-rc1")
         return if (isConfirmedModern) null else true
     }
 

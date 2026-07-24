@@ -53,10 +53,10 @@ class AgentCapabilitiesDelegate(
         stateHandle.scope.launch {
             configRepository.detectedBackendVersion.collect { version ->
                 val show = version == null ||
-                    !BackendVersion.isCompatibleOrNewer(version, "0.8.5")
+                    !BackendVersion.isCompatibleOrNewer(version, "0.8.5-rc1")
                 // Handoffs (graph edges) require v0.8.5+; on older servers the field is ignored.
                 val handoffsAvailable = version != null &&
-                    BackendVersion.isCompatibleOrNewer(version, "0.8.5")
+                    BackendVersion.isCompatibleOrNewer(version, "0.8.5-rc1")
                 stateHandle.update {
                     copy(
                         showCollaborativeToggle = show,

@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.DetectedBackend
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.config.StartupConfig
@@ -33,6 +34,16 @@ interface ConfigRepository {
      * when adding new gates.
      */
     val detectedBackendVersion: StateFlow<String?>
+
+    /**
+     * The full resolved identity of the detected backend — version plus build classification
+     * and build-commit date. Same lifecycle as [detectedBackendVersion] (which stays as the
+     * plain-version convenience view). Consult
+     * [com.garfiec.librechat.core.common.BackendVersion.supportsFeature] for gates that must
+     * also recognize servers built from untagged upstream dev commits (whose reported version
+     * understates their features).
+     */
+    val detectedBackend: StateFlow<DetectedBackend?>
 
     suspend fun validateServerUrl(url: String): Result<StartupConfig>
 

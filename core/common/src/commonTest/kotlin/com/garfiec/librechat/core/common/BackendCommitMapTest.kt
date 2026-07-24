@@ -30,28 +30,40 @@ class BackendCommitMapTest {
     }
 
     @Test
-    fun resolvesReleaseCandidateAndMapsToReleaseLine() {
+    fun resolvesReleaseCandidateAtRcGranularity() {
         assertEquals("0.8.7-rc1", BackendCommitMap.versionForCommit(v087rc1))
         assertEquals("RC", BackendCommitMap.classificationForCommit(v087rc1))
-        // The gate strips the prerelease suffix, so an rc server is treated as its release line.
-        assertEquals(BackendVersion.SemanticVersion(0, 8, 7), BackendVersion.parse("0.8.7-rc1"))
-        assertTrue(BackendVersion.isCompatibleOrNewer("0.8.7-rc1", "0.8.7"))
+        // Prerelease is retained and ordered: rc gates see the rc; final-only gates exclude it.
+        assertEquals(BackendVersion.SemanticVersion(0, 8, 7, "rc1"), BackendVersion.parse("0.8.7-rc1"))
+        assertTrue(BackendVersion.isCompatibleOrNewer("0.8.7-rc1", "0.8.7-rc1"))
+        assertTrue(BackendVersion.isCompatibleOrNewer("0.8.7", "0.8.7-rc1"))
+    }
+
+    @Test
+    fun resolvesCommitDates() {
+        // Committer dates of immutable tag commits — stable across regenerations.
+        assertEquals("2026-06-24", BackendCommitMap.dateForCommit(v087))
+        assertEquals("2026-06-15", BackendCommitMap.dateForCommit(v087rc1))
+        assertEquals("2026-05-31", BackendCommitMap.dateForCommit(v086))
     }
 
     @Test
     fun matchIsCaseInsensitive() {
         assertEquals("0.8.7", BackendCommitMap.versionForCommit(v087.uppercase()))
+        assertEquals("2026-06-24", BackendCommitMap.dateForCommit(v087.uppercase()))
     }
 
     @Test
     fun unknownCommitResolvesNull() {
         assertNull(BackendCommitMap.versionForCommit("0000000000000000000000000000000000000000"))
         assertNull(BackendCommitMap.classificationForCommit("0000000000000000000000000000000000000000"))
+        assertNull(BackendCommitMap.dateForCommit("0000000000000000000000000000000000000000"))
     }
 
     @Test
     fun blankCommitResolvesNull() {
         assertNull(BackendCommitMap.versionForCommit(""))
         assertNull(BackendCommitMap.versionForCommit("   "))
+        assertNull(BackendCommitMap.dateForCommit(""))
     }
 }

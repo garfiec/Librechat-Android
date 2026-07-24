@@ -8,13 +8,27 @@ raised, entries here can be simplified or removed.
 The canonical API for version comparisons lives in
 `core/common/src/commonMain/kotlin/com/garfiec/librechat/core/common/BackendVersion.kt`:
 
-- `BackendVersion.parse(version)` — parse a loose semver string (`"v0.8.5"`, `"0.8"`, …).
-- `BackendVersion.isCompatible(supported, actual)` — exact `major.minor.patch` match.
-- `BackendVersion.isCompatibleOrNewer(actual, minimum)` — `actual ≥ minimum` by `(major, minor, patch)`.
-- `BackendVersion.extractVersionFromFooter(footer)` — fallback parse from `customFooter`.
+- `BackendVersion.parse(version)` — parse a loose semver string (`"v0.8.5"`, `"0.8"`, `"0.8.8-rc1"`, …).
+  The prerelease suffix is retained and ordered (`0.8.8-rc1 < 0.8.8-rc2 < 0.8.8`); build
+  metadata (`+dev.<sha>` on partial-sync targets) is stripped.
+- `BackendVersion.isCompatible(supported, actual)` — same release line (`major.minor.patch`,
+  prerelease ignored: rc and final of one line are mutually compatible). Feeds the soft
+  mismatch banner.
+- `BackendVersion.isCompatibleOrNewer(actual, minimum)` — `actual ≥ minimum` by full semver
+  order including prerelease. Declare gates at the FIRST version carrying the feature — for a
+  feature present in rc1, that is `"0.8.8-rc1"`, not `"0.8.8"` (which would exclude rc servers).
+- `BackendVersion.supportsFeature(detected, minVersion, landedDate)` — gate that also
+  recognizes servers built from UNTAGGED upstream dev commits. Upstream bumps package.json only
+  at rc prep, so a dev build carrying next-release features still reports the previous release;
+  this helper falls back to comparing the server build commit's date (from `BackendCommitMap`)
+  against the ISO date the feature landed upstream (`git log --format=%cs` of the landing
+  commit). Use for features synced ahead of any tag (partial syncs). Fails CLOSED on null
+  `detected`.
 
 The detected server version is exposed via `ConfigRepository.detectedBackendVersion`
-(populated once `checkBackendVersion()` runs on app startup / server-switch).
+(plain string) and `ConfigRepository.detectedBackend` (rich `DetectedBackend`: version +
+build classification OFFICIAL/RC/DEV/UNKNOWN + build-commit date — what `supportsFeature`
+consumes), both populated once `checkBackendVersion()` runs on app startup / server-switch.
 
 `BackendVersion.SUPPORTED_BACKEND_VERSION` (the backend this build targets) is **generated**
 from `backendTargetVersion` in the root `version.properties` by core/common's
@@ -62,10 +76,26 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
   every `isCompatibleOrNewer` check and hidden 0.8.5+ features. After the fix, `0.8.6-rc1` correctly
   evaluates as `0.8.6`, so the `isCollaborative` and `xhigh` gates above now behave correctly against
   prerelease servers. No gate threshold changed — only the version-string parsing feeding them.
+- **Prerelease-aware ordering (2026-07-24):** `parse()` now RETAINS the prerelease suffix and
+  `isCompatibleOrNewer` orders it (`rc1 < rc2 < final`), enabling rc-granularity gates for rc/partial
+  syncs. Because a bare `"0.8.7"` threshold now *excludes* `0.8.7-rc*` servers (the old
+  strip-and-compare treated them as equal), every pre-existing gate threshold was relaxed to the rc1
+  of its line (`"0.8.5"` → `"0.8.5-rc1"`, `"0.8.7"` → `"0.8.7-rc1"`) — the gated features all
+  shipped before their line's rc1 was cut, so this preserves the previously-observed behavior for rc
+  servers exactly. The catalog's "Gated since" column reads as "the release line", with the actual
+  call-site threshold at that line's rc1.
+- **Partial-sync gates:** features synced from UNTAGGED upstream commits gate via
+  `supportsFeature(detected, minVersion, landedDate)` where `minVersion` is the upcoming rc line
+  (e.g. `"0.8.8-rc1"` before that tag exists) and `landedDate` is the ISO committer date of the
+  upstream commit that landed the feature. Record the landedDate in the gate's catalog row so the
+  date can be dropped once the rc/final tag ships and plain version gating suffices.
 
 ## Guidelines for adding a new gate
 
-1. Call `BackendVersion.isCompatible(...)` or `BackendVersion.isCompatibleOrNewer(...)` — never parse versions ad hoc.
+1. Call `BackendVersion.isCompatible(...)`, `BackendVersion.isCompatibleOrNewer(...)`, or
+   `BackendVersion.supportsFeature(...)` (when dev-commit servers must qualify) — never parse
+   versions ad hoc. Declare thresholds at the first version carrying the feature (usually the
+   line's rc1).
 2. Default to **older-server behavior** when the version is unknown (`detectedBackendVersion == null`). The server may not advertise its version; failing open avoids hiding features from self-hosted installs with stripped customFooters.
 3. Add a row to the table above. Include file + line anchors and the concrete minimum version at which the gate becomes dead code.
 4. If the gated field is a request DTO field, omit it (send `null`) rather than sending a value the server will silently drop — unless you can verify round-trip parity. Silent drops lead to UI state that disagrees with server state.

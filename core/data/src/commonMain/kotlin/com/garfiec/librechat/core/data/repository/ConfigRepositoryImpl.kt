@@ -1,7 +1,9 @@
 package com.garfiec.librechat.core.data.repository
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.BackendBuildClass
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.DetectedBackend
 import com.garfiec.librechat.core.common.generated.BackendCommitMap
 import com.garfiec.librechat.core.common.result.AccessGatewayException
 import com.garfiec.librechat.core.common.result.ApiException
@@ -39,6 +41,15 @@ class ConfigRepositoryImpl(
 
     private val _detectedBackendVersion = MutableStateFlow<String?>(null)
     override val detectedBackendVersion: StateFlow<String?> = _detectedBackendVersion.asStateFlow()
+
+    private val _detectedBackend = MutableStateFlow<DetectedBackend?>(null)
+    override val detectedBackend: StateFlow<DetectedBackend?> = _detectedBackend.asStateFlow()
+
+    /** Single setter so the rich flow and the plain-version convenience view never drift. */
+    private fun publishDetectedBackend(detected: DetectedBackend?) {
+        _detectedBackend.value = detected
+        _detectedBackendVersion.value = detected?.version
+    }
 
     /**
      * Identity of the last config we logged a snapshot for, so we emit one snapshot
@@ -143,7 +154,7 @@ class ConfigRepositoryImpl(
         _endpointConfigs.value = configCache.loadEndpointConfigs().orEmpty()
         _availableModels.value = configCache.loadAvailableModels().orEmpty()
         // Version re-detects from the reloaded config on the next checkBackendVersion pass.
-        _detectedBackendVersion.value = null
+        publishDetectedBackend(null)
         loggedConfigSignature = null
     }
 
@@ -238,9 +249,9 @@ class ConfigRepositoryImpl(
             // Intentionally does NOT populate _startupConfig — the authoritative pass below still runs
             // a fresh fetch (so a server that changed versions between sessions is detected) and
             // overwrites this; StateFlow conflation means an unchanged version won't re-emit.
-            if (_detectedBackendVersion.value == null) {
+            if (_detectedBackend.value == null) {
                 configCache.loadStartupConfig()?.let { seed ->
-                    detectVersion(seed)?.let { _detectedBackendVersion.value = it }
+                    detectVersion(seed)?.let { publishDetectedBackend(it) }
                 }
             }
 
@@ -249,11 +260,12 @@ class ConfigRepositoryImpl(
             // and publish. buildInfo.commit is present in every v0.8.7+ config — cached or fresh,
             // authenticated or not — so a single fetch is enough; no auth re-fetch is needed.
             val config = (fetchStartupConfig() as? Result.Success)?.data ?: _startupConfig.value
-            val detectedVersion = detectVersion(config)
+            val detected = detectVersion(config)
+            val detectedVersion = detected?.version
 
             val supported = BackendVersion.SUPPORTED_BACKEND_VERSION
 
-            _detectedBackendVersion.value = detectedVersion
+            publishDetectedBackend(detected)
 
             // Re-emit the config snapshot now that the backend version is resolved, so the export's
             // version-mismatch signal is accurate (the first snapshot ran before detection).
@@ -296,36 +308,51 @@ class ConfigRepositoryImpl(
     }
 
     /**
-     * Resolves the backend version from a startup config, in order:
-     * 1. the explicit `version` field (future-proof — not yet emitted by any release),
+     * Resolves the backend identity from a startup config, in order:
+     * 1. the explicit `version` field (future-proof — not yet emitted by any release; yields
+     *    [BackendBuildClass.UNKNOWN] with no commit date),
      * 2. the build commit (`buildInfo.commit`) looked up in the baked [BackendCommitMap] — the only
-     *    reliable server-sent signal (LibreChat has no version endpoint), covering any tagged
-     *    official/rc image.
+     *    reliable server-sent signal (LibreChat has no version endpoint), covering tagged
+     *    official/rc images AND untagged dev builds (classification + commit date let
+     *    `BackendVersion.supportsFeature` gate features a dev build carries even though its
+     *    package.json still reports the previous release).
      * Null when neither resolves.
      */
-    private suspend fun detectVersion(config: StartupConfig?): String? {
-        config?.version?.trimStart('v', 'V')?.takeIf { it.isNotBlank() }?.let { return it }
+    private suspend fun detectVersion(config: StartupConfig?): DetectedBackend? {
+        config?.version?.trimStart('v', 'V')?.takeIf { it.isNotBlank() }?.let {
+            return DetectedBackend(version = it)
+        }
         val buildInfo = config?.buildInfo
         val commit = buildInfo?.commit
         if (commit != null) {
             // First lookup lazily parses the baked ~1000-entry table; run it (and the O(1) lookups)
             // off the caller thread so the parse never janks the post-auth main-thread moment.
             val resolved = withContext(dispatcher) {
-                BackendCommitMap.versionForCommit(commit)
-                    ?.let { it to BackendCommitMap.classificationForCommit(commit) }
+                BackendCommitMap.versionForCommit(commit)?.let { version ->
+                    DetectedBackend(
+                        version = version,
+                        classification = when (BackendCommitMap.classificationForCommit(commit)) {
+                            "OFFICIAL" -> BackendBuildClass.OFFICIAL
+                            "RC" -> BackendBuildClass.RC
+                            "DEV" -> BackendBuildClass.DEV
+                            else -> BackendBuildClass.UNKNOWN
+                        },
+                        commitDate = BackendCommitMap.dateForCommit(commit),
+                    )
+                }
             }
             if (resolved != null) {
-                val (version, classification) = resolved
                 Diag.i(
                     "BackendVersion",
                     attrs = mapOf(
                         "resolvedVia" to "buildInfo.commit",
                         "commit" to (buildInfo.commitShort ?: commit),
-                        "classification" to (classification ?: "UNKNOWN"),
-                        "version" to version,
+                        "classification" to resolved.classification.name,
+                        "commitDate" to (resolved.commitDate ?: "unknown"),
+                        "version" to resolved.version,
                     ),
                 ) { "backend version resolved from build commit" }
-                return version
+                return resolved
             }
         }
         return null
@@ -339,7 +366,7 @@ class ConfigRepositoryImpl(
         _endpointConfigs.value = emptyMap()
         _availableModels.value = emptyMap()
         _startupConfig.value = null
-        _detectedBackendVersion.value = null
+        publishDetectedBackend(null)
         loggedConfigSignature = null
         configCache.clear()
     }

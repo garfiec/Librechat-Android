@@ -1,5 +1,10 @@
 # Upstream LibreChat version this mobile build tracks.
 # Updated by the upstream sync process. Do not edit manually.
+# tag    = last upstream release/rc tag at or before the synced commit (the version anchor).
+# commit = the exact upstream commit synced to. Equals the tag's commit for a full sync;
+#          for a PARTIAL sync (untagged target) it is PAST the tag, and
+#          version.properties' backendTargetVersion carries a +dev.<sha> suffix pinning it.
+#          Diffs for the next sync are computed from commit=, not tag=.
 tag=v0.8.7
 commit=9e74cc0e57b395926122bd4062c1fcedc48ed465
 date=2026-06-26

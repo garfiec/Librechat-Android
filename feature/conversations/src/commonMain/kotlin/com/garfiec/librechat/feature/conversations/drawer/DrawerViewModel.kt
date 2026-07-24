@@ -87,7 +87,7 @@ class DrawerViewModel(
         ) { tags, config, version, permissions ->
             // Pin requires POST /api/convos/pin (v0.8.7+). Gate fail-closed on unknown
             // version so older servers don't surface an action they'd 404 on.
-            val supportsV087 = version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7")
+            val supportsV087 = version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7-rc1")
             val canShare = permissions.canCreateSharedLinks(config?.sharedLinksEnabled ?: false)
             DrawerActionMenuState(tags, canShare, supportsV087, supportsV087)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DrawerActionMenuState())
@@ -259,7 +259,7 @@ class DrawerViewModel(
         // detectedBackendVersion is a StateFlow (already conflated), so no distinctUntilChanged.
         viewModelScope.launch {
             configRepository.detectedBackendVersion.collect { version ->
-                if (version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7")) {
+                if (version != null && BackendVersion.isCompatibleOrNewer(version, "0.8.7-rc1")) {
                     loadProjects()
                 }
             }

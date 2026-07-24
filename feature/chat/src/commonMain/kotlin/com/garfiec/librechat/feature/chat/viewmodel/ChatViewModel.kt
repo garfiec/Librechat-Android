@@ -530,7 +530,7 @@ class ChatViewModel(
         viewModelScope.launch {
             configRepository.detectedBackendVersion.collect { version ->
                 val supported = version != null &&
-                    BackendVersion.isCompatibleOrNewer(version, "0.8.5")
+                    BackendVersion.isCompatibleOrNewer(version, "0.8.5-rc1")
                 _uiState.update { it.copy(selection = it.selection.copy(extendedEffortSupported = supported)) }
             }
         }
@@ -1385,7 +1385,7 @@ class ChatViewModel(
             }.distinctUntilChanged().collect { (role, iface, version) ->
                 // Context gauge needs the v0.8.7 SSE/endpoints; fail-closed on older/unknown.
                 val contextGaugeSupported = version != null &&
-                    BackendVersion.isCompatibleOrNewer(version, "0.8.7")
+                    BackendVersion.isCompatibleOrNewer(version, "0.8.7-rc1")
 
                 // Effective gate = role permission AND interface flag, both fail-open
                 // (null role → permissive; absent/omitted flag → enabled).
