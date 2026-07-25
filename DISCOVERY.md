@@ -407,7 +407,9 @@ PUT    /api/user/settings/favorites/tools/:itemType/:itemId  → the added { ite
 DELETE /api/user/settings/favorites/tools/:itemType/:itemId  → { ok: true }
                                             itemType ∈ {builtin, tool, mcp, skill}; itemId capped in length,
                                             400 otherwise. This is the real backend that replaced the v0.8.6
-                                            "skill favorites" client stubs — that backend-gap entry is closed.
+                                            "skill favorites" client stubs, so that backend gap no longer
+                                            exists upstream; the ledger entry stays OPEN until mobile builds
+                                            against it.
                                             (#13952, landedDate 2026-07-05)
 POST   /api/share/:shareId/fork           { targetMessageIndex? } → 201 with the forked conversation. Continues
                                             a SHARED conversation as the caller's own copy — distinct from the
@@ -423,6 +425,12 @@ POST   /api/files/usage                   { file_ids } → { marked }. TTL touch
                                             #14295 / 2026-07-21 is the separate upload-SSE heartbeat work
                                             under F8, not this route.)
 ```
+Deferred with those endpoints, for the same reason (each needs a mobile surface that does not exist,
+or is web-only polish): the unified Tools Marketplace agent-builder rework, the MCP OAuth consent
+dialog, sandbox `read_file` viewable artifacts (folds into the existing code-interpreter
+attachment-rendering backlog), the MessageNav rework, agent contact info on agent detail, and the
+web touch select/drag fixes. None of them affects wire compatibility with a 0.8.8-line server.
+
 Revised message / SSE shapes:
 - Message content parts add a `steer` type (`type == "steer"`, #14220) — mid-run steering. `ContentType`
   gained `STEER` and `MessageContentPart` a nullable `steer: JsonElement?`, so a persisted message carrying

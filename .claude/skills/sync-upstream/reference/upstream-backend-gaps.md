@@ -47,3 +47,8 @@ re-discovered every sync.**
   mounted server-side (not a data-service stub) and a skill-typed favorite in the
   favorites schema. If present, build favorite/unfavorite + favorites filter then.
 - **Recorded:** 2026-06-02 during the v0.8.6 sync.
+- **Update 2026-07-25 (0.8.8-line dev sync):** the backend now exists —
+  `GET /api/user/settings/favorites/tools` plus `PUT`/`DELETE .../:itemType/:itemId`, with
+  `itemType ∈ {builtin, tool, mcp, skill}` (#13952). The re-check condition is met. Entry stays
+  OPEN because mobile has not built against it: the client half was deferred to the tagged
+  `0.8.8-rc1` sync. Close it when mobile ships favorite/unfavorite + the favorites filter.
