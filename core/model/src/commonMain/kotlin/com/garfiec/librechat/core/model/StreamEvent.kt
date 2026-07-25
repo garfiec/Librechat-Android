@@ -75,6 +75,12 @@ sealed interface StreamEvent {
          * server-side; there is nothing to reconcile against on a later load.
          */
         val earlyAbort: Boolean = false,
+        /**
+         * Steers the run accepted but never injected, handed back exactly once so the client can
+         * re-home them as follow-ups instead of dropping the user's words. The server clears its
+         * own copy when it writes this, so a frame that carries them and is ignored loses them.
+         */
+        val pendingSteers: List<PendingSteer> = emptyList(),
     ) : StreamEvent {
         val hasParseErrors: Boolean get() = parseErrors.isNotEmpty()
     }
@@ -96,6 +102,37 @@ sealed interface StreamEvent {
      */
     data class PendingActionRequested(
         val pendingAction: PendingAction,
+    ) : StreamEvent
+
+    /**
+     * A queued steer reached a tool-batch boundary and went into the run (v0.8.8
+     * `on_steer_applied`). The steer is now a `steer` content part of the reply being produced,
+     * so the client's own pending chip for [steerId] has served its purpose and should go.
+     *
+     * Ordering is not guaranteed against the steer's own HTTP 202: this event can arrive first,
+     * naming a [steerId] the client has not yet learned. A consumer must therefore record the id
+     * as applied rather than only removing a chip that may not exist yet.
+     */
+    data class SteerApplied(
+        val steerId: String,
+        /** Absolute index of the injected part within the reply's content. */
+        val index: Int? = null,
+        /** The steer's text as injected, for a client that never saw its own 202. */
+        val text: String? = null,
+        val responseMessageId: String? = null,
+        val conversationId: String? = null,
+    ) : StreamEvent
+
+    /**
+     * The server's still-queued steers, replayed on the resume `sync` frame
+     * (`resumeState.pendingSteers`) so a client that reconnected mid-run — or opened the
+     * conversation on another device — sees the same pending chips as the one that sent them.
+     *
+     * This is a full snapshot of what is still queued, not a delta: steers injected while the
+     * client was away are absent because they are already part of the reply's content.
+     */
+    data class PendingSteersSynced(
+        val pendingSteers: List<PendingSteer>,
     ) : StreamEvent
 
     data class Error(

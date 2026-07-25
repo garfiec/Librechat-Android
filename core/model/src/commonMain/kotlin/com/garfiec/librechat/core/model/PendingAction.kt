@@ -118,12 +118,20 @@ data class AskUserQuestionRequest(
 )
 
 /**
- * A steer message the user queued mid-run that never reached an injection boundary.
+ * A steer message the user queued mid-run.
  *
- * Returned by `POST /api/agents/chat/abort` (as `pendingSteers`) and by
- * `GET /api/agents/chat/status` (as `unrecoveredSteers`, claim-on-read) so a client can
- * restore the user's words as queued follow-ups instead of dropping them. Parse-layer
- * only today — mobile has no steering UI.
+ * Reached three ways, each meaning something different:
+ * - `resumeState.pendingSteers` on the sync frame — still queued, still going to be injected;
+ * - `pendingSteers` on the `final` frame and on the `POST /api/agents/chat/abort` response —
+ *   the run ended without injecting them;
+ * - `unrecoveredSteers` on `GET /api/agents/chat/status` — acknowledged steers the server
+ *   parked because no subscriber was live to receive them.
+ *
+ * The last two are **claim-on-read**: the server drops its copy as it hands them over, so a
+ * client that parses and ignores them loses the user's words permanently.
+ *
+ * Upstream also carries a `files` array on a steer. Mobile does not model it: steering here is
+ * text-only, and a reclaimed steer becomes a queued follow-up carrying its text alone.
  */
 @Serializable
 data class PendingSteer(

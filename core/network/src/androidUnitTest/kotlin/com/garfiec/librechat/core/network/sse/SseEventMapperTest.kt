@@ -408,6 +408,110 @@ class SseEventMapperTest {
         assertThat((events[0] as StreamEvent.PendingActionRequested).pendingAction.actionId).isEqualTo("act_4")
     }
 
+    // --- Mid-run steering (v0.8.8) ---
+
+    @Test
+    fun `maps on_steer_applied taking the injected text off the nested part`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_steer_applied","data":{"steerId":"st_1","index":3,
+                "responseMessageId":"msg_1","conversationId":"conv_1",
+                "part":{"type":"steer","steer":"be brief","steerId":"st_1"}}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.SteerApplied
+        assertThat(result.steerId).isEqualTo("st_1")
+        assertThat(result.index).isEqualTo(3)
+        assertThat(result.text).isEqualTo("be brief")
+        assertThat(result.responseMessageId).isEqualTo("msg_1")
+    }
+
+    @Test
+    fun `reads the steer id off the part when the frame omits the top-level one`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_steer_applied","data":{"index":0,
+                "part":{"type":"steer","steer":"stop","steerId":"st_2"}}}""",
+        )
+        assertThat((mapper.map(event) as StreamEvent.SteerApplied).steerId).isEqualTo("st_2")
+    }
+
+    @Test
+    fun `drops an applied frame with no steer id`() {
+        // The id is the only link back to the chip this event retires; without one the event
+        // would leave a pending chip up for a steer that has already gone into the reply.
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_steer_applied","data":{"index":1,"part":{"type":"steer","steer":"x"}}}""",
+        )
+        assertThat(mapper.mapFrame(event)).isEmpty()
+    }
+
+    @Test
+    fun `sync frame emits the still-queued steers after the snapshot`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"aggregatedContent":[{"type":"text","text":"working"}],
+                "pendingSteers":[{"steerId":"st_1","text":"be brief","createdAt":1000},
+                    {"steerId":"st_2","text":"in French"}]}}""",
+        )
+        val events = mapper.mapFrame(event)
+        assertThat(events).hasSize(2)
+        assertThat(events[0]).isInstanceOf(StreamEvent.Sync::class.java)
+        val steers = (events[1] as StreamEvent.PendingSteersSynced).pendingSteers
+        assertThat(steers.map { it.steerId }).containsExactly("st_1", "st_2").inOrder()
+        assertThat(steers[0].createdAt).isEqualTo(1000)
+    }
+
+    @Test
+    fun `sync frame with an empty steer list still emits the snapshot event`() {
+        // The server's list is authoritative on reconnect, so an empty one is how the client
+        // learns that chips it is still showing have already been drained.
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"pendingSteers":[]}}""",
+        )
+        val events = mapper.mapFrame(event)
+        assertThat(events).hasSize(1)
+        assertThat((events[0] as StreamEvent.PendingSteersSynced).pendingSteers).isEmpty()
+    }
+
+    @Test
+    fun `sync frame with no pendingSteers key emits no steer event`() {
+        // Absent is not the same as empty: a server with no steering says nothing, and treating
+        // that as an authoritative empty list would clear chips it knows nothing about.
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"aggregatedContent":[{"type":"text","text":"hi"}]}}""",
+        )
+        val events = mapper.mapFrame(event)
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).isInstanceOf(StreamEvent.Sync::class.java)
+    }
+
+    @Test
+    fun `final frame carries the steers the run never injected`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"final":true,"conversation":{"conversationId":"conv_1"},
+                "pendingSteers":[{"steerId":"st_9","text":"never made it"}]}""",
+        )
+        val result = mapper.map(event) as StreamEvent.Final
+        assertThat(result.pendingSteers.map { it.text }).containsExactly("never made it")
+    }
+
+    @Test
+    fun `drops reported steers that carry no id`() {
+        // Claim-on-read hands these over exactly once, but one with no id can be neither
+        // cancelled nor matched to anything — keeping it would only mint an unusable chip.
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"pendingSteers":[{"text":"orphan"},
+                {"steerId":"st_3","text":"keep me"}]}}""",
+        )
+        val steers = (mapper.mapFrame(event)[0] as StreamEvent.PendingSteersSynced).pendingSteers
+        assertThat(steers.map { it.steerId }).containsExactly("st_3")
+    }
+
     @Test
     fun `mapFrame returns single-element list for an ordinary frame`() {
         val event = SseEvent(

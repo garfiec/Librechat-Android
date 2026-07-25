@@ -8,8 +8,13 @@ import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.request.AddedConversation
 import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.EphemeralAgent
+import com.garfiec.librechat.core.model.request.SteerCancelRequest
+import com.garfiec.librechat.core.model.request.SteerRequest
+import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
+import com.garfiec.librechat.core.model.response.SteerCancelResponse
+import com.garfiec.librechat.core.model.response.SteerResponse
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.sse.SseClient
 import kotlinx.coroutines.CoroutineDispatcher
@@ -90,12 +95,19 @@ class ChatRepositoryImpl(
         emitAll(sseClient.connect(streamUrl, connectivityFlow = connectivityObserver.isConnected))
     }.flowOn(dispatcher)
 
-    override suspend fun abortChat(streamId: String?, isTemporary: Boolean): Result<Unit> = safeApiCall {
-        chatApi.abortChat(streamId, isTemporary)
-    }
+    override suspend fun abortChat(streamId: String?, isTemporary: Boolean): Result<ChatAbortResponse> =
+        safeApiCall { chatApi.abortChat(streamId, isTemporary) }
 
     override suspend fun resumeChat(request: ChatResumeRequest): Result<ChatResumeResponse> = safeApiCall {
         chatApi.resumeChat(request)
+    }
+
+    override suspend fun steerChat(request: SteerRequest): Result<SteerResponse> = safeApiCall {
+        chatApi.steerChat(request)
+    }
+
+    override suspend fun cancelSteer(request: SteerCancelRequest): Result<SteerCancelResponse> = safeApiCall {
+        chatApi.cancelSteer(request)
     }
 
     override suspend fun checkStreamStatus(conversationId: String): ChatStatusResponse {

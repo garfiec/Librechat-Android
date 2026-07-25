@@ -3,10 +3,14 @@ package com.garfiec.librechat.core.network.api
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.model.request.ChatAbortRequest
 import com.garfiec.librechat.core.model.request.ChatResumeRequest
+import com.garfiec.librechat.core.model.request.SteerCancelRequest
+import com.garfiec.librechat.core.model.request.SteerRequest
 import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStartResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
+import com.garfiec.librechat.core.model.response.SteerCancelResponse
+import com.garfiec.librechat.core.model.response.SteerResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.call.body
@@ -98,6 +102,36 @@ class ChatApi constructor(
     suspend fun resumeChat(request: ChatResumeRequest): ChatResumeResponse =
         client.post {
             url { path("api/agents/chat/resume") }
+            setBody(request)
+        }.body()
+
+    /**
+     * POST /api/agents/chat/steer — queues instruction text for injection into the live run
+     * (v0.8.8 mid-run steering).
+     *
+     * Accepted is 202 *queued*, not applied: the run injects at its next tool-batch boundary and
+     * announces it with `on_steer_applied` over the SSE stream the caller already holds.
+     *
+     * Every rejection carries a `code` that decides how the caller degrades — see
+     * [com.garfiec.librechat.core.model.steer.steerFallbackFor]. The codes are what matters, not
+     * the statuses: 404 `NO_ACTIVE_RUN` means the turn is over, while 409/429/501 all mean the
+     * run is alive but unreachable. Both surface as an `ApiException` whose `body` carries the
+     * code, so nothing here interprets them.
+     */
+    suspend fun steerChat(request: SteerRequest): SteerResponse =
+        client.post {
+            url { path("api/agents/chat/steer") }
+            setBody(request)
+        }.body()
+
+    /**
+     * POST /api/agents/chat/steer/cancel — withdraws a steer that has not been injected yet.
+     *
+     * `{removed:false}` is a success, not a failure: the cancel simply lost its race.
+     */
+    suspend fun cancelSteer(request: SteerCancelRequest): SteerCancelResponse =
+        client.post {
+            url { path("api/agents/chat/steer/cancel") }
             setBody(request)
         }.body()
 
