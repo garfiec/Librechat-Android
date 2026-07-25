@@ -174,13 +174,59 @@ class SteeringDelegateTest {
             )
 
             delegate.steer("conv-1", spec("be brief"))
+            // Exactly what endStream does: convert the settled chips, then wipe session state —
+            // all of it while this steer's POST is still in flight.
             streaming = false
+            delegate.reclaimLocalChips()
+            delegate.clear()
             ack.complete(Result.Success(SteerResponse(steerId = "st-1")))
             runCurrent()
 
             // No injection is coming and no event will ever retire the chip.
             assertThat(flow.value.pendingSteers).isEmpty()
             assertThat(enqueued.map { it.text }).containsExactly("be brief")
+        }
+
+    @Test
+    fun `a rejection that lands after the session was cleared still re-homes the steer`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The Stop case: abort acks, the run tears down, and only then does the steer POST
+            // come back 404. clear() must not have taken the spec the callback needs.
+            val ack = CompletableDeferred<Result<SteerResponse>>()
+            coEvery { chatRepository.steerChat(any()) } coAnswers { ack.await() }
+            val (delegate, flow) = delegateWith(this, isStreaming = false)
+
+            delegate.steer("conv-1", spec("be brief"))
+            delegate.reclaimLocalChips()
+            delegate.clear()
+            ack.complete(rejection(SteerRejectionCodes.NO_ACTIVE_RUN))
+            runCurrent()
+
+            assertThat(flow.value.pendingSteers).isEmpty()
+            assertThat(sentNow.map { it.text }).containsExactly("be brief")
+            assertThat(enqueued).isEmpty()
+        }
+
+    @Test
+    fun `a cancel asked for before the ack survives the session being cleared`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The withdrawal must still reach the server, and the withdrawn words must NOT come
+            // back as a follow-up.
+            val ack = CompletableDeferred<Result<SteerResponse>>()
+            coEvery { chatRepository.steerChat(any()) } coAnswers { ack.await() }
+            coEvery { chatRepository.cancelSteer(any()) } returns
+                Result.Success(SteerCancelResponse(removed = true))
+            val (delegate, flow) = delegateWith(this)
+
+            delegate.steer("conv-1", spec("be brief"))
+            delegate.cancel(flow.value.pendingSteers.single().steerId)
+            delegate.clear()
+            ack.complete(Result.Success(SteerResponse(steerId = "st-1")))
+            runCurrent()
+
+            assertThat(enqueued).isEmpty()
+            assertThat(sentNow).isEmpty()
+            coVerify { chatRepository.cancelSteer(SteerCancelRequest("conv-1", "st-1")) }
         }
 
     @Test

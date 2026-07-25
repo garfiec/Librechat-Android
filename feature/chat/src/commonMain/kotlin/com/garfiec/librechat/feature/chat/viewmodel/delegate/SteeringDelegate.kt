@@ -79,6 +79,17 @@ class SteeringDelegate(
     private val cancelledWhileSending = mutableSetOf<String>()
 
     /**
+     * Local ids whose POST has not answered yet.
+     *
+     * [clear] runs on every session boundary, but a steer's POST resumes on a scope that outlives
+     * the stream — so an ack landing after the run ended finds whatever [clear] left behind. If it
+     * finds no spec it re-homes nothing and the user's words are gone, and if it finds no cancel
+     * record it never withdraws the steer the user already dismissed. These ids are therefore
+     * exempt from the wipe until their own coroutine settles.
+     */
+    private val outstandingSends = mutableSetOf<String>()
+
+    /**
      * Steers [fallback]'s text into the run on [conversationId].
      *
      * Optimistic: the chip appears immediately under a client-minted id and swaps to the
@@ -95,10 +106,19 @@ class SteeringDelegate(
         // displayed behind one sent after it.
         val createdAt = Clock.System.now().toEpochMilliseconds()
         fallbackSpecs[localId] = fallback
+        outstandingSends += localId
         upsertChip(PendingSteerChip(localId, trimmed, SteerChipStatus.SENDING, createdAt))
 
         handle.scope.launch {
-            when (val result = chatRepository.steerChat(SteerRequest(conversationId, trimmed))) {
+            val result = try {
+                chatRepository.steerChat(SteerRequest(conversationId, trimmed))
+            } finally {
+                // Settled: this id no longer needs protection from clear(). Dropped before the
+                // branches below rather than after, because they are the ones that consume the
+                // spec, and nothing can call clear() between here and them (no suspension left).
+                outstandingSends -= localId
+            }
+            when (result) {
                 is Result.Success ->
                     acknowledge(conversationId, localId, result.data.steerId, trimmed, createdAt)
 
@@ -312,10 +332,14 @@ class SteeringDelegate(
      * work against a run that never accepted it. Text still owed to the user has already been
      * re-homed by [reclaim] / [reclaimLocalChips] on the ending frame; this only clears display
      * state.
+     *
+     * The exception is a steer whose POST is still in flight ([outstandingSends]): neither
+     * reclaim path takes a `SENDING` chip, so its own continuation is the only thing left that
+     * can re-home the text — and it needs the spec and cancel record to do it.
      */
     fun clear() {
-        fallbackSpecs.clear()
-        cancelledWhileSending.clear()
+        fallbackSpecs.keys.retainAll(outstandingSends)
+        cancelledWhileSending.retainAll(outstandingSends)
         if (handle.state.steer == SteerState()) return
         handle.update { steer = SteerState() }
     }

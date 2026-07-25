@@ -916,7 +916,8 @@ class StreamingManagerDelegate(
      *
      * Claim-on-read like every other steer handover: the server clears them as it answers, so a
      * status call whose response is only read for `active` silently destroys them. Populated
-     * only when the run is NOT active, which is why it runs on both branches of a resume check.
+     * only when the run is NOT active — so every `/chat/status` read in this file must route its
+     * response through here, on both branches of the `active` check.
      */
     private fun applyStatusSteers(status: ChatStatusResponse) {
         steeringDelegate.reclaim(status.unrecoveredSteers)
@@ -1021,7 +1022,12 @@ class StreamingManagerDelegate(
                     }
                     resumeStream(conversationId)
                     applyStatusPendingAction(status)
+                    applyStatusSteers(status)
                 } else {
+                    // Claim the parked steers first: the run ended while this client was offline,
+                    // which is exactly when the server parks them, and this read is the only
+                    // hand-off it will ever make.
+                    applyStatusSteers(status)
                     // Stream expired while offline — reload conversation from server
                     handle.update {
                         error = null
