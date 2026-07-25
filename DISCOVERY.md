@@ -362,7 +362,11 @@ POST   /api/agents/chat/resume            Resumes a run paused for human-in-the-
                                             set. Pairs with the `on_pending_action` SSE and the `requires_action`
                                             job status. (#13942 + #14139, landedDate 2026-06-29)
 GET    /api/agents/:id/versions           → Agent[] version history. Requires EDIT on the agent; loaded lazily
-                                            because histories are large. (#13952, landedDate 2026-07-05)
+                                            because histories are large. (#13977, 12fea693b, landed 2026-06-26;
+                                            gate landedDate 2026-06-27 — day-granularity rounded UP: four
+                                            same-day commits precede the landing one, and misreading them as
+                                            post-landing surfaces a 404 error in the history panel, whereas
+                                            rounding up only hides history from same-day successors)
 GET    /api/user/settings/favorites/tools → TToolFavorite[] ({ itemType, itemId })
 PUT    /api/user/settings/favorites/tools/:itemType/:itemId  → the added { itemType, itemId }
 DELETE /api/user/settings/favorites/tools/:itemType/:itemId  → { ok: true }
@@ -377,7 +381,12 @@ POST   /api/share/:shareId/fork           { targetMessageIndex? } → 201 with t
 POST   /api/files/usage                   { file_ids } → { marked }. TTL touch so uploads held in a client-side
                                             queue are not reaped before they drain; only meaningful with the
                                             mid-run queued-messages feature. Exempt from the upload rate limiter;
-                                            400s on an oversized id list. (#14295, landedDate 2026-07-21)
+                                            400s on an oversized id list. (#14220, 9bb351ad9, landedDate
+                                            2026-07-14 — same landing commit as the steer rows above; the one
+                                            same-day predecessor misread as post-landing only 404s a
+                                            fire-and-forget TTL touch, so the literal landing day is safe.
+                                            #14295 / 2026-07-21 is the separate upload-SSE heartbeat work
+                                            under F8, not this route.)
 ```
 Revised message / SSE shapes:
 - Message content parts add a `steer` type (`type == "steer"`, #14220) — mid-run steering. `ContentType`
