@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -88,6 +89,9 @@ data class SettingsUiState(
     val autoScrollEnabled: Boolean = true,
     val showThinkingBlocks: Boolean = true,
     val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    /** What the composer's send does mid-run (v0.8.8 steering): inject into the running reply,
+     *  or queue for after it. Honoured only where the server supports steering. */
+    val duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
     val showImageDescriptions: Boolean = false,
     val dismissKeyboardOnSend: Boolean = false,
     // Data management

@@ -26,6 +26,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.feature.settings.resources.*
@@ -38,6 +39,7 @@ internal fun ChatSettingsSection(
     autoScrollEnabled: Boolean,
     showThinkingBlocks: Boolean,
     contextBarPlacement: ContextBarPlacement,
+    duringRunAction: DuringRunAction,
     showImageDescriptions: Boolean,
     dismissKeyboardOnSend: Boolean,
     chatLayoutStyle: String,
@@ -148,6 +150,12 @@ internal fun ChatSettingsSection(
                     title = stringResource(Res.string.context_bar_title),
                     value = contextBarPlacementLabel(contextBarPlacement),
                     onClick = { onOpenDialog(ChatSettingDialog.CONTEXT_BAR) },
+                )
+
+                SelectorRow(
+                    title = stringResource(Res.string.during_run_action_title),
+                    value = duringRunActionLabel(duringRunAction),
+                    onClick = { onOpenDialog(ChatSettingDialog.DURING_RUN_ACTION) },
                 )
 
                 SelectorRow(

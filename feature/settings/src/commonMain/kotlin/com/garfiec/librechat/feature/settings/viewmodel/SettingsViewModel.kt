@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -237,6 +238,10 @@ class SettingsViewModel(
 
     fun setContextBarPlacement(placement: ContextBarPlacement) {
         prefsController.setContextBarPlacement(placement)
+    }
+
+    fun setDuringRunAction(action: DuringRunAction) {
+        prefsController.setDuringRunAction(action)
     }
 
     fun setShowImageDescriptions(show: Boolean) {

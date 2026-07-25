@@ -115,6 +115,14 @@ class SettingsDataStore(
         prefs[KEY_CONTEXT_GAUGE_EXPANDED] ?: false
     }
 
+    /**
+     * What the send control does mid-run (v0.8.8 steering). Default [DuringRunAction.QUEUE] —
+     * steering needs a server that has the route, queueing works everywhere.
+     */
+    val duringRunAction: Flow<DuringRunAction> = dataStore.data.map { prefs ->
+        DuringRunAction.fromString(prefs[KEY_DURING_RUN_ACTION])
+    }
+
     val autoReadEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_AUTO_READ_ENABLED] ?: false
     }
@@ -346,6 +354,12 @@ class SettingsDataStore(
     suspend fun setContextBarPlacement(placement: ContextBarPlacement) {
         dataStore.edit { prefs ->
             prefs[KEY_CONTEXT_BAR_PLACEMENT] = placement.toStorageString()
+        }
+    }
+
+    suspend fun setDuringRunAction(action: DuringRunAction) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DURING_RUN_ACTION] = action.toStorageString()
         }
     }
 
@@ -665,6 +679,7 @@ class SettingsDataStore(
         private val KEY_AUTO_SCROLL_ENABLED = booleanPreferencesKey("auto_scroll_enabled")
         private val KEY_SHOW_THINKING_BLOCKS = booleanPreferencesKey("show_thinking_blocks")
         private val KEY_CONTEXT_BAR_PLACEMENT = stringPreferencesKey("context_bar_placement")
+        private val KEY_DURING_RUN_ACTION = stringPreferencesKey("during_run_action")
         private val KEY_CONTEXT_GAUGE_EXPANDED = booleanPreferencesKey("context_gauge_expanded")
         private val KEY_AUTO_READ_ENABLED = booleanPreferencesKey("auto_read_enabled")
         private val KEY_SHOW_IMAGE_DESCRIPTIONS = booleanPreferencesKey("show_image_descriptions")

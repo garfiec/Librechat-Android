@@ -34,6 +34,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
@@ -46,6 +47,7 @@ internal enum class ChatSettingDialog {
     FONT_SIZE,
     LATEX_RENDERER,
     CONTEXT_BAR,
+    DURING_RUN_ACTION,
     STARRED_MODELS,
     CHAT_HEADER,
     ARTIFACT_VIEWER,
@@ -80,6 +82,12 @@ internal fun contextBarPlacementLabel(placement: ContextBarPlacement): String = 
     ContextBarPlacement.ABOVE_INPUT -> stringResource(Res.string.context_bar_above_input)
     ContextBarPlacement.OPTIONS_SHEET -> stringResource(Res.string.context_bar_options_sheet)
     ContextBarPlacement.OVERFLOW_MENU -> stringResource(Res.string.context_bar_overflow_menu)
+}
+
+@Composable
+internal fun duringRunActionLabel(action: DuringRunAction): String = when (action) {
+    DuringRunAction.QUEUE -> stringResource(Res.string.during_run_action_queue)
+    DuringRunAction.STEER -> stringResource(Res.string.during_run_action_steer)
 }
 
 @Composable

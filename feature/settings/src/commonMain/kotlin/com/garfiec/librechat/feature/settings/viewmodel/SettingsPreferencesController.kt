@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -71,6 +72,7 @@ private data class AdditionalPreferences(
     val chatHeaderContent: ChatHeaderContent = ChatHeaderContent.TITLE,
     val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
     val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    val duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
 )
 
 /**
@@ -176,6 +178,9 @@ class SettingsPreferencesController(
     private val contextBarPlacementPref: StateFlow<ContextBarPlacement> = settingsDataStore.contextBarPlacement
         .stateIn(scope, SharingStarted.Eagerly, ContextBarPlacement.OPTIONS_SHEET)
 
+    private val duringRunActionPref: StateFlow<DuringRunAction> = settingsDataStore.duringRunAction
+        .stateIn(scope, SharingStarted.Eagerly, DuringRunAction.QUEUE)
+
     private val baseAdditionalPreferences = combine(
         tabletSidebarGestureEnabled,
         settingsDataStore.autoSendAfterStt,
@@ -208,6 +213,8 @@ class SettingsPreferencesController(
         additional.copy(chatHeaderAlignment = headerAlignment)
     }.combine(contextBarPlacementPref) { additional, contextBarPlacement ->
         additional.copy(contextBarPlacement = contextBarPlacement)
+    }.combine(duringRunActionPref) { additional, duringRunAction ->
+        additional.copy(duringRunAction = duringRunAction)
     }.combine(settingsDataStore.sttOnDevice) { additional, sttOnDevice ->
         additional.copy(sttOnDevice = sttOnDevice)
     }.combine(settingsDataStore.sttEndOfSpeech) { additional, sttEndOfSpeech ->
@@ -260,6 +267,7 @@ class SettingsPreferencesController(
             chatHeaderContent = additional.chatHeaderContent,
             chatHeaderAlignment = additional.chatHeaderAlignment,
             contextBarPlacement = additional.contextBarPlacement,
+            duringRunAction = additional.duringRunAction,
         )
     }.stateIn(scope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -303,6 +311,10 @@ class SettingsPreferencesController(
 
     fun setContextBarPlacement(placement: ContextBarPlacement) {
         scope.launch { settingsDataStore.setContextBarPlacement(placement) }
+    }
+
+    fun setDuringRunAction(action: DuringRunAction) {
+        scope.launch { settingsDataStore.setDuringRunAction(action) }
     }
 
     fun setShowImageDescriptions(show: Boolean) {

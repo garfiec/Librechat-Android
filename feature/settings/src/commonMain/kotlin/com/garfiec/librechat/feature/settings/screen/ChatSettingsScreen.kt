@@ -44,6 +44,7 @@ import com.garfiec.librechat.core.common.speech.sttLanguageOptions
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
@@ -117,6 +118,7 @@ fun ChatSettingsContent(
                     autoScrollEnabled = uiState.autoScrollEnabled,
                     showThinkingBlocks = uiState.showThinkingBlocks,
                     contextBarPlacement = uiState.contextBarPlacement,
+                    duringRunAction = uiState.duringRunAction,
                     showImageDescriptions = uiState.showImageDescriptions,
                     dismissKeyboardOnSend = uiState.dismissKeyboardOnSend,
                     chatLayoutStyle = uiState.chatLayoutStyle,
@@ -263,6 +265,24 @@ fun ChatSettingsContent(
                 onSave = saveAndClose(viewModel::setContextBarPlacement),
                 onDismiss = dismissDialog,
                 optionLabel = { contextBarPlacementLabel(it) },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.DURING_RUN_ACTION) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.during_run_action_title),
+                description = stringResource(Res.string.during_run_action_desc),
+                options = DuringRunAction.entries,
+                selected = uiState.duringRunAction,
+                onSave = saveAndClose(viewModel::setDuringRunAction),
+                onDismiss = dismissDialog,
+                optionLabel = { duringRunActionLabel(it) },
+                optionDescription = {
+                    when (it) {
+                        DuringRunAction.QUEUE -> stringResource(Res.string.during_run_action_queue_desc)
+                        DuringRunAction.STEER -> stringResource(Res.string.during_run_action_steer_desc)
+                    }
+                },
             )
         }
 

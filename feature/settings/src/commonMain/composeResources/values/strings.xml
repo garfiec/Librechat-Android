@@ -516,4 +516,12 @@
     <string name="server_headers_discard_message">Your unsaved header changes will be lost.</string>
     <string name="server_headers_discard_confirm">Discard</string>
     <string name="server_headers_keep_editing">Keep editing</string>
+
+    <!-- Mid-run steering (v0.8.8): what send does while a reply is still generating -->
+    <string name="during_run_action_title">While generating</string>
+    <string name="during_run_action_desc">What sending a message does while a reply is still being written. The composer can override this per message.</string>
+    <string name="during_run_action_queue">Add to queue</string>
+    <string name="during_run_action_queue_desc">Send it as the next message once the reply finishes.</string>
+    <string name="during_run_action_steer">Steer the reply</string>
+    <string name="during_run_action_steer_desc">Push it into the reply being written so the assistant changes course. Needs a server that supports steering; otherwise it queues.</string>
 </resources>
