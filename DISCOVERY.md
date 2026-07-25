@@ -325,6 +325,24 @@ DELETE /api/memories/:key                   unique only *within* a partition, an
 POST   /api/memories                      + optional `agentId` in the body, partitioning the new entry to an
                                             agent. Mobile always omits it (shared pool) — no agent picker.
 
+# Added
+POST   /api/agents/chat/resume            { conversationId, actionId, + the paused turn's endpoint/model/agent
+                                            config, plus `decisions[]` (tool approval) or `answer`
+                                            (ask_user_question) }. Resumes a run paused for human-in-the-loop
+                                            review. Shares the chat router's middleware, and the server replays
+                                            the paused turn's graph config from the pending action, so a crafted
+                                            resume cannot swap the agent or tool set — it recomputes the request
+                                            fingerprint and 403s a mismatch, which is why the client pins the
+                                            turn config at pause ARRIVAL, not at decision time. The continuation
+                                            arrives on the SSE stream that is still open (a paused run never
+                                            emits `final`). Pairs with the `on_pending_action` SSE and the
+                                            `requires_action` job status. NOT version-gated: the client only
+                                            calls it in response to a server-announced pause carrying an
+                                            actionId, which is itself proof the route exists — a date gate would
+                                            instead strand real pauses on any server built past the pinned
+                                            commit (BackendCommitMap → null → gate false). See VERSION_GATES.md.
+                                            (#13942 + #14139, landed 2026-06-29 / 2026-07-08) (BUILT)
+
 # Removed
 POST   /api/endpoints/context-projection  REMOVED (#13953, landing commit 376370d6, 2026-06-25). The gauge is
                                             now computed client-side / seeded from the on_context_usage SSE, so
@@ -363,12 +381,6 @@ POST   /api/agents/chat/steer             { conversationId, text, files? } → {
 POST   /api/agents/chat/steer/cancel      { conversationId, steerId } — drops a still-queued steer before
                                             injection. No moderation pass (nothing model-bound yet).
                                             (#14220, landedDate 2026-07-14)
-POST   /api/agents/chat/resume            Resumes a run paused for human-in-the-loop review (tool approval or
-                                            an ask_user_question answer). Shares the chat router's middleware,
-                                            and the server replays the paused turn's graph config from the
-                                            pending action, so a crafted resume cannot swap the agent or tool
-                                            set. Pairs with the `on_pending_action` SSE and the `requires_action`
-                                            job status. (#13942 + #14139, landedDate 2026-06-29)
 GET    /api/agents/:id/versions           → Agent[] version history. Requires EDIT on the agent; loaded lazily
                                             because histories are large. (#13977, 12fea693b, landed 2026-06-26;
                                             gate landedDate 2026-06-27 — day-granularity rounded UP: four

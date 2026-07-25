@@ -138,8 +138,6 @@ data class ChatUiState(
     val tokenUsage: TokenUsage? get() = content.tokenUsage
     val pendingAction: PendingAction? get() = content.pendingAction
     val isResolvingPendingAction: Boolean get() = content.isResolvingPendingAction
-    val toolApprovalEnabled: Boolean get() = gates.toolApprovalEnabled
-    val askUserQuestionEnabled: Boolean get() = gates.askUserQuestionEnabled
     val memoryEnabled: Boolean get() = gates.memoryEnabled
     val conversationId: String? get() = conversation.conversationId
     val conversationTitle: String? get() = conversation.conversationTitle
@@ -244,15 +242,22 @@ data class ChatUiState(
     /**
      * The pause to render resolve controls for, or null.
      *
-     * Filters [pendingAction] by the gate matching its own payload type, because the two HITL
-     * surfaces landed upstream on different days: a server old enough to lack the ask tool can
-     * still pause for tool approval. An action whose type has no gate satisfied (or an unknown
-     * future type) is deliberately dropped from rendering — resolving it would 400 — leaving
-     * the run to expire server-side, which is the same outcome as before HITL existed.
+     * Deliberately NOT version-gated. The pause is self-proving: it can only be here because the
+     * server pushed `on_pending_action` or reported it on `/chat/status`, which is proof that
+     * server has the HITL plumbing and the resume route. A version/date gate here would instead
+     * fail closed on the exact population that emits these — a server built from an upstream
+     * commit newer than the pinned one resolves to a null `DetectedBackend`, and hiding the card
+     * then leaves the user staring at a live cursor on a run that will never produce another
+     * token, with Stop as the only way out.
+     *
+     * Only two things are required: an [PendingAction.actionId] to resolve against (the delegate
+     * cannot post a resume without one) and a payload type the card can render — an unknown
+     * future type is dropped rather than shown as an empty card, leaving the run to expire
+     * server-side, the same outcome as before HITL existed.
      */
     val renderablePendingAction: PendingAction?
         get() = pendingAction?.takeIf {
-            (it.isToolApproval && toolApprovalEnabled) || (it.isAskUserQuestion && askUserQuestionEnabled)
+            !it.actionId.isNullOrBlank() && (it.isToolApproval || it.isAskUserQuestion)
         }
 
     /** Number of queued messages a Stop/error pause is holding (0 = none / not paused). Drives

@@ -33,7 +33,7 @@ class EndpointTokenRepositoryImpl(
     override suspend fun getContextProjection(
         request: ContextProjectionRequest,
     ): Result<ContextUsage?> {
-        // Upstream #14344/#13953 (0.8.8 line) REMOVED POST /api/endpoints/context-projection and
+        // Upstream #13953 (0.8.8 line) REMOVED POST /api/endpoints/context-projection and
         // moved the gauge to a client-side / SSE-seeded computation. On such a server the POST 404s,
         // so skip it there and let the live `on_context_usage` SSE + token-config seed own the gauge
         // (a null result leaves any existing reading in place). This inverts the earlier gate that
