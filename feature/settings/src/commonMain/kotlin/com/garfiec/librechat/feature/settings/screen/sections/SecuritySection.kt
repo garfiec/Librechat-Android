@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
+import com.garfiec.librechat.feature.settings.util.copyToClipboard
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -144,6 +145,11 @@ internal fun BackupCodesDialog(
     backupCodes: List<String>,
     onDismiss: () -> Unit,
 ) {
+    // These are single-use recovery codes shown exactly once. Without a copy action the only way
+    // to keep them is a screenshot or transcribing ten hex strings by hand, so offer the same
+    // copy-then-confirm affordance ApiKeyCreateDialog uses for its equally one-shot secret.
+    var copied by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.dialog_title_backup_codes)) },
@@ -161,24 +167,43 @@ internal fun BackupCodesDialog(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = MaterialTheme.shapes.small,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        backupCodes.forEach { code ->
-                            Text(
-                                text = code,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontFamily = FontFamily.Monospace,
-                            )
+                    SelectionContainer {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            backupCodes.forEach { code ->
+                                Text(
+                                    text = code,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontFamily = FontFamily.Monospace,
+                                )
+                            }
                         }
                     }
+                }
+                if (copied) {
+                    Text(
+                        text = stringResource(Res.string.copied_to_clipboard),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(Res.string.action_done))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    copyToClipboard(backupCodes.joinToString("\n"), "Backup Codes")
+                    copied = true
+                },
+            ) {
+                Text(stringResource(Res.string.action_copy))
             }
         },
     )

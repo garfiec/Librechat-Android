@@ -5,6 +5,7 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_clear">Clear</string>
     <string name="action_confirm">Confirm</string>
+    <string name="action_copy">Copy</string>
     <string name="action_creating">Creating…</string>
     <string name="action_create">Create</string>
     <string name="action_delete">Delete</string>
