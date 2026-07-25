@@ -266,6 +266,21 @@ class PendingActionHandle(root: ChatStateHandle) : DelegateHandle(root) {
         root.update { PendingActionWrites(this).apply(block).applyTo(this) }
 }
 
+// ── SteeringDelegate ──────────────────────────────────────────────────────
+// Owns only the steer slice. Deliberately cannot write `queue`: a degraded steer must go
+// through MessageQueueDelegate's enqueue so it gets a full send spec (model, tools, params,
+// account stamp) rather than a bare text row this delegate has no way to build.
+class SteeringWrites internal constructor(state: ChatUiState) {
+    var steer: SteerState = state.steer
+    var error: String? = state.error
+    internal fun applyTo(s: ChatUiState) = s.copy(steer = steer, error = error)
+}
+
+class SteeringHandle(root: ChatStateHandle) : DelegateHandle(root) {
+    fun update(block: SteeringWrites.() -> Unit) =
+        root.update { SteeringWrites(this).apply(block).applyTo(this) }
+}
+
 // ── Platform voice input (VoiceInputDelegate / IosVoiceInput) ─────────────
 class VoiceWrites internal constructor(state: ChatUiState) {
     var voice: VoiceState = state.voice

@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -53,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
@@ -63,6 +65,7 @@ import com.garfiec.librechat.feature.chat.resources.cd_cancel_edit
 import com.garfiec.librechat.feature.chat.resources.cd_cancel_pending_send
 import com.garfiec.librechat.feature.chat.resources.cd_send_message
 import com.garfiec.librechat.feature.chat.resources.cd_start_voice_recording
+import com.garfiec.librechat.feature.chat.resources.cd_steer_message
 import com.garfiec.librechat.feature.chat.resources.cd_stop_generation
 import com.garfiec.librechat.feature.chat.resources.cd_update_queued_message
 import com.garfiec.librechat.feature.chat.resources.editing_queued_message
@@ -70,6 +73,7 @@ import com.garfiec.librechat.feature.chat.resources.hint_message
 import com.garfiec.librechat.feature.chat.resources.hint_message_model
 import com.garfiec.librechat.feature.chat.resources.recording
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.PendingSteerChip
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import org.jetbrains.compose.resources.stringResource
 
@@ -93,6 +97,14 @@ data class ChatInputState(
     /** Whether queueing a follow-up mid-stream is allowed (existing conversation only). When
      *  false, the send button stays plain Stop while streaming. */
     val canQueue: Boolean = false,
+    /** Whether a mid-stream send could instead be steered into the running reply (v0.8.8).
+     *  False leaves the composer with queueing alone and hides the during-run picker. */
+    val canSteer: Boolean = false,
+    /** What a mid-stream send does by default — already degraded to
+     *  [DuringRunAction.QUEUE] by the ViewModel when steering is unavailable. */
+    val duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
+    /** Steers accepted by the running turn but not yet injected; rendered above the queue. */
+    val pendingSteers: List<PendingSteerChip> = emptyList(),
     /** True while the composer is editing a queued item (queued-edit mode): the send button
      *  becomes "Update" and an editing banner shows above the input. */
     val isEditingQueued: Boolean = false,
@@ -129,8 +141,18 @@ fun CommonChatInputCore(
     /** Toggle a pinned tool from its inline chip (v0.8.7 `defaultPinnedTools`). */
     onToggleTool: (String) -> Unit = {},
     /** Queue a follow-up while streaming. Null (or [ChatInputState.canQueue] false) keeps the
-     *  button as plain Stop mid-stream (e.g. on a brand-new conversation). */
+     *  button as plain Stop mid-stream (e.g. on a brand-new conversation). Also the during-run
+     *  picker's explicit "add to queue" — never the default-action route. */
     onQueue: (() -> Unit)? = null,
+    /** The send button's mid-stream action. Routes to steer or queue per the user's preference
+     *  and what the run can take; the composer deliberately does not make that call itself. */
+    onDuringRunSend: () -> Unit = {},
+    /** The during-run picker's explicit "steer this one" (v0.8.8). */
+    onSteer: () -> Unit = {},
+    /** Withdraw a steer the run has not injected yet. */
+    onCancelSteer: (steerId: String) -> Unit = {},
+    /** Persist a new default for what a mid-stream send does. */
+    onSetDuringRunAction: (DuringRunAction) -> Unit = {},
     /** Number of queued messages held by a Stop/error pause. >0 shows the "Send queued" banner
      *  above the input; 0 hides it (queue empty or draining normally). */
     queuedPausedCount: Int = 0,
@@ -178,6 +200,14 @@ fun CommonChatInputCore(
             // Ghost queue, pinned directly above the composer. No scroll wrapper: the input bar is
             // bottom-anchored so the queue grows upward (the text field stays put), and a nested
             // vertical scroll here would fight the long-press drag-reorder. Self-hides when empty.
+            // Steers first, then the queue: the order they will reach the model. A steer lands in
+            // the reply being written right now; a queued message becomes a later turn.
+            PendingSteerChipsSection(
+                pendingSteers = state.pendingSteers,
+                onCancel = onCancelSteer,
+                fontSizeMultiplier = fontSizeMultiplier,
+            )
+
             QueuedMessagesSection(
                 queuedMessages = queuedMessages,
                 onEdit = onEditQueuedMessage,
@@ -257,14 +287,27 @@ fun CommonChatInputCore(
                 textFieldContent()
                 trailingSpacer()
                 val hasComposerContent = state.inputText.isNotBlank() || state.attachedFiles.isNotEmpty()
+                // Mid-stream + typed content + queueing allowed → morph Stop into a during-run send.
+                val duringRunSend = state.canQueue && hasComposerContent && onQueue != null &&
+                    !state.isEditingQueued
+                // The picker only earns its space when both routes are open; with steering
+                // unavailable the send button alone says everything there is to say.
+                if (duringRunSend && state.canSteer) {
+                    DuringRunSendMenu(
+                        defaultAction = state.duringRunAction,
+                        onSteerOnce = onSteer,
+                        onQueueOnce = onQueue ?: {},
+                        onSetDefault = onSetDuringRunAction,
+                    )
+                }
                 SendStopButton(
                     isStreaming = state.isStreaming,
                     canSend = hasComposerContent,
-                    // Mid-stream + typed content + queueing allowed → morph Stop into "add to queue".
-                    canQueue = state.canQueue && hasComposerContent && onQueue != null,
+                    canQueue = duringRunSend,
+                    isSteerDefault = state.duringRunAction == DuringRunAction.STEER,
                     onSend = onSend,
                     onStop = onStop,
-                    onQueue = onQueue ?: {},
+                    onQueue = onDuringRunSend,
                     // In queued-edit mode the button commits the edit instead of send/stop/queue.
                     isEditingQueued = state.isEditingQueued,
                     onUpdate = onCommitEdit,
@@ -279,7 +322,7 @@ fun CommonChatInputCore(
 }
 
 /** Visual mode of the trailing composer button. */
-private enum class SendButtonMode { SEND, STOP, QUEUE, UPDATE, AWAITING }
+private enum class SendButtonMode { SEND, STOP, QUEUE, STEER, UPDATE, AWAITING }
 
 /**
  * Animated send / stop / add-to-queue / update button shared between platforms.
@@ -300,6 +343,9 @@ fun SendStopButton(
     modifier: Modifier = Modifier,
     canQueue: Boolean = false,
     onQueue: () -> Unit = {},
+    /** Renders the during-run button as Steer rather than Add-to-queue. [onQueue] carries
+     *  whichever action this names — the caller resolves it, so the button stays one control. */
+    isSteerDefault: Boolean = false,
     isEditingQueued: Boolean = false,
     onUpdate: () -> Unit = {},
     isAwaitingUploadSend: Boolean = false,
@@ -313,7 +359,7 @@ fun SendStopButton(
         isAwaitingUploadSend && !isStreaming -> SendButtonMode.AWAITING
         isAwaitingUploadSend -> SendButtonMode.STOP
         !isStreaming -> SendButtonMode.SEND
-        canQueue -> SendButtonMode.QUEUE
+        canQueue -> if (isSteerDefault) SendButtonMode.STEER else SendButtonMode.QUEUE
         else -> SendButtonMode.STOP
     }
     AnimatedContent(
@@ -404,6 +450,20 @@ fun SendStopButton(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                     contentDescription = stringResource(Res.string.cd_add_to_queue),
+                )
+            }
+
+            SendButtonMode.STEER -> IconButton(
+                onClick = onQueue,
+                modifier = Modifier.size(56.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = stringResource(Res.string.cd_steer_message),
                 )
             }
 

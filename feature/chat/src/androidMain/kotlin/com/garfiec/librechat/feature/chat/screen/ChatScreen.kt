@@ -471,6 +471,15 @@ actual fun ChatScreen(
                 },
                 onStop = viewModel::stopGeneration,
                 onOpenTools = { optionsController.open() },
+                // The mid-stream send button: the ViewModel resolves steer-vs-queue from the
+                // user's preference and what this run can actually take, so the composer never
+                // has to. `onQueue` stays the picker's explicit "add to queue".
+                onDuringRunSend = {
+                    viewModel.sendDuringRun()
+                    if (dismissKeyboardOnSend) {
+                        keyboardController?.hide()
+                    }
+                },
                 onQueue = {
                     viewModel.queueMessage()
                     if (dismissKeyboardOnSend) {
@@ -478,6 +487,19 @@ actual fun ChatScreen(
                     }
                 },
                 canQueue = uiState.canQueueFollowUp,
+                // Explicit "steer this one", from the during-run picker or the send button when
+                // steering is the standing default.
+                onSteer = {
+                    viewModel.steerMessage()
+                    if (dismissKeyboardOnSend) {
+                        keyboardController?.hide()
+                    }
+                },
+                canSteer = uiState.canSteerNow,
+                duringRunAction = uiState.effectiveDuringRunAction,
+                pendingSteers = uiState.pendingSteers,
+                onCancelSteer = viewModel::cancelSteer,
+                onSetDuringRunAction = viewModel::setDuringRunAction,
                 attachedFiles = attachedFiles,
                 onRemoveFile = viewModel::removeFile,
                 promptSuggestions = uiState.availablePrompts,

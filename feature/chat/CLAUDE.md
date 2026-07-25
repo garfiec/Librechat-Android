@@ -1,11 +1,10 @@
 # feature:chat
 
 ## State Architecture (ChatUiState slices + narrowed handles)
-`ChatUiState` is decomposed into **16 `@Immutable` sub-state slices** (15 new files under
-`viewmodel/state/`, plus the pre-existing `comparisonState`), plus two top-level fields: `error`
+`ChatUiState` is decomposed into **17 `@Immutable` sub-state slices**, plus two top-level fields: `error`
 (a shared transient-banner channel) and `mediaPreview`. The slices: `conversation`, `content`
 (message tree + all streaming fields),
-`editing`, `composer`, `selection` (endpoint/model/tools/params), `queue`, `search`,
+`editing`, `composer`, `selection` (endpoint/model/tools/params), `queue`, `steer`, `search`,
 `presetPrompts`, `voice`, `favorites`, `subagents`, `comparisonState`, `gates`, `account`,
 `actions`, `prefs`.
 
@@ -142,6 +141,35 @@ Two consequences worth knowing before touching that block:
 - `PromptsLibraryScreen` and `PromptDetailScreen` live in `chat/prompts/`
 - `PromptsViewModel` loads prompt groups from `PromptRepository`
 - `handlePromptMention()` on ChatViewModel inserts prompt command text at `@` position
+
+## During-run send: queue vs steer (v0.8.8)
+Two different things can happen when the user sends while a reply is generating, and they are not
+interchangeable.
+- **Queue** (`MessageQueueDelegate`, `QueueState`) — the message becomes the *next turn*, drained FIFO
+  when the run ends. Works against every supported server; the long-standing mobile behaviour and the
+  default.
+- **Steer** (`SteeringDelegate`, `SteerState`) — the message goes into the reply *being written*, injected
+  at the run's next tool boundary and announced back as `on_steer_applied`. Needs a server with
+  `POST /api/agents/chat/steer` (`FeatureGatesState.steeringSupported`, a date gate — see VERSION_GATES.md).
+
+`ChatUiState.effectiveDuringRunAction` resolves the user's Settings preference against
+`canSteerNow` (existing conversation, not comparison mode, steer route present, no live HITL pause). The
+composer never makes that call itself: its send button routes to `ChatViewModel.sendDuringRun()`, and the
+picker beside it (`DuringRunSendMenu`, rendered only when both routes are open) calls `steerMessage()` /
+`queueMessage()` explicitly.
+
+**Invariant: no steer path may lose the user's text.** Every rejection code, transport failure, and lost
+race re-homes the message — into the queue while a run still looks live, or as a new turn when the server
+proves it is over. A steer therefore carries the `QueuedMessage` spec it *would* have become, minted at send
+time: rebuilding one at failure time would capture whatever model, tools, and attachments the composer holds
+seconds later. Three server reports hand back un-injected steers **claim-on-read** (the `final` frame, the
+abort ack, `/chat/status`'s `unrecoveredSteers`) — parsing one and ignoring it destroys the words. A stream
+that dies on an error carries no report, so `reclaimLocalChips()` converts the locally-held chips instead;
+it deliberately does NOT run on `Finalized`, where the frame's own list is authoritative and converting again
+would double-send any steer whose applied event was missed.
+
+Steering is text-only on mobile: a during-run send carrying attachments is routed to the queue, where the
+existing upload/usage path already handles them.
 
 ## Chat Tools
 - Tool state tracked as `Set<String>` in `ChatUiState.enabledTools`

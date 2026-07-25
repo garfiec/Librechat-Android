@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.feature.chat.util.AbortFrameFixtures
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
@@ -82,6 +83,7 @@ class StreamingManagerLifecycleTest {
             queueDelegate = queueDelegate,
             treeDelegate = treeDelegate,
             pendingActionDelegate = mockk(relaxed = true),
+            steeringDelegate = mockk(relaxed = true),
             emitUserKeyError = {},
             reloadConversation = reloadConversation,
             restoreUnsentInput = restoreUnsentInput,
@@ -103,7 +105,7 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `stop then background still delivers the partial and resume touches nothing`() =
         runTest(StandardTestDispatcher()) {
-            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(Unit)
+            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, _) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -213,7 +215,7 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `a stop during the resume reattach window preserves the partial`() =
         runTest(StandardTestDispatcher()) {
-            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(Unit)
+            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
             val statusGate = CompletableDeferred<ChatStatusResponse>()
             coEvery { chatRepository.checkStreamStatus("conv-1") } coAnswers { statusGate.await() }
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
@@ -292,11 +294,11 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `a stale abort ack does not cancel the current session's watchdog`() =
         runTest(StandardTestDispatcher()) {
-            val staleAck = CompletableDeferred<Result<Unit>>()
+            val staleAck = CompletableDeferred<Result<ChatAbortResponse>>()
             var abortCalls = 0
             coEvery { chatRepository.abortChat("conv-1") } coAnswers {
                 abortCalls++
-                if (abortCalls == 1) staleAck.await() else Result.Success(Unit)
+                if (abortCalls == 1) staleAck.await() else Result.Success(ChatAbortResponse())
             }
             val events1 = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, flow) = delegateWith(this)
@@ -318,7 +320,7 @@ class StreamingManagerLifecycleTest {
             runCurrent()
 
             // The first stream's delayed ack lands now — it must NOT cancel the newer watchdog.
-            staleAck.complete(Result.Success(Unit))
+            staleAck.complete(Result.Success(ChatAbortResponse()))
             runCurrent()
 
             // The newer session's watchdog still fires and finalizes it with its partial intact.
@@ -363,7 +365,7 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `resumeActiveStreamIfNeeded defers while a stop is pending`() =
         runTest(StandardTestDispatcher()) {
-            val gate = CompletableDeferred<Result<Unit>>()
+            val gate = CompletableDeferred<Result<ChatAbortResponse>>()
             coEvery { chatRepository.abortChat("conv-1") } coAnswers { gate.await() }
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, _) = delegateWith(this)
@@ -376,7 +378,7 @@ class StreamingManagerLifecycleTest {
             runCurrent()
 
             coVerify(exactly = 0) { chatRepository.checkStreamStatus(any()) }
-            gate.complete(Result.Success(Unit))
+            gate.complete(Result.Success(ChatAbortResponse()))
             events.close()
             advanceUntilIdle()
         }

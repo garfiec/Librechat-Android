@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.feature.chat.util.AbortFrameFixtures
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -89,6 +90,7 @@ class StreamingManagerEndStreamTest {
             queueDelegate = queueDelegate,
             treeDelegate = treeDelegate,
             pendingActionDelegate = mockk(relaxed = true),
+            steeringDelegate = mockk(relaxed = true),
             emitUserKeyError = {},
             reloadConversation = reloadConversation,
             restoreUnsentInput = restoreUnsentInput,
@@ -109,7 +111,7 @@ class StreamingManagerEndStreamTest {
     @Test
     fun `the watchdog stops the stream locally when the aborted final never arrives`() =
         runTest(StandardTestDispatcher()) {
-            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(Unit)
+            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, flow) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -138,7 +140,7 @@ class StreamingManagerEndStreamTest {
 
     @Test
     fun `the aborted final disarms the watchdog`() = runTest(StandardTestDispatcher()) {
-        coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(Unit)
+        coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, _) = delegateWith(this)
         delegate.launchStream(events.receiveAsFlow())
@@ -170,7 +172,7 @@ class StreamingManagerEndStreamTest {
      */
     @Test
     fun `a late abort failure after the final is a no-op`() = runTest(StandardTestDispatcher()) {
-        val gate = CompletableDeferred<Result<Unit>>()
+        val gate = CompletableDeferred<Result<ChatAbortResponse>>()
         coEvery { chatRepository.abortChat("conv-1") } coAnswers { gate.await() }
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, flow) = delegateWith(this)
@@ -203,7 +205,7 @@ class StreamingManagerEndStreamTest {
     @Test
     fun `a stale end from a previous stream cannot touch the new one`() =
         runTest(StandardTestDispatcher()) {
-            val gate = CompletableDeferred<Result<Unit>>()
+            val gate = CompletableDeferred<Result<ChatAbortResponse>>()
             coEvery { chatRepository.abortChat("conv-1") } coAnswers { gate.await() }
             val (delegate, flow) = delegateWith(this)
 

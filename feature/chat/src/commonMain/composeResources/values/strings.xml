@@ -413,4 +413,13 @@
     <string name="ask_user_question_multi_select_hint">Pick as many as apply</string>
     <string name="tool_memory">Memory</string>
     <string name="tool_memory_desc">Let the assistant remember details from this chat</string>
+
+    <!-- Mid-run steering (v0.8.8): send into the reply that is still being written -->
+    <string name="cd_steer_message">Steer this reply</string>
+    <string name="cd_cancel_steer">Cancel steer</string>
+    <string name="cd_during_run_options">Choose what sending does now</string>
+    <string name="during_run_steer">Steer this reply</string>
+    <string name="during_run_queue">Add to queue</string>
+    <string name="during_run_always_steer">Always steer while generating</string>
+    <string name="during_run_always_queue">Always queue while generating</string>
 </resources>

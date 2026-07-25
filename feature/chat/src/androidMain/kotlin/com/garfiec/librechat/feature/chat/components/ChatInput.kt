@@ -37,11 +37,13 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.PendingSteerChip
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -62,6 +64,13 @@ fun ChatInput(
     modifier: Modifier = Modifier,
     onQueue: () -> Unit = {},
     canQueue: Boolean = false,
+    onDuringRunSend: () -> Unit = {},
+    onSteer: () -> Unit = {},
+    canSteer: Boolean = false,
+    duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
+    pendingSteers: List<PendingSteerChip> = emptyList(),
+    onCancelSteer: (steerId: String) -> Unit = {},
+    onSetDuringRunAction: (DuringRunAction) -> Unit = {},
     queuedPausedCount: Int = 0,
     onSendQueuedMessages: () -> Unit = {},
     isEditingQueued: Boolean = false,
@@ -135,6 +144,9 @@ fun ChatInput(
         attachedFiles = attachedFiles,
         gates = gates,
         canQueue = canQueue,
+        canSteer = canSteer,
+        duringRunAction = duringRunAction,
+        pendingSteers = pendingSteers,
         isEditingQueued = isEditingQueued,
         isAwaitingUploadSend = isAwaitingUploadSend,
         contextUsage = contextUsage,
@@ -151,6 +163,10 @@ fun ChatInput(
         onSelectPrompt = onSlashCommandSelected,
         onToggleTool = onToggleTool,
         onQueue = onQueue,
+        onDuringRunSend = onDuringRunSend,
+        onSteer = onSteer,
+        onCancelSteer = onCancelSteer,
+        onSetDuringRunAction = onSetDuringRunAction,
         queuedPausedCount = queuedPausedCount,
         onSendQueuedMessages = onSendQueuedMessages,
         onCommitEdit = onCommitEdit,

@@ -50,6 +50,7 @@ class StreamingManagerDelegate(
     private val queueDelegate: MessageQueueDelegate,
     private val treeDelegate: MessageTreeDelegate,
     private val pendingActionDelegate: PendingActionDelegate,
+    private val steeringDelegate: SteeringDelegate,
     /** Emits a typed user-provided-key error for one-shot UI surfacing (snackbar + CTA). */
     private val emitUserKeyError: (UserKeyError) -> Unit,
     /** Reloads the conversation from the server (VM-owned Room observer). */
@@ -254,6 +255,10 @@ class StreamingManagerDelegate(
         // the new stream; a reconnect into a still-live pause gets it back from the sync frame's
         // `resumeState.pendingAction` (and the status read, which runs after this).
         pendingActionDelegate.clear()
+        // Same reasoning for the steer chips: they describe one run's injection queue. A
+        // reconnect into a still-live run gets them back from the sync frame's
+        // `resumeState.pendingSteers`, which is authoritative.
+        steeringDelegate.clear()
         // A resumed stream re-enters without beginStreaming's assignment; never let a previous
         // turn's optimistic id leak into it (the un-send would remove the wrong message).
         currentTurnOptimisticUserMessageId = null
@@ -424,6 +429,15 @@ class StreamingManagerDelegate(
                 // `isStreaming`.
                 pendingActionDelegate.onPendingAction(event.pendingAction)
             }
+            is StreamEvent.SteerApplied -> {
+                // The steer is now a content part of the reply being streamed, so its chip has
+                // done its job. The text itself needs no handling here: it arrives through the
+                // normal content path like everything else the run writes.
+                steeringDelegate.onSteerApplied(event.steerId)
+            }
+            is StreamEvent.PendingSteersSynced -> {
+                steeringDelegate.onPendingSteersSynced(event.pendingSteers)
+            }
             is StreamEvent.SubagentUpdate -> subagentTraceDelegate.onUpdate(event)
             is StreamEvent.TitleUpdate -> handleTitleUpdate(event)
             is StreamEvent.ContextUsageUpdate -> {
@@ -475,6 +489,11 @@ class StreamingManagerDelegate(
         // the event rather than off local stop state, so an abort issued from another client on
         // the same conversation is treated identically.
         val aborted = rawEvent.aborted
+        // Steers this run accepted but never injected ride the final frame, claim-on-read: the
+        // server has already dropped its copy by the time this arrives, so re-home them now, as
+        // the FIRST thing the frame does. Every early return below (an early abort, a degenerate
+        // frame) would otherwise skip it and take the user's words with it.
+        steeringDelegate.reclaim(rawEvent.pendingSteers)
         // Flush the tail of the buffer before it is read below; endStream repeats this
         // idempotently at the end.
         stopStreamingUpdater()
@@ -645,6 +664,11 @@ class StreamingManagerDelegate(
                 // route persists gets no expiry. See ChatAbortRequest.isTemporary.
                 isTemporary = handle.state.isTemporaryChat,
             )
+            if (abortResult is Result.Success) {
+                // The abort ack hands back the steers the stopped run never injected — the only
+                // report for this ending, and claim-on-read like the rest.
+                steeringDelegate.reclaim(abortResult.data.pendingSteers)
+            }
             if (abortResult is Result.Error) {
                 Logger.w(abortResult.exception) { "Failed to abort chat: ${abortResult.message}" }
                 // The server never accepted the abort (404 job-not-found, offline, legacy backend
@@ -698,6 +722,12 @@ class StreamingManagerDelegate(
         // so a resume can only 409). Drop it for every reason rather than per-branch: a card left
         // on screen after the turn ended offers controls that cannot work.
         pendingActionDelegate.clear()
+        // Steers the ended run never injected. A `Finalized` frame reports them authoritatively
+        // and handleFinal has already re-homed them; every other ending carries no report at all,
+        // so the text held locally is re-homed here or it is lost. Converting on Finalized too
+        // would double-send any steer whose applied event this client happened to miss.
+        if (reason !is StreamEndReason.Finalized) steeringDelegate.reclaimLocalChips()
+        steeringDelegate.clear()
         when (reason) {
             is StreamEndReason.Finalized -> {
                 stopStreamingUpdater()
@@ -842,7 +872,10 @@ class StreamingManagerDelegate(
                     handle.update { content = content.copy(isStreaming = true) }
                     resumeStream(conversationId)
                     applyStatusPendingAction(status)
+                    applyStatusSteers(status)
                 } else {
+                    // Claim the parked steers BEFORE the teardown: endStream clears the chips.
+                    applyStatusSteers(status)
                     // Server confirms the job is gone: safe to wipe and reload (past the persist race).
                     endStream(StreamEndReason.ResumeExpired, session)
                 }
@@ -875,6 +908,18 @@ class StreamingManagerDelegate(
         val pendingAction = status.pendingAction ?: return
         if (pendingAction.actionId.isNullOrBlank()) return
         pendingActionDelegate.onPendingAction(pendingAction)
+    }
+
+    /**
+     * Claims the steers `/chat/status` parked because no subscriber was live to receive them
+     * (v0.8.8 `unrecoveredSteers`) — the run accepted these and then ended with nobody attached.
+     *
+     * Claim-on-read like every other steer handover: the server clears them as it answers, so a
+     * status call whose response is only read for `active` silently destroys them. Populated
+     * only when the run is NOT active, which is why it runs on both branches of a resume check.
+     */
+    private fun applyStatusSteers(status: ChatStatusResponse) {
+        steeringDelegate.reclaim(status.unrecoveredSteers)
     }
 
     /**
@@ -915,6 +960,7 @@ class StreamingManagerDelegate(
                     resumeStream(conversationId)
                     applyStatusPendingAction(status)
                 }
+                applyStatusSteers(status)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

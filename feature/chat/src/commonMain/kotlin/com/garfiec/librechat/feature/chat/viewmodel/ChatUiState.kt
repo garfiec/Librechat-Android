@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.Attachment
@@ -29,6 +30,7 @@ data class ChatUiState(
     // ── Extracted sub-state slices. Flat compat accessors below delegate to these so the
     //    ~250 UI read sites keep compiling; delegates write only their own slice. ──
     val queue: QueueState = QueueState(),
+    val steer: SteerState = SteerState(),
     val search: ChatSearchState = ChatSearchState(),
     val favorites: FavoritesState = FavoritesState(),
     val subagents: SubagentState = SubagentState(),
@@ -57,6 +59,7 @@ data class ChatUiState(
     //    Each delegates to its owning slice; writes go through the slice, not these. ──
     val messageQueue: List<QueuedMessage> get() = queue.messageQueue
     val isQueuePaused: Boolean get() = queue.isQueuePaused
+    val pendingSteers: List<PendingSteerChip> get() = steer.pendingSteers
     val isSearchOpen: Boolean get() = search.isSearchOpen
     val searchQuery: String get() = search.searchQuery
     val searchMatchIndices: List<SearchMatch> get() = search.searchMatchIndices
@@ -105,6 +108,7 @@ data class ChatUiState(
     val chatHeaderContent: ChatHeaderContent get() = prefs.chatHeaderContent
     val chatHeaderAlignment: ChatHeaderAlignment get() = prefs.chatHeaderAlignment
     val contextBarPlacement: ContextBarPlacement get() = prefs.contextBarPlacement
+    val duringRunAction: DuringRunAction get() = prefs.duringRunAction
     val contextGaugeExpanded: Boolean get() = prefs.contextGaugeExpanded
     val promptsEnabled: Boolean get() = gates.promptsEnabled
     val promptsCreateEnabled: Boolean get() = gates.promptsCreateEnabled
@@ -238,6 +242,32 @@ data class ChatUiState(
      */
     val canQueueFollowUp: Boolean
         get() = conversationId != null && !comparisonState.isEnabled
+
+    /**
+     * Whether a message typed right now could be steered into the running turn (v0.8.8).
+     *
+     * Requires everything queueing requires, plus a server with the steer route
+     * ([FeatureGatesState.steeringSupported]) and a run that is actually reachable. A run parked
+     * on a human-review pause is not: the steer route answers `RUN_PAUSED` for it, so offering
+     * steer there would only spend a round-trip to land in the queue anyway.
+     *
+     * This is availability, not preference — [effectiveDuringRunAction] applies the user's
+     * choice on top, and the composer's during-run menu reads this to decide whether steering
+     * can be picked per send.
+     */
+    val canSteerNow: Boolean
+        get() = canQueueFollowUp && gates.steeringSupported && pendingAction == null
+
+    /**
+     * What the composer's send control will actually do mid-run: the user's preference, degraded
+     * to [DuringRunAction.QUEUE] whenever steering is unavailable.
+     *
+     * Degradation is silent by design. Queueing is the behaviour mobile has always had and it
+     * works against every server, so a preference that cannot be honoured costs the user
+     * nothing — whereas a control that announced "steer" and then failed would.
+     */
+    val effectiveDuringRunAction: DuringRunAction
+        get() = if (canSteerNow) duringRunAction else DuringRunAction.QUEUE
 
     /**
      * The pause to render resolve controls for, or null.

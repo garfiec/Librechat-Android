@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.getOrNull
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -76,6 +77,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.PendingActionDelega
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendCompletionDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.SteeringDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.StreamingManagerDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SubagentTraceDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.toFileReference
@@ -313,18 +315,25 @@ class ChatViewModel(
 
     // Bundled into one source so the uiState combine below stays within Kotlin's
     // 5-argument typed `combine` ceiling.
+    // Folded first so the display combine below stays within Kotlin's 5-argument typed ceiling.
+    private val gaugeExpanded: Flow<Boolean> = combine(
+        settingsDataStore.contextGaugeExpanded,
+        contextGaugeExpandedOverride,
+    ) { persisted, override -> override ?: persisted }
+
     private val chatDisplayPrefs: Flow<ChatDisplayPrefs> = combine(
         settingsDataStore.chatHeaderContent,
         settingsDataStore.chatHeaderAlignment,
         settingsDataStore.contextBarPlacement,
-        settingsDataStore.contextGaugeExpanded,
-        contextGaugeExpandedOverride,
-    ) { content, alignment, contextBarPlacement, persistedGaugeExpanded, overrideGaugeExpanded ->
+        gaugeExpanded,
+        settingsDataStore.duringRunAction,
+    ) { content, alignment, contextBarPlacement, gaugeExpanded, duringRunAction ->
         ChatDisplayPrefs(
             content,
             alignment,
             contextBarPlacement,
-            overrideGaugeExpanded ?: persistedGaugeExpanded,
+            gaugeExpanded,
+            duringRunAction,
         )
     }
 
@@ -344,6 +353,7 @@ class ChatViewModel(
                 chatHeaderAlignment = displayPrefs.alignment,
                 contextBarPlacement = displayPrefs.contextBarPlacement,
                 contextGaugeExpanded = displayPrefs.contextGaugeExpanded,
+                duringRunAction = displayPrefs.duringRunAction,
             ),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatUiState())
@@ -361,6 +371,18 @@ class ChatViewModel(
         resumeFailureMessage = { message -> message ?: "Could not resume the paused response." },
     )
 
+    private val steeringDelegate = SteeringDelegate(
+        handle = SteeringHandle(stateHandle),
+        chatRepository = chatRepository,
+        // Snapshots the CURRENT send config. Only used for steers the server reported (a
+        // reconnect, another device) — steers this client sent carry the spec they were
+        // composed with, so a model switch mid-run never retro-edits them.
+        buildFollowUp = ::buildSendSpec,
+        enqueueFollowUp = ::enqueueSpec,
+        sendAsNewTurn = { spec -> runWhenSendReady { doSendWithSpec(spec) } },
+        isStreaming = { _uiState.value.isStreaming },
+    )
+
     private val streamingManager = StreamingManagerDelegate(
         handle = StreamingHandle(stateHandle),
         chatRepository = chatRepository,
@@ -373,6 +395,7 @@ class ChatViewModel(
         queueDelegate = queueDelegate,
         treeDelegate = treeDelegate,
         pendingActionDelegate = pendingActionDelegate,
+        steeringDelegate = steeringDelegate,
         emitUserKeyError = { _userKeyErrors.trySend(it) },
         reloadConversation = ::loadConversation,
         restoreUnsentInput = ::restoreUnsentInput,
@@ -532,6 +555,22 @@ class ChatViewModel(
                         }
                     }
                 }
+            }
+        }
+
+        // Mid-run steering (v0.8.8). Version-gated rather than self-proving: unlike a HITL pause,
+        // which the server pushes, steering has to be OFFERED before any server has said anything
+        // about it. Date-gated on top of the version because the 0.8.8 line is untagged — a dev
+        // build still reports 0.8.7 (see BackendVersion.supportsFeature). Failing closed here
+        // just leaves the composer queueing mid-run, which every supported server handles.
+        viewModelScope.launch {
+            configRepository.detectedBackend.collect { detected ->
+                val supported = BackendVersion.supportsFeature(
+                    detected = detected,
+                    minVersion = "0.8.8-rc1",
+                    landedDate = "2026-07-14",
+                )
+                _uiState.update { it.copy(gates = it.gates.copy(steeringSupported = supported)) }
             }
         }
 
@@ -921,6 +960,50 @@ class ChatViewModel(
     }
 
     /**
+     * The composer's send while a reply is generating: routes to steering or queueing per
+     * [ChatUiState.effectiveDuringRunAction], which has already degraded the user's preference
+     * against what this server and this run actually support.
+     */
+    fun sendDuringRun() {
+        when (_uiState.value.effectiveDuringRunAction) {
+            DuringRunAction.STEER -> steerMessage()
+            DuringRunAction.QUEUE -> queueMessage()
+        }
+    }
+
+    /**
+     * Pushes the composer's text into the *running* turn (v0.8.8 steering) instead of waiting
+     * for it to finish.
+     *
+     * Attachments send it to the queue instead: mobile steering is text-only, and silently
+     * dropping the files the user attached would be worse than delivering the message a turn
+     * later with them intact.
+     */
+    fun steerMessage() {
+        val state = _uiState.value
+        if (!state.isStreaming || !state.canSteerNow) return
+        val conversationId = state.conversationId ?: return
+        if (attachedFiles.value.isNotEmpty()) {
+            queueMessage()
+            return
+        }
+        // The steer's own fallback spec, minted now: every degradation path re-homes it as a
+        // queued follow-up, and rebuilding it then would capture whatever model, tools, and
+        // attachments the composer holds by that point rather than what was sent.
+        val spec = buildSendSpec(state.inputText.trim()) ?: return
+        clearComposer()
+        steeringDelegate.steer(conversationId, spec)
+    }
+
+    /** Withdraws a steer that has not been injected into the running reply yet. */
+    fun cancelSteer(steerId: String) = steeringDelegate.cancel(steerId)
+
+    /** Settings/composer-menu write for the default during-run action (steer vs queue). */
+    fun setDuringRunAction(action: DuringRunAction) {
+        viewModelScope.launch { settingsDataStore.setDuringRunAction(action) }
+    }
+
+    /**
      * Runs [action] once any pending file uploads have finished, guarding against a double-send
      * while a previous wait is still in flight. Shared by the live-send and queue paths so the
      * upload-wait semantics live in one place.
@@ -968,8 +1051,17 @@ class ChatViewModel(
 
     private fun enqueueNow(text: String) {
         val spec = buildSendSpec(text) ?: return
-        queueDelegate.enqueue(spec)
         clearComposer()
+        enqueueSpec(spec)
+    }
+
+    /**
+     * Queues an already-built send spec. Split from [enqueueNow] because a steer that degrades
+     * arrives with its spec minted at send time and its composer long since cleared — clearing
+     * again there would wipe whatever the user has typed in the meantime.
+     */
+    private fun enqueueSpec(spec: QueuedMessage) {
+        queueDelegate.enqueue(spec)
         // If the in-flight reply already finished, no Final will arrive to drain this — kick it now.
         tryResumeDrain()
     }
