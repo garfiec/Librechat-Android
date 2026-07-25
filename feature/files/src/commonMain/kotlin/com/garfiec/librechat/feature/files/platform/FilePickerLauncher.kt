@@ -14,5 +14,10 @@ expect fun rememberFilePickerLauncher(
 ): FilePickerLauncher
 
 expect class FilePickerLauncher {
-    fun launch(mimeType: String)
+    /**
+     * Opens the picker filtered to [mimeTypes]. An empty list means "no restriction" and
+     * shows everything — pass the result of `FileUploadConfig.pickerMimeTypes()`, which
+     * already collapses unrepresentable or permissive server allowlists to empty.
+     */
+    fun launch(mimeTypes: List<String>)
 }

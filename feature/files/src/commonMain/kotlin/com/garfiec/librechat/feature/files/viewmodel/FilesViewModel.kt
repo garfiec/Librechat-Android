@@ -5,11 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.getOrNull
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
+import com.garfiec.librechat.core.model.response.pickerMimeTypes
 import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.files.FileDisplayData
@@ -114,6 +116,12 @@ data class FilesUiState(
     val mediaPreview: MediaPreviewState? = null,
     val hasFiles: Boolean = false,
     val viewMode: FileViewMode = FileViewMode.LIST,
+    /**
+     * MIME types to filter the system file picker to, derived from the server's
+     * `supportedMimeTypes` allowlist. Empty means "show everything" — either the server
+     * configured no allowlist, or it configured one we can't represent faithfully.
+     */
+    val pickerMimeTypes: List<String> = emptyList(),
 )
 
 class FilesViewModel(
@@ -137,6 +145,10 @@ class FilesViewModel(
     private val _viewMode = MutableStateFlow<FileViewMode?>(null)
 
     private val _transientState = MutableStateFlow(TransientState())
+
+    // Empty until the file config loads, so the picker is unrestricted for that first window
+    // rather than briefly hiding types the server actually accepts.
+    private val _pickerMimeTypes = MutableStateFlow<List<String>>(emptyList())
 
     /** Cache display data by fileId to avoid re-running formatFileSize on every emission. */
     private val displayDataCache = mutableMapOf<String, FileDisplayData>()
@@ -167,7 +179,8 @@ class FilesViewModel(
         displayList,
         _transientState,
         _viewMode,
-    ) { list, transient, mode ->
+        _pickerMimeTypes,
+    ) { list, transient, mode, pickerMimeTypes ->
         FilesUiState(
             displayFiles = list.files,
             isLoading = transient.isLoading,
@@ -186,6 +199,7 @@ class FilesViewModel(
             mediaPreview = transient.mediaPreview,
             hasFiles = list.hasFiles,
             viewMode = mode ?: FileViewMode.LIST,
+            pickerMimeTypes = pickerMimeTypes,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -202,6 +216,11 @@ class FilesViewModel(
         viewModelScope.launch {
             val mode = FileViewMode.fromString(settingsDataStore.filesViewMode.first())
             _viewMode.update { it ?: mode }
+        }
+        viewModelScope.launch {
+            // Best-effort: a config that fails to load just leaves the picker unrestricted.
+            val config = fileRepository.getFileConfig().getOrNull() ?: return@launch
+            _pickerMimeTypes.value = config.pickerMimeTypes()
         }
         loadFiles()
     }

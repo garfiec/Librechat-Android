@@ -13,7 +13,7 @@ actual fun rememberFilePickerLauncher(
 }
 
 actual class FilePickerLauncher {
-    actual fun launch(mimeType: String) {
+    actual fun launch(mimeTypes: List<String>) {
         // No-op on iOS for now
     }
 }

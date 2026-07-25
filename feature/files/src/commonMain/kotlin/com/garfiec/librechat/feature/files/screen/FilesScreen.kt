@@ -258,7 +258,7 @@ fun FilesScreen(
         floatingActionButton = {
             if (!uiState.isSelectionMode && !pickerMode) {
                 FloatingActionButton(
-                    onClick = { filePickerLauncher.launch("*/*") },
+                    onClick = { filePickerLauncher.launch(uiState.pickerMimeTypes) },
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,

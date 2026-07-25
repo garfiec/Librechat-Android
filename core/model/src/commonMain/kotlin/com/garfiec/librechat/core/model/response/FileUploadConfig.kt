@@ -56,4 +56,4 @@ fun FileUploadConfig.effectiveFileSizeLimit(endpoint: String?): Long? {
 }
 
 /** Catch-all key in [FileUploadConfig.endpoints] the server uses for endpoints without an override. */
-private const val DEFAULT_ENDPOINT_KEY = "default"
+internal const val DEFAULT_ENDPOINT_KEY = "default"
