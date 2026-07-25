@@ -48,6 +48,7 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
 | Move-to-project action (Chat Projects) | v0.8.7 (2026-06-26) | Move-to-project action hidden (older servers lack `/api/projects`) | Move-to-project picker in the drawer long-press menu (create/assign/unassign) | `shared/.../NavHostViewModel.kt` (`drawerActionMenuState` → `projectsEnabled`) + `shared/.../DrawerContent.kt` | v0.8.7 |
 | Chat Projects browse UI (folder section + index/detail) | v0.8.7 (2026-06-26) | Drawer Projects folder section hidden (older servers lack `/api/projects`) | Expandable drawer folder section + `Projects` index + `ProjectChats` detail screens (inline chats / Show all / CRUD) | `shared/.../NavHostViewModel.kt` (`projectsSection` + the version-gated `loadProjects` init collector → only fires ≥0.8.7) + `shared/.../DrawerContent.kt` (`uiState.projectsEnabled`) | v0.8.7 |
 | Context-usage gauge | v0.8.7 (2026-06-26) | Gauge hidden (no `on_context_usage` SSE / `token-config` / `context-projection` on older servers) | Slim context gauge below the chat app bar when `interface.contextUsage` is on | `feature/chat/.../viewmodel/ChatViewModel.kt` (`contextGaugeSupported` in the role+interface combine → `contextUsageEnabled`/`contextCostEnabled`) | v0.8.7 |
+| `context-projection` POST suppressed (endpoint removed upstream) | `supportsFeature("0.8.8-rc1", landedDate "2026-06-25")` — landing commit `376370d6` (#13953) | POST `/api/endpoints/context-projection` issued to seed the gauge on page load / model-window switch | Call short-circuits to a `null` snapshot (POST skipped — it 404s on the 0.8.8 line); the live `on_context_usage` SSE + `token-config` own the gauge. Inverts the earlier ≥0.8.7 enable gate. Fails CLOSED on unresolved dev servers (keeps calling, tolerable — a 404 just yields null). | `core/data/.../repository/EndpointTokenRepositoryImpl.kt` (`getContextProjection`) + `core/network/.../api/EndpointTokenApi.kt` | Once **v0.8.8-rc1** ships: drop `landedDate`, gate becomes plain `isCompatibleOrNewer(version, "0.8.8-rc1")`; endpoint-call code fully removable when min supported server ≥ v0.8.8-rc1 |
 
 ## Sync notes
 
@@ -74,6 +75,19 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
 - **v0.8.7 known-deferred parity gaps (not built, tracked):** `url_context` conversation toggle (M2)
   and per-message `quotes[]` round-trip (M3) — both additive, low priority; see
   `proposal-v0.8.7.md` Deferred Items.
+- **v0.8.8-line partial sync (untagged dev commit `6c97a7f4`, 2026-07-24):** one NEW version gate — the
+  `context-projection` POST suppression (row above). It is a `supportsFeature` **date gate** because the
+  target is untagged: upstream removed `POST /api/endpoints/context-projection` in #13953 (landing commit
+  `376370d6`, UTC committer date **2026-06-25**), but package.json on the target commit still reports 0.8.7,
+  so a plain version compare can't distinguish a pre- from a post-removal 0.8.7 dev server — the build
+  commit's date does. Drop the `landedDate` and switch to plain `isCompatibleOrNewer(version, "0.8.8-rc1")`
+  once the **v0.8.8-rc1** tag ships. Everything else this sync brought is **ungated / additive** and gates
+  nothing on its own: the chat-payload `clientRequestId` idempotency key (#14344 — always sent, older servers
+  ignore it), the `steer` message content-part (#14220 — parse-only forward-compat, `ContentType.STEER` +
+  nullable `MessageContentPart.steer`), and the reworked `DELETE /api/files` `tool_resource` contract (#14149 —
+  mobile already compliant, no branch). The `ALLOW_EMAIL_LOGIN` login gate (#14180) is **config-driven, not
+  version-gated**: it keys on `StartupConfig.emailLoginEnabled` from `/api/config` (fail-open to enabled) plus a
+  403 fallback on `POST /api/auth/login` — no `BackendVersion` call.
 - **Prerelease parse fix:** `BackendVersion.parse()` now strips semver prerelease (`-rc1`) and
   build-metadata (`+build`) suffixes before splitting. This affects ALL existing gates: previously a
   prerelease server footer (e.g. `0.8.6-rc1`) parsed as `0.8.0`, which would have **falsely failed**

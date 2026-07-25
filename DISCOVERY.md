@@ -293,6 +293,41 @@ GET    /api/share?cursor&pageSize&sortBy&sortDirection&search   (NO isPublic —
 - `url_context` conversation toggle (Google URL Context) — no mobile param-sheet control yet.
 - per-message `quotes[]` round-trip (selected-text quote-reply context) — mobile neither sends nor renders.
 
+### v0.8.8-line partial sync (untagged dev commit 6c97a7f4, 2026-07-24) — endpoint / shape changes
+These landed upstream on the post-v0.8.7 `dev` branch (package.json still reports 0.8.7; the
+target commit is untagged). Date-gated paths use `BackendVersion.supportsFeature`.
+```
+# Newly-discovered / revised request contracts
+POST   <generation endpoint>             + top-level `clientRequestId` (uuid) idempotency key (#14344,
+                                            landing commit for the target itself is #14411 stream-order).
+                                            Server claims it before job creation so a replayed POST dedups
+                                            to the original run instead of double-billing. Additive; mobile
+                                            mints one per send in ChatPayloadBuilder. (BUILT)
+POST   /api/auth/login                    now 403s when ALLOW_EMAIL_LOGIN=false (#14180). /api/config already
+                                            exposes `emailLoginEnabled` (default true); mobile hides the
+                                            email/password form off it and maps the 403 to a clear message.
+                                            Config-driven, no version gate, fail-open. (BUILT)
+DELETE /api/files                         reworked (#14149): agent-attached unlink 400s without a valid
+                                            `tool_resource` ∈ {execute_code, file_search, image_edit, context,
+                                            ocr}; the non-owner via-agent fallback was dropped. Mobile already
+                                            complies (owner manager sends neither agent_id nor tool_resource;
+                                            AgentFilesDelegate always routes a valid resource). (NO CHANGE — documented)
+
+# Removed
+POST   /api/endpoints/context-projection  REMOVED (#13953, landing commit 376370d6, 2026-06-25). The gauge is
+                                            now computed client-side / seeded from the on_context_usage SSE, so
+                                            the POST 404s on the 0.8.8 line. Mobile version-gates the call OFF
+                                            (supportsFeature minVersion 0.8.8-rc1, landedDate 2026-06-25);
+                                            < 0.8.8 backends keep the POST path. Inverts the >= 0.8.7 enable gate. (BUILT)
+```
+Revised message / SSE shapes:
+- Message content parts add a `steer` type (`type == "steer"`, #14220) — mid-run steering. `ContentType`
+  gained `STEER` and `MessageContentPart` a nullable `steer: JsonElement?`, so a persisted message carrying
+  it deserializes instead of throwing `SerializationException` on conversation load (`ignoreUnknownKeys` does
+  NOT rescue an unknown enum value). Not yet rendered — forward-compat only, harmless on older backends. (BUILT)
+- SSE resumable-stream ordering is now preserved across turns (#14411 — the pinned target commit). Server-side
+  ordering fix on resume/reconnect; no wire-shape change, transparent to the client.
+
 ### Other
 ```
 GET/POST/DELETE /api/presets
