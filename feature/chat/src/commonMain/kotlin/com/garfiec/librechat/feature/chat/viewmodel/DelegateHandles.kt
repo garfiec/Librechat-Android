@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
+import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import kotlinx.coroutines.CoroutineScope
@@ -242,6 +243,27 @@ class ContextProjectionHandle(root: ChatStateHandle) : DelegateHandle(root) {
     val stateFlow: StateFlow<ChatUiState> get() = root.stateFlow
     fun update(block: ContextProjectionWrites.() -> Unit) =
         root.update { ContextProjectionWrites(this).apply(block).applyTo(this) }
+}
+
+// ── PendingActionDelegate ─────────────────────────────────────────────────
+// Narrow on purpose: resolving a human-review pause only clears/marks the pause fields, so this
+// delegate may not touch the streaming text, tool calls, or message tree the resumed run writes.
+class PendingActionWrites internal constructor(state: ChatUiState) {
+    var pendingAction: PendingAction? = state.content.pendingAction
+    var isResolvingPendingAction: Boolean = state.content.isResolvingPendingAction
+    var error: String? = state.error
+    internal fun applyTo(s: ChatUiState) = s.copy(
+        content = s.content.copy(
+            pendingAction = pendingAction,
+            isResolvingPendingAction = isResolvingPendingAction,
+        ),
+        error = error,
+    )
+}
+
+class PendingActionHandle(root: ChatStateHandle) : DelegateHandle(root) {
+    fun update(block: PendingActionWrites.() -> Unit) =
+        root.update { PendingActionWrites(this).apply(block).applyTo(this) }
 }
 
 // ── Platform voice input (VoiceInputDelegate / IosVoiceInput) ─────────────

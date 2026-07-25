@@ -390,4 +390,25 @@
     <string name="context_usage_free">Free space</string>
     <string name="context_usage_input">Input</string>
     <string name="context_usage_output">Output</string>
+
+    <!-- Human-in-the-loop pauses (v0.8.8): tool approval + ask_user_question -->
+    <string name="tool_approval_title">Approval needed</string>
+    <string name="tool_approval_subtitle">Review before this runs.</string>
+    <string name="tool_approval_arguments">Arguments</string>
+    <string name="tool_approval_approve">Approve</string>
+    <string name="tool_approval_reject">Reject</string>
+    <string name="tool_approval_edit">Edit</string>
+    <string name="tool_approval_respond">Respond</string>
+    <string name="tool_approval_approve_all">Approve all</string>
+    <string name="tool_approval_reject_all">Reject all</string>
+    <string name="tool_approval_submit">Continue</string>
+    <string name="tool_approval_edited_arguments">Edited arguments (JSON)</string>
+    <string name="tool_approval_response_text">Reply to send instead of running the tool</string>
+    <string name="tool_approval_invalid_json">Enter valid JSON</string>
+    <string name="ask_user_question_title">The assistant needs your input</string>
+    <string name="ask_user_question_answer_hint">Type your answer</string>
+    <string name="ask_user_question_other_hint">Something else</string>
+    <string name="ask_user_question_send">Send</string>
+    <string name="ask_user_question_skip">Skip</string>
+    <string name="ask_user_question_multi_select_hint">Pick as many as apply</string>
 </resources>

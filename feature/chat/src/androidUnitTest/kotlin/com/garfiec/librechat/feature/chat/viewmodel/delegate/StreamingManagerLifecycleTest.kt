@@ -81,6 +81,7 @@ class StreamingManagerLifecycleTest {
             completionDelegate = completionDelegate,
             queueDelegate = queueDelegate,
             treeDelegate = treeDelegate,
+            pendingActionDelegate = mockk(relaxed = true),
             emitUserKeyError = {},
             reloadConversation = reloadConversation,
             restoreUnsentInput = restoreUnsentInput,

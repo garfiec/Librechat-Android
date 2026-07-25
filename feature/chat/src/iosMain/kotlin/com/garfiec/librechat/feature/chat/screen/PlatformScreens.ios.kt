@@ -610,6 +610,10 @@ private fun IosChatBody(
                 onSearchScrollHandle = viewModel::onSearchScrollHandled,
                 bottomContentPadding = bottomContentPadding,
                 topContentPadding = topContentPadding,
+                pendingAction = uiState.renderablePendingAction,
+                isResolvingPendingAction = uiState.isResolvingPendingAction,
+                onSubmitToolDecisions = viewModel::resolveToolApproval,
+                onSubmitPendingAnswer = viewModel::answerPendingQuestion,
                 modifier = Modifier.fillMaxSize(),
             )
         }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.DetectedBackend
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
@@ -41,8 +42,10 @@ import com.garfiec.librechat.core.model.config.InterfaceConfig
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
+import com.garfiec.librechat.core.model.permissions.UserRolePermissions
 import com.garfiec.librechat.core.model.permissions.canCreateSharedLinks
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
+import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
@@ -70,6 +73,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.MessageQueueDelegat
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.MessageTreeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.OfficePreviewDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.PendingActionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendCompletionDelegate
@@ -239,6 +243,14 @@ class ChatViewModel(
     val attachedFiles: StateFlow<List<AttachedFile>> get() = fileDelegate.attachedFiles
     val shareLinkUrl: StateFlow<String?> get() = conversationActionsDelegate.shareLinkUrl
 
+    /** The four inputs of the feature-gate combine, named so the collector destructures readably. */
+    private data class GateInputs(
+        val role: UserRolePermissions?,
+        val iface: InterfaceConfig?,
+        val version: String?,
+        val backend: DetectedBackend?,
+    )
+
     private data class BaseChatPrefs(
         val showImageDescriptions: Boolean,
         val dismissKeyboardOnSend: Boolean,
@@ -344,6 +356,13 @@ class ChatViewModel(
 
     private var roomObserverJob: Job? = null
 
+    private val pendingActionDelegate = PendingActionDelegate(
+        handle = PendingActionHandle(stateHandle),
+        chatRepository = chatRepository,
+        requestBuilder = requestBuilder,
+        resumeFailureMessage = { message -> message ?: "Could not resume the paused response." },
+    )
+
     private val streamingManager = StreamingManagerDelegate(
         handle = StreamingHandle(stateHandle),
         chatRepository = chatRepository,
@@ -355,6 +374,7 @@ class ChatViewModel(
         completionDelegate = completionDelegate,
         queueDelegate = queueDelegate,
         treeDelegate = treeDelegate,
+        pendingActionDelegate = pendingActionDelegate,
         emitUserKeyError = { _userKeyErrors.trySend(it) },
         reloadConversation = ::loadConversation,
         restoreUnsentInput = ::restoreUnsentInput,
@@ -1276,6 +1296,17 @@ class ChatViewModel(
 
     fun stopGeneration() = streamingManager.stopGeneration()
 
+    /**
+     * Resolves the paused run's tool batch. One [ToolApprovalResolution] per paused
+     * `tool_call_id` — the server rejects a partial batch — and each decision must be one the
+     * call's policy allows.
+     */
+    fun resolveToolApproval(decisions: List<ToolApprovalResolution>) =
+        pendingActionDelegate.submitToolDecisions(decisions)
+
+    /** Answers the paused run's `ask_user_question` and lets it continue. */
+    fun answerPendingQuestion(answer: String) = pendingActionDelegate.submitAnswer(answer)
+
     fun continueGeneration() {
         if (_uiState.value.isEditingQueued) return
         editingDelegate.continueGeneration()
@@ -1380,14 +1411,35 @@ class ChatViewModel(
                 roleRepository.userPermissions,
                 configRepository.startupConfig,
                 configRepository.detectedBackendVersion,
-            ) { role, config, version ->
-                Triple(role, config?.interfaceConfig, version)
-            }.distinctUntilChanged().collect { (role, iface, version) ->
+                configRepository.detectedBackend,
+            ) { role, config, version, backend ->
+                GateInputs(role, config?.interfaceConfig, version, backend)
+            }.distinctUntilChanged().collect { gates ->
+                val role = gates.role
+                val iface = gates.iface
+                val version = gates.version
                 // Context gauge needs the v0.8.7 SSE/endpoints; fail-closed on older/unknown.
                 // Threshold is the FINAL, not rc1: /api/endpoints/context-projection landed
                 // between v0.8.7-rc1 and v0.8.7 (upstream fdc7e64bb), so rc1 servers 404 it.
                 val contextGaugeSupported = version != null &&
                     BackendVersion.isCompatibleOrNewer(version, "0.8.7")
+
+                // Human-in-the-loop (0.8.8 line). Date gates, not a version compare: the target
+                // is an untagged dev commit whose package.json still reports 0.8.7, so only the
+                // build commit's date separates a pre- from a post-HITL server. Two dates because
+                // the two pauses landed two weeks apart — the resume route and tool approval on
+                // 2026-06-29 (#13942), the ask-user tool on 2026-07-08 (#14139) — and a server in
+                // between can pause for approval but knows nothing of ask_user_question.
+                val toolApprovalSupported = BackendVersion.supportsFeature(
+                    gates.backend,
+                    minVersion = "0.8.8-rc1",
+                    landedDate = "2026-06-29",
+                )
+                val askUserQuestionSupported = BackendVersion.supportsFeature(
+                    gates.backend,
+                    minVersion = "0.8.8-rc1",
+                    landedDate = "2026-07-08",
+                )
 
                 // Effective gate = role permission AND interface flag, both fail-open
                 // (null role → permissive; absent/omitted flag → enabled).
@@ -1414,6 +1466,8 @@ class ChatViewModel(
                             presetsEnabled = (iface?.presets ?: true) && (iface?.modelSelect ?: true),
                             // Context-usage gauge (v0.8.7): interface flag AND backend support.
                             contextUsageEnabled = contextGaugeSupported && (iface?.contextUsage ?: true),
+                            toolApprovalEnabled = toolApprovalSupported,
+                            askUserQuestionEnabled = askUserQuestionSupported,
                             // Pinned tools (v0.8.7): raw interface list; mapped/filtered by pinnedToolChips.
                             pinnedTools = iface?.defaultPinnedTools ?: emptyList(),
                         ),

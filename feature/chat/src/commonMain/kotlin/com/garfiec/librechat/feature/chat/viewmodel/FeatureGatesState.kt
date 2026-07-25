@@ -37,6 +37,18 @@ data class FeatureGatesState(
      * Fails closed on older/unknown servers (the gauge has no data source there).
      */
     val contextUsageEnabled: Boolean = false,
+    /**
+     * Human-in-the-loop tool approval (v0.8.8 line, `POST /api/agents/chat/resume` landed
+     * 2026-06-29). Fails closed: an older server can neither emit `on_pending_action` nor
+     * accept a resume, so offering approval controls there would strand the run.
+     */
+    val toolApprovalEnabled: Boolean = false,
+    /**
+     * `ask_user_question` clarification pauses (v0.8.8 line, landed 2026-07-08 — later than
+     * [toolApprovalEnabled] because the ask tool shipped after the approval plumbing it reuses).
+     * Fails closed for the same reason.
+     */
+    val askUserQuestionEnabled: Boolean = false,
 )
 
 /**

@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.error.parseUserKeyError
+import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.util.applyAbortContract
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
@@ -48,6 +49,7 @@ class StreamingManagerDelegate(
     private val completionDelegate: SendCompletionDelegate,
     private val queueDelegate: MessageQueueDelegate,
     private val treeDelegate: MessageTreeDelegate,
+    private val pendingActionDelegate: PendingActionDelegate,
     /** Emits a typed user-provided-key error for one-shot UI surfacing (snackbar + CTA). */
     private val emitUserKeyError: (UserKeyError) -> Unit,
     /** Reloads the conversation from the server (VM-owned Room observer). */
@@ -248,6 +250,10 @@ class StreamingManagerDelegate(
         abortWatchdogJob?.cancel()
         abortWatchdogJob = null
         abortRequested = false
+        // A pause belongs to the session that announced it. Clearing here keeps a stale card off
+        // the new stream; a reconnect into a still-live pause gets it back from the sync frame's
+        // `resumeState.pendingAction` (and the status read, which runs after this).
+        pendingActionDelegate.clear()
         // A resumed stream re-enters without beginStreaming's assignment; never let a previous
         // turn's optimistic id leak into it (the un-send would remove the wrong message).
         currentTurnOptimisticUserMessageId = null
@@ -408,6 +414,15 @@ class StreamingManagerDelegate(
                 // Server compacted earlier turns into a summary. The compacted text is
                 // persisted to the final message as a SUMMARY content part and rendered
                 // there; nothing extra to do during streaming.
+            }
+            is StreamEvent.PendingActionRequested -> {
+                // The run stopped and is waiting on the user. Deliberately no state change to
+                // isStreaming: the stream is still open and still ours, so tearing down here
+                // would orphan the run server-side (it stays paused until it expires) and drop
+                // the continuation when the user does decide. The chat surface distinguishes
+                // "waiting on you" from "waiting on the model" via `pendingAction`, not
+                // `isStreaming`.
+                pendingActionDelegate.onPendingAction(event.pendingAction)
             }
             is StreamEvent.SubagentUpdate -> subagentTraceDelegate.onUpdate(event)
             is StreamEvent.TitleUpdate -> handleTitleUpdate(event)
@@ -679,6 +694,10 @@ class StreamingManagerDelegate(
         abortWatchdogJob?.cancel()
         abortWatchdogJob = null
         abortRequested = false
+        // Whatever ended the run also made any human-review pause unresolvable (the job is gone,
+        // so a resume can only 409). Drop it for every reason rather than per-branch: a card left
+        // on screen after the turn ended offers controls that cannot work.
+        pendingActionDelegate.clear()
         when (reason) {
             is StreamEndReason.Finalized -> {
                 stopStreamingUpdater()
@@ -822,6 +841,7 @@ class StreamingManagerDelegate(
                 if (status.active) {
                     handle.update { content = content.copy(isStreaming = true) }
                     resumeStream(conversationId)
+                    applyStatusPendingAction(status)
                 } else {
                     // Server confirms the job is gone: safe to wipe and reload (past the persist race).
                     endStream(StreamEndReason.ResumeExpired, session)
@@ -840,6 +860,22 @@ class StreamingManagerDelegate(
 
     /** A launched resume decision is stale once a newer stream started or this session ended. */
     private fun isResumeStale(session: Int) = streamSession != session || isSessionEnded()
+
+    /**
+     * Paints a human-review pause reported by `/chat/status` (v0.8.8: `active` is true while a
+     * run is paused, so every resume path above can land on one).
+     *
+     * Without this the reconnect renders a live streaming cursor for however long it takes the
+     * resumed stream's sync frame to arrive — on a run that is not producing anything and never
+     * will until the user decides. The sync frame carries the same record and is authoritative;
+     * this only closes the gap, so it must run AFTER [resumeStream] (whose session reset clears
+     * the pause) and is harmlessly idempotent when the frame then repeats it.
+     */
+    private fun applyStatusPendingAction(status: ChatStatusResponse) {
+        val pendingAction = status.pendingAction ?: return
+        if (pendingAction.actionId.isNullOrBlank()) return
+        pendingActionDelegate.onPendingAction(pendingAction)
+    }
 
     /**
      * Shared resume logic: clears the buffer, starts the updater, and launches
@@ -877,6 +913,7 @@ class StreamingManagerDelegate(
                         )
                     }
                     resumeStream(conversationId)
+                    applyStatusPendingAction(status)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -937,6 +974,7 @@ class StreamingManagerDelegate(
                         error = null
                     }
                     resumeStream(conversationId)
+                    applyStatusPendingAction(status)
                 } else {
                     // Stream expired while offline — reload conversation from server
                     handle.update {

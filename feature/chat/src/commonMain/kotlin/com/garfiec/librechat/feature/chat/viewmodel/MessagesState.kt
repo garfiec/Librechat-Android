@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.viewmodel
 import androidx.compose.runtime.Immutable
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.util.MessageNode
@@ -55,6 +56,19 @@ data class MessagesState(
     val contextUsage: ContextUsage? = null,
     /** Latest per-call provider token usage (`on_token_usage` SSE). */
     val tokenUsage: TokenUsage? = null,
+    /**
+     * The live human-review pause blocking this run, or null when nothing is awaiting the user
+     * (v0.8.8 HITL). Set from `on_pending_action`, from `resumeState.pendingAction` on a
+     * reconnect, and from `/chat/status` on a cold open; cleared when the user's decision is
+     * accepted and at every stream end.
+     *
+     * [isStreaming] stays TRUE alongside it — the run has not finished, the SSE stream is still
+     * open, and no `final` frame is coming until the pause resolves. Rendering keys off this
+     * field, not off `isStreaming`, to tell "waiting on the model" from "waiting on you".
+     */
+    val pendingAction: PendingAction? = null,
+    /** A decision for [pendingAction] is in flight; the resolve controls are disabled meanwhile. */
+    val isResolvingPendingAction: Boolean = false,
 )
 
 @Immutable

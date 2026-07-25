@@ -12,6 +12,7 @@ import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.response.FileUploadConfig
 import com.garfiec.librechat.core.model.usage.ContextUsage
@@ -135,6 +136,10 @@ data class ChatUiState(
     val messagesLoadFailed: Boolean get() = content.messagesLoadFailed
     val contextUsage: ContextUsage? get() = content.contextUsage
     val tokenUsage: TokenUsage? get() = content.tokenUsage
+    val pendingAction: PendingAction? get() = content.pendingAction
+    val isResolvingPendingAction: Boolean get() = content.isResolvingPendingAction
+    val toolApprovalEnabled: Boolean get() = gates.toolApprovalEnabled
+    val askUserQuestionEnabled: Boolean get() = gates.askUserQuestionEnabled
     val conversationId: String? get() = conversation.conversationId
     val conversationTitle: String? get() = conversation.conversationTitle
     val isTemporaryChat: Boolean get() = conversation.isTemporaryChat
@@ -233,6 +238,27 @@ data class ChatUiState(
      */
     val canQueueFollowUp: Boolean
         get() = conversationId != null && !comparisonState.isEnabled
+
+    /**
+     * The pause to render resolve controls for, or null.
+     *
+     * Filters [pendingAction] by the gate matching its own payload type, because the two HITL
+     * surfaces landed upstream on different days: a server old enough to lack the ask tool can
+     * still pause for tool approval. An action whose type has no gate satisfied (or an unknown
+     * future type) is deliberately dropped from rendering — resolving it would 400 — leaving
+     * the run to expire server-side, which is the same outcome as before HITL existed.
+     */
+    val renderablePendingAction: PendingAction?
+        get() = pendingAction?.takeIf {
+            (it.isToolApproval && toolApprovalEnabled) || (it.isAskUserQuestion && askUserQuestionEnabled)
+        }
+
+    /**
+     * The run is blocked on the user rather than on the model. Composer affordances that
+     * would start a *new* turn stay disabled here: the paused run still owns the stream.
+     */
+    val isAwaitingUserDecision: Boolean
+        get() = renderablePendingAction != null
 
     /** Number of queued messages a Stop/error pause is holding (0 = none / not paused). Drives
      *  the "Send queued" banner above the composer. */

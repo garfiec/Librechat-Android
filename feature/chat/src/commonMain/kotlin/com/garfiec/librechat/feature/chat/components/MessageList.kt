@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.FeedbackRating
+import com.garfiec.librechat.core.model.PendingAction
+import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.resources.*
@@ -117,6 +119,15 @@ fun MessageList(
     // measures the bar's actual height (status bar + chips). Defaults to 0 for callers without an
     // overlaid bar (e.g. comparison panes that sit under a separate header).
     topContentPadding: Dp = 0.dp,
+    /**
+     * The live human-review pause, or null. Rendered at the tail of the streaming section — the
+     * run is unfinished, so it belongs to the reply in progress, not after it. Only the callers
+     * that can resolve one pass it; the comparison panes leave it null.
+     */
+    pendingAction: PendingAction? = null,
+    isResolvingPendingAction: Boolean = false,
+    onSubmitToolDecisions: (List<ToolApprovalResolution>) -> Unit = {},
+    onSubmitPendingAnswer: (String) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -552,6 +563,21 @@ fun MessageList(
                             attachments = officeAttachments,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                             isDarkTheme = isSurfaceDark(),
+                        )
+                    }
+                }
+
+                // Human-review pause (v0.8.8): the run is waiting on the user, so the resolve
+                // controls sit at the tail of the still-unfinished reply — the continuation
+                // streams back into the bubble above.
+                if (pendingAction != null) {
+                    item(key = "pending_action_${pendingAction.actionId}") {
+                        PendingActionCard(
+                            pendingAction = pendingAction,
+                            isResolving = isResolvingPendingAction,
+                            onSubmitToolDecisions = onSubmitToolDecisions,
+                            onSubmitAnswer = onSubmitPendingAnswer,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         )
                     }
                 }

@@ -104,6 +104,10 @@ class ChatViewModelContextProjectionInitTest {
         // Enable the context gauge: interface flag defaults true, backend gate needs >= 0.8.7.
         every { configRepository.startupConfig } returns MutableStateFlow(null)
         every { configRepository.detectedBackendVersion } returns MutableStateFlow("0.8.7")
+        // The feature-gate combine also reads the richer identity (HITL date gates). A relaxed
+        // mock returns a StateFlow that never emits, which would stall the whole combine — and
+        // with it the context-gauge flag this test depends on.
+        every { configRepository.detectedBackend } returns MutableStateFlow(null)
         every { roleRepository.userPermissions } returns MutableStateFlow(null)
 
         // Collection-typed flows read by init-time delegates (model refilter, favorites): relaxed
