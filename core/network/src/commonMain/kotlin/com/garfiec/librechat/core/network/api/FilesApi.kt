@@ -115,6 +115,18 @@ class FilesApi constructor(
         return response
     }
 
+    /**
+     * DELETE /api/files.
+     *
+     * Two shapes, both already satisfied by the callers:
+     * - Owner file manager: send `files` only (no `agent_id`/`tool_resource`) — deletes files the
+     *   user owns.
+     * - Agent-attached unlink: MUST carry `agent_id` and a valid `tool_resource` ∈
+     *   {execute_code, file_search, image_edit, context, ocr}. On the 0.8.8 line (#14149) the route
+     *   400s on a missing/invalid `tool_resource` and dropped the non-owner via-agent fallback.
+     *   `AgentFilesDelegate` routes deletes with the file's origin resource (or the slot's wire
+     *   value), all of which are in the allowed set, so this stays compliant.
+     */
     suspend fun deleteFiles(request: DeleteFilesRequest) {
         client.delete {
             url { path("api/files") }
