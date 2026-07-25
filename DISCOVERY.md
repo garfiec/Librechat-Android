@@ -443,8 +443,14 @@ POST   /api/files/usage                   { file_ids } → { marked }. TTL touch
 ```
 UI shipped alongside them: the unified Tools Marketplace picker in the agent editor (one catalog over
 built-in capabilities, plugin tools, MCP servers and skills, with per-item favorites), the MCP OAuth
-consent dialog, agent contact info on agent detail, and sandbox `read_file` images loading as inline
-`data:` URIs instead of being mangled into a server-relative path.
+consent dialog, and agent contact info on agent detail.
+
+Sandbox `read_file` images (U9) needed no rendering change: the tool builds its artifact as an inline
+`data:` URI, but the agent callback runs `saveBase64Image` over every `image_url` part before emitting
+the attachment, so the client receives a stored `/images/…` path and renders it through the existing
+tool-call attachment path. `ImageUrlResolver` gained a `data:` passthrough as defence in depth only —
+it is unreachable against the pinned server and fixes nothing that was broken. If a sandbox image is
+observed not rendering, the fault is in the tool-call attachment path, not here.
 
 Deliberately NOT ported from the same upstream window, each because it needs a mobile surface that
 does not exist or is pointer-specific web polish: upstream's OrchestrationHub and StatefulSessions

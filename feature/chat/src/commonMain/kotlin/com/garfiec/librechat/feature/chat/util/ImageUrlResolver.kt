@@ -61,11 +61,12 @@ private fun resolveImageUrl(
     if (filepath != null) {
         return when {
             filepath.startsWith("http") -> filepath
-            // A sandbox `read_file` on an image hands back the bytes inline as
-            // `data:image/png;base64,…` rather than a stored file (v0.8.8) — its JSON transport
-            // corrupts image bytes, so upstream stopped routing them through the text path.
-            // Without this branch the data URI falls through to the relative-path case and gets
-            // a server origin glued in front of it, which loads nothing.
+            // Defence in depth, not a live path: tools that build an image artifact do hand back
+            // `data:image/png;base64,…` inline, but the agent callback runs `saveBase64Image` over
+            // every `image_url` part before the attachment is emitted, so what reaches the client
+            // is a stored `/images/…` path. Kept because a data URI is already complete and the
+            // relative-path case below would glue a server origin in front of it; upstream's own
+            // `Image.tsx` carries the same guard.
             filepath.startsWith(DATA_URI_PREFIX) -> filepath
             filepath.startsWith("/images/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
             includeBareSlash && filepath.startsWith("/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
