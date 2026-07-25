@@ -1,15 +1,13 @@
 package com.garfiec.librechat.core.model.response
 
 /**
- * The MIME types a stock LibreChat backend can be configured to accept, mirroring
- * `fullMimeTypesList` in upstream `packages/data-provider/src/file-config.ts`.
+ * Verbatim mirror of `fullMimeTypesList` in upstream `packages/data-provider/src/file-config.ts`
+ * (its trailing `...excelFileTypes` spread inlined), in upstream order.
  *
- * This list exists to *translate* an admin's `supportedMimeTypes` regex allowlist into the
- * concrete types a native file picker can filter on — a picker can't evaluate a regex. It is
- * not itself an allowlist: mobile never rejects an upload on the strength of this list, and
- * the server re-validates every upload regardless.
+ * Keep it a straight transcription so a `/sync-upstream` pass can diff the two lists directly;
+ * anything mobile wants beyond upstream goes in [MOBILE_EXTRA_MIME_TYPES], not here.
  */
-private val KNOWN_MIME_TYPES: List<String> = listOf(
+private val UPSTREAM_MIME_TYPES: List<String> = listOf(
     "text/x-c",
     "text/x-c++",
     "application/csv",
@@ -33,7 +31,6 @@ private val KNOWN_MIME_TYPES: List<String> = listOf(
     "text/javascript",
     "image/gif",
     "image/png",
-    "image/webp",
     "image/heic",
     "image/heif",
     "application/x-tar",
@@ -73,10 +70,40 @@ private val KNOWN_MIME_TYPES: List<String> = listOf(
     "audio/wma",
     "audio/opus",
     "audio/mpeg",
+    // ...excelFileTypes
     "application/vnd.ms-excel",
+    "application/msexcel",
+    "application/x-msexcel",
+    "application/x-ms-excel",
+    "application/x-excel",
+    "application/x-dos_ms_excel",
+    "application/xls",
+    "application/x-xls",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
+
+/**
+ * Types absent from upstream's `fullMimeTypesList` that a stock backend nonetheless accepts, so an
+ * allowlist naming one still translates into a usable picker filter:
+ *
+ * - `image/webp` — in upstream's `imageMimeTypes` regex, i.e. an accepted image upload.
+ * - `text/csv` — upstream's own `.csv` extension mapping and the default `retrievalMimeTypesList`
+ *   accept string both use it (`fullMimeTypesList` only carries the `application/csv` alias).
+ */
+private val MOBILE_EXTRA_MIME_TYPES: List<String> = listOf(
+    "image/webp",
     "text/csv",
 )
+
+/**
+ * The MIME types a stock LibreChat backend can be configured to accept.
+ *
+ * This list exists to *translate* an admin's `supportedMimeTypes` regex allowlist into the
+ * concrete types a native file picker can filter on — a picker can't evaluate a regex. It is
+ * not itself an allowlist: mobile never rejects an upload on the strength of this list, and
+ * the server re-validates every upload regardless.
+ */
+private val KNOWN_MIME_TYPES: List<String> = UPSTREAM_MIME_TYPES + MOBILE_EXTRA_MIME_TYPES
 
 /**
  * Resolves the `supportedMimeTypes` allowlist in effect for [endpoint], mirroring the

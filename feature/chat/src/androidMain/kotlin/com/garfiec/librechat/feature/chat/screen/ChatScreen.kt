@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
+import com.garfiec.librechat.core.model.response.pickerMimeTypes
 import com.garfiec.librechat.core.ui.components.LowProfileDragHandle
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
 import com.garfiec.librechat.feature.chat.components.ChatInput
@@ -185,7 +186,16 @@ actual fun ChatScreen(
     // One launcher set, registered here and shared by both the composer "+" sheet (ChatInput) and
     // the pull-up sheet: a launcher stays usable from descendant compositions while the one that
     // registered it (this screen) is alive, so a second registration would be redundant.
-    val attachmentActions = rememberChatAttachmentActions(viewModel::onFilesSelected)
+    // Narrow the file picker to what this endpoint's `supportedMimeTypes` allows (web parity:
+    // useUploadOptions). Recomputed only when the config or endpoint changes — the translation
+    // compiles the server's regexes.
+    val filePickerMimeTypes = remember(uiState.fileUploadConfig, uiState.selectedEndpoint) {
+        uiState.fileUploadConfig?.pickerMimeTypes(uiState.selectedEndpoint).orEmpty()
+    }
+    val attachmentActions = rememberChatAttachmentActions(
+        onFilesSelected = viewModel::onFilesSelected,
+        filePickerMimeTypes = filePickerMimeTypes,
+    )
 
     ChatScreenEffects(
         uiState = uiState,

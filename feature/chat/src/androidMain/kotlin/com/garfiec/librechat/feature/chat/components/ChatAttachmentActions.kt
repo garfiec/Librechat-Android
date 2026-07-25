@@ -35,10 +35,16 @@ class ChatAttachmentActions(
  * screen and share the result: a launcher stays usable from any descendant composition while the
  * one that registered it is alive, so the chat screen registers a single set and passes it down to
  * both the composer's "+" sheet ([ChatInput]) and the pull-up sheet — no need for a second copy.
+ *
+ * [filePickerMimeTypes] narrows the file picker to the server's `supportedMimeTypes` allowlist for
+ * the active endpoint (`FileUploadConfig.pickerMimeTypes`). Empty means "no restriction" — every
+ * case the allowlist can't be represented faithfully resolves to that, and the picker shows
+ * everything rather than hiding a file the server would have accepted.
  */
 @Composable
 fun rememberChatAttachmentActions(
     onFilesSelected: (List<Uri>) -> Unit,
+    filePickerMimeTypes: List<String> = emptyList(),
 ): ChatAttachmentActions {
     val context = LocalContext.current
 
@@ -91,9 +97,13 @@ fun rememberChatAttachmentActions(
         }
     }
 
-    return remember(context) {
+    val pickerTypes = remember(filePickerMimeTypes) {
+        filePickerMimeTypes.takeIf { it.isNotEmpty() }?.toTypedArray() ?: arrayOf(ANY_MIME_TYPE)
+    }
+
+    return remember(context, pickerTypes) {
         ChatAttachmentActions(
-            onAttachFiles = { filePickerLauncher.launch(arrayOf("*/*")) },
+            onAttachFiles = { filePickerLauncher.launch(pickerTypes) },
             onTakePhoto = {
                 val hasCameraPermission = ContextCompat.checkSelfPermission(
                     context,
@@ -113,6 +123,8 @@ fun rememberChatAttachmentActions(
         )
     }
 }
+
+private const val ANY_MIME_TYPE = "*/*"
 
 /**
  * Creates a temporary file for the camera to write a photo into.

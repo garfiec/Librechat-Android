@@ -347,8 +347,9 @@ Additive response fields (parse-layer only unless noted — nothing branches on 
   `unrecoveredSteers[]`. `active: true` now also covers a paused run, so it is NOT "tokens are arriving".
   **`unrecoveredSteers` is claim-on-read**: the server clears them once returned, so a client that ignores
   the list drops the user's queued words permanently. Only populated when the run is not active.
-- `POST /api/agents/chat/abort` — adds `aborted` (stream id actually aborted) and `pendingSteers[]` (steers
-  queued mid-run that never reached an injection boundary, handed back exactly once).
+- `POST /api/agents/chat/abort` — adds `pendingSteers[]` (steers queued mid-run that never reached an
+  injection boundary, handed back exactly once). `aborted` (the stream id actually aborted) already existed
+  at v0.8.7 and is only newly modeled on mobile.
 - `GET /api/user/terms` — adds `termsAccepted` / `termsAcceptedAt`; `POST /api/user/terms/accept` now returns
   `{ message, termsAcceptedAt }` instead of an empty body. `GET /api/user` adds `termsAcceptedAt`.
 - `POST /api/mcp/:serverName/reinitialize` — adds `connectionDeferred`: the reinitialize was accepted but the
@@ -361,6 +362,15 @@ Additive response fields (parse-layer only unless noted — nothing branches on 
   mobile never receives one; a hidden spec stays resolvable by name on a conversation.
 - `GET /api/config` — adds `fileUploadSseEnabled` (`FILE_UPLOAD_SSE_ENABLED`, off by default). Detection-only:
   mobile stays on the multipart/JSON upload path regardless.
+
+File-picker accept types (upstream `client/src/hooks/Files/useUploadOptions.ts`): the picker is filtered to
+the endpoint's `supportedMimeTypes` allowlist from `GET /api/files/config`, translated into concrete types via
+the `fullMimeTypesList` mirror in `core/model/.../PickerMimeTypes.kt` (a regex can't be handed to a native
+picker). Applied on the two surfaces whose accept set upstream derives from that allowlist — the chat composer
+attach and the files manager. The agent editor's code / knowledge / context pickers stay unrestricted on
+purpose: upstream sources their accept sets from the per-`tool_resource` lists
+(`codeInterpreterMimeTypesList`, `retrievalMimeTypesList`), not from `supportedMimeTypes`, so filtering them
+on this allowlist would be the wrong restriction.
 
 ### Other
 ```

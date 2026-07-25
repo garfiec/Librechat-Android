@@ -62,6 +62,16 @@ class PickerMimeTypesTest {
     }
 
     @Test
+    fun excelAliasesAreRepresentable() {
+        // The server's default spreadsheet allowlist names aliases the picker must still resolve.
+        assertEquals(listOf("application/xls"), config("^application/xls$").pickerMimeTypes())
+        assertEquals(
+            listOf("application/x-dos_ms_excel"),
+            config("^application/x-dos_ms_excel$").pickerMimeTypes(),
+        )
+    }
+
+    @Test
     fun endpointOverrideWinsOverDefault() {
         val config = FileUploadConfig(
             endpoints = mapOf(
