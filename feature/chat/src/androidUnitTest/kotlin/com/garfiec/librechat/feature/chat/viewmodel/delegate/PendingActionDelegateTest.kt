@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.model.ToolApprovalDecisions
 import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.core.model.response.ChatResumeResponse
+import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -26,6 +27,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -170,5 +174,77 @@ class PendingActionDelegateTest {
 
             assertThat(request.captured.agentId).isEqualTo("agent_queued")
             assertThat(request.captured.model).isEqualTo("agent_queued")
+        }
+
+    @Test
+    fun `resume replays the promptPrefix the send spread at the top level of its body`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Custom Instructions ride in the model-param payload, which the send spreads at the
+            // TOP LEVEL of the chat body — and that raw field is one of the seven the server
+            // fingerprints. Omitting it on the resume hashes null against the sent string: 403.
+            val (delegate, _) = delegateWith(this)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onTurnStarted(
+                QueuedMessage(
+                    localId = "q-1",
+                    text = "hi",
+                    endpoint = "openAI",
+                    model = "gpt-4o",
+                    agentId = null,
+                    modelParamsPayload = buildJsonObject {
+                        put("promptPrefix", "be terse")
+                        put("temperature", 0.4)
+                    },
+                    dispatch = EndpointDispatch(endpointType = null, key = null, modelDisplayLabel = null),
+                ),
+            )
+            delegate.onPendingAction(toolApproval())
+            delegate.submitAnswer("yes")
+
+            assertThat(request.captured.promptPrefix).isEqualTo("be terse")
+        }
+
+    @Test
+    fun `a resume with no pinned spec reads promptPrefix from the same builder the send used`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Edit / regenerate / continue pin nothing, so the pause falls back to the live config.
+            // It must read the model params through the SAME builder the send path serialized, or
+            // the two bodies disagree on a field the fingerprint covers.
+            val state = ChatUiState(
+                conversation = ConversationMetaState(conversationId = "conv-1"),
+                selection = ModelSelectionState(
+                    selectedEndpoint = "openAI",
+                    selectedModel = "gpt-4o",
+                    modelParameters = ModelParameters.DEFAULT.copy(customInstructions = "answer in French"),
+                ),
+            )
+            val (delegate, flow) = delegateWith(this, state)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(toolApproval())
+            delegate.submitAnswer("yes")
+
+            val sentParams = ChatRequestBuilder { flow.value }.buildModelParams()
+            assertThat(request.captured.promptPrefix)
+                .isEqualTo((sentParams?.get("promptPrefix") as JsonPrimitive).content)
+            assertThat(request.captured.promptPrefix).isEqualTo("answer in French")
+        }
+
+    @Test
+    fun `an untouched parameter sheet resumes with no promptPrefix`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The send omits the key entirely, so the resume must too: the server hashes an absent
+            // field as null, and echoing "" would be a mismatch.
+            val (delegate, _) = delegateWith(this)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(toolApproval())
+            delegate.submitAnswer("yes")
+
+            assertThat(request.captured.promptPrefix).isNull()
         }
 }

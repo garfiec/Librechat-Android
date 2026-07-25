@@ -11,7 +11,8 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
-import io.ktor.http.encodeURLPathPart
+import io.ktor.http.URLBuilder
+import io.ktor.http.appendPathSegments
 import io.ktor.http.path
 import kotlinx.serialization.Serializable
 
@@ -56,26 +57,29 @@ class FavoritesApi(
         return wire.mapNotNull { it.toDomain() }
     }
 
-    /**
-     * Idempotent server-side: re-pinning an already-pinned item is a 200 with `added:false`.
-     *
-     * `itemId` is encoded with [encodeURLPathPart], not left to the path builder: it is an MCP
-     * server name or a plugin key straight out of the catalog, so it can carry spaces and `/`,
-     * and only that encoder escapes `/` (the plain path encoder keeps it as a separator). An
-     * unescaped `/` would either 404 on a mangled path or address a different favorite entirely.
-     */
+    /** Idempotent server-side: re-pinning an already-pinned item is a 200 with `added:false`. */
     suspend fun addToolFavorite(itemType: ToolFavoriteItemType, itemId: String) {
         client.put {
-            url { path(toolFavoritePath(itemType, itemId)) }
+            url { toolFavoritePath(itemType, itemId) }
         }
     }
 
     suspend fun removeToolFavorite(itemType: ToolFavoriteItemType, itemId: String) {
         client.delete {
-            url { path(toolFavoritePath(itemType, itemId)) }
+            url { toolFavoritePath(itemType, itemId) }
         }
     }
 
-    private fun toolFavoritePath(itemType: ToolFavoriteItemType, itemId: String): String =
-        "api/user/settings/favorites/tools/${itemType.wireName}/${itemId.encodeURLPathPart()}"
+    /**
+     * `itemId` is an MCP server name or a plugin key straight out of the catalog, so it can carry
+     * spaces and `/`. It is appended as a raw segment with `encodeSlash = true` so the builder
+     * escapes it EXACTLY ONCE — `path()` would percent-encode it a second time (`%20` -> `%2520`),
+     * and Express decodes route params only once, so the server would store and look up the
+     * mangled id instead of the real one. An unescaped `/` would instead address a different
+     * favorite entirely. Never pre-encode the id before handing it to the builder.
+     */
+    private fun URLBuilder.toolFavoritePath(itemType: ToolFavoriteItemType, itemId: String) {
+        path("api/user/settings/favorites/tools")
+        appendPathSegments(itemType.wireName, itemId, encodeSlash = true)
+    }
 }

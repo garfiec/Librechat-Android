@@ -12,6 +12,8 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
 import com.garfiec.librechat.feature.chat.viewmodel.PendingActionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Owns the human-in-the-loop pause (v0.8.8): holding the live [PendingAction] and resolving it
@@ -48,6 +50,21 @@ class PendingActionDelegate(
         val endpointType: String?,
         val agentId: String?,
         val model: String?,
+        /**
+         * The `promptPrefix` ("Custom Instructions") the send POST carried at the TOP LEVEL of its
+         * body, spread there out of the model-parameter payload
+         * ([com.garfiec.librechat.core.data.repository.ChatPayloadBuilder.toBody]). The fingerprint
+         * hashes the RAW body field, so it has to be read back from that same payload — reading the
+         * live composer instead would pin whatever the sheet holds when the user decides.
+         *
+         * Null whenever the send omitted the key: nothing customized, or a wire key that is not
+         * `promptPrefix` (bedrock-anthropic sends `system`, which the fingerprint does not cover).
+         *
+         * `spec` is the fingerprint's one remaining field with no pin here, and cannot be sent by
+         * this client: nothing populates [com.garfiec.librechat.core.model.request.ChatRequest.spec],
+         * so both bodies hash it as null. Pin it here the moment a send path starts setting it.
+         */
+        val promptPrefix: String?,
         val ephemeralAgent: EphemeralAgent?,
         val isTemporary: Boolean,
     )
@@ -124,6 +141,7 @@ class PendingActionDelegate(
                     endpointType = turn.endpointType,
                     agentId = turn.agentId,
                     model = turn.model,
+                    promptPrefix = turn.promptPrefix,
                     ephemeralAgent = turn.ephemeralAgent,
                     isTemporary = turn.isTemporary.takeIf { it },
                 ),
@@ -153,6 +171,7 @@ class PendingActionDelegate(
         endpointType = dispatch.endpointType,
         agentId = agentId.takeIf { endpoint == EndpointConstants.AGENTS },
         model = model,
+        promptPrefix = modelParamsPayload.promptPrefix(),
         ephemeralAgent = ephemeralAgent,
         isTemporary = isTemporary,
     )
@@ -166,8 +185,17 @@ class PendingActionDelegate(
             endpointType = dispatch.endpointType,
             agentId = if (isAgent) state.selectedModel else null,
             model = state.selectedModel,
+            promptPrefix = requestBuilder.buildModelParams().promptPrefix(),
             ephemeralAgent = requestBuilder.buildEphemeralAgent(),
             isTemporary = state.isTemporaryChat,
         )
+    }
+
+    /** Reads the fingerprinted `promptPrefix` back out of a model-parameter payload. */
+    private fun JsonObject?.promptPrefix(): String? =
+        (this?.get(PROMPT_PREFIX_KEY) as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+    private companion object {
+        const val PROMPT_PREFIX_KEY = "promptPrefix"
     }
 }
