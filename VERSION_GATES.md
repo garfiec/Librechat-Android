@@ -101,7 +101,11 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
   nullable `MessageContentPart.steer`), and the reworked `DELETE /api/files` `tool_resource` contract (#14149 —
   mobile already compliant, no branch). The `ALLOW_EMAIL_LOGIN` login gate (#14180) is **config-driven, not
   version-gated**: it keys on `StartupConfig.emailLoginEnabled` from `/api/config` (fail-open to enabled) plus a
-  403 fallback on `POST /api/auth/login` — no `BackendVersion` call.
+  403 fallback on `POST /api/auth/login` — no `BackendVersion` call. The composer **memory toggle** (#13869) is
+  likewise config/permission-driven: MEMORIES USE+CREATE+UPDATE AND the agents endpoint's `memory` capability
+  AND the user's own `personalization.memories` opt-out. It fails CLOSED (unlike its sibling tool gates)
+  because the capability is off by default server-side, so assuming it would offer a toggle whose
+  `ephemeralAgent.memory` flag the server silently drops.
 - **Prerelease parse fix:** `BackendVersion.parse()` now strips semver prerelease (`-rc1`) and
   build-metadata (`+build`) suffixes before splitting. This affects ALL existing gates: previously a
   prerelease server footer (e.g. `0.8.6-rc1`) parsed as `0.8.0`, which would have **falsely failed**

@@ -16,4 +16,11 @@ data class AccountConfigState(
      * Null before fetch or on fetch failure; treated as no constraint (controls fail open).
      */
     val fileUploadConfig: FileUploadConfig? = null,
+    /**
+     * The user switched memories off for themselves (`user.personalization.memories == false`).
+     * Distinct from the MEMORIES role permission: this is the user's own opt-out and it hides the
+     * composer memory toggle even for a role that may use memory. False until the profile loads,
+     * and on servers with no `personalization` block (the server default is opted IN).
+     */
+    val memoriesOptedOut: Boolean = false,
 )

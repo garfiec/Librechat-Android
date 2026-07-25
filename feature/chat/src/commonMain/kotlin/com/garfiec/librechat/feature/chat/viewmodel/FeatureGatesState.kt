@@ -49,6 +49,13 @@ data class FeatureGatesState(
      * Fails closed for the same reason.
      */
     val askUserQuestionEnabled: Boolean = false,
+    /**
+     * Composer memory toggle. = MEMORIES USE+CREATE+UPDATE (the write set the inline
+     * `set_memory`/`delete_memory` tools need) AND the agents endpoint's `memory` capability
+     * AND the user not having opted out via `personalization.memories`. Mirrors web's
+     * `useHasMemoryAccess` + `useAgentCapabilities().memoryEnabled` + opt-out check.
+     */
+    val memoryEnabled: Boolean = false,
 )
 
 /**

@@ -140,6 +140,7 @@ data class ChatUiState(
     val isResolvingPendingAction: Boolean get() = content.isResolvingPendingAction
     val toolApprovalEnabled: Boolean get() = gates.toolApprovalEnabled
     val askUserQuestionEnabled: Boolean get() = gates.askUserQuestionEnabled
+    val memoryEnabled: Boolean get() = gates.memoryEnabled
     val conversationId: String? get() = conversation.conversationId
     val conversationTitle: String? get() = conversation.conversationTitle
     val isTemporaryChat: Boolean get() = conversation.isTemporaryChat
@@ -216,6 +217,7 @@ data class ChatUiState(
                     ToolConstants.FILE_SEARCH -> ToolConstants.FILE_SEARCH.takeIf { fileSearchEnabled }
                     ToolConstants.EXECUTE_CODE, ToolConstants.CODE_INTERPRETER ->
                         ToolConstants.CODE_INTERPRETER.takeIf { isCodeInterpreterAvailable && runCodeEnabled }
+                    ToolConstants.MEMORY -> ToolConstants.MEMORY.takeIf { isMemoryToolAvailable }
                     else -> null
                 }
             }.distinct()
@@ -283,6 +285,20 @@ data class ChatUiState(
             showEphemeralTools = showEphemeralTools,
             fileUploadEnabled = fileUploadEnabled,
         )
+
+    /**
+     * Whether the composer's memory toggle should be offered: the role/opt-out half from
+     * [FeatureGatesState.memoryEnabled], AND the agents endpoint advertising the `memory`
+     * capability.
+     *
+     * Unlike [isCodeInterpreterAvailable] this fails CLOSED on a config that hasn't arrived: the
+     * capability is off by default server-side, so assuming it would flash a toggle that mostly
+     * shouldn't be there and, worse, let a send carry `ephemeralAgent.memory` the server drops.
+     */
+    val isMemoryToolAvailable: Boolean
+        get() = memoryEnabled &&
+            !account.memoriesOptedOut &&
+            endpointConfigs[EndpointConstants.AGENTS]?.capabilities?.contains(ToolConstants.MEMORY) == true
 
     /**
      * Whether code interpreter (execute_code) is available on this server.

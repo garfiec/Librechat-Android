@@ -56,6 +56,10 @@ class ChatRequestBuilder(
             webSearch = if (webSearchEnabled) true else null,
             fileSearch = if (ToolConstants.FILE_SEARCH in enabledTools) true else null,
             executeCode = if (ToolConstants.CODE_INTERPRETER in enabledTools || ToolConstants.EXECUTE_CODE in enabledTools) true else null,
+            // Re-check availability rather than trusting the toggle alone: the flag can survive a
+            // config/permission change that has since withdrawn memory, and the server would then
+            // silently drop the tools from a run the user believes is remembering.
+            memory = if (ToolConstants.MEMORY in enabledTools && state.isMemoryToolAvailable) true else null,
         )
     }
 

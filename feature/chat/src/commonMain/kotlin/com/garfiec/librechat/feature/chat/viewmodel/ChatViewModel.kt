@@ -1468,6 +1468,15 @@ class ChatViewModel(
                             contextUsageEnabled = contextGaugeSupported && (iface?.contextUsage ?: true),
                             toolApprovalEnabled = toolApprovalSupported,
                             askUserQuestionEnabled = askUserQuestionSupported,
+                            // The inline memory tools WRITE, so the composer toggle needs the full
+                            // USE+CREATE+UPDATE set the backend's own memoryAvailable gate requires
+                            // — a read-only-memory role must not get a control the server would
+                            // refuse to wire up. The capability half of the gate is folded in at
+                            // read time (see ChatUiState.isMemoryToolAvailable), because the agents
+                            // endpoint config arrives on a different flow than this combine.
+                            memoryEnabled = role.hasAccessOrPermissive(PermissionType.MEMORIES, Permission.USE) &&
+                                role.hasAccessOrPermissive(PermissionType.MEMORIES, Permission.CREATE) &&
+                                role.hasAccessOrPermissive(PermissionType.MEMORIES, Permission.UPDATE),
                             // Pinned tools (v0.8.7): raw interface list; mapped/filtered by pinnedToolChips.
                             pinnedTools = iface?.defaultPinnedTools ?: emptyList(),
                         ),
@@ -1615,6 +1624,7 @@ class ChatViewModel(
                             account = it.account.copy(
                                 userName = user.name ?: user.username,
                                 userAvatarUrl = user.avatar,
+                                memoriesOptedOut = user.personalization?.memories == false,
                             ),
                         )
                     }

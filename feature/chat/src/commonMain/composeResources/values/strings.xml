@@ -411,4 +411,6 @@
     <string name="ask_user_question_send">Send</string>
     <string name="ask_user_question_skip">Skip</string>
     <string name="ask_user_question_multi_select_hint">Pick as many as apply</string>
+    <string name="tool_memory">Memory</string>
+    <string name="tool_memory_desc">Let the assistant remember details from this chat</string>
 </resources>

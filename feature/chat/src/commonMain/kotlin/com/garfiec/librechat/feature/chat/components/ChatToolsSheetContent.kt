@@ -86,6 +86,13 @@ fun ChatToolsSheetContent(
     urlContextEnabled: Boolean = false,
     runCodeEnabled: Boolean = true,
     fileSearchEnabled: Boolean = true,
+    /**
+     * Whether to offer the memory toggle: MEMORIES USE+CREATE+UPDATE, the agents endpoint's
+     * `memory` capability, and the user not having opted out. Defaults OFF — unlike the other
+     * tool gates, a server with memory disabled is the common case, and the row would otherwise
+     * appear for every host that never enabled it.
+     */
+    memoryEnabled: Boolean = false,
     mcpServersEnabled: Boolean = true,
     /**
      * Server/endpoint feature gates for the sheet: model-select row, parameters row,
@@ -278,6 +285,7 @@ fun ChatToolsSheetContent(
                 ToolConstants.URL_CONTEXT to urlContextEnabled,
                 ToolConstants.CODE_INTERPRETER to (isCodeInterpreterAvailable && runCodeEnabled),
                 ToolConstants.FILE_SEARCH to fileSearchEnabled,
+                ToolConstants.MEMORY to memoryEnabled,
             )
             toolRows.forEach { (toolKey, enabled) ->
                 val meta = ephemeralToolMeta(toolKey)

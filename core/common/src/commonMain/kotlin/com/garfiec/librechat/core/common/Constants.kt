@@ -11,6 +11,10 @@ object ToolConstants {
      *  sibling of [WEB_SEARCH] — backed by `modelParameters.urlContext`, not `enabledTools`. */
     const val URL_CONTEXT = "url_context"
     const val CODE_INTERPRETER = "code_interpreter"
+
+    /** Inline memory tools (`set_memory`/`delete_memory`). Doubles as the `memory` agent
+     *  capability key and the `ephemeralAgent.memory` request flag. */
+    const val MEMORY = "memory"
     const val FILE_SEARCH = "file_search"
     const val EXECUTE_CODE = "execute_code"
     const val PROGRAMMATIC_TOOLS = "programmatic_tools"
