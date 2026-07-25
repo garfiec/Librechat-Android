@@ -32,23 +32,25 @@ re-discovered every sync.**
 
 ---
 
-### Skill favorites — backend missing (as of v0.8.6)
-- **Web client shows:** a Star/favorite button on skills + a favorites filter.
-- **Evidence it's vapor:** `packages/data-provider/.../data-service.ts`
-  `getSkillFavorites` / `updateSkillFavorites` are client STUBS that
-  `return Promise.resolve([])` / echo input, with a comment that the backend route is
-  "phase 2" and these resolve empty "so the UI hooks compile and the Star button is a
-  no-op." There is **no skill-favorites route** in `api/server/routes/settings.js`; the
-  generic `/favorites` route only accepts agent / model+endpoint / spec favorites and
-  **rejects bare skill ids**. No endpoint builder for skill favorites exists.
-- **Mobile status:** NOT built — deliberately skipped (a Star button would be a no-op
-  wired to nothing).
-- **Re-check next sync:** look for a real `GET/POST /api/.../skills/favorites` route
-  mounted server-side (not a data-service stub) and a skill-typed favorite in the
-  favorites schema. If present, build favorite/unfavorite + favorites filter then.
-- **Recorded:** 2026-06-02 during the v0.8.6 sync.
-- **Update 2026-07-25 (0.8.8-line dev sync):** the backend now exists —
-  `GET /api/user/settings/favorites/tools` plus `PUT`/`DELETE .../:itemType/:itemId`, with
-  `itemType ∈ {builtin, tool, mcp, skill}` (#13952). The re-check condition is met. Entry stays
-  OPEN because mobile has not built against it: the client half was deferred to the tagged
-  `0.8.8-rc1` sync. Close it when mobile ships favorite/unfavorite + the favorites filter.
+## Closed entries
+
+Kept rather than deleted so a later sync does not re-discover the same feature and re-file it as
+vapor. A closed entry needs both halves: the upstream route shipped AND mobile builds against it.
+
+### Skill favorites — backend missing (as of v0.8.6) — **CLOSED 2026-07-25**
+- **Was:** the web client had a Star button and favorites filter on skills, but
+  `packages/data-provider/.../data-service.ts` `getSkillFavorites` / `updateSkillFavorites` were
+  stubs returning `Promise.resolve([])` / echoing input, no skill-favorites route was mounted in
+  `api/server/routes/settings.js`, and the generic `/favorites` route rejected bare skill ids.
+- **What shipped:** #13952 (`edd614bbf`, 2026-07-05) added a real `ToolFavorite` collection and
+  `GET /api/user/settings/favorites/tools` + `PUT`/`DELETE .../:itemType/:itemId`, with
+  `itemType ∈ {builtin, tool, mcp, skill}`. Verified present at the pinned target `6c97a7f4`
+  (`api/server/routes/settings.js`, `packages/api/src/favorites/handlers.ts`,
+  `packages/data-schemas/src/types/favorite.ts`). Skill favorites are not a separate surface — they
+  flow through this route as `itemType: 'skill'`, which is also why upstream dropped the reserved
+  `TUserFavorite.skillId`.
+- **Mobile:** built in the 0.8.8-line partial sync — `ToolFavorite` / `ToolFavoritesRepository`,
+  `FavoritesApi.getToolFavorites` / `addToolFavorite` / `removeToolFavorite`, and per-item stars in
+  the agent editor's unified tool picker. The old whole-list `/favorites` surface is unchanged and
+  still owns pinned agents / models / specs.
+- **Recorded:** 2026-06-02 (v0.8.6 sync). **Closed:** 2026-07-25 (0.8.8-line dev sync).

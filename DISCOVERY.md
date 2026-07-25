@@ -406,45 +406,48 @@ the older servers this also changes. Walk it against a v0.8.6 or v0.8.7 server b
 - **Agent partitions (F9, dev server only)** — an agent-scoped row edits/deletes inside its own
   partition and leaves a same-key shared-pool row untouched.
 
-### v0.8.8-line endpoints discovered but NOT BUILT (deferred to the tagged rc)
-Recorded so the next sync re-confirms rather than re-discovers them. All are additive; each row gives
-the gate to declare if it is built (`supportsFeature(detected, minVersion, landedDate)`), and every
-minVersion is `0.8.8-rc1`.
+### v0.8.8-line endpoints (built)
 ```
 GET    /api/agents/:id/versions           → Agent[] version history. Requires EDIT on the agent; loaded lazily
-                                            because histories are large. (#13977, 12fea693b, landed 2026-06-26;
-                                            gate landedDate 2026-06-27 — day-granularity rounded UP: four
-                                            same-day commits precede the landing one, and misreading them as
-                                            post-landing surfaces a 404 error in the history panel, whereas
-                                            rounding up only hides history from same-day successors)
+                                            because histories are large — /expanded now answers with a `version`
+                                            count and no `versions[]`. Mobile fetches it when the history sheet
+                                            opens, guarded on the list already being empty so pre-0.8.8 servers
+                                            (which still inline the array) pay for no second request.
+                                            (#13977, 12fea693b, landed 2026-06-26)
 GET    /api/user/settings/favorites/tools → TToolFavorite[] ({ itemType, itemId })
 PUT    /api/user/settings/favorites/tools/:itemType/:itemId  → the added { itemType, itemId }
 DELETE /api/user/settings/favorites/tools/:itemType/:itemId  → { ok: true }
-                                            itemType ∈ {builtin, tool, mcp, skill}; itemId capped in length,
-                                            400 otherwise. This is the real backend that replaced the v0.8.6
-                                            "skill favorites" client stubs, so that backend gap no longer
-                                            exists upstream; the ledger entry stays OPEN until mobile builds
-                                            against it.
+                                            itemType ∈ {builtin, tool, mcp, skill}; itemId capped at 256 chars
+                                            and 100 favorites per user, 400 otherwise. This is the real backend
+                                            that replaced the v0.8.6 "skill favorites" client stubs; mobile now
+                                            builds against it, so that backend-gap ledger entry is CLOSED.
+                                            Gate: supportsFeature("0.8.8-rc1", landedDate 2026-07-05), plus a
+                                            404 fallback that turns pinning off rather than reporting a failure.
                                             (#13952, landedDate 2026-07-05)
 POST   /api/share/:shareId/fork           { targetMessageIndex? } → 201 with the forked conversation. Continues
                                             a SHARED conversation as the caller's own copy — distinct from the
-                                            existing POST /api/convos/fork mobile already calls. Needs a
-                                            shared-link viewer mobile does not have. (#13714, landedDate 2026-06-24)
+                                            existing POST /api/convos/fork mobile already calls. Wired through
+                                            ShareRepository but with NO caller: mobile has no shared-link viewer
+                                            to fork from. Ungated — a pre-0.8.8 server 404s, which is the error
+                                            a future caller has to handle anyway. (#13714, landedDate 2026-06-24)
 POST   /api/files/usage                   { file_ids } → { marked }. TTL touch so uploads held in a client-side
-                                            queue are not reaped before they drain; only meaningful with the
-                                            mid-run queued-messages feature. Exempt from the upload rate limiter;
-                                            400s on an oversized id list. (#14220, 9bb351ad9, landedDate
-                                            2026-07-14 — same landing commit as the steer rows above; the one
-                                            same-day predecessor misread as post-landing only 404s a
-                                            fire-and-forget TTL touch, so the literal landing day is safe.
-                                            #14295 / 2026-07-21 is the separate upload-SSE heartbeat work
-                                            under F8, not this route.)
+                                            queue are not reaped before they drain. Called when a message is
+                                            enqueued as a follow-up; capped at 10 ids per call server-side, so
+                                            the repository chunks rather than forfeiting a whole batch. Exempt
+                                            from the upload rate limiter; error code FILES_USAGE_FAILED. Mobile
+                                            stays on the multipart-JSON upload path — #14295 / 2026-07-21 is the
+                                            separate upload-SSE heartbeat work under F8, which is NOT adopted.
 ```
-Deferred with those endpoints, for the same reason (each needs a mobile surface that does not exist,
-or is web-only polish): the unified Tools Marketplace agent-builder rework, the MCP OAuth consent
-dialog, sandbox `read_file` viewable artifacts (folds into the existing code-interpreter
-attachment-rendering backlog), the MessageNav rework, agent contact info on agent detail, and the
-web touch select/drag fixes. None of them affects wire compatibility with a 0.8.8-line server.
+UI shipped alongside them: the unified Tools Marketplace picker in the agent editor (one catalog over
+built-in capabilities, plugin tools, MCP servers and skills, with per-item favorites), the MCP OAuth
+consent dialog, agent contact info on agent detail, and sandbox `read_file` images loading as inline
+`data:` URIs instead of being mangled into a server-relative path.
+
+Deliberately NOT ported from the same upstream window, each because it needs a mobile surface that
+does not exist or is pointer-specific web polish: upstream's OrchestrationHub and StatefulSessions
+panels (agent-to-agent orchestration and sandbox session reuse), the `on_sandbox_starting` cold-boot
+indicator, the MessageNav rework (a pinned scroll-to-bottom rib and hover chevrons; mobile already has
+a scroll-to-bottom FAB), and the web touch select/drag fixes. None affects wire compatibility.
 
 Revised message / SSE shapes:
 - Message content parts add a `steer` type (`type == "steer"`, #14220) — mid-run steering. `ContentType`

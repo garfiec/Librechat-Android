@@ -55,3 +55,25 @@
 - `AgentEditorViewModel` depends on both `AgentRepository` and `McpRepository`
 - **Gotcha**: MCP tools load requires a separate `McpRepository.getTools()` call; they're not bundled with agent data
 - **Gotcha**: `isPublic`/`isCollaborative` map to the sharing section, not individual toggles in the agent model
+
+### Unified tools picker (v0.8.8)
+- `ToolsMarketplaceDialog` is the ONE picker for what an agent can do — built-in capabilities,
+  plugin tools, MCP servers and skills in one searchable list with kind filter chips. It replaced
+  the separate `ToolSelectDialog` (deleted); `AgentMcpToolsSelector` and `AgentSkillsSection`
+  remain as the "what is currently on this agent" sections.
+- The catalog is DERIVED, not stored: `AgentEditorUiState.marketplaceCatalog()` builds it from the
+  reference lists the editor already loads, so it cannot go stale against them.
+- **Gotcha**: a row's toggle routes back through the existing per-kind entry point
+  (`onCodeInterpreterToggled`, `onToolToggled`, …), never straight into state. Code interpreter
+  hangs an auth check off its toggle and the picker must not be a second path that skips it.
+- **Gotcha**: `MarketplaceItem.id` is what the AGENT stores; `favoriteId` is what the FAVORITES
+  route pins. They differ for MCP — the agent stores a tool name, the pin is the server.
+- Favorites come from `ToolFavoritesRepository` (v0.8.8 `/favorites/tools`). The star column is
+  hidden entirely when `areToolFavoritesSupported` is false; see VERSION_GATES.md for the gate.
+- Built-in rows carry a `MarketplaceBuiltinLabel` rather than a name string — they are the only
+  rows this app names itself, so their text is resolved from compose resources at render time.
+  `filterMarketplace` therefore takes a `builtinLabels` map so search can see those labels.
+- Version history is fetched lazily (`AgentLoaderDelegate.loadVersions`) because v0.8.8 stopped
+  inlining `versions[]`. The active-revision comparison runs against `versionBasis`, captured at
+  load — reading live form state would compare against whatever the user has since typed.
+- Not ported from upstream's rework: OrchestrationHub and StatefulSessions.

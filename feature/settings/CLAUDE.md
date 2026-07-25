@@ -103,3 +103,13 @@
 - `LanguageSelectorDialog` — 37+ locales with search, single-select radio
 - `ForkSettingsDialog` — 3 fork modes (`DIRECT_PATH`, `INCLUDE_BRANCHES`, `TARGET_LEVEL`); labels/descriptions come from `fork_mode_*` string resources via `forkModeLabel()` / `forkModeDescription()`, not from the enum
 - `PersonalizationDialog` — "About you" + "Response style" text areas with enable toggle
+
+### MCP OAuth consent (v0.8.8)
+- `reinitialize` can answer `oauthRequired` + `oauthUrl`, meaning the server is waiting on the user
+  rather than connected. `McpViewModel` holds that as `pendingOAuth` and `McpServersScreen` renders
+  a consent dialog.
+- **Gotcha**: do NOT auto-launch the browser. The redirect hands a third-party provider this
+  session, so the launch has to be an explicit user action, not a side effect of tapping reconnect.
+- `connectionDeferred` is a third outcome: the ack landed but the connection is still being made.
+  Reported via the `McpViewModel.DEFERRED_MARKER` sentinel, which the screen swaps for a localized
+  string (the VM has no access to compose resources).
