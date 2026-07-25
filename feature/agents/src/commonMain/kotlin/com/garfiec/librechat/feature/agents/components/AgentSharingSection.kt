@@ -41,7 +41,7 @@ import org.jetbrains.compose.resources.stringResource
  * isPublic/isCollaborative.
  *
  * [showCollaborativeToggle] is gated on server version — see VERSION_GATES.md.
- * Upstream v0.8.5 removed the `isCollaborative` field; hide the toggle on v0.8.5+.
+ * Upstream removed the `isCollaborative` field in the v0.8.5 line; hide the toggle on v0.8.5-rc1+.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

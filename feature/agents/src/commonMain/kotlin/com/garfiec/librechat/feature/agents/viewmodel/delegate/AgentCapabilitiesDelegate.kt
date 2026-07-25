@@ -46,7 +46,7 @@ class AgentCapabilitiesDelegate(
 
     /**
      * Observes the detected backend version and hides the Collaborative toggle
-     * on v0.8.5+ where the server no longer honors `isCollaborative`/`projectIds`.
+     * on v0.8.5-rc1+ where the server no longer honors `isCollaborative`/`projectIds`.
      * See VERSION_GATES.md at the repo root.
      */
     private fun observeServerVersion() {
@@ -54,7 +54,7 @@ class AgentCapabilitiesDelegate(
             configRepository.detectedBackendVersion.collect { version ->
                 val show = version == null ||
                     !BackendVersion.isCompatibleOrNewer(version, "0.8.5-rc1")
-                // Handoffs (graph edges) require v0.8.5+; on older servers the field is ignored.
+                // Handoffs (graph edges) require v0.8.5-rc1+; on older servers the field is ignored.
                 val handoffsAvailable = version != null &&
                     BackendVersion.isCompatibleOrNewer(version, "0.8.5-rc1")
                 stateHandle.update {

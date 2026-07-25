@@ -258,7 +258,7 @@ class DrawerViewModel(
             val persisted = DrawerTab.fromString(settingsDataStore.drawerLibraryTab.first())
             _drawerLibraryTab.update { it ?: persisted }
         }
-        // Load the Chat Projects folders once the backend is known to support them (v0.8.7+).
+        // Load the Chat Projects folders once the backend is known to support them (v0.8.7-rc1+).
         // detectedBackendVersion is a StateFlow (already conflated), so no distinctUntilChanged.
         viewModelScope.launch {
             configRepository.detectedBackendVersion.collect { version ->

@@ -36,7 +36,7 @@ data class InterfaceConfig(
     val retentionMode: String? = null,
     // --- v0.8.7 detection / gating ---
     /** Whether the context-usage gauge is enabled. Server default is `true`. Gates the
-     *  chat-screen context gauge (combined with a `BackendVersion.isCompatibleOrNewer("0.8.7")` check). */
+     *  chat-screen context gauge (combined with a `BackendVersion.isCompatibleOrNewer("0.8.7-rc1")` check). */
     val contextUsage: Boolean = true,
     /** Whether the gauge surfaces USD cost alongside token usage. Server default is `false`.
      *  Retained for wire fidelity (real `/api/config` key); not read yet — the cost readout

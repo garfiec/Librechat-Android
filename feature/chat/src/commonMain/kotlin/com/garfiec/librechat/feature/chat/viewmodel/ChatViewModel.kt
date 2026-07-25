@@ -543,7 +543,7 @@ class ChatViewModel(
             }
         }
 
-        // Gate the `xhigh` and `max` reasoning-effort dropdown values to v0.8.5+ servers.
+        // Gate the `xhigh` and `max` reasoning-effort dropdown values to v0.8.5-rc1+ servers.
         // Older servers reject the unknown enums at request time. See VERSION_GATES.md.
         viewModelScope.launch {
             configRepository.detectedBackendVersion.collect { version ->
