@@ -2,6 +2,8 @@ package com.garfiec.librechat.core.network.api
 
 import com.garfiec.librechat.core.model.SharedLink
 import com.garfiec.librechat.core.model.request.CreateShareRequest
+import com.garfiec.librechat.core.model.request.ForkSharedConversationRequest
+import com.garfiec.librechat.core.model.response.ForkConversationResponse
 import com.garfiec.librechat.core.model.response.SharedLinksResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -45,4 +47,26 @@ class ShareApi constructor(
             url { path("api/share/$shareId") }
         }
     }
+
+    /**
+     * Copies a shared conversation into the caller's own account so they can continue it
+     * (v0.8.8 line, #13714).
+     *
+     * Not the same route as `POST /api/convos/fork`, and not reachable through it: that one
+     * forks a conversation the caller already owns, this one forks from a share link under the
+     * share's own ACL (`canAccessSharedLink`), which is how a recipient who owns nothing gets a
+     * copy. It requires a signed-in caller and is rate-limited per IP and per user.
+     *
+     * [targetMessageIndex] cuts the copy off after that many messages; omitted, the whole
+     * conversation is copied. The response is the same `{conversation, messages}` pair the
+     * owner-side fork returns.
+     */
+    suspend fun forkSharedConversation(
+        shareId: String,
+        targetMessageIndex: Int? = null,
+    ): ForkConversationResponse =
+        client.post {
+            url { path("api/share/$shareId/fork") }
+            setBody(ForkSharedConversationRequest(targetMessageIndex))
+        }.body()
 }

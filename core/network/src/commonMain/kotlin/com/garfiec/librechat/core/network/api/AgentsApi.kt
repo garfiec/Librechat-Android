@@ -24,6 +24,7 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.path
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 
@@ -106,6 +107,21 @@ class AgentsApi constructor(
         client.post {
             url { path("api/agents/$agentId/revert") }
             setBody(request)
+        }.body()
+
+    /**
+     * Agent edit history, one full snapshot per revision (v0.8.8 line, #13977).
+     *
+     * Split out of the agent document itself: `/expanded` used to inline the whole `versions[]`
+     * array and now returns only a `version` count, so on those servers the history has to be
+     * asked for. Returned verbatim as JSON because a snapshot is whatever the agent schema was
+     * at that save point — the editor drills into fields the current [Agent] shape may not have.
+     *
+     * Requires EDIT permission, same as `/expanded`.
+     */
+    suspend fun getAgentVersions(agentId: String): List<JsonElement> =
+        client.get {
+            url { path("api/agents/$agentId/versions") }
         }.body()
 
     suspend fun getAgentCategories(): List<AgentCategory> =

@@ -20,8 +20,18 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.path
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+
+/** Server cap per `POST /api/files/usage` call (`FILES_USAGE_MAX_IDS`). */
+const val FILES_USAGE_MAX_IDS: Int = 10
+
+@Serializable
+private data class FilesUsageRequest(
+    @SerialName("file_ids") val fileIds: List<String>,
+)
 
 class FilesApi constructor(
     private val client: HttpClient,
@@ -131,6 +141,26 @@ class FilesApi constructor(
         client.delete {
             url { path("api/files") }
             setBody(request)
+        }
+    }
+
+    /**
+     * Pushes back the upload-window TTL on [fileIds] (v0.8.8 line, #14220).
+     *
+     * An uploaded file is reaped if nothing claims it inside the upload window, and a message
+     * sitting in the client's follow-up queue can easily outlive that window — a long run, a
+     * human-review pause. Marking at queue time keeps the attachment alive until the drain
+     * actually sends it; send-time marking stays the backstop.
+     *
+     * Owner-scoped and best-effort: ids that do not resolve to a file this user owns are not an
+     * error, and the route is excluded from the upload rate limiter so touching is always safe.
+     * Server caps a single call at [FILES_USAGE_MAX_IDS]; longer lists 400 with `TOO_MANY_FILES`.
+     */
+    suspend fun markFilesUsed(fileIds: List<String>) {
+        if (fileIds.isEmpty()) return
+        client.post {
+            url { path("api/files/usage") }
+            setBody(FilesUsageRequest(fileIds))
         }
     }
 

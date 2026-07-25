@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
+import kotlinx.serialization.json.JsonElement
 
 interface AgentRepository {
 
@@ -36,6 +37,15 @@ interface AgentRepository {
     suspend fun deleteAgent(id: String): Result<Unit>
     suspend fun duplicateAgent(id: String): Result<Agent>
     suspend fun revertAgent(id: String, request: RevertAgentRequest): Result<Agent>
+
+    /**
+     * Agent edit history, fetched on demand (v0.8.8 line, #13977).
+     *
+     * Snapshots stay raw JSON: each is the agent as its schema was at that save point, so
+     * narrowing to today's [Agent] shape would quietly drop whatever the editor wants to show
+     * from an older revision.
+     */
+    suspend fun getAgentVersions(id: String): Result<List<JsonElement>>
     suspend fun getAgentCategories(): Result<List<AgentCategory>>
 
     // Avatar

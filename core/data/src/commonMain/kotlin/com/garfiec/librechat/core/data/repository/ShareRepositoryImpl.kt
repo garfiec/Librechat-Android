@@ -4,6 +4,7 @@ import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.SharedLink
+import com.garfiec.librechat.core.model.response.ForkConversationResponse
 import com.garfiec.librechat.core.model.response.SharedLinksResponse
 import com.garfiec.librechat.core.network.api.ShareApi
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
@@ -55,6 +56,19 @@ class ShareRepositoryImpl(
     override suspend fun deleteShareLink(shareId: String): Result<Unit> {
         return safeApiCall {
             shareApi.deleteShareLink(shareId)
+        }
+    }
+
+    override suspend fun forkSharedConversation(
+        shareId: String,
+        targetMessageIndex: Int?,
+    ): Result<ForkConversationResponse> {
+        // Deliberately not version-gated: a pre-0.8.8 server 404s, which safeApiCall already
+        // turns into the error the (future) caller has to handle anyway, and the call only ever
+        // happens because a user pressed a button — there is nothing to fail closed on ahead of
+        // time. Gating on a date here would just hide the button on dev servers that have it.
+        return safeApiCall {
+            shareApi.forkSharedConversation(shareId, targetMessageIndex)
         }
     }
 }

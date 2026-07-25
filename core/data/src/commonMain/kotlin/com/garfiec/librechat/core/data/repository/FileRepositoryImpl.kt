@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.model.request.DeleteFileEntry
 import com.garfiec.librechat.core.model.request.DeleteFilesRequest
 import com.garfiec.librechat.core.model.response.FilePreviewResponse
 import com.garfiec.librechat.core.model.response.FileUploadConfig
+import com.garfiec.librechat.core.network.api.FILES_USAGE_MAX_IDS
 import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
 import kotlinx.coroutines.CancellationException
@@ -137,6 +138,18 @@ class FileRepositoryImpl(
             attempt++
             delay(POLL_INTERVAL_MS)
         }
+    }
+
+    override suspend fun markFilesUsed(fileIds: List<String>): Result<Unit> {
+        val ids = fileIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) return Result.Success(Unit)
+        // The route caps a call at FILES_USAGE_MAX_IDS and 400s the whole batch past it, so
+        // chunk rather than let one over-long queue item silently forfeit every touch in it.
+        for (chunk in ids.chunked(FILES_USAGE_MAX_IDS)) {
+            val result = safeApiCall { filesApi.markFilesUsed(chunk) }
+            if (result is Result.Error) return result
+        }
+        return Result.Success(Unit)
     }
 
     private companion object {

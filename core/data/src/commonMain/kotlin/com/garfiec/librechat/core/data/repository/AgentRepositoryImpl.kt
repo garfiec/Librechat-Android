@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.model.request.RevertAgentRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 import com.garfiec.librechat.core.network.api.AgentsApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 
 class AgentRepositoryImpl(
     private val agentsApi: AgentsApi,
@@ -109,6 +110,9 @@ class AgentRepositoryImpl(
             agent
         }
     }
+
+    override suspend fun getAgentVersions(id: String): Result<List<JsonElement>> =
+        safeApiCall { agentsApi.getAgentVersions(id) }
 
     override suspend fun getAgentCategories(): Result<List<AgentCategory>> {
         return safeApiCall {
