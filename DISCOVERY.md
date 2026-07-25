@@ -342,6 +342,14 @@ PATCH `/preferences` `{ updated, preferences: { memories } }`, DELETE `{ deleted
 return the bare entity. `/preferences` also READS `{ memories: boolean }`, not `{ enabled }`. Memory
 rows carry `updated_at` (snake_case) and no creation timestamp at all.
 
+**Out of the 0.8.8 sync's scope, and not version-gated.** These envelopes are identical in v0.8.4,
+v0.8.5, v0.8.6 and on the 0.8.8 line, so decoding them as bare entities was a pre-existing client
+breakage against *every* supported server, and correcting it changes the memories screen's runtime
+behavior on all of them — the list can now produce rows, edit/delete now hit the row the user picked,
+and the enable toggle now reaches the server. It rode this branch only because the agent-partition
+work (F9) sits on top of it and was otherwise unreachable. Device-test the memories screen as its own
+item, against a pre-0.8.8 server as well as the dev one.
+
 ### v0.8.8-line endpoints discovered but NOT BUILT (deferred to the tagged rc)
 Recorded so the next sync re-confirms rather than re-discovers them. All are additive; each row gives
 the gate to declare if it is built (`supportsFeature(detected, minVersion, landedDate)`), and every

@@ -19,7 +19,7 @@ data class ChatStatusResponse(
     /**
      * The live human-review prompt when the run is paused, as a client-safe projection.
      * Null when the run is streaming normally, when no job exists, or when the pause has
-     * gone stale. Parse-layer only — mobile does not render approval prompts yet.
+     * gone stale.
      */
     val pendingAction: PendingAction? = null,
     /**
@@ -28,11 +28,4 @@ data class ChatStatusResponse(
      * drops them permanently. Only populated when the run is *not* active.
      */
     val unrecoveredSteers: List<PendingSteer> = emptyList(),
-) {
-    /** True when the run is paused awaiting a human decision rather than streaming. */
-    val isPendingAction: Boolean get() = status == STATUS_REQUIRES_ACTION
-
-    private companion object {
-        const val STATUS_REQUIRES_ACTION = "requires_action"
-    }
-}
+)

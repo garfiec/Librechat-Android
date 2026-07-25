@@ -255,13 +255,6 @@ data class ChatUiState(
             (it.isToolApproval && toolApprovalEnabled) || (it.isAskUserQuestion && askUserQuestionEnabled)
         }
 
-    /**
-     * The run is blocked on the user rather than on the model. Composer affordances that
-     * would start a *new* turn stay disabled here: the paused run still owns the stream.
-     */
-    val isAwaitingUserDecision: Boolean
-        get() = renderablePendingAction != null
-
     /** Number of queued messages a Stop/error pause is holding (0 = none / not paused). Drives
      *  the "Send queued" banner above the composer. */
     val pausedQueueCount: Int
