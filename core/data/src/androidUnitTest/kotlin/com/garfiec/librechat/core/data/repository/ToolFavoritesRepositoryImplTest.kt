@@ -102,6 +102,21 @@ class ToolFavoritesRepositoryImplTest {
     }
 
     @Test
+    fun `clear drops both the pins and the discovered support`() = runTest {
+        coEvery { api.getToolFavorites() } returns
+            listOf(ToolFavorite(ToolFavoriteItemType.MCP, "jira"))
+        val repository = repository(devBackend("2026-07-06"))
+        repository.refresh()
+
+        repository.clear()
+
+        // The account-switch path relies on this: refresh() keeps the old set on a non-404 error,
+        // so the incoming account would otherwise inherit the outgoing one's pins.
+        assertThat(repository.favorites.value).isEmpty()
+        assertThat(repository.isSupported.value).isFalse()
+    }
+
+    @Test
     fun `the cap is enforced before the write, not after the server rejects it`() = runTest {
         val repository = repository(devBackend("2026-07-06"))
         repeat(100) { repository.toggle(ToolFavoriteItemType.TOOL, "tool-$it") }

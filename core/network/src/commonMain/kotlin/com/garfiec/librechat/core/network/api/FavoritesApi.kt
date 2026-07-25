@@ -11,6 +11,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.http.encodeURLPathPart
 import io.ktor.http.path
 import kotlinx.serialization.Serializable
 
@@ -58,19 +59,23 @@ class FavoritesApi(
     /**
      * Idempotent server-side: re-pinning an already-pinned item is a 200 with `added:false`.
      *
-     * The path is built per segment rather than interpolated: an `itemId` is an MCP server name
-     * or a plugin key straight out of the catalog, so it can carry spaces and `/`. Interpolating
-     * one would either 404 on a mangled path or address a different favorite entirely.
+     * `itemId` is encoded with [encodeURLPathPart], not left to the path builder: it is an MCP
+     * server name or a plugin key straight out of the catalog, so it can carry spaces and `/`,
+     * and only that encoder escapes `/` (the plain path encoder keeps it as a separator). An
+     * unescaped `/` would either 404 on a mangled path or address a different favorite entirely.
      */
     suspend fun addToolFavorite(itemType: ToolFavoriteItemType, itemId: String) {
         client.put {
-            url { path("api", "user", "settings", "favorites", "tools", itemType.wireName, itemId) }
+            url { path(toolFavoritePath(itemType, itemId)) }
         }
     }
 
     suspend fun removeToolFavorite(itemType: ToolFavoriteItemType, itemId: String) {
         client.delete {
-            url { path("api", "user", "settings", "favorites", "tools", itemType.wireName, itemId) }
+            url { path(toolFavoritePath(itemType, itemId)) }
         }
     }
+
+    private fun toolFavoritePath(itemType: ToolFavoriteItemType, itemId: String): String =
+        "api/user/settings/favorites/tools/${itemType.wireName}/${itemId.encodeURLPathPart()}"
 }
