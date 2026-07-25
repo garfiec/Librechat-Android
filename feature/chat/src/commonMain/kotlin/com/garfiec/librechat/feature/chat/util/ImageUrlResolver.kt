@@ -61,6 +61,12 @@ private fun resolveImageUrl(
     if (filepath != null) {
         return when {
             filepath.startsWith("http") -> filepath
+            // A sandbox `read_file` on an image hands back the bytes inline as
+            // `data:image/png;base64,…` rather than a stored file (v0.8.8) — its JSON transport
+            // corrupts image bytes, so upstream stopped routing them through the text path.
+            // Without this branch the data URI falls through to the relative-path case and gets
+            // a server origin glued in front of it, which loads nothing.
+            filepath.startsWith(DATA_URI_PREFIX) -> filepath
             filepath.startsWith("/images/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
             includeBareSlash && filepath.startsWith("/") && baseUrl.isNotBlank() -> "$baseUrl$filepath"
             baseUrl.isNotBlank() -> "$baseUrl$relativePathPrefix$filepath"
@@ -72,3 +78,6 @@ private fun resolveImageUrl(
     }
     return null
 }
+
+/** Inline-bytes scheme. Such a reference is already complete and must never be joined to a host. */
+private const val DATA_URI_PREFIX = "data:"

@@ -27,10 +27,20 @@ class MessageQueueDelegate(
      *  account (a switch happened since queueing). Set by `ChatViewModel` to surface a snackbar so a
      *  silently-discarded follow-up leaves a user-visible trail. */
     private val onQueuedDropped: (count: Int) -> Unit,
+    /**
+     * Pushes back the upload-window TTL on file ids that are now waiting in the queue
+     * (v0.8.8 `POST /api/files/usage`). Best-effort; a server without the route ignores it.
+     */
+    private val markFilesUsed: (List<String>) -> Unit = {},
 ) {
 
     fun enqueue(spec: QueuedMessage) {
         handle.update { queue = queue.copy(messageQueue = queue.messageQueue + spec) }
+        // A queued message can outlive the upload window it was composed in — a long run, a
+        // human-review pause, a queue the user leaves paused — and its attachments get reaped
+        // out from under it. Touching them at queue time is the whole reason the route exists.
+        val fileIds = spec.attachments.mapNotNull { it.fileId }
+        if (fileIds.isNotEmpty()) markFilesUsed(fileIds)
     }
 
     /**

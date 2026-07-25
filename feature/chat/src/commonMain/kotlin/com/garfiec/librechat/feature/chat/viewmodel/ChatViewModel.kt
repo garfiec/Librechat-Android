@@ -238,6 +238,9 @@ class ChatViewModel(
         },
         activeAccountProvider = activeAccountProvider,
         onQueuedDropped = { count -> _queuedMessagesDropped.trySend(count) },
+        markFilesUsed = { fileIds ->
+            viewModelScope.launch { fileRepository.markFilesUsed(fileIds) }
+        },
     )
 
     // --- Delegate-owned flows exposed to the UI ---
