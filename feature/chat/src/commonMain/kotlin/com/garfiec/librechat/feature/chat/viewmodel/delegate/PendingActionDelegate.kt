@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
 import com.garfiec.librechat.feature.chat.viewmodel.PendingActionHandle
+import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import kotlinx.coroutines.launch
 
 /**
@@ -30,14 +31,15 @@ class PendingActionDelegate(
 ) {
 
     /**
-     * The turn config pinned when the pause ARRIVED, not when the user decides.
+     * The turn config the paused run was STARTED with, not the one selected when the user decides.
      *
      * The resume route recomputes the request fingerprint (endpoint / endpointType / agent_id /
-     * model / spec / promptPrefix / ephemeralAgent) and 403s a mismatch against the one captured
-     * at pause time. A pause can sit for minutes while the user reads it, and the model picker
-     * stays live throughout — resolving against the CURRENT selection would then be rejected by a
-     * server that is, correctly, refusing to resume someone else's agent. Capturing on arrival
-     * closes all but the sub-second window between the model switch and the pause frame.
+     * model / spec / promptPrefix / ephemeralAgent) and 403s anything that does not match the run
+     * it is resuming. So this has to be the config that was actually sent, which is why it is
+     * pinned from the send spec at stream start ([onTurnStarted]) rather than read off the UI:
+     * a queued follow-up drains with the spec it was composed with, and everything the composer
+     * feeds the fingerprint — model, tools, MCP servers — stays live while the run generates and
+     * while the pause card waits for a decision.
      */
     private var pinnedTurn: PinnedTurnConfig? = null
 
@@ -50,9 +52,23 @@ class PendingActionDelegate(
         val isTemporary: Boolean,
     )
 
-    /** Records a newly-announced pause and pins the config needed to resume it. */
+    /**
+     * Pins the config a turn is being sent with, at stream start.
+     *
+     * [spec] is the send spec that turn dispatched (null for edit / regenerate / continue, which
+     * build their request from the current selection at this same moment, and for a stream this
+     * client only reconnected to — there the live selection, restored from the conversation, is
+     * the best available guess).
+     *
+     * Must run AFTER the session boundary that calls [clear], or the new turn's pin is wiped.
+     */
+    fun onTurnStarted(spec: QueuedMessage?) {
+        pinnedTurn = spec?.toPinnedTurn() ?: captureTurnConfig()
+    }
+
+    /** Records a newly-announced pause. Falls back to the live config if no turn pinned one. */
     fun onPendingAction(pendingAction: PendingAction) {
-        pinnedTurn = captureTurnConfig()
+        if (pinnedTurn == null) pinnedTurn = captureTurnConfig()
         handle.update {
             this.pendingAction = pendingAction
             isResolvingPendingAction = false
@@ -131,6 +147,15 @@ class PendingActionDelegate(
             }
         }
     }
+
+    private fun QueuedMessage.toPinnedTurn() = PinnedTurnConfig(
+        endpoint = endpoint,
+        endpointType = dispatch.endpointType,
+        agentId = agentId.takeIf { endpoint == EndpointConstants.AGENTS },
+        model = model,
+        ephemeralAgent = ephemeralAgent,
+        isTemporary = isTemporary,
+    )
 
     private fun captureTurnConfig(): PinnedTurnConfig {
         val state = handle.state

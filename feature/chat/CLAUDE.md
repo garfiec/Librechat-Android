@@ -163,7 +163,9 @@ race re-homes the message — into the queue while a run still looks live, or as
 proves it is over. A steer therefore carries the `QueuedMessage` spec it *would* have become, minted at send
 time: rebuilding one at failure time would capture whatever model, tools, and attachments the composer holds
 seconds later. Three server reports hand back un-injected steers **claim-on-read** (the `final` frame, the
-abort ack, `/chat/status`'s `unrecoveredSteers`) — parsing one and ignoring it destroys the words. A stream
+abort ack, `/chat/status`'s `unrecoveredSteers`) — parsing one and ignoring it destroys the words. The
+same steer rides more than one of them (a Stop gets the ack AND the aborted final, over a stream the Stop
+deliberately leaves open), so re-homing is deduped by steer id or the words are queued two or three times. A stream
 that dies on an error carries no report, so `reclaimLocalChips()` converts the locally-held chips instead;
 it deliberately does NOT run on `Finalized`, where the frame's own list is authoritative and converting again
 would double-send any steer whose applied event was missed.

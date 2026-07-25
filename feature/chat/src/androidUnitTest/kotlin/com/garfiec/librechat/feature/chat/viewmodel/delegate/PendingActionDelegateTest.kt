@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.PendingActionPayload
@@ -15,6 +16,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ConversationMetaState
 import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionState
 import com.garfiec.librechat.feature.chat.viewmodel.PendingActionHandle
+import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -138,5 +140,35 @@ class PendingActionDelegateTest {
             delegate.submitAnswer("yes")
 
             assertThat(request.captured.agentId).isEqualTo("agent_abc")
+        }
+
+    @Test
+    fun `resume replays the spec the run was started with, not the selection at pause time`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // A queued follow-up drains with the spec it was composed with, so the live selection
+            // can already differ when the run starts — and a tool toggle between send and the
+            // pause frame moves it again. The server fingerprints what was SENT.
+            val (delegate, flow) = delegateWith(this)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onTurnStarted(
+                QueuedMessage(
+                    localId = "q-1",
+                    text = "hi",
+                    endpoint = "agents",
+                    model = "agent_queued",
+                    agentId = "agent_queued",
+                    dispatch = EndpointDispatch(endpointType = "agents", key = null, modelDisplayLabel = null),
+                ),
+            )
+            flow.value = flow.value.copy(
+                selection = flow.value.selection.copy(selectedModel = "agent_other"),
+            )
+            delegate.onPendingAction(toolApproval())
+            delegate.submitAnswer("yes")
+
+            assertThat(request.captured.agentId).isEqualTo("agent_queued")
+            assertThat(request.captured.model).isEqualTo("agent_queued")
         }
 }

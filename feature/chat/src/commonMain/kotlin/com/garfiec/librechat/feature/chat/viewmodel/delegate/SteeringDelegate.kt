@@ -79,6 +79,22 @@ class SteeringDelegate(
     private val cancelledWhileSending = mutableSetOf<String>()
 
     /**
+     * Steer ids already re-homed by [reclaim] or [reclaimLocalChips].
+     *
+     * The three handover reports are not mutually exclusive: the server builds ONE list of
+     * un-injected steers per abort and puts it on both the abort ack and the aborted `final`
+     * frame, and parks the same steers for `/chat/status` — and a Stop deliberately leaves the
+     * stream collector running, so both arrive. Re-homing is not naturally idempotent (the
+     * second pass finds no spec and rebuilds one from the chip text), so without this record the
+     * user's steer is queued two or three times.
+     *
+     * Bounded like the applied-id record, and deliberately NOT wiped by [clear]: the later
+     * reports land after the run — and therefore after the session boundary — which is exactly
+     * the window it has to cover.
+     */
+    private val reclaimedSteerIds = LinkedHashSet<String>()
+
+    /**
      * Local ids whose POST has not answered yet.
      *
      * [clear] runs on every session boundary, but a steer's POST resumes on a scope that outlives
@@ -264,16 +280,23 @@ class SteeringDelegate(
      *
      * Steers this client sent keep the spec they were composed with; ones it only learned about
      * here (another device, a reconnect) get a fresh snapshot of the current config.
+     *
+     * All three reports can carry the SAME steer — a stopped run reports its list on the ack and
+     * again on the aborted final — so ids already re-homed are dropped here ([reclaimedSteerIds])
+     * rather than queued a second time. The chips still clear on every report: a repeat is proof
+     * the steer is gone from the run either way.
      */
     fun reclaim(steers: List<PendingSteer>) {
         if (steers.isEmpty()) return
-        val reclaimed = steers.mapNotNull { it.toChip() }.sortedBy { it.createdAt }
-        if (reclaimed.isEmpty()) return
+        val reported = steers.mapNotNull { it.toChip() }
+        if (reported.isEmpty()) return
         handle.update {
-            val ids = reclaimed.map { it.steerId }.toSet()
+            val ids = reported.map { it.steerId }.toSet()
             steer = steer.copy(pendingSteers = steer.pendingSteers.filterNot { it.steerId in ids })
         }
-        reclaimed.forEach { chip -> requeue(chip) }
+        reported.filter { markReclaimed(it.steerId) }
+            .sortedBy { it.createdAt }
+            .forEach { chip -> requeue(chip) }
     }
 
     /**
@@ -283,7 +306,8 @@ class SteeringDelegate(
      *
      * Only [SteerChipStatus.PENDING] chips convert: a `SENDING` chip's POST has not answered yet
      * and will re-home its own text through the degrade path, so taking it here as well would
-     * send the same message twice.
+     * send the same message twice. Converted ids are recorded like a server report's, so a
+     * `/chat/status` claim for the same steer afterwards does not queue it again.
      */
     fun reclaimLocalChips() {
         val settled = handle.state.steer.pendingSteers
@@ -295,12 +319,21 @@ class SteeringDelegate(
                 pendingSteers = steer.pendingSteers.filter { it.status == SteerChipStatus.SENDING },
             )
         }
-        settled.forEach { chip -> requeue(chip) }
+        settled.filter { markReclaimed(it.steerId) }.forEach { chip -> requeue(chip) }
     }
 
     private fun requeue(chip: PendingSteerChip) {
         val spec = fallbackSpecs.remove(chip.steerId) ?: buildFollowUp(chip.text) ?: return
         enqueueFollowUp(spec)
+    }
+
+    /** Records [steerId] as re-homed; false when a previous report already claimed it. */
+    private fun markReclaimed(steerId: String): Boolean {
+        if (!reclaimedSteerIds.add(steerId)) return false
+        while (reclaimedSteerIds.size > SteerState.MAX_APPLIED_IDS) {
+            reclaimedSteerIds.remove(reclaimedSteerIds.first())
+        }
+        return true
     }
 
     /** Withdraws a queued steer. Optimistic — the row goes immediately, the POST just confirms. */

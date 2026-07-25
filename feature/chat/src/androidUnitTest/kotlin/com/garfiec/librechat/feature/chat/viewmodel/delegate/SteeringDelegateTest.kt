@@ -286,6 +286,37 @@ class SteeringDelegateTest {
         }
 
     @Test
+    fun `a steer reported by both the abort ack and the aborted final is queued once`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The server builds ONE list of un-injected steers per abort and puts it on both the
+            // ack and the aborted `final` frame — and a Stop leaves the collector running, so
+            // both land. Re-homing the same steer twice sends the user's words twice.
+            val (delegate, _) = delegateWith(this)
+            val report = listOf(PendingSteer(steerId = "st-1", text = "be brief", createdAt = 1))
+
+            delegate.reclaim(report)
+            delegate.reclaim(report)
+            // The same steer parked for a later /chat/status read is the third copy.
+            delegate.reclaim(report)
+
+            assertThat(enqueued.map { it.text }).containsExactly("be brief")
+        }
+
+    @Test
+    fun `a locally converted chip is not re-queued by a later server report`() =
+        runTest(UnconfinedTestDispatcher()) {
+            coEvery { chatRepository.steerChat(any()) } returns
+                Result.Success(SteerResponse(steerId = "st-1"))
+            val (delegate, _) = delegateWith(this)
+            delegate.steer("conv-1", spec("be brief"))
+            delegate.reclaimLocalChips()
+
+            delegate.reclaim(listOf(PendingSteer(steerId = "st-1", text = "be brief", createdAt = 1)))
+
+            assertThat(enqueued.map { it.text }).containsExactly("be brief")
+        }
+
+    @Test
     fun `a stream that dies with no report converts its accepted chips locally`() =
         runTest(UnconfinedTestDispatcher()) {
             coEvery { chatRepository.steerChat(any()) } returns

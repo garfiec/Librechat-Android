@@ -99,7 +99,7 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
 - **v0.8.7 known-deferred parity gaps (not built, tracked):** `url_context` conversation toggle (M2)
   and per-message `quotes[]` round-trip (M3) — both additive, low priority; see
   `proposal-v0.8.7.md` Deferred Items.
-- **v0.8.8-line partial sync (untagged dev commit `6c97a7f4`, 2026-07-24):** two NEW `supportsFeature` date
+- **v0.8.8-line partial sync (untagged dev commit `6c97a7f4`, 2026-07-23):** two NEW `supportsFeature` date
   gates — the `context-projection` POST suppression and mid-run steering — plus one deliberate NON-gate, the
   human-in-the-loop pause surfaces (rows above). Both real gates are date gates for the same reason. The target is untagged: upstream removed `POST /api/endpoints/context-projection` in #13953 (landing commit
   `376370d6`, UTC committer date **2026-06-25**), but package.json on the target commit still reports 0.8.7,

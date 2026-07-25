@@ -1312,7 +1312,13 @@ class ChatViewModel(
                 error = null,
             )
         }
-        streamingManager.beginStreaming(isEdit = false, optimisticUserMessageId = optimisticMessage.messageId)
+        streamingManager.beginStreaming(
+            isEdit = false,
+            optimisticUserMessageId = optimisticMessage.messageId,
+            // The spec this turn actually dispatches, not the composer's current state: a
+            // human-review pause is resumed against the config the run was started with.
+            turnSpec = spec,
+        )
 
         val isAgent = spec.endpoint == EndpointConstants.AGENTS
         Logger.d {

@@ -293,7 +293,7 @@ GET    /api/share?cursor&pageSize&sortBy&sortDirection&search   (NO isPublic —
 - `url_context` conversation toggle (Google URL Context) — no mobile param-sheet control yet.
 - per-message `quotes[]` round-trip (selected-text quote-reply context) — mobile neither sends nor renders.
 
-### v0.8.8-line partial sync (untagged dev commit 6c97a7f4, 2026-07-24) — endpoint / shape changes
+### v0.8.8-line partial sync (untagged dev commit 6c97a7f4, 2026-07-23) — endpoint / shape changes
 These landed upstream on the post-v0.8.7 `dev` branch (package.json still reports 0.8.7; the
 target commit is untagged). Date-gated paths use `BackendVersion.supportsFeature`.
 ```

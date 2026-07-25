@@ -19,6 +19,7 @@ import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.util.applyAbortContract
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
+import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.viewmodel.RetryInfo
 import com.garfiec.librechat.feature.chat.viewmodel.StreamingHandle
 import kotlinx.coroutines.CancellationException
@@ -180,14 +181,36 @@ class StreamingManagerDelegate(
     private var currentTurnCreated = false
 
     /**
+     * The send spec the live run was dispatched with, kept so a reconnect can re-pin the config a
+     * human-review pause must be resumed against (a resume's own session boundary drops the pin,
+     * and a pause routinely outlives a background/foreground cycle). Null for turns that had no
+     * spec — edit / regenerate / continue — and for a run this client only reconnected to, where
+     * the live selection is the best available guess. Dropped when the run ends.
+     */
+    private var currentTurnSpec: QueuedMessage? = null
+
+    /**
      * Resets the streaming-internal session state (buffer, edit flag, traces) and starts the
      * throttled updater. Does NOT touch UI state — callers that already mutate UI state
      * for their send (e.g. the optimistic-insert path) use this; [prepareForStreaming] wraps
      * it with the standard streaming-field reset.
+     *
+     * [turnSpec] is the send spec this turn is dispatching, and must be the same one handed to
+     * `startChat`: a human-review pause is resumed against the config the run was STARTED with,
+     * and by the time the pause frame arrives the composer may hold a different model or tool
+     * set (a drained queue item never matched it to begin with). Null for edit / regenerate /
+     * continue, which build their request from the live selection at this same moment.
      */
-    fun beginStreaming(isEdit: Boolean, optimisticUserMessageId: String? = null) {
+    fun beginStreaming(
+        isEdit: Boolean,
+        optimisticUserMessageId: String? = null,
+        turnSpec: QueuedMessage? = null,
+    ) {
         isEditOrRegenerate = isEdit
         startStreamSession()
+        currentTurnSpec = turnSpec
+        // After startStreamSession: its pendingActionDelegate.clear() drops the pin.
+        pendingActionDelegate.onTurnStarted(turnSpec)
         currentTurnOptimisticUserMessageId = optimisticUserMessageId
         // Capture the origin account at stream start so a post-switch finalize attributes to it.
         streamOriginAccountId = activeAccountProvider.currentAccountId()
@@ -236,6 +259,7 @@ class StreamingManagerDelegate(
     fun reset() {
         streamJob?.cancel()
         streamJob = null
+        currentTurnSpec = null
         startStreamSession()
         stopStreamingUpdater()
         streamingBuffer.clear()
@@ -718,6 +742,9 @@ class StreamingManagerDelegate(
         abortWatchdogJob?.cancel()
         abortWatchdogJob = null
         abortRequested = false
+        // The run is over: its spec must not be re-pinned onto a later reconnect that finds some
+        // other run (started elsewhere) still active on this conversation.
+        currentTurnSpec = null
         // Whatever ended the run also made any human-review pause unresolvable (the job is gone,
         // so a resume can only 409). Drop it for every reason rather than per-branch: a card left
         // on screen after the turn ended offers controls that cannot work.
@@ -933,6 +960,9 @@ class StreamingManagerDelegate(
         // (you can only resume your own conversation), so its writes attribute to that account.
         streamOriginAccountId = activeAccountProvider.currentAccountId()
         startStreamSession()
+        // Same run, new session: restore the pin the session boundary just dropped, so a pause
+        // that survives a reconnect still resumes against the config the run was started with.
+        pendingActionDelegate.onTurnStarted(currentTurnSpec)
         streamingBuffer.clear()
         streamingBufferDirty = false
         startStreamingUpdater()
