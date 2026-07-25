@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.audio
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -74,9 +75,10 @@ class SpeechRecognizerController(private val appContext: Context) {
 
     private fun createAndListen() {
         recognizer?.destroy()
-        // usingOnDevice is only ever set true behind an API 31+ check in start(), so it already
-        // implies createOnDeviceSpeechRecognizer is available.
-        val recognizer = if (usingOnDevice) {
+        // usingOnDevice is only ever set true behind sttSupportsLiveRecognition(), which IS the
+        // API 31+ check — but lint can't see through the expect/actual seam, so the version test is
+        // restated here to keep the createOnDeviceSpeechRecognizer call provably guarded.
+        val recognizer = if (usingOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             SpeechRecognizer.createOnDeviceSpeechRecognizer(appContext)
         } else {
             SpeechRecognizer.createSpeechRecognizer(appContext)

@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.screen
 
+import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.activity.compose.BackHandler
@@ -100,6 +101,11 @@ private class PullUpGesture {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+// The Scaffold's content padding is deliberately unused: the thread draws under both bars (the
+// floating top bar applies its own statusBarsPadding, the composer its own nav-bar padding) and the
+// list reserves its insets from the measured bar heights instead. contentWindowInsets is still set
+// so the snackbar clears the navigation bar.
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 actual fun ChatScreen(
     modifier: Modifier,
