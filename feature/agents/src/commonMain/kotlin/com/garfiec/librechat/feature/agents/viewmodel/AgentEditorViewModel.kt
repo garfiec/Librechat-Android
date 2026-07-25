@@ -26,6 +26,7 @@ import com.garfiec.librechat.feature.agents.components.model.AgentAdvancedSettin
 import com.garfiec.librechat.feature.agents.components.model.AgentCapabilities
 import com.garfiec.librechat.feature.agents.components.model.AgentSharingState
 import com.garfiec.librechat.feature.agents.components.model.AgentVersion
+import com.garfiec.librechat.feature.agents.components.model.AgentVersionBasis
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.util.ContentReader
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentActionsDelegate
@@ -82,6 +83,15 @@ data class AgentEditorUiState(
     val capabilities: AgentCapabilities = AgentCapabilities(),
     val advancedSettings: AgentAdvancedSettings = AgentAdvancedSettings(),
     val versions: List<AgentVersion> = emptyList(),
+    /**
+     * The loaded agent's own values, used to decide which revision is the active one.
+     *
+     * Captured at load rather than read from this state when the sheet opens: v0.8.8 fetches
+     * history lazily, by which point the form fields may have been edited.
+     */
+    val versionBasis: AgentVersionBasis = AgentVersionBasis(),
+    /** True while the lazy `/versions` fetch is in flight (v0.8.8 servers only). */
+    val isLoadingVersions: Boolean = false,
     val showDeleteConfirm: Boolean = false,
     val showDuplicateConfirm: Boolean = false,
     val showVersionHistory: Boolean = false,
@@ -475,6 +485,13 @@ class AgentEditorViewModel(
 
     fun showVersionHistory() {
         stateHandle.update { copy(showVersionHistory = true) }
+        // v0.8.8 stopped inlining the history in the agent document, so on those servers the
+        // list is empty until asked for. Guarded on emptiness so older servers, which still
+        // inline it, do not pay for a second fetch.
+        val agentId = editAgentId
+        if (agentId != null && stateHandle.state.versions.isEmpty()) {
+            loaderDelegate.loadVersions(agentId)
+        }
     }
 
     fun dismissVersionHistory() {

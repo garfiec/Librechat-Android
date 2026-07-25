@@ -13,6 +13,7 @@ import com.garfiec.librechat.feature.agents.AgentToolDisplayData
 import com.garfiec.librechat.feature.agents.components.model.AgentAdvancedSettings
 import com.garfiec.librechat.feature.agents.components.model.AgentCapabilities
 import com.garfiec.librechat.feature.agents.components.model.AgentSharingState
+import com.garfiec.librechat.feature.agents.components.model.AgentVersionBasis
 import com.garfiec.librechat.feature.agents.components.model.AgentVisibility
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.components.model.buildAgentVersionList
@@ -109,6 +110,13 @@ private fun partitionTools(
 internal fun AgentEditorUiState.applyAgentData(agent: Agent): AgentEditorUiState {
     val (regularTools, capabilityTools, mcpToolNames) = partitionTools(agent.tools)
     val parsedEdges = parseHandoffEdges(agent.edges)
+    val versionBasis = AgentVersionBasis(
+        name = agent.name,
+        description = agent.description,
+        instructions = agent.instructions,
+        artifacts = agent.artifacts,
+        tools = (regularTools + mcpToolNames + capabilityTools).toSet(),
+    )
 
     return copy(
         name = agent.name ?: "",
@@ -166,24 +174,18 @@ internal fun AgentEditorUiState.applyAgentData(agent: Agent): AgentEditorUiState
             // The OCR resource is merged into Context in the editor UI on web
             // (see upstream client/src/utils/forms.tsx). Mirror that.
             parseToolResourceFiles(agent.toolResources, "ocr"),
+        // Match upstream's isActiveVersion exactly: capabilities is not a separate field on
+        // the agent record — the snapshot's `tools` array carries capability markers
+        // (execute_code, file_search, web_search, context) mixed in with regular tool names.
+        // Passing the union here keeps the active-version marker working; previously we
+        // filtered capability markers out of currentTools and compared against an empty
+        // capabilities set, which never matched.
+        versionBasis = versionBasis,
+        // v0.8.8 servers answer /expanded with a `version` count and no `versions[]`, so this
+        // is empty there until the history sheet asks for it. Older servers still inline it.
         versions = buildAgentVersionList(
-            rawVersions = agent.versions
-                ?.filterIsInstance<JsonObject>()
-                ?: emptyList(),
-            currentName = agent.name,
-            currentDescription = agent.description,
-            currentInstructions = agent.instructions,
-            currentArtifacts = agent.artifacts,
-            // Match upstream's isActiveVersion exactly: capabilities is
-            // not a separate field on the agent record — the snapshot's
-            // `tools` array carries capability markers (execute_code,
-            // file_search, web_search, context) mixed in with regular
-            // tool names. Passing the union here keeps the active-
-            // version marker working; previously we filtered capability
-            // markers out of currentTools and compared against an empty
-            // capabilities set, which never matched.
-            currentCapabilities = emptySet(),
-            currentTools = (regularTools + mcpToolNames + capabilityTools).toSet(),
+            rawVersions = agent.versions?.filterIsInstance<JsonObject>() ?: emptyList(),
+            basis = versionBasis,
         ),
     )
 }

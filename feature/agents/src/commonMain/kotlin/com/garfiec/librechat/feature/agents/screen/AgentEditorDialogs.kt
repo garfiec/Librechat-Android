@@ -73,6 +73,7 @@ internal fun AgentEditorDialogs(
             versions = uiState.versions,
             onRevert = viewModel::revertToVersion,
             onDismiss = viewModel::dismissVersionHistory,
+            isLoading = uiState.isLoadingVersions,
         )
     }
 

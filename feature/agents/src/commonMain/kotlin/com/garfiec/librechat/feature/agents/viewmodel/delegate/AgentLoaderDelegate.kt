@@ -6,11 +6,13 @@ import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.feature.agents.components.ModelOption
+import com.garfiec.librechat.feature.agents.components.model.buildAgentVersionList
 import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorStateHandle
 import com.garfiec.librechat.feature.agents.viewmodel.applyAgentData
 import com.garfiec.librechat.feature.agents.viewmodel.toDisplayData
 import com.garfiec.librechat.feature.agents.viewmodel.toHandoffDisplayData
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Owns the editor's initial data fetches: the agent being edited (via the
@@ -134,6 +136,36 @@ class AgentLoaderDelegate(
     private fun loadAllAgents() = launchBestEffort(agentRepository::getAgents) { agents ->
         stateHandle.update {
             copy(allAgents = agents.filter { it.id != editAgentId }.map { it.toHandoffDisplayData() })
+        }
+    }
+
+    /**
+     * Fetches the agent's edit history on demand (v0.8.8 `GET /agents/:id/versions`).
+     *
+     * Not part of [loadReferenceData]: upstream stopped inlining `versions[]` in `/expanded`
+     * precisely because histories get large, so pulling one on every editor open would undo that.
+     * On a pre-0.8.8 server the array is already inlined and this never runs — [loadAgent] filled
+     * the list, so the caller's emptiness check is false.
+     */
+    fun loadVersions(agentId: String) {
+        stateHandle.scope.launch {
+            stateHandle.update { copy(isLoadingVersions = true) }
+            val result = agentRepository.getAgentVersions(agentId)
+            if (result is Result.Success) {
+                val raw = result.data.filterIsInstance<JsonObject>()
+                stateHandle.update {
+                    copy(
+                        isLoadingVersions = false,
+                        versions = buildAgentVersionList(raw, versionBasis),
+                    )
+                }
+            } else {
+                // Leaves the sheet showing its empty state. A 404 here is a pre-0.8.8 server
+                // that had nothing to add anyway, and a real failure is not worth an error
+                // banner over a read-only history panel.
+                Logger.d { "AgentEditor: version history unavailable for $agentId" }
+                stateHandle.update { copy(isLoadingVersions = false) }
+            }
         }
     }
 }

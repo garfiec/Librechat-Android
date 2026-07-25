@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +64,8 @@ fun AgentVersionHistory(
     onRevert: (versionIndex: Int) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    /** v0.8.8 fetches history on sheet open, so the list is briefly empty but not absent. */
+    isLoading: Boolean = false,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
 ) {
     ModalBottomSheet(
@@ -82,7 +85,14 @@ fun AgentVersionHistory(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (versions.isEmpty()) {
+            if (isLoading && versions.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (versions.isEmpty()) {
                 Text(
                     text = stringResource(Res.string.no_version_history),
                     style = MaterialTheme.typography.bodyMedium,

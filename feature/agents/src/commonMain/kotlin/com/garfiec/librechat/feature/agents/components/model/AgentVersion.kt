@@ -76,6 +76,36 @@ private fun JsonPrimitive.contentOrNullSafe(): String? = try {
 }
 
 /**
+ * The loaded agent's own field values, kept so a version list can be (re)built later without
+ * reading the editor's live state.
+ *
+ * `isActive` asks "does this snapshot match what the server has", and the form's fields start
+ * drifting the moment the user types. Version history is now fetched lazily — after the user has
+ * possibly edited — so the comparison basis has to be captured at load time, not read at open time.
+ */
+data class AgentVersionBasis(
+    val name: String? = null,
+    val description: String? = null,
+    val instructions: String? = null,
+    val artifacts: String? = null,
+    val tools: Set<String> = emptySet(),
+)
+
+/** Convenience overload: builds the list against a basis captured when the agent was loaded. */
+fun buildAgentVersionList(
+    rawVersions: List<JsonObject>,
+    basis: AgentVersionBasis,
+): List<AgentVersion> = buildAgentVersionList(
+    rawVersions = rawVersions,
+    currentName = basis.name,
+    currentDescription = basis.description,
+    currentInstructions = basis.instructions,
+    currentArtifacts = basis.artifacts,
+    currentCapabilities = emptySet(),
+    currentTools = basis.tools,
+)
+
+/**
  * Builds the display list from a raw `agent.versions[]` array.
  * Sorted newest-first by updatedAt (matches upstream VersionPanel.tsx).
  * Index assignments: [versionIndex] is the original position (used for revert),
