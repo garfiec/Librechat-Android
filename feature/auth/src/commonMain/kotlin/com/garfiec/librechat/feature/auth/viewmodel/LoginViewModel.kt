@@ -107,7 +107,12 @@ class LoginViewModel(
                     // A 403 from /api/auth/login means the server enforces ALLOW_EMAIL_LOGIN=false
                     // (#14180). Surface a clear reason and hide the form so the user reaches for a
                     // provider instead of retrying credentials that will never be accepted.
-                    val isEmailLoginDisabled = (result.exception as? ApiException)?.statusCode == 403
+                    // checkBan runs BEFORE validateEmailLogin on this route and also answers 403,
+                    // so a banned account (or the non-browser-UA soft ban) must keep the server's
+                    // own message and leave the form visible — isBanned is the discriminator.
+                    val apiException = result.exception as? ApiException
+                    val isEmailLoginDisabled =
+                        apiException?.statusCode == 403 && !apiException.isBanned
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = if (isEmailLoginDisabled) {

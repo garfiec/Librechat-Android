@@ -22,9 +22,13 @@ class MemoryRepositoryImpl(
     override suspend fun updatePreferences(request: UpdateMemoryPreferencesRequest): Result<MemoryPreferences> =
         safeApiCall { memoriesApi.updatePreferences(request) }
 
-    override suspend fun updateMemory(key: String, request: UpdateMemoryRequest): Result<Memory> =
-        safeApiCall { memoriesApi.updateMemory(key, request) }
+    override suspend fun updateMemory(
+        key: String,
+        request: UpdateMemoryRequest,
+        agentId: String?,
+    ): Result<Memory> =
+        safeApiCall { memoriesApi.updateMemory(key, request, agentId) }
 
-    override suspend fun deleteMemory(key: String): Result<Unit> =
-        safeApiCall { memoriesApi.deleteMemory(key) }
+    override suspend fun deleteMemory(key: String, agentId: String?): Result<Unit> =
+        safeApiCall { memoriesApi.deleteMemory(key, agentId) }
 }

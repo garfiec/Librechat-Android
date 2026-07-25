@@ -359,7 +359,7 @@ class SettingsViewModel(
     fun showEditMemoryDialog(memory: Memory) = memoryDelegate.showEditMemoryDialog(memory)
     fun dismissMemoryDialog() = memoryDelegate.dismissMemoryDialog()
     fun saveMemory(key: String, value: String) = memoryDelegate.saveMemory(key, value)
-    fun deleteMemory(key: String) = memoryDelegate.deleteMemory(key)
+    fun deleteMemory(memory: Memory) = memoryDelegate.deleteMemory(memory)
     fun toggleMemoriesEnabled(enabled: Boolean) = memoryDelegate.toggleMemoriesEnabled(enabled)
 
     // MCP server management

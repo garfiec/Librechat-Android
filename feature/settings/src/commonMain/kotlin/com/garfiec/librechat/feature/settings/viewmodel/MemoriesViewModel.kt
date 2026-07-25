@@ -102,6 +102,7 @@ class MemoriesViewModel(
                 memoryRepository.updateMemory(
                     key = editing.key,
                     request = UpdateMemoryRequest(value = value),
+                    agentId = editing.agentId,
                 )
             } else {
                 memoryRepository.createMemory(
@@ -123,9 +124,9 @@ class MemoriesViewModel(
         }
     }
 
-    fun deleteMemory(key: String) {
+    fun deleteMemory(memory: Memory) {
         viewModelScope.launch {
-            when (val result = memoryRepository.deleteMemory(key)) {
+            when (val result = memoryRepository.deleteMemory(memory.key, memory.agentId)) {
                 is Result.Success -> loadMemories()
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(

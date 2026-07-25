@@ -159,13 +159,15 @@ fun MemoriesScreen(
                     } else {
                         items(
                             items = uiState.memories,
-                            key = { it.key },
+                            // Keys are unique only within a partition, so an agent-scoped entry can
+                            // share a key with a shared-pool one — qualify to keep item keys unique.
+                            key = { "${it.agentId.orEmpty()}/${it.key}" },
                             contentType = { "memory" },
                         ) { memory ->
                             MemoryListItem(
                                 memory = memory,
                                 onEdit = { viewModel.showEditDialog(memory) },
-                                onDelete = { viewModel.deleteMemory(memory.key) },
+                                onDelete = { viewModel.deleteMemory(memory) },
                             )
                         }
                     }
@@ -256,6 +258,19 @@ private fun MemoryListItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // Agent-partitioned entries can share a key with a shared-pool one, so name the
+                // owning agent when the server resolved it.
+                val agentName = memory.agentName
+                if (agentName != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = agentName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 val timestamp = memory.updatedAt ?: memory.createdAt
                 if (timestamp != null) {
                     Spacer(modifier = Modifier.height(2.dp))

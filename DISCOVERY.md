@@ -312,6 +312,18 @@ DELETE /api/files                         reworked (#14149): agent-attached unli
                                             ocr}; the non-owner via-agent fallback was dropped. Mobile already
                                             complies (owner manager sends neither agent_id nor tool_resource;
                                             AgentFilesDelegate always routes a valid resource). (NO CHANGE — documented)
+GET    /api/memories                      now returns EVERY memory of the user, agent-partitioned ones included,
+                                            each with `agentId` (null = shared personal pool) and `agentName`
+                                            (resolved server-side, present only when the caller may VIEW that
+                                            agent). `tokenLimit`/`totalTokens` still count the shared pool only.
+PATCH  /api/memories/:key                 + optional `?agentId=` query param — SELECTS THE PARTITION. Keys are
+DELETE /api/memories/:key                   unique only *within* a partition, and the server's filter is
+                                            `{ agentId: agentId ?? null }`, so omitting the param targets the
+                                            shared pool: mutating an agent-scoped entry without it edits/deletes
+                                            a different same-named shared entry (or 404s). Mobile threads
+                                            `Memory.agentId` from the list row through repository → API. (BUILT)
+POST   /api/memories                      + optional `agentId` in the body, partitioning the new entry to an
+                                            agent. Mobile always omits it (shared pool) — no agent picker.
 
 # Removed
 POST   /api/endpoints/context-projection  REMOVED (#13953, landing commit 376370d6, 2026-06-25). The gauge is
@@ -327,6 +339,28 @@ Revised message / SSE shapes:
   NOT rescue an unknown enum value). Not yet rendered — forward-compat only, harmless on older backends. (BUILT)
 - SSE resumable-stream ordering is now preserved across turns (#14411 — the pinned target commit). Server-side
   ordering fix on resume/reconnect; no wire-shape change, transparent to the client.
+
+Additive response fields (parse-layer only unless noted — nothing branches on them yet):
+- `GET /api/agents/chat/status/:conversationId` — adds `status` (`running` | `requires_action` | terminal),
+  `pendingAction` (client-safe projection of a run paused for tool approval / `ask_user_question`;
+  `requestFingerprint` and `resumeContext` are stripped server-side, so it must never be echoed back), and
+  `unrecoveredSteers[]`. `active: true` now also covers a paused run, so it is NOT "tokens are arriving".
+  **`unrecoveredSteers` is claim-on-read**: the server clears them once returned, so a client that ignores
+  the list drops the user's queued words permanently. Only populated when the run is not active.
+- `POST /api/agents/chat/abort` — adds `aborted` (stream id actually aborted) and `pendingSteers[]` (steers
+  queued mid-run that never reached an injection boundary, handed back exactly once).
+- `GET /api/user/terms` — adds `termsAccepted` / `termsAcceptedAt`; `POST /api/user/terms/accept` now returns
+  `{ message, termsAcceptedAt }` instead of an empty body. `GET /api/user` adds `termsAcceptedAt`.
+- `POST /api/mcp/:serverName/reinitialize` — adds `connectionDeferred`: the reinitialize was accepted but the
+  connection is being established in the background, so `success` does not mean the server is reachable.
+- Conversation + preset — add `reasoning_mode` / `reasoning_context` (Responses-API siblings of
+  `reasoning_effort`); agents add `stateful_code_sessions` (persistent code-interpreter sandbox across a run's
+  tool calls) and `memory_scope` (`"agent"` isolates memories per user+agent, `"user"`/null = shared pool).
+  Round-tripped so a mobile edit doesn't drop what was set on web; no mobile editor controls.
+- Model spec — adds `showInMenu`. The server already drops `showInMenu: false` specs from `/api/config`, so
+  mobile never receives one; a hidden spec stays resolvable by name on a conversation.
+- `GET /api/config` — adds `fileUploadSseEnabled` (`FILE_UPLOAD_SSE_ENABLED`, off by default). Detection-only:
+  mobile stays on the multipart/JSON upload path regardless.
 
 ### Other
 ```

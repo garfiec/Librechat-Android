@@ -50,7 +50,7 @@ internal fun MemoriesSettingsSection(
     onToggleEnable: (Boolean) -> Unit,
     onAddMemory: () -> Unit,
     onEditMemory: (Memory) -> Unit,
-    onDeleteMemory: (String) -> Unit,
+    onDeleteMemory: (Memory) -> Unit,
     onDismissDialog: () -> Unit,
     onSaveMemory: (key: String, value: String) -> Unit,
     modifier: Modifier = Modifier,
@@ -103,7 +103,7 @@ internal fun MemoriesSettingsSection(
                     MemoryItem(
                         memory = memory,
                         onEdit = { onEditMemory(memory) },
-                        onDelete = { onDeleteMemory(memory.key) },
+                        onDelete = { onDeleteMemory(memory) },
                     )
                 }
             }
