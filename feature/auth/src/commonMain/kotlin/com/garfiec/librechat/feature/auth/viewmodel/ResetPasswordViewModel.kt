@@ -61,7 +61,7 @@ class ResetPasswordViewModel(
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (authRepository.resetPassword(userId, token, state.password, state.confirmPassword)) {
+            when (val result = authRepository.resetPassword(userId, token, state.password, state.confirmPassword)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -71,7 +71,8 @@ class ResetPasswordViewModel(
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Could not reset password. The link may have expired.",
+                        error = result.rateLimitMessageOrNull()
+                            ?: "Could not reset password. The link may have expired.",
                     )
                 }
                 is Result.Loading -> { /* no-op */ }

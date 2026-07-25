@@ -41,7 +41,7 @@ class VerifyEmailViewModel(
     fun verifyEmail(token: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (userRepository.verifyEmail(token)) {
+            when (val result = userRepository.verifyEmail(token)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -51,7 +51,8 @@ class VerifyEmailViewModel(
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Verification failed. The link may have expired.",
+                        error = result.rateLimitMessageOrNull()
+                            ?: "Verification failed. The link may have expired.",
                     )
                 }
                 is Result.Loading -> { /* no-op */ }
@@ -69,7 +70,7 @@ class VerifyEmailViewModel(
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, resendSuccess = false)
-            when (userRepository.resendVerification(email)) {
+            when (val result = userRepository.resendVerification(email)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -80,7 +81,8 @@ class VerifyEmailViewModel(
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Could not resend verification email. Please try again later.",
+                        error = result.rateLimitMessageOrNull()
+                            ?: "Could not resend verification email. Please try again later.",
                     )
                 }
                 is Result.Loading -> { /* no-op */ }
