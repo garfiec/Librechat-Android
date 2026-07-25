@@ -206,7 +206,6 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">Activer l'authentification à deux facteurs</string>
     <string name="dialog_title_disable_2fa">Désactiver l'authentification à deux facteurs</string>
-    <string name="twofa_scan_instructions">Copiez l'URI ci-dessous et collez-le dans votre application d'authentification (par ex. Google Authenticator, Authy), puis saisissez le code de vérification.</string>
     <string name="twofa_disable_instructions">Saisissez le code de votre application d'authentification pour désactiver la 2FA.</string>
     <string name="hint_verification_code">Code de vérification</string>
 

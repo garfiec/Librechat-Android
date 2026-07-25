@@ -206,7 +206,6 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">启用两步验证</string>
     <string name="dialog_title_disable_2fa">禁用两步验证</string>
-    <string name="twofa_scan_instructions">复制下方的 URI 并粘贴到你的身份验证器应用中（例如 Google Authenticator、Authy），然后输入验证码。</string>
     <string name="twofa_disable_instructions">输入身份验证器验证码以禁用两步验证。</string>
     <string name="hint_verification_code">验证码</string>
 

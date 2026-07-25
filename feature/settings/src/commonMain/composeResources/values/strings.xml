@@ -230,7 +230,14 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">Enable Two-Factor Authentication</string>
     <string name="dialog_title_disable_2fa">Disable Two-Factor Authentication</string>
-    <string name="twofa_scan_instructions">Copy the URI below and paste it into your authenticator app (e.g. Google Authenticator, Authy), then enter the verification code.</string>
+    <string name="twofa_enroll_instructions">Add this account to your authenticator app, then enter the 6-digit code it shows.</string>
+    <string name="action_open_authenticator">Open in authenticator app</string>
+    <string name="twofa_no_authenticator">No authenticator app found. Add the setup key below manually, or scan the QR code from another device.</string>
+    <string name="twofa_setup_key">Setup key</string>
+    <string name="cd_copy_setup_key">Copy setup key</string>
+    <string name="action_show_qr">Show QR code</string>
+    <string name="action_hide_qr">Hide QR code</string>
+    <string name="cd_twofa_qr">QR code for enrolling on another device</string>
     <string name="twofa_disable_instructions">Enter your authenticator code to disable 2FA.</string>
     <string name="hint_verification_code">Verification code</string>
 

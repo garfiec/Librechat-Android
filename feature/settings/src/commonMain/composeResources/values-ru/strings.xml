@@ -206,7 +206,6 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">Включить двухфакторную аутентификацию</string>
     <string name="dialog_title_disable_2fa">Отключить двухфакторную аутентификацию</string>
-    <string name="twofa_scan_instructions">Скопируйте URI ниже и вставьте его в приложение-аутентификатор (например, Google Authenticator, Authy), затем введите код подтверждения.</string>
     <string name="twofa_disable_instructions">Введите код из аутентификатора, чтобы отключить 2FA.</string>
     <string name="hint_verification_code">Код подтверждения</string>
 

@@ -206,7 +206,6 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">2단계 인증 사용</string>
     <string name="dialog_title_disable_2fa">2단계 인증 사용 안 함</string>
-    <string name="twofa_scan_instructions">아래 URI를 복사하여 인증 앱(예: Google Authenticator, Authy)에 붙여넣은 후 인증 코드를 입력하세요.</string>
     <string name="twofa_disable_instructions">2FA를 사용 중지하려면 인증 앱 코드를 입력하세요.</string>
     <string name="hint_verification_code">인증 코드</string>
 

@@ -1,19 +1,10 @@
 package com.garfiec.librechat.core.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -27,13 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 /**
@@ -121,15 +109,13 @@ fun OtpVerificationDialog(
                         ),
                     )
                 } else {
-                    OtpInput(
+                    OtpCodeInput(
                         value = otpValue,
                         onValueChange = { newValue ->
-                            if (newValue.length <= 6 && newValue.all { it.isDigit() }) {
-                                otpValue = newValue
-                                if (newValue.length == 6 && !submitted) {
-                                    submitted = true
-                                    onVerify(newValue, null)
-                                }
+                            otpValue = newValue
+                            if (newValue.length == OTP_LENGTH && !submitted) {
+                                submitted = true
+                                onVerify(newValue, null)
                             }
                         },
                         enabled = !isLoading,
@@ -171,60 +157,3 @@ fun OtpVerificationDialog(
         },
     )
 }
-
-@Composable
-private fun OtpInput(
-    value: String,
-    onValueChange: (String) -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        enabled = enabled,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Number,
-            imeAction = ImeAction.Done,
-        ),
-        modifier = modifier.fillMaxWidth(),
-        decorationBox = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                repeat(6) { index ->
-                    val char = value.getOrNull(index)?.toString() ?: ""
-                    val isFocused = index == value.length
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .border(
-                                width = if (isFocused) 2.dp else 1.dp,
-                                color = if (isFocused) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outline
-                                },
-                                shape = DIGIT_BOX_SHAPE,
-                            )
-                            .background(
-                                MaterialTheme.colorScheme.surface,
-                                DIGIT_BOX_SHAPE,
-                            ),
-                    ) {
-                        Text(
-                            text = char,
-                            style = MaterialTheme.typography.titleLarge,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
-            }
-        },
-    )
-}
-
-private val DIGIT_BOX_SHAPE = RoundedCornerShape(8.dp)

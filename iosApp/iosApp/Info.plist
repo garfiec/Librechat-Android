@@ -70,5 +70,11 @@
 			</array>
 		</dict>
 	</array>
+	<!-- canOpenURL() answers false for any scheme not listed here, so 2FA enrollment could not
+	     detect an installed authenticator without this entry. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>otpauth</string>
+	</array>
 </dict>
 </plist>

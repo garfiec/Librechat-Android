@@ -206,7 +206,6 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">二要素認証を有効にする</string>
     <string name="dialog_title_disable_2fa">二要素認証を無効にする</string>
-    <string name="twofa_scan_instructions">以下のURIをコピーして認証アプリ（例: Google Authenticator、Authy）に貼り付け、確認コードを入力してください。</string>
     <string name="twofa_disable_instructions">2FAを無効にするには認証アプリのコードを入力してください。</string>
     <string name="hint_verification_code">確認コード</string>
 

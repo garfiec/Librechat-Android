@@ -206,7 +206,6 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">تفعيل المصادقة الثنائية</string>
     <string name="dialog_title_disable_2fa">تعطيل المصادقة الثنائية</string>
-    <string name="twofa_scan_instructions">انسخ الرابط أدناه والصقه في تطبيق المصادقة الخاص بك (مثل Google Authenticator أو Authy)، ثم أدخل رمز التحقق.</string>
     <string name="twofa_disable_instructions">أدخل رمز المصادقة لتعطيل المصادقة الثنائية.</string>
     <string name="hint_verification_code">رمز التحقق</string>
 

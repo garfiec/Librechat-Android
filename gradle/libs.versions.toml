@@ -55,6 +55,9 @@ zoomimage = "1.4.0"
 # Color theming (seed -> Material 3 ColorScheme, KMP)
 material-kolor = "4.1.1"
 
+# QR rendering (KMP: Android + iOS) -- 2FA enrollment on a second device
+qrose = "1.1.2"
+
 # Logging
 kermit = "2.1.0"
 
@@ -178,6 +181,9 @@ zoomimage-compose-coil3-core = { group = "io.github.panpf.zoomimage", name = "zo
 
 # Color theming
 material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "material-kolor" }
+
+# QR rendering
+qrose = { group = "io.github.alexzhirkevich", name = "qrose", version.ref = "qrose" }
 
 # Logging
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }

@@ -206,7 +206,6 @@
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">Ativar autenticação de dois fatores</string>
     <string name="dialog_title_disable_2fa">Desativar autenticação de dois fatores</string>
-    <string name="twofa_scan_instructions">Copie a URI abaixo e cole-a no seu app autenticador (por exemplo, Google Authenticator, Authy) e depois digite o código de verificação.</string>
     <string name="twofa_disable_instructions">Digite o código do seu autenticador para desativar o 2FA.</string>
     <string name="hint_verification_code">Código de verificação</string>
 
