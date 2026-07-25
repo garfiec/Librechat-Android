@@ -21,6 +21,10 @@ import kotlinx.coroutines.launch
  * [ChatUiState.contextUsage]; it never touches messages/branches/Room, so it can't disturb the
  * streaming-anchor invariant. The live `on_context_usage` SSE event owns the gauge during a stream,
  * so [refreshContextProjection] no-ops while [ChatUiState.isStreaming].
+ *
+ * On the 0.8.8 line the server-side projection endpoint was removed (#13953); the projection call
+ * short-circuits to `null` there (gate lives in `EndpointTokenRepositoryImpl`), so on those servers
+ * this delegate becomes a no-op writer and the gauge is driven solely by the `on_context_usage` SSE.
  */
 class ContextProjectionDelegate(
     private val handle: ContextProjectionHandle,

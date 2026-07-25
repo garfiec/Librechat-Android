@@ -19,6 +19,11 @@ import io.ktor.http.path
  * - `POST /api/endpoints/context-projection` → a server-computed context-usage
  *   snapshot for a branch with no live snapshot (page load, model/window switch).
  *   The server may legitimately return `null`.
+ *
+ * NOTE: the projection endpoint was REMOVED upstream on the 0.8.8 line (#13953 —
+ * the gauge is now computed client-side / seeded from the `on_context_usage` SSE).
+ * `EndpointTokenRepositoryImpl` version-gates the call so it is never issued against a
+ * server that would 404 it; this method stays for older (< 0.8.8) backends.
  */
 class EndpointTokenApi(
     private val client: HttpClient,

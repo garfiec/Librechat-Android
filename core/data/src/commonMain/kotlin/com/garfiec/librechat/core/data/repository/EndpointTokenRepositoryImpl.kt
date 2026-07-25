@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.request.ContextProjectionRequest
@@ -11,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 
 class EndpointTokenRepositoryImpl(
     private val endpointTokenApi: EndpointTokenApi,
+    private val configRepository: ConfigRepository,
 ) : EndpointTokenRepository {
 
     // token-config is static within a session, so memoize it on this singleton: every
@@ -30,8 +32,23 @@ class EndpointTokenRepositoryImpl(
 
     override suspend fun getContextProjection(
         request: ContextProjectionRequest,
-    ): Result<ContextUsage?> =
-        safeApiCall { endpointTokenApi.getContextProjection(request) }
+    ): Result<ContextUsage?> {
+        // Upstream #14344/#13953 (0.8.8 line) REMOVED POST /api/endpoints/context-projection and
+        // moved the gauge to a client-side / SSE-seeded computation. On such a server the POST 404s,
+        // so skip it there and let the live `on_context_usage` SSE + token-config seed own the gauge
+        // (a null result leaves any existing reading in place). This inverts the earlier gate that
+        // enabled the projection at >= 0.8.7. Date fallback covers untagged dev builds that still
+        // report 0.8.7 (see BackendVersion.supportsFeature).
+        if (BackendVersion.supportsFeature(
+                configRepository.detectedBackend.value,
+                minVersion = "0.8.8-rc1",
+                landedDate = "2026-06-25",
+            )
+        ) {
+            return Result.Success(null)
+        }
+        return safeApiCall { endpointTokenApi.getContextProjection(request) }
+    }
 
     override suspend fun clear() {
         tokenConfigMutex.withLock { cachedTokenConfig = null }
