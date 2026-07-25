@@ -55,24 +55,22 @@ class FavoritesApi(
         return wire.mapNotNull { it.toDomain() }
     }
 
-    /** Idempotent server-side: re-pinning an already-pinned item is a 200 with `added:false`. */
+    /**
+     * Idempotent server-side: re-pinning an already-pinned item is a 200 with `added:false`.
+     *
+     * The path is built per segment rather than interpolated: an `itemId` is an MCP server name
+     * or a plugin key straight out of the catalog, so it can carry spaces and `/`. Interpolating
+     * one would either 404 on a mangled path or address a different favorite entirely.
+     */
     suspend fun addToolFavorite(itemType: ToolFavoriteItemType, itemId: String) {
         client.put {
-            url { path(*toolFavoritePath(itemType, itemId)) }
+            url { path("api", "user", "settings", "favorites", "tools", itemType.wireName, itemId) }
         }
     }
 
     suspend fun removeToolFavorite(itemType: ToolFavoriteItemType, itemId: String) {
         client.delete {
-            url { path(*toolFavoritePath(itemType, itemId)) }
+            url { path("api", "user", "settings", "favorites", "tools", itemType.wireName, itemId) }
         }
     }
-
-    /**
-     * Per-segment rather than one interpolated string: an `itemId` is an MCP server name or a
-     * plugin key straight out of the catalog, so it can carry spaces and `/`. Interpolating one
-     * would either 404 on a mangled path or address a different favorite entirely.
-     */
-    private fun toolFavoritePath(itemType: ToolFavoriteItemType, itemId: String): Array<String> =
-        arrayOf("api", "user", "settings", "favorites", "tools", itemType.wireName, itemId)
 }

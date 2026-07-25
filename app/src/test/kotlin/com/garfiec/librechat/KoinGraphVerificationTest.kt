@@ -39,6 +39,7 @@ import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.data.repository.TagRepository
+import com.garfiec.librechat.core.data.repository.ToolFavoritesRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.data.util.SessionTask
@@ -187,6 +188,7 @@ class KoinGraphVerificationTest {
             SkillsRepository::class,
             SpeechRepository::class,
             TagRepository::class,
+            ToolFavoritesRepository::class,
             UserRepository::class,
             PermissionGate::class,
             SessionTask::class,

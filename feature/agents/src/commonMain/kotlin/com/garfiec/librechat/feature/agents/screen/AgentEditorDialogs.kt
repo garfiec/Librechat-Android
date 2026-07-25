@@ -16,7 +16,6 @@ import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorUiState
 import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorViewModel
 import com.garfiec.librechat.feature.agents.viewmodel.ToolAuthState
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.isMarketplaceItemSelected
-import com.garfiec.librechat.feature.agents.viewmodel.delegate.isMarketplaceItemSelected
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.marketplaceCatalog
 import org.jetbrains.compose.resources.stringResource
 
