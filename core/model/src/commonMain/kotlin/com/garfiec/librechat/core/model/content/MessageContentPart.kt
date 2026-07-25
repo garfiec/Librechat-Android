@@ -18,6 +18,10 @@ data class MessageContentPart(
     @SerialName("video_url") val videoUrl: VideoUrlContent? = null,
     @SerialName("input_audio") val inputAudio: InputAudioContent? = null,
     @SerialName("agent_update") val agentUpdate: AgentUpdateContent? = null,
+    // Mid-run steering part payload (type == "steer", upstream #14220). Kept as a raw element
+    // because the app doesn't render steering yet; its presence must not break deserialization
+    // of the surrounding message. Paired with [ContentType.STEER].
+    @SerialName("steer") val steer: JsonElement? = null,
     // SUMMARY content-part fields (type == "summary"). Fields are top-level on the wire,
     // not nested under a `summary` key. `content` can be an array of {type,text} blocks
     // or a raw string; legacy servers fall back to the top-level `text` field above.

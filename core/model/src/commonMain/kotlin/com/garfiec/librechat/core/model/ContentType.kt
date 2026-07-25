@@ -35,6 +35,13 @@ enum class ContentType {
     @SerialName("summary")
     SUMMARY,
 
+    // Mid-run steering part (upstream #14220, 0.8.8 line). Declared so a persisted message
+    // content carrying a `steer` part deserializes instead of throwing — an unknown enum value
+    // is NOT rescued by `ignoreUnknownKeys`, so its absence crashed conversation load on newer
+    // servers. Forward-compat only; harmless on older backends that never emit it.
+    @SerialName("steer")
+    STEER,
+
     @SerialName("error")
     ERROR,
 }
