@@ -342,6 +342,29 @@ POST   /api/agents/chat/resume            { conversationId, actionId, + the paus
                                             instead strand real pauses on any server built past the pinned
                                             commit (BackendCommitMap → null → gate false). See VERSION_GATES.md.
                                             (#13942 + #14139, landed 2026-06-29 / 2026-07-08) (BUILT)
+POST   /api/agents/chat/steer             { conversationId, text, files? } → 202 { status: 'queued', steerId,
+                                            position, conversationId }. Queues a message for injection into the
+                                            run that is ALREADY generating, at its next tool boundary;
+                                            `streamId === conversationId` as everywhere else. Carries the same
+                                            PII-filter + moderation + rate-limit chain as a normal message, and
+                                            re-checks the caller against the ORIGINATING run's agent ACL (read
+                                            from job metadata, never the request body — a steer cannot swap the
+                                            agent). Server caps: 16k characters (`STEER_MAX_LENGTH`), 10 queued
+                                            per run, 10 attachments.
+                                            Rejections are ROUTINE, not errors, and the `code` — not the status —
+                                            decides the client's fallback: 404 NO_ACTIVE_RUN (send as a new turn),
+                                            409 RUN_PAUSED / 429 STEER_QUEUE_FULL / 501 STEER_UNSUPPORTED (hold
+                                            in the client queue). Mobile treats an unrecognized code and a
+                                            bodyless 404 from a pre-0.8.8 server the same way, so a wrong gate
+                                            answer degrades instead of losing the message. Mobile sends no
+                                            `files` — steering here is text-only and a during-run send carrying
+                                            attachments is routed to the follow-up queue instead.
+                                            (#14220, landedDate 2026-07-14) (BUILT)
+POST   /api/agents/chat/steer/cancel      { conversationId, steerId } → { removed }. Withdraws a still-queued
+                                            steer before injection. No moderation pass (nothing model-bound
+                                            yet). `removed: false` is a 200, not a failure: the cancel lost its
+                                            race (already injected, or the run ended) and the client defers to
+                                            the events it will receive. (#14220, landedDate 2026-07-14) (BUILT)
 
 # Removed
 POST   /api/endpoints/context-projection  REMOVED (#13953, landing commit 376370d6, 2026-06-25). The gauge is
@@ -373,14 +396,6 @@ Recorded so the next sync re-confirms rather than re-discovers them. All are add
 the gate to declare if it is built (`supportsFeature(detected, minVersion, landedDate)`), and every
 minVersion is `0.8.8-rc1`.
 ```
-POST   /api/agents/chat/steer             { conversationId, text, files? } → { status: 'queued', steerId,
-                                            position, conversationId }. Queues a mid-run user message for
-                                            injection at the next tool boundary; `streamId === conversationId`
-                                            as everywhere else. Carries the same PII-filter + moderation +
-                                            rate-limit chain as a normal message. (#14220, landedDate 2026-07-14)
-POST   /api/agents/chat/steer/cancel      { conversationId, steerId } — drops a still-queued steer before
-                                            injection. No moderation pass (nothing model-bound yet).
-                                            (#14220, landedDate 2026-07-14)
 GET    /api/agents/:id/versions           → Agent[] version history. Requires EDIT on the agent; loaded lazily
                                             because histories are large. (#13977, 12fea693b, landed 2026-06-26;
                                             gate landedDate 2026-06-27 — day-granularity rounded UP: four
@@ -412,20 +427,32 @@ Revised message / SSE shapes:
 - Message content parts add a `steer` type (`type == "steer"`, #14220) — mid-run steering. `ContentType`
   gained `STEER` and `MessageContentPart` a nullable `steer: JsonElement?`, so a persisted message carrying
   it deserializes instead of throwing `SerializationException` on conversation load (`ignoreUnknownKeys` does
-  NOT rescue an unknown enum value). Not yet rendered — forward-compat only, harmless on older backends. (BUILT)
+  NOT rescue an unknown enum value). Parsed, not yet rendered as its own bubble: the injected instruction is
+  visible through the reply it steers. (BUILT)
+- `on_steer_applied` (#14220) — a queued steer reached a tool boundary and went into the run. The injected
+  text rides the nested `part` (the `steer` content part above), not the top level, and the event races its
+  own HTTP 202: it regularly arrives naming a `steerId` the sending client has not learned yet, so a consumer
+  must RECORD applied ids rather than only remove a chip that may not exist. (BUILT)
+- `resumeState.pendingSteers` on the sync frame (#14220) — the steers still queued for injection, replayed on
+  reconnect. A full authoritative snapshot, not a delta: an EMPTY list is meaningful (chips the client is
+  still showing were drained), while an ABSENT key is not (a server with no steering says nothing). (BUILT)
 - SSE resumable-stream ordering is now preserved across turns (#14411 — the pinned target commit). Server-side
   ordering fix on resume/reconnect; no wire-shape change, transparent to the client.
 
-Additive response fields (parse-layer only unless noted — nothing branches on them yet):
+Additive response fields (parse-layer only unless a row says BUILT):
 - `GET /api/agents/chat/status/:conversationId` — adds `status` (`running` | `requires_action` | terminal),
   `pendingAction` (client-safe projection of a run paused for tool approval / `ask_user_question`;
   `requestFingerprint` and `resumeContext` are stripped server-side, so it must never be echoed back), and
   `unrecoveredSteers[]`. `active: true` now also covers a paused run, so it is NOT "tokens are arriving".
   **`unrecoveredSteers` is claim-on-read**: the server clears them once returned, so a client that ignores
-  the list drops the user's queued words permanently. Only populated when the run is not active.
+  the list drops the user's queued words permanently. Only populated when the run is not active. Mobile now
+  claims them on every resume-status read and re-homes them as queued follow-ups. (BUILT)
 - `POST /api/agents/chat/abort` — adds `pendingSteers[]` (steers queued mid-run that never reached an
   injection boundary, handed back exactly once). `aborted` (the stream id actually aborted) already existed
-  at v0.8.7 and is only newly modeled on mobile.
+  at v0.8.7 and is only newly modeled on mobile. The `final` frame carries the same `pendingSteers` list for
+  a run that ended normally, so between the two every ending has a report. Mobile consumes both and turns
+  them into queued follow-ups; a stream that dies on an error carries no report at all, and there the
+  locally-held chip text is converted instead. (BUILT)
 - `GET /api/user/terms` — adds `termsAccepted` / `termsAcceptedAt`; `POST /api/user/terms/accept` now returns
   `{ message, termsAcceptedAt }` instead of an empty body. `GET /api/user` adds `termsAcceptedAt`.
 - `POST /api/mcp/:serverName/reinitialize` — adds `connectionDeferred`: the reinitialize was accepted but the
