@@ -63,4 +63,11 @@ data class ChatRequest(
      *  `{{current_datetime}}` resolve to the user's wall clock instead of the server's.
      *  Always sent (additive; older servers ignore the unknown key). */
     val timezone: String? = null,
+    /** Idempotency key minted once per send (upstream #14344, 0.8.8 line). The server claims it
+     *  before job creation, so a replayed generation POST (transport retry, reconnect race)
+     *  attaches to the original run instead of double-billing a second generation. Distinct from
+     *  [messageId] — this keys the *request*, not the user message. Must stay byte-stable across
+     *  retries of the same send (minted in `ChatPayloadBuilder.build`, encoded once). Additive;
+     *  a server that hasn't claimed it simply ignores the field. */
+    val clientRequestId: String? = null,
 )
