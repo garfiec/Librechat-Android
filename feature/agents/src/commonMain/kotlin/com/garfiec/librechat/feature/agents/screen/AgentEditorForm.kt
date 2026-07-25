@@ -347,20 +347,19 @@ internal fun AgentEditorForm(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Add Tools button
-        if (uiState.availableTools.isNotEmpty()) {
-            OutlinedButton(
-                onClick = onShowToolDialog,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Build,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(Res.string.add_tools))
-            }
+        // Opens the unified picker (capabilities + tools + MCP + skills), not just the plugin
+        // tool list — so it is offered even when that list happens to be empty.
+        OutlinedButton(
+            onClick = onShowToolDialog,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Build,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(stringResource(Res.string.tools_browse))
         }
 
         Spacer(modifier = Modifier.height(8.dp))

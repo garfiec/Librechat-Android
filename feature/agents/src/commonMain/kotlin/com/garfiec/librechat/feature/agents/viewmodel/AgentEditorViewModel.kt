@@ -10,6 +10,8 @@ import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SkillsRepository
+import com.garfiec.librechat.core.data.repository.ToolFavoritesRepository
+import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.model.ActionMetadata
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentCategory
@@ -27,6 +29,7 @@ import com.garfiec.librechat.feature.agents.components.model.AgentCapabilities
 import com.garfiec.librechat.feature.agents.components.model.AgentSharingState
 import com.garfiec.librechat.feature.agents.components.model.AgentVersion
 import com.garfiec.librechat.feature.agents.components.model.AgentVersionBasis
+import com.garfiec.librechat.feature.agents.components.model.MarketplaceItem
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.util.ContentReader
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentActionsDelegate
@@ -35,6 +38,8 @@ import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentFilesDelegat
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentLoaderDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.AgentSaveDelegate
 import com.garfiec.librechat.feature.agents.viewmodel.delegate.CodeToolAuthDelegate
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.MarketplaceFilter
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.ToolsMarketplaceDelegate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,6 +100,14 @@ data class AgentEditorUiState(
     val showDeleteConfirm: Boolean = false,
     val showDuplicateConfirm: Boolean = false,
     val showVersionHistory: Boolean = false,
+    // Unified tools marketplace (v0.8.8) — the one picker over capabilities, tools, MCP, skills.
+    val showToolsMarketplace: Boolean = false,
+    val marketplaceQuery: String = "",
+    val marketplaceFilter: MarketplaceFilter = MarketplaceFilter.ALL,
+    /** Pinned marketplace items as `itemType:itemId` keys. Empty on pre-0.8.8 servers. */
+    val favoriteToolKeys: Set<String> = emptySet(),
+    /** Whether this server has the tool-favorites routes; hides the star column when false. */
+    val areToolFavoritesSupported: Boolean = false,
     val isDeleting: Boolean = false,
     val isDuplicating: Boolean = false,
     // Actions
@@ -225,6 +238,7 @@ class AgentEditorViewModel(
     private val fileRepository: FileRepository,
     private val skillsRepository: SkillsRepository,
     private val roleRepository: RoleRepository,
+    private val toolFavoritesRepository: ToolFavoritesRepository,
     private val contentReader: ContentReader,
     private val ioDispatcher: CoroutineDispatcher,
     initialAgentId: String? = null,
@@ -285,6 +299,25 @@ class AgentEditorViewModel(
         agentRepository = agentRepository,
         filesDelegate = filesDelegate,
         events = _events,
+    )
+
+    private val marketplaceDelegate = ToolsMarketplaceDelegate(
+        stateHandle = stateHandle,
+        toolFavoritesRepository = toolFavoritesRepository,
+        capabilitiesDelegate = capabilitiesDelegate,
+        // Routed through the existing per-capability entry points rather than writing state
+        // directly: code interpreter has an auth check hanging off its toggle, and the picker
+        // must not be a second path that skips it.
+        setCapability = { id, enabled ->
+            when (id) {
+                ToolConstants.EXECUTE_CODE -> onCodeInterpreterToggled(enabled)
+                ToolConstants.FILE_SEARCH -> onFileSearchToggled(enabled)
+                ToolConstants.WEB_SEARCH -> onWebSearchToggled(enabled)
+                else -> onFileContextToggled(enabled)
+            }
+        },
+        toggleTool = ::onToolToggled,
+        toggleMcpTool = ::onMcpToolToggled,
     )
 
     init {
@@ -482,6 +515,22 @@ class AgentEditorViewModel(
     fun dismissDuplicateConfirmation() {
         stateHandle.update { copy(showDuplicateConfirm = false) }
     }
+
+    // --- Unified tools marketplace ---
+
+    fun openToolsMarketplace() = marketplaceDelegate.openMarketplace()
+
+    fun closeToolsMarketplace() = marketplaceDelegate.closeMarketplace()
+
+    fun onMarketplaceQueryChanged(query: String) = marketplaceDelegate.onQueryChanged(query)
+
+    fun onMarketplaceFilterChanged(filter: MarketplaceFilter) =
+        marketplaceDelegate.onFilterChanged(filter)
+
+    fun onMarketplaceItemToggled(item: MarketplaceItem) = marketplaceDelegate.toggleItem(item)
+
+    fun onMarketplaceFavoriteToggled(item: MarketplaceItem) =
+        marketplaceDelegate.toggleFavorite(item)
 
     fun showVersionHistory() {
         stateHandle.update { copy(showVersionHistory = true) }

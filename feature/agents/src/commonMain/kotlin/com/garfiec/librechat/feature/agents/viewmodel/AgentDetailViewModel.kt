@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.model.Agent
+import com.garfiec.librechat.feature.agents.AgentContactDisplayData
 import com.garfiec.librechat.feature.agents.AgentDetailDisplayData
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 @Immutable
 data class AgentDetailUiState(
@@ -159,7 +164,28 @@ class AgentDetailViewModel(
             category = category,
             tools = tools,
             conversationStarters = conversationStarters,
+            contact = resolveContact(supportContact, ownerContact),
         )
+    }
+
+    /**
+     * Picks the contact to show: the agent's own support contact, falling back to the owner's.
+     *
+     * The fallback is whole rather than field-by-field — an agent that names a support contact
+     * has answered the question, and mixing its name with the owner's email would invent a
+     * person. An entry with neither a name nor an email says nothing and resolves to null.
+     */
+    private fun resolveContact(
+        support: JsonElement?,
+        owner: JsonElement?,
+    ): AgentContactDisplayData? = support.toContact() ?: owner.toContact()
+
+    private fun JsonElement?.toContact(): AgentContactDisplayData? {
+        val obj = this as? JsonObject ?: return null
+        val name = (obj["name"] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+        val email = (obj["email"] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+        if (name == null && email == null) return null
+        return AgentContactDisplayData(name = name, email = email)
     }
 
     private companion object {

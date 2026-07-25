@@ -6,14 +6,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.garfiec.librechat.feature.agents.components.AgentVersionHistory
 import com.garfiec.librechat.feature.agents.components.ToolAuthDialog
-import com.garfiec.librechat.feature.agents.components.ToolSelectDialog
+import com.garfiec.librechat.feature.agents.components.ToolsMarketplaceDialog
 import com.garfiec.librechat.feature.agents.resources.*
 import com.garfiec.librechat.feature.agents.resources.Res
 import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorUiState
 import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorViewModel
 import com.garfiec.librechat.feature.agents.viewmodel.ToolAuthState
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.isMarketplaceItemSelected
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.isMarketplaceItemSelected
+import com.garfiec.librechat.feature.agents.viewmodel.delegate.marketplaceCatalog
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -77,13 +81,23 @@ internal fun AgentEditorDialogs(
         )
     }
 
-    // Tool selection dialog
+    // Unified tools picker (capabilities + plugin tools + MCP + skills, v0.8.8)
     if (showToolDialog) {
-        ToolSelectDialog(
-            tools = uiState.availableTools,
-            selectedToolIds = uiState.selectedTools,
-            onToolAdd = viewModel::onToolAdded,
-            onToolRemove = viewModel::onToolRemoved,
+        val catalog = remember(uiState) { uiState.marketplaceCatalog() }
+        val selectedKeys = remember(uiState, catalog) {
+            catalog.filter { uiState.isMarketplaceItemSelected(it) }.map { it.itemKey }.toSet()
+        }
+        ToolsMarketplaceDialog(
+            catalog = catalog,
+            selectedKeys = selectedKeys,
+            favoriteKeys = uiState.favoriteToolKeys,
+            favoritesSupported = uiState.areToolFavoritesSupported,
+            query = uiState.marketplaceQuery,
+            filter = uiState.marketplaceFilter,
+            onQueryChange = viewModel::onMarketplaceQueryChanged,
+            onFilterChange = viewModel::onMarketplaceFilterChanged,
+            onToggleItem = viewModel::onMarketplaceItemToggled,
+            onToggleFavorite = viewModel::onMarketplaceFavoriteToggled,
             onDismiss = onDismissToolDialog,
         )
     }

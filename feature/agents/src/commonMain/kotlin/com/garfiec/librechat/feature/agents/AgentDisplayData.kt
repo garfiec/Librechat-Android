@@ -24,6 +24,23 @@ data class AgentDetailDisplayData(
     val category: String?,
     val tools: List<String>?,
     val conversationStarters: List<String>,
+    /**
+     * Who to reach about this agent — its declared support contact, or the owner's contact when
+     * it declares none (v0.8.8). Null when neither exists.
+     */
+    val contact: AgentContactDisplayData? = null,
+)
+
+/**
+ * A resolved agent contact.
+ *
+ * At least one of [name] / [email] is non-blank — an entry with neither says nothing and is
+ * dropped at mapping time rather than rendered as an empty row.
+ */
+@Immutable
+data class AgentContactDisplayData(
+    val name: String?,
+    val email: String?,
 )
 
 @Immutable

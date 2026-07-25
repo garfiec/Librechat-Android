@@ -45,6 +45,14 @@ data class Agent(
      */
     val versions: List<JsonElement>? = null,
     @SerialName("support_contact") val supportContact: JsonElement? = null,
+    /**
+     * The agent owner's contact, projected onto the view-only agent GET alongside
+     * [supportContact] (v0.8.8 line).
+     *
+     * Read-only: it comes from the owner's account, not from the agent editor, and is the
+     * fallback shown when an agent declares no support contact of its own.
+     */
+    @SerialName("owner_contact") val ownerContact: JsonElement? = null,
     @SerialName("tool_options") val toolOptions: JsonObject? = null,
     /**
      * Runtime-supplied extra instructions appended to the agent system prompt.

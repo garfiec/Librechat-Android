@@ -40,6 +40,7 @@ val agentsModule = module {
             fileRepository = get(),
             skillsRepository = get(),
             roleRepository = get(),
+            toolFavoritesRepository = get(),
             contentReader = get(),
             ioDispatcher = get(KoinQualifiers.IO),
             initialAgentId = params.getOrNull(),

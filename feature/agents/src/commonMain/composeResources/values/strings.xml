@@ -281,4 +281,32 @@
     <string name="subagents_allow_self">Allow spawning itself</string>
     <string name="add_subagent">Add subagent</string>
     <string name="subagents_full">Maximum number of subagents reached.</string>
+
+    <!-- Unified tools marketplace (v0.8.8) -->
+    <string name="tools_marketplace_title">Tools</string>
+    <string name="tools_marketplace_description">Choose what this agent can do</string>
+    <string name="tools_marketplace_search_hint">Search tools, servers and skills\u2026</string>
+    <string name="tools_marketplace_no_matches">No matches for "%1$s"</string>
+    <string name="tools_marketplace_no_favorites">Star a tool to pin it here</string>
+    <string name="tools_marketplace_empty">Nothing available yet</string>
+    <string name="tools_filter_all">All</string>
+    <string name="tools_filter_favorites">Favorites</string>
+    <string name="tools_filter_builtin">Built-in</string>
+    <string name="tools_filter_tools">Tools</string>
+    <string name="tools_filter_mcp">MCP</string>
+    <string name="tools_filter_skills">Skills</string>
+    <string name="tools_browse">Browse tools</string>
+    <string name="cd_pin_tool">Pin</string>
+    <string name="cd_unpin_tool">Unpin</string>
+    <string name="builtin_code_interpreter">Code Interpreter</string>
+    <string name="builtin_code_interpreter_desc">Runs code in a sandbox and returns its output and files.</string>
+    <string name="builtin_file_search">File Search</string>
+    <string name="builtin_file_search_desc">Retrieves passages from files attached to this agent.</string>
+    <string name="builtin_web_search">Web Search</string>
+    <string name="builtin_web_search_desc">Searches the web and cites what it used.</string>
+    <string name="builtin_file_context">File Context</string>
+    <string name="builtin_file_context_desc">Puts whole attached files in the agent\'s context.</string>
+
+    <!-- Agent contact (v0.8.8) -->
+    <string name="agent_contact_title">Contact</string>
 </resources>

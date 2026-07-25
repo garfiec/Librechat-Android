@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.agents.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -43,6 +44,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,7 @@ import com.garfiec.librechat.core.ui.components.LoadingIndicator
 import com.garfiec.librechat.core.ui.components.endpointIconPainter
 import com.garfiec.librechat.feature.agents.resources.*
 import com.garfiec.librechat.feature.agents.resources.Res
+import com.garfiec.librechat.feature.agents.resources.agent_contact_title
 import com.garfiec.librechat.feature.agents.viewmodel.AgentDetailEvent
 import com.garfiec.librechat.feature.agents.viewmodel.AgentDetailViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -246,6 +249,31 @@ fun AgentDetailScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+
+                    // Who to ask about this agent. Only rendered when there is somebody to
+                    // name: upstream shows a "no contact available" line, which on a phone is
+                    // a row that costs vertical space to say nothing.
+                    val contact = agent.contact
+                    if (contact != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val uriHandler = LocalUriHandler.current
+                        val label = contact.name ?: contact.email.orEmpty()
+                        val email = contact.email
+                        Text(
+                            text = stringResource(Res.string.agent_contact_title) + ": " + label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (email != null) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = if (email != null) {
+                                Modifier.clickable { uriHandler.openUri("mailto:$email") }
+                            } else {
+                                Modifier
+                            },
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
