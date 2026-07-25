@@ -1415,11 +1415,14 @@ class ChatViewModel(
                 val role = gates.role
                 val iface = gates.iface
                 val version = gates.version
-                // Context gauge needs the v0.8.7 SSE/endpoints; fail-closed on older/unknown.
-                // Threshold is the FINAL, not rc1: /api/endpoints/context-projection landed
-                // between v0.8.7-rc1 and v0.8.7 (upstream fdc7e64bb), so rc1 servers 404 it.
+                // Context gauge needs the on_context_usage SSE + /api/endpoints/token-config that
+                // drive it; both ship in v0.8.7-rc1. Fail-closed on older/unknown. The later
+                // /api/endpoints/context-projection (upstream fdc7e64bb, rc1 → final) is only an
+                // optional seed — ContextProjectionDelegate drops a failed projection and leaves
+                // the gauge to the SSE, the same arrangement used on the 0.8.8 line where the
+                // projection POST is deliberately suppressed.
                 val contextGaugeSupported = version != null &&
-                    BackendVersion.isCompatibleOrNewer(version, "0.8.7")
+                    BackendVersion.isCompatibleOrNewer(version, "0.8.7-rc1")
 
                 // Effective gate = role permission AND interface flag, both fail-open
                 // (null role → permissive; absent/omitted flag → enabled).
