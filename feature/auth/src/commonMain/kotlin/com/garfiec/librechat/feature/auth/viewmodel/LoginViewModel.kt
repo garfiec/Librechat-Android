@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.auth.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
@@ -26,6 +27,10 @@ data class LoginUiState(
     val registrationEnabled: Boolean = false,
     val socialLoginEnabled: Boolean = false,
     val socialLogins: List<String> = emptyList(),
+    // ALLOW_EMAIL_LOGIN (upstream #14180): when the server disables email/password login it now
+    // enforces it with a 403 on POST /api/auth/login. Fail-open to true so the form shows until
+    // config confirms otherwise. Drives hiding the email/password form.
+    val emailLoginEnabled: Boolean = true,
 )
 
 class LoginViewModel(
@@ -52,6 +57,7 @@ class LoginViewModel(
                         registrationEnabled = config.registrationEnabled,
                         socialLoginEnabled = config.socialLoginEnabled,
                         socialLogins = config.socialLogins.orEmpty(),
+                        emailLoginEnabled = config.emailLoginEnabled,
                     )
                 }
             }
@@ -98,9 +104,18 @@ class LoginViewModel(
                     }
                 }
                 is Result.Error -> {
+                    // A 403 from /api/auth/login means the server enforces ALLOW_EMAIL_LOGIN=false
+                    // (#14180). Surface a clear reason and hide the form so the user reaches for a
+                    // provider instead of retrying credentials that will never be accepted.
+                    val isEmailLoginDisabled = (result.exception as? ApiException)?.statusCode == 403
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = result.message ?: "Login failed",
+                        error = if (isEmailLoginDisabled) {
+                            "Email and password sign-in is disabled on this server."
+                        } else {
+                            result.message ?: "Login failed"
+                        },
+                        emailLoginEnabled = if (isEmailLoginDisabled) false else _uiState.value.emailLoginEnabled,
                     )
                 }
                 is Result.Loading -> { /* no-op */ }

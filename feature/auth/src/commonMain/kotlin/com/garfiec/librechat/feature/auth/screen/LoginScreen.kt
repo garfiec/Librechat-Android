@@ -100,34 +100,39 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            OutlinedTextField(
-                value = uiState.email,
-                onValueChange = viewModel::onEmailChanged,
-                label = { Text(stringResource(Res.string.email_label)) },
-                modifier = Modifier.fillMaxWidth().testTag("login_email"),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    autoCorrectEnabled = false,
-                ),
-                enabled = !uiState.isLoading,
-            )
+            // The email/password form is hidden when the server disables email login
+            // (ALLOW_EMAIL_LOGIN=false, #14180) — it 403s the login POST, so offer only the
+            // social providers below. Fail-open: the flag defaults true until config resolves.
+            if (uiState.emailLoginEnabled) {
+                OutlinedTextField(
+                    value = uiState.email,
+                    onValueChange = viewModel::onEmailChanged,
+                    label = { Text(stringResource(Res.string.email_label)) },
+                    modifier = Modifier.fillMaxWidth().testTag("login_email"),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        autoCorrectEnabled = false,
+                    ),
+                    enabled = !uiState.isLoading,
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = uiState.password,
-                onValueChange = viewModel::onPasswordChanged,
-                label = { Text(stringResource(Res.string.password_label)) },
-                modifier = Modifier.fillMaxWidth().testTag("login_password"),
-                singleLine = true,
-                visualTransformation = passwordMaskTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    autoCorrectEnabled = false,
-                ),
-                enabled = !uiState.isLoading,
-            )
+                OutlinedTextField(
+                    value = uiState.password,
+                    onValueChange = viewModel::onPasswordChanged,
+                    label = { Text(stringResource(Res.string.password_label)) },
+                    modifier = Modifier.fillMaxWidth().testTag("login_password"),
+                    singleLine = true,
+                    visualTransformation = passwordMaskTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        autoCorrectEnabled = false,
+                    ),
+                    enabled = !uiState.isLoading,
+                )
+            }
 
             if (uiState.error != null) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -139,28 +144,30 @@ fun LoginScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            if (uiState.emailLoginEnabled) {
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
-                onClick = viewModel::login,
-                modifier = Modifier.fillMaxWidth().testTag("login_submit"),
-                enabled = !uiState.isLoading,
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.height(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text(stringResource(Res.string.continue_button))
+                Button(
+                    onClick = viewModel::login,
+                    modifier = Modifier.fillMaxWidth().testTag("login_submit"),
+                    enabled = !uiState.isLoading,
+                ) {
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(stringResource(Res.string.continue_button))
+                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            TextButton(onClick = onNavigateToForgotPassword) {
-                Text(stringResource(Res.string.forgot_password))
+                TextButton(onClick = onNavigateToForgotPassword) {
+                    Text(stringResource(Res.string.forgot_password))
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
