@@ -103,10 +103,20 @@ class McpServerDelegate(
             stateHandle.update { copy(mcpReinitializingServers = mcpReinitializingServers + serverName) }
             when (val result = mcpRepository.reinitialize(serverName)) {
                 is Result.Success -> {
+                    val response = result.data
+                    // Same correction as the dedicated MCP screen: an oauthRequired ack means the
+                    // server is waiting on the user, not that it connected. This compact section
+                    // has no room for a consent dialog, so it points at the screen that does.
+                    val needsOAuth = response.oauthRequired == true && !response.oauthUrl.isNullOrBlank()
                     stateHandle.update {
                         copy(
                             mcpReinitializingServers = mcpReinitializingServers - serverName,
-                            mcpReinitializeMessage = "Server reinitialized successfully",
+                            mcpReinitializeMessage = when {
+                                needsOAuth -> "$serverName needs you to sign in — open MCP Servers to authorize it"
+                                response.connectionDeferred == true ->
+                                    "Connecting in the background"
+                                else -> "Server reinitialized successfully"
+                            },
                         )
                     }
                     loadMcpServers()

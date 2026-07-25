@@ -31,6 +31,21 @@ data class McpUiState(
     val showToolsSheet: Boolean = false,
     val toolsSheetServerName: String? = null,
     val successMessage: String? = null,
+    /**
+     * An MCP server that answered a reinitialize by asking the user to authorize it
+     * (v0.8.8 `oauthRequired` + `oauthUrl`).
+     *
+     * Held as state rather than acted on immediately because the consent has to be the user's:
+     * silently launching a browser off a "reconnect" tap would hand a third-party provider the
+     * session without anyone having agreed to it.
+     */
+    val pendingOAuth: McpOAuthPrompt? = null,
+)
+
+/** A server waiting on the user to authorize it, with the provider URL to send them to. */
+data class McpOAuthPrompt(
+    val serverName: String,
+    val authorizationUrl: String,
 )
 
 class McpViewModel(
@@ -174,14 +189,23 @@ class McpViewModel(
             when (val result = mcpRepository.reinitialize(serverName)) {
                 is Result.Success -> {
                     val response = result.data
-                    val message = response.message ?: if (response.success) {
-                        "Server initialized successfully"
-                    } else {
-                        "Failed to initialize server"
+                    // An oauthRequired ack is NOT a connection: the server is telling us it
+                    // cannot proceed until the user authorizes it. Reporting the old "initialized
+                    // successfully" here left the user staring at a server that never connects.
+                    val oauthUrl = response.oauthUrl?.takeIf { response.oauthRequired == true }
+                    val message = when {
+                        oauthUrl != null -> null
+                        response.connectionDeferred == true -> DEFERRED_MARKER
+                        else -> response.message ?: if (response.success) {
+                            "Server initialized successfully"
+                        } else {
+                            "Failed to initialize server"
+                        }
                     }
                     _uiState.value = _uiState.value.copy(
                         reinitializingServers = _uiState.value.reinitializingServers - serverName,
                         successMessage = message,
+                        pendingOAuth = oauthUrl?.let { McpOAuthPrompt(serverName, it) },
                     )
                     loadServers()
                     loadConnectionStatus()
@@ -195,6 +219,21 @@ class McpViewModel(
                 is Result.Loading -> { /* no-op */ }
             }
         }
+    }
+
+    /** Dismisses the consent prompt without authorizing. The server stays unconnected. */
+    fun dismissOAuthPrompt() {
+        _uiState.value = _uiState.value.copy(pendingOAuth = null)
+    }
+
+    /**
+     * The user agreed: clear the prompt so returning from the browser does not find it still up.
+     *
+     * The connection is not re-checked here — the authorization happens out of process and can
+     * take as long as the provider takes, so the user reconnects when they are back.
+     */
+    fun onOAuthLaunched() {
+        _uiState.value = _uiState.value.copy(pendingOAuth = null)
     }
 
     fun showToolsSheet(serverName: String? = null) {
@@ -217,5 +256,15 @@ class McpViewModel(
 
     fun dismissSuccessMessage() {
         _uiState.value = _uiState.value.copy(successMessage = null)
+    }
+
+    companion object {
+        /**
+         * Sentinel the screen swaps for a localized string.
+         *
+         * The VM has no access to compose resources, and a deferred connection is the one
+         * reinitialize outcome whose wording is ours rather than the server's.
+         */
+        const val DEFERRED_MARKER = "mcp_connection_deferred"
     }
 }

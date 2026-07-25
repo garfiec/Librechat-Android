@@ -524,4 +524,10 @@
     <string name="during_run_action_queue_desc">Send it as the next message once the reply finishes.</string>
     <string name="during_run_action_steer">Steer the reply</string>
     <string name="during_run_action_steer_desc">Push it into the reply being written so the assistant changes course. Needs a server that supports steering; otherwise it queues.</string>
+
+    <!-- MCP OAuth consent (v0.8.8) -->
+    <string name="mcp_oauth_title">Sign in to %1$s</string>
+    <string name="mcp_oauth_message">This server needs your permission before it can be used. You will be sent to the provider to authorize access, then you can come back and reconnect.</string>
+    <string name="mcp_oauth_continue">Continue</string>
+    <string name="mcp_connection_deferred">Connecting in the background \u2014 tools appear once it is ready.</string>
 </resources>

@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,9 +83,12 @@ fun McpServersScreen(
         }
     }
 
+    val deferredMessage = stringResource(Res.string.mcp_connection_deferred)
     LaunchedEffect(uiState.successMessage) {
         val message = uiState.successMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(message = message)
+        snackbarHostState.showSnackbar(
+            message = if (message == McpViewModel.DEFERRED_MARKER) deferredMessage else message,
+        )
         viewModel.dismissSuccessMessage()
     }
 
@@ -202,6 +206,34 @@ fun McpServersScreen(
             onDismiss = viewModel::dismissServerDialog,
             onSave = { name, description, url, type, apiKey, oauth ->
                 viewModel.saveServer(name, description, url, type, apiKey, oauth)
+            },
+        )
+    }
+
+    // A server that answered "authorize me first" gets an explicit consent step rather than an
+    // automatic browser launch: the redirect hands a third-party provider this session, and that
+    // has to be the user's decision, not a side effect of tapping reconnect.
+    val pendingOAuth = uiState.pendingOAuth
+    if (pendingOAuth != null) {
+        val uriHandler = LocalUriHandler.current
+        AlertDialog(
+            onDismissRequest = viewModel::dismissOAuthPrompt,
+            title = { Text(stringResource(Res.string.mcp_oauth_title, pendingOAuth.serverName)) },
+            text = { Text(stringResource(Res.string.mcp_oauth_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        uriHandler.openUri(pendingOAuth.authorizationUrl)
+                        viewModel.onOAuthLaunched()
+                    },
+                ) {
+                    Text(stringResource(Res.string.mcp_oauth_continue))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissOAuthPrompt) {
+                    Text(stringResource(Res.string.action_cancel))
+                }
             },
         )
     }
