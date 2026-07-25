@@ -890,6 +890,10 @@ class StreamingManagerDelegate(
         scope.launch {
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
+                // Claim BEFORE any guard: the server cleared the parked steers as it answered, so
+                // a response discarded as stale destroys them. Re-homing is correct regardless of
+                // which session is current — the words belong to the user, not to this stream.
+                applyStatusSteers(status)
                 // A concurrent resume advanced the session (or it ended) while we were suspended:
                 // bail rather than redundantly restart or wipe the now-current stream.
                 if (isResumeStale(session)) return@launch
@@ -899,10 +903,7 @@ class StreamingManagerDelegate(
                     handle.update { content = content.copy(isStreaming = true) }
                     resumeStream(conversationId)
                     applyStatusPendingAction(status)
-                    applyStatusSteers(status)
                 } else {
-                    // Claim the parked steers BEFORE the teardown: endStream clears the chips.
-                    applyStatusSteers(status)
                     // Server confirms the job is gone: safe to wipe and reload (past the persist race).
                     endStream(StreamEndReason.ResumeExpired, session)
                 }
@@ -944,7 +945,9 @@ class StreamingManagerDelegate(
      * Claim-on-read like every other steer handover: the server clears them as it answers, so a
      * status call whose response is only read for `active` silently destroys them. Populated
      * only when the run is NOT active — so every `/chat/status` read in this file must route its
-     * response through here, on both branches of the `active` check.
+     * response through here as the FIRST statement after the call returns, before any staleness
+     * or abort guard: a discarded response is still a consumed one, and re-homing into the
+     * follow-up queue is correct no matter which session is current by then.
      */
     private fun applyStatusSteers(status: ChatStatusResponse) {
         steeringDelegate.reclaim(status.unrecoveredSteers)
@@ -980,6 +983,9 @@ class StreamingManagerDelegate(
         scope.launch {
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
+                // Claim BEFORE the staleness/abort guard, as in onResume: the read already
+                // consumed the parked steers server-side, so returning early would destroy them.
+                applyStatusSteers(status)
                 if (isResumeStale(session) || abortRequested) return@launch
                 if (status.active) {
                     handle.update {
@@ -991,7 +997,6 @@ class StreamingManagerDelegate(
                     resumeStream(conversationId)
                     applyStatusPendingAction(status)
                 }
-                applyStatusSteers(status)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1042,6 +1047,10 @@ class StreamingManagerDelegate(
         scope.launch {
             try {
                 val status = chatRepository.checkStreamStatus(conversationId)
+                // Claim first, unconditionally: the run ended while this client was offline, which
+                // is exactly when the server parks steers, and this read is the only hand-off it
+                // will ever make.
+                applyStatusSteers(status)
                 if (status.active) {
                     handle.update {
                         content = content.copy(
@@ -1052,12 +1061,7 @@ class StreamingManagerDelegate(
                     }
                     resumeStream(conversationId)
                     applyStatusPendingAction(status)
-                    applyStatusSteers(status)
                 } else {
-                    // Claim the parked steers first: the run ended while this client was offline,
-                    // which is exactly when the server parks them, and this read is the only
-                    // hand-off it will ever make.
-                    applyStatusSteers(status)
                     // Stream expired while offline — reload conversation from server
                     handle.update {
                         error = null

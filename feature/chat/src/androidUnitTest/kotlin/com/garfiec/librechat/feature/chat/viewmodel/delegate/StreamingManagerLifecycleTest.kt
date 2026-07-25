@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.feature.chat.util.AbortFrameFixtures
@@ -50,6 +51,7 @@ class StreamingManagerLifecycleTest {
     private val reloadConversation = mockk<(String) -> Unit>(relaxed = true)
     private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
     private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
+    private val steeringDelegate = mockk<SteeringDelegate>(relaxed = true)
 
     private fun message(id: String, isUser: Boolean = false) = Message(
         messageId = id,
@@ -83,7 +85,7 @@ class StreamingManagerLifecycleTest {
             queueDelegate = queueDelegate,
             treeDelegate = treeDelegate,
             pendingActionDelegate = mockk(relaxed = true),
-            steeringDelegate = mockk(relaxed = true),
+            steeringDelegate = steeringDelegate,
             emitUserKeyError = {},
             reloadConversation = reloadConversation,
             restoreUnsentInput = restoreUnsentInput,
@@ -285,6 +287,67 @@ class StreamingManagerLifecycleTest {
         delegate.reset()
         advanceUntilIdle()
     }
+
+    /**
+     * `/chat/status` hands back parked steers CLAIM-ON-READ — the server clears them as it
+     * answers — so a response the client then discards as stale destroys the user's words. The
+     * claim must therefore happen before the staleness guard, not after it.
+     */
+    @Test
+    fun `a stale resume still claims the steers its status read consumed`() =
+        runTest(StandardTestDispatcher()) {
+            val parked = listOf(PendingSteer(steerId = "s1", text = "also check the logs"))
+            val statusGate = CompletableDeferred<ChatStatusResponse>()
+            coEvery { chatRepository.checkStreamStatus("conv-1") } coAnswers { statusGate.await() }
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, _) = delegateWith(this)
+            delegate.launchStream(events.receiveAsFlow())
+            runCurrent()
+
+            // Park a resume on the status check, then advance the session under it.
+            delegate.onPause()
+            delegate.onResume()
+            runCurrent()
+            val events2 = Channel<StreamEvent>(Channel.UNLIMITED)
+            delegate.beginStreaming(isEdit = false)
+            delegate.launchStream(events2.receiveAsFlow())
+            runCurrent()
+
+            statusGate.complete(ChatStatusResponse(active = false, unrecoveredSteers = parked))
+            runCurrent()
+
+            verify { steeringDelegate.reclaim(parked) }
+            events.close()
+            events2.close()
+            delegate.reset()
+            advanceUntilIdle()
+        }
+
+    /** Same claim-before-guard rule on the conversation-open sibling. */
+    @Test
+    fun `a stale resumeActiveStreamIfNeeded still claims its parked steers`() =
+        runTest(StandardTestDispatcher()) {
+            val parked = listOf(PendingSteer(steerId = "s2", text = "use metric units"))
+            val statusGate = CompletableDeferred<ChatStatusResponse>()
+            coEvery { chatRepository.checkStreamStatus("conv-1") } coAnswers { statusGate.await() }
+            val (delegate, _) = delegateWith(this)
+
+            delegate.resumeActiveStreamIfNeeded("conv-1")
+            runCurrent()
+            // Session advances while the status check is in flight.
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            delegate.beginStreaming(isEdit = false)
+            delegate.launchStream(events.receiveAsFlow())
+            runCurrent()
+
+            statusGate.complete(ChatStatusResponse(active = false, unrecoveredSteers = parked))
+            runCurrent()
+
+            verify { steeringDelegate.reclaim(parked) }
+            events.close()
+            delegate.reset()
+            advanceUntilIdle()
+        }
 
     /**
      * A delayed abort ack from an old session must not cancel a newer session's watchdog. Without

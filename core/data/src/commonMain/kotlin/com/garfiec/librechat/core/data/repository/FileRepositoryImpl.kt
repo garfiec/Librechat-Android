@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.FileObject
@@ -19,6 +20,7 @@ import kotlin.uuid.Uuid
 class FileRepositoryImpl(
     private val filesApi: FilesApi,
     private val filesExtApi: FilesExtApi,
+    private val configRepository: ConfigRepository,
 ) : FileRepository {
 
     override suspend fun getFiles(): Result<List<FileObject>> =
@@ -140,7 +142,30 @@ class FileRepositoryImpl(
         }
     }
 
+    /**
+     * Version-gated because the cost of guessing wrong is not a bare 404. Pre-0.8.8 servers apply
+     * `fileUploadIpLimiter` + `fileUploadUserLimiter` to every POST under `/api/files` except
+     * `/speech` — the `/usage` exemption is part of the same 0.8.8-line change that added the
+     * route — so an ungated touch against an older server both 404s and spends real upload quota
+     * (plus a violation score) on a call that can never succeed. The touch is a best-effort TTL
+     * push with send-time marking as its backstop, so suppressing it degrades to the behaviour
+     * mobile had before the route existed.
+     */
     override suspend fun markFilesUsed(fileIds: List<String>): Result<Unit> {
+        // Date gate, not a version compare: the route landed on the untagged 0.8.8 line, where a
+        // dev build carrying it still reports 0.8.7. Landing day itself rather than the day after
+        // — same landing commit as the steering gate, so both read the same date — which means a
+        // same-day predecessor is misread as having the route and pays one limited 404 per queued
+        // message with attachments; rounding up would instead cost real 0.8.8 servers a day's
+        // worth of TTL pushes, which is the failure that actually loses an attachment.
+        if (!BackendVersion.supportsFeature(
+                configRepository.detectedBackend.value,
+                minVersion = "0.8.8-rc1",
+                landedDate = "2026-07-14",
+            )
+        ) {
+            return Result.Success(Unit)
+        }
         val ids = fileIds.filter { it.isNotBlank() }.distinct()
         if (ids.isEmpty()) return Result.Success(Unit)
         // The route caps a call at FILES_USAGE_MAX_IDS and 400s the whole batch past it, so

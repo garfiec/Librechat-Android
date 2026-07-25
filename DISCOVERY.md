@@ -434,7 +434,10 @@ POST   /api/files/usage                   { file_ids } → { marked }. TTL touch
                                             queue are not reaped before they drain. Called when a message is
                                             enqueued as a follow-up; capped at 10 ids per call server-side, so
                                             the repository chunks rather than forfeiting a whole batch. Exempt
-                                            from the upload rate limiter; error code FILES_USAGE_FAILED. Mobile
+                                            from the upload rate limiter ONLY on the 0.8.8 line that added it —
+                                            older servers limit every POST under /api/files except /speech, so
+                                            the call is version-gated (supportsFeature 0.8.8-rc1, landedDate
+                                            2026-07-14); error code FILES_USAGE_FAILED. Mobile
                                             stays on the multipart-JSON upload path — #14295 / 2026-07-21 is the
                                             separate upload-SSE heartbeat work under F8, which is NOT adopted.
 ```

@@ -153,8 +153,13 @@ class FilesApi constructor(
      * actually sends it; send-time marking stays the backstop.
      *
      * Owner-scoped and best-effort: ids that do not resolve to a file this user owns are not an
-     * error, and the route is excluded from the upload rate limiter so touching is always safe.
-     * Server caps a single call at [FILES_USAGE_MAX_IDS]; longer lists 400 with `TOO_MANY_FILES`.
+     * error. Server caps a single call at [FILES_USAGE_MAX_IDS]; longer lists 400 with
+     * `TOO_MANY_FILES`.
+     *
+     * The upload rate limiters exempt this path only on the 0.8.8 line that introduced it — on
+     * older servers every POST under `/api/files` except `/speech` is limited, so a call there
+     * spends upload quota on a 404. Callers must therefore version-gate; `FileRepositoryImpl`
+     * owns that gate.
      */
     suspend fun markFilesUsed(fileIds: List<String>) {
         if (fileIds.isEmpty()) return
