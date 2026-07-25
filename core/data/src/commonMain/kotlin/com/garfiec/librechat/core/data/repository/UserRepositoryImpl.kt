@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.request.ResendVerificationRequest
 import com.garfiec.librechat.core.model.request.VerifyEmailRequest
+import com.garfiec.librechat.core.model.response.TermsAcceptResponse
 import com.garfiec.librechat.core.model.response.TermsResponse
 import com.garfiec.librechat.core.network.api.UserApi
 
@@ -36,7 +37,7 @@ class UserRepositoryImpl(
         userApi.getTerms()
     }
 
-    override suspend fun acceptTerms(): Result<Unit> = safeApiCall {
+    override suspend fun acceptTerms(): Result<TermsAcceptResponse> = safeApiCall {
         userApi.acceptTerms()
     }
 }

@@ -9,6 +9,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -36,14 +37,22 @@ class MemoriesApi constructor(
             setBody(request)
         }.body()
 
-    suspend fun updateMemory(key: String, request: UpdateMemoryRequest): Memory =
+    /**
+     * [agentId] selects the agent-partitioned entry with this key; null targets the shared
+     * personal pool. Keys are only unique *within* a partition, so omitting the parameter on
+     * an agent-scoped memory would edit the shared entry of the same name (or 404).
+     */
+    suspend fun updateMemory(key: String, request: UpdateMemoryRequest, agentId: String? = null): Memory =
         client.patch {
             url { path("api/memories/${key.encodeURLPathPart()}") }
+            if (agentId != null) parameter("agentId", agentId)
             setBody(request)
         }.body()
 
-    suspend fun deleteMemory(key: String): Unit =
+    /** See [updateMemory] for how [agentId] selects the partition. */
+    suspend fun deleteMemory(key: String, agentId: String? = null): Unit =
         client.delete {
             url { path("api/memories/${key.encodeURLPathPart()}") }
+            if (agentId != null) parameter("agentId", agentId)
         }.body()
 }

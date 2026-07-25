@@ -31,6 +31,10 @@ data class Preset(
     val stop: List<String>? = null,
     val effort: String? = null,
     @SerialName("reasoning_effort") val reasoningEffort: String? = null,
+    /** Reasoning mode for Responses-API models (sibling of [reasoningEffort]). */
+    @SerialName("reasoning_mode") val reasoningMode: String? = null,
+    /** Reasoning context carried alongside [reasoningMode] for Responses-API models. */
+    @SerialName("reasoning_context") val reasoningContext: String? = null,
     @SerialName("reasoning_summary") val reasoningSummary: String? = null,
     val verbosity: String? = null,
     val useResponsesApi: Boolean? = null,

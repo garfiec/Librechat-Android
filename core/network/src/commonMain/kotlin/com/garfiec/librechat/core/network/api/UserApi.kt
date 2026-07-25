@@ -4,6 +4,7 @@ import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.request.OtpVerificationRequest
 import com.garfiec.librechat.core.model.request.ResendVerificationRequest
 import com.garfiec.librechat.core.model.request.VerifyEmailRequest
+import com.garfiec.librechat.core.model.response.TermsAcceptResponse
 import com.garfiec.librechat.core.model.response.TermsResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -53,11 +54,10 @@ class UserApi constructor(
             url { path("api/user/terms") }
         }.body()
 
-    suspend fun acceptTerms() {
+    suspend fun acceptTerms(): TermsAcceptResponse =
         client.post {
             url { path("api/user/terms/accept") }
-        }
-    }
+        }.body()
 
     suspend fun updateAvatar(imageBytes: ByteArray): User =
         client.submitFormWithBinaryData(

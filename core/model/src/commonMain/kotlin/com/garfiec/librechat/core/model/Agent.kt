@@ -93,6 +93,19 @@ data class Agent(
     @SerialName("skills_enabled") val skillsEnabled: Boolean? = null,
     /** Subagent spawning configuration — isolated-context child agents. Forward-compat (v0.8.6). */
     val subagents: AgentSubagentsConfig? = null,
+    /**
+     * Keeps the code-interpreter sandbox alive between tool calls in a run instead of
+     * booting a fresh one each time. Gated server-side by the `stateful_code_sessions`
+     * agent capability. Mobile has no editor toggle yet — round-tripped so an agent
+     * edited on mobile doesn't lose the flag an admin set on web.
+     */
+    @SerialName("stateful_code_sessions") val statefulCodeSessions: Boolean? = null,
+    /**
+     * Memory partition for this agent: `"agent"` isolates memories per (user, agent),
+     * `"user"`/null uses the shared personal pool. Round-tripped only — mobile surfaces
+     * no picker for it.
+     */
+    @SerialName("memory_scope") val memoryScope: String? = null,
 ) {
     val avatarUrl: String?
         get() = try {

@@ -16,6 +16,8 @@ data class User(
     val role: String = "USER",
     val twoFactorEnabled: Boolean = false,
     val termsAccepted: Boolean = false,
+    /** ISO-8601 timestamp of terms acceptance, or null if never accepted. */
+    val termsAcceptedAt: String? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null,
 )

@@ -60,4 +60,11 @@ data class StartupConfig(
     /** Whether shared links may include snapshot file copies. Mirrors `interface.sharedLinks.snapshotFiles`
      *  at startup level. Mobile has no public-share viewer / snapshot fetch, so detection-only. */
     val sharedLinksSnapshotFilesEnabled: Boolean? = null,
+    // --- 0.8.8 line detection (parse-surface only) ---
+    /**
+     * Whether the server offers the SSE-heartbeat file-upload lifecycle (`FILE_UPLOAD_SSE_ENABLED`).
+     * Detection-only: mobile deliberately stays on the multipart/JSON upload path regardless, so
+     * nothing branches on this yet. Absent (null) on older backends; server default is off.
+     */
+    val fileUploadSseEnabled: Boolean? = null,
 )
