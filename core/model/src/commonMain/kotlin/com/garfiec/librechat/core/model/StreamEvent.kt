@@ -83,6 +83,21 @@ sealed interface StreamEvent {
         val aggregatedContent: List<MessageContentPart>,
     ) : StreamEvent
 
+    /**
+     * The run stopped and is waiting on the user: a tool batch needs approval, or the agent
+     * asked a clarifying question. Carried live by the `on_pending_action` SSE event and, for a
+     * client that reconnects into an already-paused run, by `resumeState.pendingAction` on the
+     * sync frame.
+     *
+     * A paused run is still *active* server-side — no `final` frame is coming until the user
+     * decides — so the stream stays open and the chat surface must render resolve controls
+     * rather than a live cursor. Resolving posts to `/api/agents/chat/resume`; the continuation
+     * arrives on this same stream.
+     */
+    data class PendingActionRequested(
+        val pendingAction: PendingAction,
+    ) : StreamEvent
+
     data class Error(
         val message: String,
         val code: String? = null,

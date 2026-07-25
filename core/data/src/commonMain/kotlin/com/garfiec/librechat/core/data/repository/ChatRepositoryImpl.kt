@@ -6,7 +6,9 @@ import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.request.AddedConversation
+import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.EphemeralAgent
+import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.sse.SseClient
@@ -90,6 +92,10 @@ class ChatRepositoryImpl(
 
     override suspend fun abortChat(streamId: String?, isTemporary: Boolean): Result<Unit> = safeApiCall {
         chatApi.abortChat(streamId, isTemporary)
+    }
+
+    override suspend fun resumeChat(request: ChatResumeRequest): Result<ChatResumeResponse> = safeApiCall {
+        chatApi.resumeChat(request)
     }
 
     override suspend fun checkStreamStatus(conversationId: String): ChatStatusResponse {

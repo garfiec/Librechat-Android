@@ -4,7 +4,9 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.request.AddedConversation
+import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.EphemeralAgent
+import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonObject
@@ -45,6 +47,16 @@ interface ChatRepository {
      * expiry; omitting it leaves the row with no TTL. See [ChatAbortRequest].
      */
     suspend fun abortChat(streamId: String?, isTemporary: Boolean = false): Result<Unit>
+
+    /**
+     * Resolves a run paused for human review (tool approval / ask-user question).
+     *
+     * Ack-only, like [abortChat]: the resumed turn continues over the SSE stream the caller is
+     * already collecting, so nothing here opens or re-opens a stream. The request must replay the
+     * paused turn's agent selection — see [ChatResumeRequest].
+     */
+    suspend fun resumeChat(request: ChatResumeRequest): Result<ChatResumeResponse>
+
     suspend fun checkStreamStatus(conversationId: String): ChatStatusResponse
     fun resumeStream(conversationId: String): Flow<StreamEvent>
 }

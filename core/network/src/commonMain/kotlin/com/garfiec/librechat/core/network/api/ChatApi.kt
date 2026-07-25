@@ -2,7 +2,9 @@ package com.garfiec.librechat.core.network.api
 
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.model.request.ChatAbortRequest
+import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.response.ChatAbortResponse
+import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStartResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import io.ktor.client.HttpClient
@@ -80,6 +82,23 @@ class ChatApi constructor(
                     isTemporary = isTemporary,
                 ),
             )
+        }.body()
+
+    /**
+     * POST /api/agents/chat/resume — resolves a run paused for human review (v0.8.8 HITL).
+     *
+     * Like [abortChat] this only acks: the resumed turn continues over the SSE stream already
+     * open for the conversation, so callers must keep collecting it rather than opening a new one.
+     *
+     * The body replays the paused turn's agent selection because the route re-derives the
+     * endpoint option and compares it against the fingerprint pinned at pause time — see
+     * [ChatResumeRequest]. Failure modes worth distinguishing upstream: 409 (stale actionId or the
+     * pause already resolved/expired), 403 (a different agent/config than the one that paused).
+     */
+    suspend fun resumeChat(request: ChatResumeRequest): ChatResumeResponse =
+        client.post {
+            url { path("api/agents/chat/resume") }
+            setBody(request)
         }.body()
 
     suspend fun getChatStatus(conversationId: String): ChatStatusResponse =

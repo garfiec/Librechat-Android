@@ -333,6 +333,81 @@ class SseEventMapperTest {
         assertThat((events[2] as StreamEvent.ToolCallComplete).toolCallId).isEqualTo("call_pending")
     }
 
+    // --- Human-in-the-loop pauses (v0.8.8) ---
+
+    @Test
+    fun `maps on_pending_action tool approval frame`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_pending_action","data":{"actionId":"act_1","streamId":"conv_1",
+                "payload":{"type":"tool_approval",
+                    "action_requests":[{"name":"web_search","tool_call_id":"call_1","arguments":{"query":"cats"}}],
+                    "review_configs":[{"action_name":"web_search","tool_call_id":"call_1",
+                        "allowed_decisions":["approve","reject"]}]}}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.PendingActionRequested
+        assertThat(result.pendingAction.actionId).isEqualTo("act_1")
+        assertThat(result.pendingAction.isToolApproval).isTrue()
+        val payload = result.pendingAction.payload!!
+        assertThat(payload.actionRequests).hasSize(1)
+        assertThat(payload.actionRequests[0].toolCallId).isEqualTo("call_1")
+        assertThat(payload.reviewConfigs[0].allowedDecisions).containsExactly("approve", "reject")
+    }
+
+    @Test
+    fun `maps on_pending_action ask_user_question frame with options`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_pending_action","data":{"actionId":"act_2",
+                "payload":{"type":"ask_user_question","question":{"question":"Which one?",
+                    "multiSelect":true,"options":[{"label":"First","value":"a"},{"label":"Second","value":"b"}]}}}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.PendingActionRequested
+        assertThat(result.pendingAction.isAskUserQuestion).isTrue()
+        val question = result.pendingAction.payload!!.question!!
+        assertThat(question.question).isEqualTo("Which one?")
+        assertThat(question.multiSelect).isTrue()
+        assertThat(question.options.map { it.value }).containsExactly("a", "b")
+    }
+
+    @Test
+    fun `drops a pending action with no actionId`() {
+        // Unresolvable: the resume route 400s without an actionId, so a card for it is a dead end.
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_pending_action","data":{"payload":{"type":"tool_approval"}}}""",
+        )
+        assertThat(mapper.mapFrame(event)).isEmpty()
+    }
+
+    @Test
+    fun `sync frame carrying a pause emits the snapshot then the pending action`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"aggregatedContent":[{"type":"text","text":"working"}],
+                "pendingAction":{"actionId":"act_3","payload":{"type":"ask_user_question",
+                    "question":{"question":"Which one?"}}}}}""",
+        )
+        val events = mapper.mapFrame(event)
+        assertThat(events).hasSize(2)
+        assertThat(events[0]).isInstanceOf(StreamEvent.Sync::class.java)
+        assertThat(events[1]).isInstanceOf(StreamEvent.PendingActionRequested::class.java)
+    }
+
+    @Test
+    fun `sync frame with a pause but no aggregatedContent still emits the pending action`() {
+        // A run that pauses before producing any content (an ask on the first turn) has no
+        // snapshot to send — gating the pause on aggregatedContent would drop it entirely.
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"pendingAction":{"actionId":"act_4",
+                "payload":{"type":"tool_approval","action_requests":[]}}}}""",
+        )
+        val events = mapper.mapFrame(event)
+        assertThat(events).hasSize(1)
+        assertThat((events[0] as StreamEvent.PendingActionRequested).pendingAction.actionId).isEqualTo("act_4")
+    }
+
     @Test
     fun `mapFrame returns single-element list for an ordinary frame`() {
         val event = SseEvent(
