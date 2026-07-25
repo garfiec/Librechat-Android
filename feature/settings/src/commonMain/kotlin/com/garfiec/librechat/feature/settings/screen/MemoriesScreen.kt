@@ -271,7 +271,7 @@ private fun MemoryListItem(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                val timestamp = memory.updatedAt ?: memory.createdAt
+                val timestamp = memory.updatedAt
                 if (timestamp != null) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(

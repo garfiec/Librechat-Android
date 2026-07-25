@@ -13,7 +13,11 @@ import kotlinx.coroutines.flow.StateFlow
 data class VersionCheckResult(
     /** The version detected on the backend, or null if it could not be determined. */
     val backendVersion: String?,
-    /** The version this app was built for. */
+    /**
+     * The version this app was built for, as a plain release line for display. Build metadata is
+     * stripped, so a partial-sync target (`0.8.7+dev.6c97a7f4`) is published as `0.8.7`; the full
+     * pinned string stays in `BackendVersion.SUPPORTED_BACKEND_VERSION` and the Diag record.
+     */
     val supportedVersion: String,
     /** Whether the versions are compatible (same major.minor). */
     val isCompatible: Boolean,

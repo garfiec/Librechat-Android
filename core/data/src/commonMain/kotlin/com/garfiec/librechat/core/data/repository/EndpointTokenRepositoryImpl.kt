@@ -39,10 +39,16 @@ class EndpointTokenRepositoryImpl(
         // (a null result leaves any existing reading in place). This inverts the earlier gate that
         // enabled the projection at >= 0.8.7. Date fallback covers untagged dev builds that still
         // report 0.8.7 (see BackendVersion.supportsFeature).
+        //
+        // landedDate is the day AFTER the removal (which landed 2026-06-25), not the removal's own
+        // day: the date gate has day granularity, so three commits sharing 2026-06-25 precede the
+        // removal and would be wrongly classified as post-removal. Rounding up misclassifies the
+        // other way instead — same-day post-removal builds still issue the POST and get a 404,
+        // which safeApiCall turns into an error the caller ignores. That is the harmless direction.
         if (BackendVersion.supportsFeature(
                 configRepository.detectedBackend.value,
                 minVersion = "0.8.8-rc1",
-                landedDate = "2026-06-25",
+                landedDate = "2026-06-26",
             )
         ) {
             return Result.Success(null)

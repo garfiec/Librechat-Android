@@ -264,6 +264,11 @@ class ConfigRepositoryImpl(
             val detectedVersion = detected?.version
 
             val supported = BackendVersion.SUPPORTED_BACKEND_VERSION
+            // A partial sync pins an untagged upstream commit, so the target reads
+            // "0.8.7+dev.6c97a7f4". That suffix is build provenance for the Diag record below —
+            // in the mismatch dialog it is noise the user can't act on, so the published value
+            // drops it and reads as the plain release line the app targets.
+            val supportedDisplay = BackendVersion.parse(supported)?.toString() ?: supported
 
             publishDetectedBackend(detected)
 
@@ -286,7 +291,7 @@ class ConfigRepositoryImpl(
                 ) { "backend version detected" }
                 VersionCheckResult(
                     backendVersion = detectedVersion,
-                    supportedVersion = supported,
+                    supportedVersion = supportedDisplay,
                     isCompatible = compatible,
                 )
             } else {
@@ -300,7 +305,7 @@ class ConfigRepositoryImpl(
                 ) { "backend version could not be determined" }
                 VersionCheckResult(
                     backendVersion = null,
-                    supportedVersion = supported,
+                    supportedVersion = supportedDisplay,
                     isCompatible = true,
                 )
             }

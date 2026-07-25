@@ -181,6 +181,14 @@ object BackendVersion {
      * monotonic (verified over the map window; per-committer-timezone `%cs` dates are NOT
      * monotonic and must not be used for landedDate).
      *
+     * GRANULARITY CAVEAT: the comparison is by DAY, so every commit sharing the landing commit's
+     * date satisfies the gate — including the ones that merged hours BEFORE it. Upstream lands a
+     * dozen-plus commits a day, so this is routine, not a corner case. Pick landedDate for the
+     * direction whose misclassification is harmless: use the landing day when a same-day
+     * predecessor being treated as "has the feature" is tolerable, and the day AFTER when it is
+     * not (then same-day successors are treated as "lacks the feature" instead). A landedDate that
+     * needs neither error is not expressible without a per-commit ordinal in the commit map.
+     *
      * Coverage window: the commit map knows tags plus dev commits only UP TO the app's pinned
      * upstream commit. A server built from a LATER commit resolves to no version at all
      * (null [detected]), so this helper fails closed — a server tracking upstream `latest`

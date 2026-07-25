@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.AccessGatewayException
 import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
@@ -88,6 +89,22 @@ class ConfigRepositoryImplTest {
         assertThat(repo.endpointConfigs.value).isEqualTo(incomingEndpoints)
         assertThat(repo.availableModels.value).isEmpty()
         assertThat(repo.detectedBackendVersion.value).isNull() // re-detected on the next check
+    }
+
+    @Test
+    fun `checkBackendVersion publishes a supported version free of build metadata`() = runTest {
+        // A partial-sync pin carries a "+dev.<sha>" suffix. It belongs in diagnostics, not in the
+        // mismatch dialog this value is interpolated into.
+        coEvery { configApi.getStartupConfig() } returns
+            StartupConfig(serverDomain = "https://b.example.com", version = "0.8.6")
+        val repo = repository()
+
+        val result = repo.checkBackendVersion()
+
+        val supported = (result as Result.Success).data.supportedVersion
+        assertThat(supported).doesNotContain("+")
+        assertThat(supported)
+            .isEqualTo(BackendVersion.parse(BackendVersion.SUPPORTED_BACKEND_VERSION)?.toString())
     }
 
     @Test

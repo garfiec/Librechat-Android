@@ -7,8 +7,11 @@ import kotlinx.serialization.Serializable
 data class Memory(
     val key: String,
     val value: String,
-    @SerialName("createdAt") val createdAt: String? = null,
-    @SerialName("updatedAt") val updatedAt: String? = null,
+    /**
+     * ISO timestamp of the last write. The schema names this column `updated_at` and defines no
+     * creation timestamp at all, so this is the only time a memory row carries.
+     */
+    @SerialName("updated_at") val updatedAt: String? = null,
     /**
      * Agent this memory is partitioned to, or null for the shared personal pool.
      * Server-side, `tokenLimit`/`totalTokens` usage totals count the shared pool only
@@ -24,7 +27,8 @@ data class Memory(
     val agentName: String? = null,
 )
 
+/** The `preferences` object of `PATCH /api/memories/preferences`, whose sole key is `memories`. */
 @Serializable
 data class MemoryPreferences(
-    val enabled: Boolean = true,
+    @SerialName("memories") val enabled: Boolean = true,
 )

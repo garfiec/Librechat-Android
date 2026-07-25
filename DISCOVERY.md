@@ -329,8 +329,55 @@ POST   /api/memories                      + optional `agentId` in the body, part
 POST   /api/endpoints/context-projection  REMOVED (#13953, landing commit 376370d6, 2026-06-25). The gauge is
                                             now computed client-side / seeded from the on_context_usage SSE, so
                                             the POST 404s on the 0.8.8 line. Mobile version-gates the call OFF
-                                            (supportsFeature minVersion 0.8.8-rc1, landedDate 2026-06-25);
+                                            (supportsFeature minVersion 0.8.8-rc1, landedDate 2026-06-26 — one day
+                                            past the landing, because three commits merged earlier that same day
+                                            and the date gate is day-granular; see VERSION_GATES.md);
                                             < 0.8.8 backends keep the POST path. Inverts the >= 0.8.7 enable gate. (BUILT)
+```
+
+Response envelopes on the memories routes (unchanged by this cycle, corrected here because the
+partition work above sits on them): the list route answers `{ memories, totalTokens, tokenLimit,
+charLimit, usagePercentage }`, POST answers `{ created, memory }`, PATCH `{ updated, memory }`,
+PATCH `/preferences` `{ updated, preferences: { memories } }`, DELETE `{ deleted }` — none of them
+return the bare entity. `/preferences` also READS `{ memories: boolean }`, not `{ enabled }`. Memory
+rows carry `updated_at` (snake_case) and no creation timestamp at all.
+
+### v0.8.8-line endpoints discovered but NOT BUILT (deferred to the tagged rc)
+Recorded so the next sync re-confirms rather than re-discovers them. All are additive; each row gives
+the gate to declare if it is built (`supportsFeature(detected, minVersion, landedDate)`), and every
+minVersion is `0.8.8-rc1`.
+```
+POST   /api/agents/chat/steer             { conversationId, text, files? } → { status: 'queued', steerId,
+                                            position, conversationId }. Queues a mid-run user message for
+                                            injection at the next tool boundary; `streamId === conversationId`
+                                            as everywhere else. Carries the same PII-filter + moderation +
+                                            rate-limit chain as a normal message. (#14220, landedDate 2026-07-14)
+POST   /api/agents/chat/steer/cancel      { conversationId, steerId } — drops a still-queued steer before
+                                            injection. No moderation pass (nothing model-bound yet).
+                                            (#14220, landedDate 2026-07-14)
+POST   /api/agents/chat/resume            Resumes a run paused for human-in-the-loop review (tool approval or
+                                            an ask_user_question answer). Shares the chat router's middleware,
+                                            and the server replays the paused turn's graph config from the
+                                            pending action, so a crafted resume cannot swap the agent or tool
+                                            set. Pairs with the `on_pending_action` SSE and the `requires_action`
+                                            job status. (#13942 + #14139, landedDate 2026-06-29)
+GET    /api/agents/:id/versions           → Agent[] version history. Requires EDIT on the agent; loaded lazily
+                                            because histories are large. (#13952, landedDate 2026-07-05)
+GET    /api/user/settings/favorites/tools → TToolFavorite[] ({ itemType, itemId })
+PUT    /api/user/settings/favorites/tools/:itemType/:itemId  → the added { itemType, itemId }
+DELETE /api/user/settings/favorites/tools/:itemType/:itemId  → { ok: true }
+                                            itemType ∈ {builtin, tool, mcp, skill}; itemId capped in length,
+                                            400 otherwise. This is the real backend that replaced the v0.8.6
+                                            "skill favorites" client stubs — that backend-gap entry is closed.
+                                            (#13952, landedDate 2026-07-05)
+POST   /api/share/:shareId/fork           { targetMessageIndex? } → 201 with the forked conversation. Continues
+                                            a SHARED conversation as the caller's own copy — distinct from the
+                                            existing POST /api/convos/fork mobile already calls. Needs a
+                                            shared-link viewer mobile does not have. (#13714, landedDate 2026-06-24)
+POST   /api/files/usage                   { file_ids } → { marked }. TTL touch so uploads held in a client-side
+                                            queue are not reaped before they drain; only meaningful with the
+                                            mid-run queued-messages feature. Exempt from the upload rate limiter;
+                                            400s on an oversized id list. (#14295, landedDate 2026-07-21)
 ```
 Revised message / SSE shapes:
 - Message content parts add a `steer` type (`type == "steer"`, #14220) — mid-run steering. `ContentType`
