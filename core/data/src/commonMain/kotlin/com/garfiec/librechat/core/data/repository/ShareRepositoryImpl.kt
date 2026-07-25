@@ -15,13 +15,13 @@ class ShareRepositoryImpl(
 ) : ShareRepository {
 
     /**
-     * Backends older than 0.8.7 filter `GET /api/share` on the `isPublic` query param and default
+     * Backends older than 0.8.7-rc1 filter `GET /api/share` on the `isPublic` query param and default
      * it to false when absent, so the Shared Links screen returns empty unless we send `isPublic=true`.
-     * 0.8.7+ dropped that filter; the param is ignored there (verified), so it's harmless to send.
+     * 0.8.7-rc1+ dropped that filter; the param is ignored there (verified), so it's harmless to send.
      *
      * Fail-safe on an unknown version: when the backend version hasn't resolved yet (cold start,
      * immediately post-login, or detection failure) we send `isPublic=true` so a legacy server still
-     * returns links. The param is omitted only when the backend is *confirmed* >= 0.8.7. Returns null
+     * returns links. The param is omitted only when the backend is *confirmed* >= 0.8.7-rc1. Returns null
      * to omit, which threads straight into [ShareApi.getSharedLinks].
      */
     private fun isPublicFilter(): Boolean? {

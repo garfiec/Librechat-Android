@@ -388,8 +388,23 @@ v0.8.5, v0.8.6 and on the 0.8.8 line, so decoding them as bare entities was a pr
 breakage against *every* supported server, and correcting it changes the memories screen's runtime
 behavior on all of them — the list can now produce rows, edit/delete now hit the row the user picked,
 and the enable toggle now reaches the server. It rode this branch only because the agent-partition
-work (F9) sits on top of it and was otherwise unreachable. Device-test the memories screen as its own
-item, against a pre-0.8.8 server as well as the dev one.
+work (F9) sits on top of it and was otherwise unreachable — see the mandatory device-test item below.
+
+### Mandatory device-test item: memories screen on a pre-0.8.8 server
+
+Tracked apart from the 0.8.8 feature test plan because it is the only change on this branch whose
+blast radius is every supported server, and because the 0.8.8 dev server cannot verify it: the
+envelopes above are identical from v0.8.4 through the 0.8.8 line, so a pass there says nothing about
+the older servers this also changes. Walk it against a v0.8.6 or v0.8.7 server before merge:
+
+- **List** — the screen populates instead of showing the empty/failed state it showed before.
+- **Edit** — editing a row changes that row's value and the change survives a reload.
+- **Delete** — deleting a row removes that row and no other.
+- **Enable toggle** — flipping memory on/off round-trips and survives a reload (the request used to
+  send the `enabled` key, which the server rejects).
+- **Row rendering** — rows show a last-updated time (from `updated_at`); no creation time exists.
+- **Agent partitions (F9, dev server only)** — an agent-scoped row edits/deletes inside its own
+  partition and leaves a same-key shared-pool row untouched.
 
 ### v0.8.8-line endpoints discovered but NOT BUILT (deferred to the tagged rc)
 Recorded so the next sync re-confirms rather than re-discovers them. All are additive; each row gives
