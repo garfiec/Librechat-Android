@@ -179,7 +179,12 @@ fun MessageList(
     val showScrollToBottom by remember {
         derivedStateOf {
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            totalItemCount > 0 && lastVisibleItem < totalItemCount - 1
+            // The LIST's own count, not the hand-computed [totalItemCount] above: that one omits
+            // the trailing office-preview and human-review-pause items, so with one of those off
+            // screen the last visible index equalled it and the FAB — the only cue that the
+            // thread scrolls further — was suppressed exactly when it was needed.
+            val rendered = listState.layoutInfo.totalItemsCount
+            rendered > 0 && lastVisibleItem < rendered - 1
         }
     }
 
@@ -287,6 +292,18 @@ fun MessageList(
         if (!hasScrolledToBottom && displayMessages.isNotEmpty()) {
             listState.scrollToItem(totalItemCount - 1, scrollOffset = Int.MAX_VALUE)
             hasScrolledToBottom = true
+        }
+    }
+
+    // A run pausing for human review changes NOTHING the other scroll effects key on:
+    // displayMessages.size, streamingContent and isStreaming are all unchanged. Without this the
+    // card is appended below the viewport and the user is left looking at a live cursor on a run
+    // that will never produce another token.
+    LaunchedEffect(pendingAction?.actionId) {
+        if (pendingAction?.actionId != null) {
+            userScrolledUp = false
+            val total = listState.layoutInfo.totalItemsCount
+            if (total > 0) listState.animateScrollToItem(total - 1, scrollOffset = Int.MAX_VALUE)
         }
     }
 

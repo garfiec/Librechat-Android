@@ -270,6 +270,30 @@ data class ChatUiState(
         get() = if (canSteerNow) duringRunAction else DuringRunAction.QUEUE
 
     /**
+     * What the composer's send control does while a reply is generating.
+     *
+     * [DuringRunSendTarget.ANSWER_PAUSE] takes precedence over the user's steer/queue preference:
+     * a run parked on `ask_user_question` is waiting for exactly this text, and the composer is
+     * the input the user can actually see — the pause card carries its own field but sits at the
+     * tail of the thread. Treating that send as an ordinary queued follow-up left the pause
+     * unresolved and delivered the answer as a non-sequitur after the run expired.
+     *
+     * Tool-approval pauses are excluded: they take decisions, not prose, so free text there is a
+     * genuine follow-up.
+     */
+    val duringRunSendTarget: DuringRunSendTarget
+        get() {
+            val pause = renderablePendingAction
+            if (pause != null && pause.isAskUserQuestion && !isResolvingPendingAction) {
+                return DuringRunSendTarget.ANSWER_PAUSE
+            }
+            return when (effectiveDuringRunAction) {
+                DuringRunAction.STEER -> DuringRunSendTarget.STEER
+                DuringRunAction.QUEUE -> DuringRunSendTarget.QUEUE
+            }
+        }
+
+    /**
      * The pause to render resolve controls for, or null.
      *
      * Deliberately NOT version-gated. The pause is self-proving: it can only be here because the
@@ -359,4 +383,16 @@ data class ChatUiState(
     val isSendReady: Boolean
         get() = availableModels.isNotEmpty() &&
             (selectedEndpoint != EndpointConstants.AGENTS || agentsEnabled)
+}
+
+/** Where the composer's send routes while a reply is generating. See [ChatUiState.duringRunSendTarget]. */
+enum class DuringRunSendTarget {
+    /** Resolve the live `ask_user_question` pause with the composer's text. */
+    ANSWER_PAUSE,
+
+    /** Inject into the running turn (v0.8.8 steering). */
+    STEER,
+
+    /** Hold as a follow-up for after the run. */
+    QUEUE,
 }

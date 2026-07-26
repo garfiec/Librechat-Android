@@ -76,4 +76,47 @@ class ChatUiStateRenderablePendingActionTest {
     fun `action with no payload at all is dropped`() {
         assertThat(stateWith(PendingAction(actionId = "act_1")).renderablePendingAction).isNull()
     }
+    // ── Composer routing while a run is paused ────────────────────────────
+
+    private fun pausedState(action: PendingAction?, resolving: Boolean = false) = ChatUiState(
+        conversation = ConversationMetaState(conversationId = "conv-1"),
+        content = MessagesState(pendingAction = action, isResolvingPendingAction = resolving),
+    )
+
+    /**
+     * The composer is the input the user can see — the pause card carries its own field but sits
+     * at the tail of the thread. Sending here must ANSWER the pause; queueing it silently left
+     * the run unresolved and delivered the text as a non-sequitur after the pause expired.
+     */
+    @Test
+    fun `a live ask-user-question pause takes the composer's send`() {
+        val target = pausedState(askUserQuestion("act_1")).duringRunSendTarget
+        assertThat(target).isEqualTo(DuringRunSendTarget.ANSWER_PAUSE)
+    }
+
+    /** Tool approvals take decisions, not prose, so free text there is a genuine follow-up. */
+    @Test
+    fun `a tool-approval pause leaves the composer queueing`() {
+        val target = pausedState(toolApproval("act_1")).duringRunSendTarget
+        assertThat(target).isEqualTo(DuringRunSendTarget.QUEUE)
+    }
+
+    /** A submit already in flight must not be able to fire a second resume. */
+    @Test
+    fun `an in-flight resolution does not take the composer's send`() {
+        val target = pausedState(askUserQuestion("act_1"), resolving = true).duringRunSendTarget
+        assertThat(target).isEqualTo(DuringRunSendTarget.QUEUE)
+    }
+
+    /** An unresolvable pause is not rendered, so it must not capture the send either. */
+    @Test
+    fun `a pause with no actionId leaves the composer queueing`() {
+        val target = pausedState(askUserQuestion(null)).duringRunSendTarget
+        assertThat(target).isEqualTo(DuringRunSendTarget.QUEUE)
+    }
+
+    @Test
+    fun `with no pause the composer keeps its ordinary during-run behaviour`() {
+        assertThat(pausedState(null).duringRunSendTarget).isEqualTo(DuringRunSendTarget.QUEUE)
+    }
 }

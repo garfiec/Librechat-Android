@@ -979,9 +979,22 @@ class ChatViewModel(
      * against what this server and this run actually support.
      */
     fun sendDuringRun() {
-        when (_uiState.value.effectiveDuringRunAction) {
-            DuringRunAction.STEER -> steerMessage()
-            DuringRunAction.QUEUE -> queueMessage()
+        val state = _uiState.value
+        // A run paused on `ask_user_question` is waiting for exactly this text. The composer is
+        // the input the user can see — the card carries its own field but sits at the tail of the
+        // thread — so sending here must ANSWER the pause, not queue a next turn. Queueing it was
+        // silent: the pause stayed unresolved and the message arrived as a non-sequitur once the
+        // run expired.
+        when (state.duringRunSendTarget) {
+            DuringRunSendTarget.ANSWER_PAUSE -> {
+                val answer = state.inputText.trim()
+                if (answer.isEmpty()) return
+                clearComposer()
+                answerPendingQuestion(answer)
+            }
+
+            DuringRunSendTarget.STEER -> steerMessage()
+            DuringRunSendTarget.QUEUE -> queueMessage()
         }
     }
 
