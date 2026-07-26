@@ -296,12 +296,19 @@ class SseEventMapper(private val json: Json) {
 
         val pendingAction = resumeState["pendingAction"]?.let(::parsePendingAction)
 
-        // Steers still waiting to be injected. Emitted even when the list is EMPTY: on a
-        // reconnect this is the authoritative snapshot of the server-side queue, and an empty
-        // one is how the client learns that chips it is still showing have been drained.
-        val pendingSteers = resumeState["pendingSteers"]?.let {
-            StreamEvent.PendingSteersSynced(parsePendingSteers(it))
-        }
+        // Steers still waiting to be injected, as an authoritative snapshot of the server-side
+        // queue. Emitted UNCONDITIONALLY, including when the key is absent.
+        //
+        // The server OMITS the key rather than sending `[]` when its queue is empty — see
+        // `pendingSteers: pendingSteers.length > 0 ? pendingSteers : undefined` in upstream's
+        // GenerationJobManager, and the matching `resumeState.pendingSteers = … : undefined` on
+        // the resume path. So absence means "nothing queued", not "no news", and reading it as
+        // `?.let { … }` meant the drained case emitted nothing at all. A reconnect is the only
+        // chance the client gets to drop records for steers that were injected while it was
+        // away; skipping it there left them live forever, to be re-sent by a later run's end.
+        val pendingSteers = StreamEvent.PendingSteersSynced(
+            parsePendingSteers(resumeState["pendingSteers"]),
+        )
 
         return listOfNotNull(snapshot, pendingAction, pendingSteers)
     }

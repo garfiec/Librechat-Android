@@ -296,6 +296,27 @@ class SseEventMapperTest {
         assertThat(result.aggregatedContent[0].text).isEqualTo("Previously streamed text")
     }
 
+    /**
+     * The server omits `pendingSteers` entirely when its queue is empty rather than sending `[]`
+     * (upstream writes `pendingSteers.length > 0 ? pendingSteers : undefined`). Absence therefore
+     * means "nothing queued", not "no news" — and the reconnect is the client's only chance to
+     * drop records for steers injected while it was away. Reading the key as `?.let { … }` meant
+     * the drained case emitted nothing and those records stayed live forever.
+     */
+    @Test
+    fun `a sync frame with no pendingSteers key still emits an authoritative empty snapshot`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"sync":true,"resumeState":{"aggregatedContent":[{"type":"text","text":"hi"}]}}""",
+        )
+
+        val events = mapper.mapFrame(event)
+
+        val synced = events.filterIsInstance<StreamEvent.PendingSteersSynced>()
+        assertThat(synced).hasSize(1)
+        assertThat(synced.single().pendingSteers).isEmpty()
+    }
+
     @Test
     fun `sync aggregatedContent carries in-progress and completed tool_call parts`() {
         val event = SseEvent(
@@ -324,7 +345,10 @@ class SseEventMapperTest {
                 {"event":"on_run_step_completed","data":{"result":{"id":"s","tool_call":{"id":"call_pending","output":"http://img/x.png"}}}}
             ]}""",
         )
+        // Filters the steer snapshot out: every sync frame carries one, and this test is about
+        // the snapshot-then-buffered-events ORDER, not the full event set.
         val events = mapper.mapFrame(event)
+            .filterNot { it is StreamEvent.PendingSteersSynced }
         assertThat(events).hasSize(3)
         assertThat(events[0]).isInstanceOf(StreamEvent.Sync::class.java)
         assertThat(events[1]).isInstanceOf(StreamEvent.ContentDelta::class.java)
@@ -389,6 +413,7 @@ class SseEventMapperTest {
                     "question":{"question":"Which one?"}}}}}""",
         )
         val events = mapper.mapFrame(event)
+            .filterNot { it is StreamEvent.PendingSteersSynced }
         assertThat(events).hasSize(2)
         assertThat(events[0]).isInstanceOf(StreamEvent.Sync::class.java)
         assertThat(events[1]).isInstanceOf(StreamEvent.PendingActionRequested::class.java)
@@ -404,6 +429,7 @@ class SseEventMapperTest {
                 "payload":{"type":"tool_approval","action_requests":[]}}}}""",
         )
         val events = mapper.mapFrame(event)
+            .filterNot { it is StreamEvent.PendingSteersSynced }
         assertThat(events).hasSize(1)
         assertThat((events[0] as StreamEvent.PendingActionRequested).pendingAction.actionId).isEqualTo("act_4")
     }
@@ -473,19 +499,6 @@ class SseEventMapperTest {
         val events = mapper.mapFrame(event)
         assertThat(events).hasSize(1)
         assertThat((events[0] as StreamEvent.PendingSteersSynced).pendingSteers).isEmpty()
-    }
-
-    @Test
-    fun `sync frame with no pendingSteers key emits no steer event`() {
-        // Absent is not the same as empty: a server with no steering says nothing, and treating
-        // that as an authoritative empty list would clear chips it knows nothing about.
-        val event = SseEvent(
-            event = "",
-            data = """{"sync":true,"resumeState":{"aggregatedContent":[{"type":"text","text":"hi"}]}}""",
-        )
-        val events = mapper.mapFrame(event)
-        assertThat(events).hasSize(1)
-        assertThat(events[0]).isInstanceOf(StreamEvent.Sync::class.java)
     }
 
     @Test
