@@ -34,6 +34,7 @@ class SteeringDelegateTest {
 
     private val chatRepository = mockk<ChatRepository>()
     private val enqueued = mutableListOf<QueuedMessage>()
+    private var queuePaused = false
 
     private fun spec(text: String) = QueuedMessage(
         localId = "spec-$text",
@@ -57,6 +58,7 @@ class SteeringDelegateTest {
             chatRepository = chatRepository,
             buildFollowUp = { text -> spec(text) },
             enqueueFollowUp = { enqueued += it },
+            pauseQueue = { queuePaused = true },
             isStreaming = { isStreaming },
         )
         return delegate to flow
@@ -167,6 +169,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                pauseQueue = { queuePaused = true },
                 isStreaming = { streaming },
             )
 
@@ -380,6 +383,7 @@ class SteeringDelegateTest {
                 // A rebuilt spec is distinguishable from the one minted at send time.
                 buildFollowUp = { text -> spec(text).copy(model = "model-at-failure-time") },
                 enqueueFollowUp = { enqueued += it },
+                pauseQueue = { queuePaused = true },
                 isStreaming = { true },
             )
 
@@ -447,6 +451,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                pauseQueue = { queuePaused = true },
                 isStreaming = { streaming },
             )
 
@@ -483,6 +488,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                pauseQueue = { queuePaused = true },
                 isStreaming = { true },
             )
 
@@ -515,6 +521,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                pauseQueue = { queuePaused = true },
                 isStreaming = { streaming },
             )
 
@@ -532,6 +539,83 @@ class SteeringDelegateTest {
             assertThat(enqueued.map { it.text }).containsExactly("one", "two")
             assertThat(flow.value.pendingSteers).isEmpty()
         }
+
+    // ── Turn identity ─────────────────────────────────────────────────────
+    // A steer carries no run id and `isStreaming` is global, so a slow ack from a finished turn
+    // is otherwise indistinguishable from one belonging to the turn now streaming.
+
+    /**
+     * A queued follow-up draining into a NEW run makes `isStreaming` true again. Without a turn
+     * stamp the old turn's late 202 attaches its chip to that new run, where no injection and no
+     * report will ever retire it.
+     */
+    @Test
+    fun `a late ack from a finished turn does not attach to the next one`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val ack = CompletableDeferred<Result<SteerResponse>>()
+            coEvery { chatRepository.steerChat(any()) } coAnswers { ack.await() }
+            val (delegate, flow) = delegateWith(this, isStreaming = true)
+
+            delegate.steer("conv-1", spec("be brief"))
+            // Run A ends and run B starts (a drained follow-up); isStreaming is true again.
+            delegate.onTurnBoundary()
+            ack.complete(Result.Success(SteerResponse(steerId = "st-1")))
+            runCurrent()
+
+            // Re-homed, not rendered against run B.
+            assertThat(flow.value.pendingSteers).isEmpty()
+            assertThat(enqueued.map { it.text }).containsExactly("be brief")
+        }
+
+    /**
+     * A turn boundary SETTLES the previous turn's accepted steers rather than re-homing them:
+     * on a clean Finalized the frame's list is authoritative, so an unreported chip was injected
+     * and converting it would double-send.
+     */
+    @Test
+    fun `a turn boundary settles leftover chips without re-sending them`() =
+        runTest(UnconfinedTestDispatcher()) {
+            coEvery { chatRepository.steerChat(any()) } returns
+                Result.Success(SteerResponse(steerId = "st-1"))
+            val (delegate, flow) = delegateWith(this)
+
+            delegate.steer("conv-1", spec("be brief"))
+            assertThat(flow.value.pendingSteers).hasSize(1)
+
+            delegate.onTurnBoundary()
+
+            assertThat(flow.value.pendingSteers).isEmpty()
+            assertThat(enqueued).isEmpty()
+        }
+
+    /**
+     * Steers the server PARKED for a run that ended unattended are handed over on conversation
+     * OPEN, into a fresh ViewModel whose queue is empty and unpaused. Auto-draining there would
+     * send, unprompted, a message the user last saw parked behind a Stop.
+     */
+    @Test
+    fun `parked steers are held for the user instead of firing on open`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, _) = delegateWith(this, isStreaming = false)
+
+            delegate.reclaimParked(
+                listOf(PendingSteer(steerId = "st-1", text = "use metric units", createdAt = 1L)),
+            )
+
+            assertThat(enqueued.map { it.text }).containsExactly("use metric units")
+            assertThat(queuePaused).isTrue()
+        }
+
+    /** Nothing to claim must not pause a queue the user is actively draining. */
+    @Test
+    fun `an empty parked claim does not pause the queue`() = runTest(UnconfinedTestDispatcher()) {
+        val (delegate, _) = delegateWith(this, isStreaming = false)
+
+        delegate.reclaimParked(emptyList())
+
+        assertThat(enqueued).isEmpty()
+        assertThat(queuePaused).isFalse()
+    }
 
     /**
      * Settled steers are retained to suppress late acks and repeat reports, so the retention has

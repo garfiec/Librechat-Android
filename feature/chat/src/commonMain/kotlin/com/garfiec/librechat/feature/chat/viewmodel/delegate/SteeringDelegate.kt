@@ -48,6 +48,11 @@ class SteeringDelegate(
     private val buildFollowUp: (String) -> QueuedMessage?,
     /** Holds a message as a follow-up for after the run; the queue's own drain fires it. */
     private val enqueueFollowUp: (QueuedMessage) -> Unit,
+    /**
+     * Holds the follow-up queue instead of letting it auto-drain. Used for steers the server
+     * PARKED for a run that ended while nobody was attached — see [reclaimParked].
+     */
+    private val pauseQueue: () -> Unit,
     /** True while the client still believes a run is in flight. */
     private val isStreaming: () -> Boolean,
 ) {
@@ -74,12 +79,27 @@ class SteeringDelegate(
      */
     private val records = LinkedHashMap<String, SteerRecord>()
 
+    /**
+     * Which TURN the records below belong to. Bumped by [onTurnBoundary], which the stream manager
+     * calls when a genuinely new turn starts — NOT on a reconnect, which is the same turn and must
+     * keep its records so the sync frame can rejoin them.
+     *
+     * Records carry the epoch they were minted in, because nothing else identifies the run a steer
+     * belongs to: the ack carries no run id, and `isStreaming` is global, so a slow 202 from a
+     * finished turn is indistinguishable from one belonging to the turn now streaming. Without
+     * this, a queued follow-up draining into a new run makes `isStreaming` true again and the old
+     * turn's steer attaches to it, where nothing can ever retire it.
+     */
+    private var turnEpoch: Int = 0
+
     private data class SteerRecord(
         val text: String,
         val createdAt: Long,
         val status: Status,
         /** The send spec this steer falls back to. Null for steers only the server reported. */
         val spec: QueuedMessage?,
+        /** The turn this steer was sent into; see [turnEpoch]. */
+        val turnEpoch: Int,
     ) {
         enum class Status {
             /** The POST is in flight; the key is a client-minted placeholder. */
@@ -117,12 +137,23 @@ class SteeringDelegate(
         // sent them, not by how long each round-trip took, or a steer sent first can end up
         // displayed behind one sent after it.
         val createdAt = Clock.System.now().toEpochMilliseconds()
-        records[localId] = SteerRecord(trimmed, createdAt, SteerRecord.Status.SENDING, fallback)
+        records[localId] = SteerRecord(trimmed, createdAt, SteerRecord.Status.SENDING, fallback, turnEpoch)
         publishChips()
 
         handle.scope.launch {
             val result = chatRepository.steerChat(SteerRequest(conversationId, trimmed))
             val record = records[localId] ?: return@launch
+            // Settled while the POST was in flight — a turn boundary marked it unreachable, or a
+            // report already re-homed it. Its text has a home; neither branch below may give it a
+            // second one. CANCELLED is deliberately NOT short-circuited: that record still needs
+            // its ack to mint the id the withdrawal is posted against.
+            if (record.status == SteerRecord.Status.RECLAIMED ||
+                record.status == SteerRecord.Status.APPLIED
+            ) {
+                records.remove(localId)
+                publishChips()
+                return@launch
+            }
             when (result) {
                 is Result.Success ->
                     acknowledge(conversationId, localId, record, result.data.steerId)
@@ -187,7 +218,10 @@ class SteeringDelegate(
             publishChips()
             return
         }
-        if (!isStreaming()) {
+        // Either the run is over, or a NEWER turn is running and this ack belongs to a finished
+        // one. Both mean no injection is coming and no event will ever retire the chip, so the
+        // text is re-homed rather than attached to a run that never accepted it.
+        if (!isStreaming() || record.turnEpoch != turnEpoch) {
             records[serverId] = record.copy(status = SteerRecord.Status.RECLAIMED)
             publishChips()
             record.spec?.let(enqueueFollowUp)
@@ -208,7 +242,7 @@ class SteeringDelegate(
         if (steerId.isBlank()) return
         val existing = records[steerId]
         records[steerId] = existing?.copy(status = SteerRecord.Status.APPLIED)
-            ?: SteerRecord("", 0L, SteerRecord.Status.APPLIED, spec = null)
+            ?: SteerRecord("", 0L, SteerRecord.Status.APPLIED, spec = null, turnEpoch = turnEpoch)
         evictSettled()
         publishChips()
     }
@@ -254,14 +288,15 @@ class SteeringDelegate(
      * again on the aborted final — so ids already settled are skipped rather than queued a second
      * time. A steer the user cancelled is skipped for the same reason it is not re-seeded.
      */
-    fun reclaim(steers: List<PendingSteer>) {
-        if (steers.isEmpty()) return
+    fun reclaim(steers: List<PendingSteer>): Int {
+        if (steers.isEmpty()) return 0
         val reported = steers.mapNotNull { it.toRecordEntry() }
-        if (reported.isEmpty()) return
-        reported.sortedBy { it.second.createdAt }
-            .forEach { (id, incoming) -> rehome(id, records[id] ?: incoming) }
+        if (reported.isEmpty()) return 0
+        val queued = reported.sortedBy { it.second.createdAt }
+            .count { (id, incoming) -> rehome(id, records[id] ?: incoming) }
         evictSettled()
         publishChips()
+        return queued
     }
 
     /**
@@ -274,7 +309,7 @@ class SteeringDelegate(
      * same message twice.
      */
     fun reclaimLocalChips() {
-        records.filterValues { it.status == SteerRecord.Status.PENDING }
+        records.filterValues { it.status == SteerRecord.Status.PENDING && it.turnEpoch == turnEpoch }
             .entries
             .sortedBy { it.value.createdAt }
             .forEach { (id, record) -> rehome(id, record) }
@@ -282,13 +317,14 @@ class SteeringDelegate(
         publishChips()
     }
 
-    /** Re-homes one steer's text into the follow-up queue, exactly once. */
-    private fun rehome(id: String, record: SteerRecord) {
+    /** Re-homes one steer's text into the follow-up queue, exactly once. Returns true if queued. */
+    private fun rehome(id: String, record: SteerRecord): Boolean {
         // Already settled: injected, withdrawn, or re-homed by an earlier report.
-        if (records[id]?.isLive == false) return
+        if (records[id]?.isLive == false) return false
         records[id] = record.copy(status = SteerRecord.Status.RECLAIMED)
-        val spec = record.spec ?: buildFollowUp(record.text) ?: return
+        val spec = record.spec ?: buildFollowUp(record.text) ?: return false
         enqueueFollowUp(spec)
+        return true
     }
 
     /** Withdraws a queued steer. Optimistic — the row goes immediately, the POST just confirms. */
@@ -314,6 +350,43 @@ class SteeringDelegate(
                 Logger.d(result.exception) { "Steer cancel failed: ${result.message}" }
             }
         }
+    }
+
+    /**
+     * A genuinely new turn is starting. Called from the stream manager's `beginStreaming` and
+     * `reset` — deliberately NOT from `resumeStream`, which re-enters the SAME turn and whose
+     * records must survive so the reconnect's sync frame can rejoin them by server id.
+     *
+     * PENDING records from that turn are SETTLED here, not re-homed. `endStream` already
+     * re-homed them if it was going to; it deliberately does not on a clean `Finalized`, where
+     * the frame's own list is authoritative and converting again would double-send a steer whose
+     * applied event this client merely missed. Anything still live at this point is unreachable,
+     * so settling is the only safe move — re-homing would duplicate.
+     *
+     * SENDING records are left alone: their POST has not answered yet, and its continuation is
+     * what re-homes their text (the epoch stamp is what tells it the turn has moved on).
+     */
+    fun onTurnBoundary() {
+        records.entries
+            .filter { it.value.status == SteerRecord.Status.PENDING && it.value.turnEpoch == turnEpoch }
+            .forEach { it.setValue(it.value.copy(status = SteerRecord.Status.RECLAIMED)) }
+        turnEpoch++
+        evictSettled()
+        publishChips()
+    }
+
+    /**
+     * Claims steers the server PARKED because the run ended with no subscriber attached, and
+     * holds them instead of firing them.
+     *
+     * Separate from [reclaim] because of where these arrive: `/chat/status` hands them over on
+     * conversation OPEN, in a fresh ViewModel whose queue is empty and unpaused — so the ordinary
+     * enqueue would auto-drain and send, unprompted, a message the user last saw parked behind a
+     * Stop, possibly from a much earlier session. Pausing surfaces it as "Send queued" instead,
+     * which is recoverable and never surprises.
+     */
+    fun reclaimParked(steers: List<PendingSteer>) {
+        if (reclaim(steers) > 0) pauseQueue()
     }
 
     /**
@@ -350,7 +423,9 @@ class SteeringDelegate(
      * first, well past any plausible in-flight ack or duplicate-report window.
      */
     private fun evictSettled() {
-        val settled = records.entries.filter { !it.value.isLive }
+        // A live record from a previous turn is unreachable — nothing will ack, inject or report
+        // it — so it is evictable too, or the map grows for the ViewModel's lifetime.
+        val settled = records.entries.filter { !it.value.isLive || it.value.turnEpoch != turnEpoch }
         if (settled.size <= MAX_SETTLED_RECORDS) return
         settled.take(settled.size - MAX_SETTLED_RECORDS).forEach { records.remove(it.key) }
     }
@@ -358,7 +433,7 @@ class SteeringDelegate(
     /** Publishes the live records as the rendered chip list. */
     private fun publishChips() {
         val chips = records.entries
-            .filter { it.value.isLive }
+            .filter { it.value.isLive && it.value.turnEpoch == turnEpoch }
             .map { (id, record) ->
                 PendingSteerChip(
                     steerId = id,
@@ -385,6 +460,7 @@ class SteeringDelegate(
             createdAt = createdAt ?: Clock.System.now().toEpochMilliseconds(),
             status = SteerRecord.Status.PENDING,
             spec = null,
+            turnEpoch = turnEpoch,
         )
     }
 

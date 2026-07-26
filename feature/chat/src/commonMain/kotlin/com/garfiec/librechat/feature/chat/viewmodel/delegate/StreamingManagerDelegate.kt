@@ -207,6 +207,10 @@ class StreamingManagerDelegate(
         turnSpec: QueuedMessage? = null,
     ) {
         isEditOrRegenerate = isEdit
+        // A new turn: settle anything the previous one stranded before its records can render
+        // against this run. Deliberately not called from resumeStream — that re-enters the SAME
+        // turn and its records must survive for the sync frame to rejoin them.
+        steeringDelegate.onTurnBoundary()
         startStreamSession()
         currentTurnSpec = turnSpec
         // After startStreamSession: its pendingActionDelegate.clear() drops the pin.
@@ -260,6 +264,9 @@ class StreamingManagerDelegate(
         streamJob?.cancel()
         streamJob = null
         currentTurnSpec = null
+        // Hard reset (conversation switch): the previous turn's steer records must not follow the
+        // ViewModel into an unrelated conversation.
+        steeringDelegate.onTurnBoundary()
         startStreamSession()
         stopStreamingUpdater()
         streamingBuffer.clear()
@@ -889,7 +896,7 @@ class StreamingManagerDelegate(
         val session = streamSession
         scope.launch {
             try {
-                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaim)
+                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaimParked)
                 // A concurrent resume advanced the session (or it ended) while we were suspended:
                 // bail rather than redundantly restart or wipe the now-current stream.
                 if (isResumeStale(session)) return@launch
@@ -951,8 +958,14 @@ class StreamingManagerDelegate(
         streamingBufferDirty = false
         startStreamingUpdater()
         streamJob?.cancel()
+        val session = streamSession
         streamJob = scope.launch {
             collectStreamSafely(chatRepository.resumeStream(conversationId))
+            // A resumed stream can complete with NEITHER Final NOR Error — a clean SSE EOF, or a
+            // 404 on the stream GET when the job was cleaned up between the status read and the
+            // subscribe. endStream never runs on those, so without this the run's steer records
+            // and any pause stay live forever, and the cursor never stops.
+            if (!isResumeStale(session)) endStream(StreamEndReason.ResumeExpired, session)
         }
     }
 
@@ -963,7 +976,7 @@ class StreamingManagerDelegate(
         val session = streamSession
         scope.launch {
             try {
-                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaim)
+                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaimParked)
                 if (isResumeStale(session) || abortRequested) return@launch
                 if (status.active) {
                     handle.update {
@@ -1024,7 +1037,7 @@ class StreamingManagerDelegate(
 
         scope.launch {
             try {
-                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaim)
+                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaimParked)
                 if (status.active) {
                     handle.update {
                         content = content.copy(

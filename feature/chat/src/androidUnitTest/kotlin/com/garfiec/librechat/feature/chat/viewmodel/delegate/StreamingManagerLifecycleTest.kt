@@ -175,7 +175,10 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `resume with an active server stream reattaches`() = runTest(StandardTestDispatcher()) {
         coEvery { chatRepository.checkStreamStatus("conv-1", any()) } returns ChatStatusResponse(active = true)
-        coEvery { chatRepository.resumeStream("conv-1") } returns emptyFlow()
+        // A live resumed stream: an emptyFlow() would model a stream that completed with neither
+        // Final nor Error, which is the 404/EOF case the resume path now tears down.
+        val resumed = Channel<StreamEvent>(Channel.UNLIMITED)
+        coEvery { chatRepository.resumeStream("conv-1") } returns resumed.receiveAsFlow()
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, flow) = delegateWith(this)
         delegate.launchStream(events.receiveAsFlow())
@@ -192,6 +195,7 @@ class StreamingManagerLifecycleTest {
         // resumeStream started a fresh session; end it so the updater doesn't leak.
         delegate.reset()
         events.close()
+        resumed.close()
         advanceUntilIdle()
     }
 
@@ -332,7 +336,7 @@ class StreamingManagerLifecycleTest {
             statusGate.complete(ChatStatusResponse(active = false, unrecoveredSteers = parked))
             runCurrent()
 
-            verify { steeringDelegate.reclaim(parked) }
+            verify { steeringDelegate.reclaimParked(parked) }
             events.close()
             events2.close()
             delegate.reset()
@@ -357,6 +361,8 @@ class StreamingManagerLifecycleTest {
             events.send(AbortFrameFixtures.earlyAbortFrame().copy(pendingSteers = parked))
             runCurrent()
 
+            // The frame's own list, not a parked one: claimed via reclaim, which auto-drains
+            // normally. Only /chat/status hands over steers the server parked for a dead run.
             verify { steeringDelegate.reclaim(parked) }
             events.close()
             advanceUntilIdle()
@@ -384,7 +390,7 @@ class StreamingManagerLifecycleTest {
             statusGate.complete(ChatStatusResponse(active = false, unrecoveredSteers = parked))
             runCurrent()
 
-            verify { steeringDelegate.reclaim(parked) }
+            verify { steeringDelegate.reclaimParked(parked) }
             events.close()
             delegate.reset()
             advanceUntilIdle()

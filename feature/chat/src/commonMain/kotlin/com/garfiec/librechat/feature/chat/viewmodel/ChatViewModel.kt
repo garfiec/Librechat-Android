@@ -233,7 +233,13 @@ class ChatViewModel(
         sendWithSpec = { spec, awaitSettle ->
             viewModelScope.launch {
                 if (awaitSettle) awaitReplySettled()
-                runWhenSendReady { doSendWithSpec(spec) }
+                // drainNext POPS before it sends, and this gate is allowed to refuse (no model
+                // selected, readiness timeout). Without putting the item back, a refusal silently
+                // destroys a queued message — including a steer that was re-homed here precisely
+                // so it could not be lost.
+                runWhenSendReady(onRefused = { requeueRefusedDrain(spec) }) {
+                    doSendWithSpec(spec)
+                }
             }
         },
         activeAccountProvider = activeAccountProvider,
@@ -387,6 +393,7 @@ class ChatViewModel(
         // moment the run is over, so an ended run still sends immediately; a paused queue holds
         // the item for the user's own "Send queued" instead of dropping it.
         enqueueFollowUp = ::enqueueSpec,
+        pauseQueue = { queueDelegate.pause() },
         isStreaming = { _uiState.value.isStreaming },
     )
 
@@ -1610,10 +1617,16 @@ class ChatViewModel(
      * immediately. Otherwise, awaits readiness up to 3 s and falls back to a
      * selection-aware availability message if the wait times out.
      */
-    private fun runWhenSendReady(action: () -> Unit) {
+    /** Puts a drained item back at the head after the send gate refused it. */
+    private fun requeueRefusedDrain(spec: QueuedMessage): Unit = queueDelegate.reinsert(0, spec)
+
+    private fun runWhenSendReady(action: () -> Unit) = runWhenSendReady(onRefused = {}, action = action)
+
+    private fun runWhenSendReady(onRefused: () -> Unit, action: () -> Unit) {
         val current = _uiState.value
         preflightSendBlockReason(current)?.let { reason ->
             surfaceModelSheet(reason)
+            onRefused()
             return
         }
         if (current.isSendReady) {
@@ -1625,6 +1638,7 @@ class ChatViewModel(
                 action()
             } else {
                 surfaceModelSheet(sendReadinessTimeoutReason(_uiState.value))
+                onRefused()
             }
         }
     }
