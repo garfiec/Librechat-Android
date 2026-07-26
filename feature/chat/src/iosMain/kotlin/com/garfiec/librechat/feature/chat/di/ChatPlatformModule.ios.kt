@@ -56,6 +56,7 @@ actual val chatPlatformModule: Module = module {
             selectionHandoff = get(),
             serverFileSelectionHandoff = get(),
             promptInsertionHandoff = get(),
+            resumePinStore = get(),
         )
     }
 }

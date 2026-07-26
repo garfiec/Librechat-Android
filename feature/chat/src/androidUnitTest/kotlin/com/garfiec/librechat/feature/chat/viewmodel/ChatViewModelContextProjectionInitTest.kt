@@ -43,6 +43,7 @@ import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import com.garfiec.librechat.core.data.repository.ResumePinStore
 
 /**
  * Regression guard for the context-gauge init-order crash (agents endpoint).
@@ -189,6 +190,7 @@ class ChatViewModelContextProjectionInitTest {
             chatRepository = chatRepository,
             messageRepository = messageRepository,
             fileRepository = fileRepository,
+            resumePinStore = ResumePinStore(),
             configRepository = configRepository,
             conversationRepository = conversationRepository,
             endpointTokenRepository = endpointTokenRepository,

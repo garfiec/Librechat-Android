@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.data.repository.ChatRepository
+import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.PendingActionPayload
 import com.garfiec.librechat.core.model.PendingActionTypes
@@ -20,12 +21,15 @@ import com.garfiec.librechat.feature.chat.viewmodel.PendingActionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -42,9 +46,21 @@ class PendingActionDelegateTest {
         selection = ModelSelectionState(selectedEndpoint = "agents", selectedModel = "agent_abc"),
     )
 
+    private val pinStore = ResumePinStore()
+
+    private fun queuedSpec(endpoint: String, model: String?, agentId: String?) = QueuedMessage(
+        localId = "q-1",
+        text = "hi",
+        endpoint = endpoint,
+        model = model,
+        agentId = agentId,
+        dispatch = EndpointDispatch(endpointType = endpoint, key = null, modelDisplayLabel = null),
+    )
+
     private fun delegateWith(
         scope: TestScope,
         state: ChatUiState = pausedState(),
+        store: ResumePinStore = pinStore,
     ): Pair<PendingActionDelegate, MutableStateFlow<ChatUiState>> {
         val flow = MutableStateFlow(state)
         val root = ChatStateHandle(flow, scope)
@@ -53,6 +69,7 @@ class PendingActionDelegateTest {
             chatRepository = chatRepository,
             requestBuilder = ChatRequestBuilder { flow.value },
             resumeFailureMessage = { it ?: "failed" },
+            resumePinStore = store,
         )
         return delegate to flow
     }
@@ -246,5 +263,106 @@ class PendingActionDelegateTest {
             delegate.submitAnswer("yes")
 
             assertThat(request.captured.promptPrefix).isNull()
+        }
+
+    // ── Cross-ViewModel resume (a handed-off new chat, or reopening a conversation) ─────────
+
+    /**
+     * The ViewModel that resolves a pause is often not the one that started the run: a chat
+     * started from the landing page hands off to a fresh `Chat(id)` ViewModel, and the first tool
+     * approval of a brand-new chat is the most common way to meet a pause at all. The conversation
+     * record cannot rebuild the config — it has no enabled tools, MCP servers or custom
+     * instructions — so a re-derived guess 403s on the fingerprint.
+     */
+    @Test
+    fun `a fresh view model resumes against the pin the run was started with`() =
+        runTest(UnconfinedTestDispatcher()) {
+            coEvery { chatRepository.resumeChat(any()) } returns Result.Success(ChatResumeResponse())
+            // The ViewModel that started the run publishes its pin once the id is minted.
+            val (starter, _) = delegateWith(this)
+            starter.onTurnStarted(
+                queuedSpec(endpoint = "openAI", model = "gpt-4o", agentId = null),
+            )
+            starter.onConversationIdResolved("conv-1")
+
+            // A different ViewModel, with a DIFFERENT live selection, resolves the pause.
+            val (resumer, _) = delegateWith(
+                this,
+                state = ChatUiState(
+                    conversation = ConversationMetaState(conversationId = "conv-1"),
+                    selection = ModelSelectionState(selectedEndpoint = "agents", selectedModel = null),
+                ),
+            )
+            resumer.onPendingAction(toolApproval())
+            resumer.submitAnswer("yes")
+
+            val sent = slot<ChatResumeRequest>()
+            coVerify { chatRepository.resumeChat(capture(sent)) }
+            assertThat(sent.captured.endpoint).isEqualTo("openAI")
+            assertThat(sent.captured.model).isEqualTo("gpt-4o")
+        }
+
+    /**
+     * The same pause is re-announced constantly — the ~120s SSE stall reconnects and replays it,
+     * and a foreground resume re-reads it off /chat/status. Re-arming the controls under a submit
+     * in flight makes the user submit again and collect a 409 for a decision that succeeded.
+     */
+    @Test
+    fun `a re-announcement during an in-flight submit does not re-arm the controls`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gate = CompletableDeferred<Result<ChatResumeResponse>>()
+            coEvery { chatRepository.resumeChat(any()) } coAnswers { gate.await() }
+            val (delegate, flow) = delegateWith(this)
+            delegate.onPendingAction(toolApproval())
+
+            delegate.submitAnswer("yes")
+            assertThat(flow.value.isResolvingPendingAction).isTrue()
+
+            // The stall/reconnect replays the identical pause.
+            delegate.onPendingAction(toolApproval())
+
+            assertThat(flow.value.isResolvingPendingAction).isTrue()
+            gate.complete(Result.Success(ChatResumeResponse()))
+            runCurrent()
+        }
+
+    /** A DIFFERENT pause is real news and must re-arm, even if a stale submit is outstanding. */
+    @Test
+    fun `a different pause re-arms the controls`() = runTest(UnconfinedTestDispatcher()) {
+        val gate = CompletableDeferred<Result<ChatResumeResponse>>()
+        coEvery { chatRepository.resumeChat(any()) } coAnswers { gate.await() }
+        val (delegate, flow) = delegateWith(this)
+        delegate.onPendingAction(toolApproval("act-1"))
+        delegate.submitAnswer("yes")
+
+        delegate.onPendingAction(toolApproval("act-2"))
+
+        assertThat(flow.value.isResolvingPendingAction).isFalse()
+        gate.complete(Result.Success(ChatResumeResponse()))
+        runCurrent()
+    }
+
+    /**
+     * The resume POST outlives the run. Returning after the pause was cleared — and a NEWER run
+     * announced its own — it must not wipe that one and strand it with no controls.
+     */
+    @Test
+    fun `a resume answering after its pause was cleared leaves a newer pause alone`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gate = CompletableDeferred<Result<ChatResumeResponse>>()
+            coEvery { chatRepository.resumeChat(any()) } coAnswers { gate.await() }
+            val (delegate, flow) = delegateWith(this)
+            delegate.onPendingAction(toolApproval("act-1"))
+            delegate.submitAnswer("yes")
+
+            // Run A ends; run B starts and pauses on its own action.
+            delegate.clear()
+            val newer = toolApproval("act-2")
+            delegate.onPendingAction(newer)
+
+            gate.complete(Result.Success(ChatResumeResponse()))
+            runCurrent()
+
+            assertThat(flow.value.pendingAction).isEqualTo(newer)
         }
 }

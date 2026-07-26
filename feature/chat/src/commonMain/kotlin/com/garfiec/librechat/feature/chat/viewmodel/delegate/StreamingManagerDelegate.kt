@@ -513,6 +513,10 @@ class StreamingManagerDelegate(
                 content = content.copy(retryInfo = null)
             }
         }
+        // The conversation now has an id to key the resume pin by. A brand-new chat had none at
+        // turn start, and it is precisely that chat which hands off to a different ViewModel
+        // before its first human-review pause arrives.
+        pendingActionDelegate.onConversationIdResolved(event.conversationId)
         completionDelegate.onConversationCreated(event.conversationId, isNewConversation(), streamOriginAccountId)
     }
 
@@ -752,10 +756,14 @@ class StreamingManagerDelegate(
         // The run is over: its spec must not be re-pinned onto a later reconnect that finds some
         // other run (started elsewhere) still active on this conversation.
         currentTurnSpec = null
-        // Whatever ended the run also made any human-review pause unresolvable (the job is gone,
-        // so a resume can only 409). Drop it for every reason rather than per-branch: a card left
-        // on screen after the turn ended offers controls that cannot work.
-        pendingActionDelegate.clear()
+        // Whatever ended the run usually made any human-review pause unresolvable (the job is
+        // gone, so a resume can only 409) — with ONE exception: a network StreamError says
+        // nothing about the server-side run, which stays parked on its pause until it expires.
+        // Clearing there would discard a pause that is still perfectly resolvable, along with
+        // whatever the user had typed into it, and attemptNetworkRecovery re-attaches moments
+        // later to find the same pause waiting.
+        val keepPause = reason is StreamEndReason.StreamError && reason.isNetwork
+        if (!keepPause) pendingActionDelegate.clear()
         // Steers the ended run never injected. A `Finalized` frame reports them authoritatively
         // and handleFinal has already re-homed them; every other ending carries no report at all,
         // so the text held locally is re-homed here or it is lost. Converting on Finalized too

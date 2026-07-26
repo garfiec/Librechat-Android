@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
+import com.garfiec.librechat.core.data.repository.ResumePinStore
+import com.garfiec.librechat.core.data.repository.ResumeTurnPin
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.EphemeralAgent
@@ -30,6 +32,12 @@ class PendingActionDelegate(
     private val requestBuilder: ChatRequestBuilder,
     /** Surfaces a resume rejection as user-facing copy; the raw server message is not localized. */
     private val resumeFailureMessage: (String?) -> String,
+    /**
+     * Carries the started-with config across ViewModel boundaries. The ViewModel that resolves a
+     * pause is often not the one that started the run — a handed-off new chat, or reopening a
+     * conversation — and neither can rebuild the config from the conversation record.
+     */
+    private val resumePinStore: ResumePinStore,
 ) {
 
     /**
@@ -44,6 +52,20 @@ class PendingActionDelegate(
      * while the pause card waits for a decision.
      */
     private var pinnedTurn: PinnedTurnConfig? = null
+
+    /**
+     * The action id whose resume POST is in flight, and the epoch it was issued under.
+     *
+     * The POST outlives the run: it can return after the pause it resolves is gone and a NEWER
+     * run has announced its own. Writing `pendingAction = null` then would wipe the new run's
+     * live pause and strand it with no controls. Both are checked before the continuation
+     * touches shared state.
+     */
+    private var inFlightActionId: String? = null
+    private var inFlightEpoch: Int = 0
+
+    /** Bumped whenever the pause state is invalidated ([clear]), so a stale POST can tell. */
+    private var epoch: Int = 0
 
     private data class PinnedTurnConfig(
         val endpoint: String,
@@ -81,14 +103,47 @@ class PendingActionDelegate(
      */
     fun onTurnStarted(spec: QueuedMessage?) {
         pinnedTurn = spec?.toPinnedTurn() ?: captureTurnConfig()
+        persistPin()
+    }
+
+    /**
+     * Publishes the current pin under [conversationId] so a later ViewModel can resume against it.
+     *
+     * Called again when the id is minted: a brand-new chat has no conversation id at turn start,
+     * and that is exactly the case that hands off to a different ViewModel before the first pause
+     * arrives.
+     */
+    fun onConversationIdResolved(conversationId: String) {
+        persistPin(conversationId)
+    }
+
+    private fun persistPin(conversationId: String? = handle.state.conversationId) {
+        val pin = pinnedTurn ?: return
+        val id = conversationId ?: return
+        resumePinStore.put(id, pin.toStored())
     }
 
     /** Records a newly-announced pause. Falls back to the live config if no turn pinned one. */
     fun onPendingAction(pendingAction: PendingAction) {
-        if (pinnedTurn == null) pinnedTurn = captureTurnConfig()
+        if (pinnedTurn == null) {
+            // Store before guess: a ViewModel that did not start this run has nothing useful in
+            // its live selection, and capturing one here would shadow the pin the starting
+            // ViewModel published.
+            val conversationId = handle.state.conversationId
+                ?: pendingAction.conversationId
+                ?: pendingAction.streamId
+            pinnedTurn = resumePinStore.get(conversationId)?.toPinnedTurn() ?: captureTurnConfig()
+        }
+        // The SAME pause is announced repeatedly: the ~120s SSE stall reconnects and its sync
+        // frame replays it, and a foreground resume re-reads it off /chat/status. If a submit is
+        // in flight for that action, clearing the resolving flag re-arms the controls under the
+        // user, who submits again and gets a 409 for a decision that actually succeeded.
+        val isSameActionMidSubmit = handle.state.isResolvingPendingAction &&
+            inFlightActionId != null &&
+            inFlightActionId == pendingAction.actionId
         handle.update {
             this.pendingAction = pendingAction
-            isResolvingPendingAction = false
+            if (!isSameActionMidSubmit) isResolvingPendingAction = false
         }
     }
 
@@ -99,6 +154,8 @@ class PendingActionDelegate(
      */
     fun clear() {
         pinnedTurn = null
+        epoch++
+        inFlightActionId = null
         if (handle.state.pendingAction == null && !handle.state.isResolvingPendingAction) return
         handle.update {
             pendingAction = null
@@ -129,9 +186,17 @@ class PendingActionDelegate(
         val actionId = action.actionId ?: return
         val conversationId = state.conversationId ?: action.conversationId ?: action.streamId ?: return
         if (state.isResolvingPendingAction) return
-        val turn = pinnedTurn ?: captureTurnConfig()
+        // Order matters: this ViewModel's own pin, then one published by the ViewModel that
+        // actually started the run, and only then a guess from the live selection. The guess
+        // cannot reproduce ephemeralAgent or promptPrefix, so it 403s on any run started with a
+        // tool, an MCP server or custom instructions.
+        val turn = pinnedTurn
+            ?: resumePinStore.get(conversationId)?.toPinnedTurn()
+            ?: captureTurnConfig()
 
         handle.update { isResolvingPendingAction = true }
+        inFlightActionId = actionId
+        val issuedEpoch = epoch
         handle.scope.launch {
             val request = withDecision(
                 ChatResumeRequest(
@@ -146,9 +211,18 @@ class PendingActionDelegate(
                     isTemporary = turn.isTemporary.takeIf { it },
                 ),
             )
-            when (val result = chatRepository.resumeChat(request)) {
+            val result = chatRepository.resumeChat(request)
+            // The pause this POST resolves is gone and something else owns the state now — a
+            // newer run may have announced its own pause. Writing here would wipe it.
+            if (issuedEpoch != epoch) {
+                Logger.d { "Resume answered after its pause was cleared; dropping the result" }
+                return@launch
+            }
+            inFlightActionId = null
+            when (result) {
                 is Result.Success -> {
                     pinnedTurn = null
+                    resumePinStore.remove(conversationId)
                     handle.update {
                         pendingAction = null
                         isResolvingPendingAction = false
@@ -172,6 +246,26 @@ class PendingActionDelegate(
         agentId = agentId.takeIf { endpoint == EndpointConstants.AGENTS },
         model = model,
         promptPrefix = modelParamsPayload.promptPrefix(),
+        ephemeralAgent = ephemeralAgent,
+        isTemporary = isTemporary,
+    )
+
+    private fun PinnedTurnConfig.toStored() = ResumeTurnPin(
+        endpoint = endpoint,
+        endpointType = endpointType,
+        agentId = agentId,
+        model = model,
+        promptPrefix = promptPrefix,
+        ephemeralAgent = ephemeralAgent,
+        isTemporary = isTemporary,
+    )
+
+    private fun ResumeTurnPin.toPinnedTurn() = PinnedTurnConfig(
+        endpoint = endpoint,
+        endpointType = endpointType,
+        agentId = agentId,
+        model = model,
+        promptPrefix = promptPrefix,
         ephemeralAgent = ephemeralAgent,
         isTemporary = isTemporary,
     )

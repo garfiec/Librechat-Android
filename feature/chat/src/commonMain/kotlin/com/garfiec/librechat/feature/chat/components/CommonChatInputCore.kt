@@ -222,7 +222,11 @@ fun CommonChatInputCore(
                     onCancel = onCancelEdit,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
-            } else if (queuedPausedCount > 0) {
+            } else if (queuedPausedCount > 0 && !state.isStreaming) {
+                // Gated on !isStreaming: resume() lifts the pause and POPS the head, but
+                // doSendWithSpec early-returns while a run is live, so the message would be
+                // removed from the queue and never sent. A HITL pause is the long-lived
+                // isStreaming window where the composer stays fully interactive.
                 SendQueuedBanner(
                     count = queuedPausedCount,
                     onClick = onSendQueuedMessages,

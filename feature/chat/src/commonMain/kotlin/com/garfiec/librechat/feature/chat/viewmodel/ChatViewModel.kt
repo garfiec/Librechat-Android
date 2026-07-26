@@ -23,6 +23,7 @@ import com.garfiec.librechat.core.data.repository.DraftRepository
 import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
 import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
+import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
@@ -121,6 +122,7 @@ class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val messageRepository: MessageRepository,
     private val fileRepository: FileRepository,
+    private val resumePinStore: ResumePinStore,
     private val configRepository: ConfigRepository,
     private val conversationRepository: ConversationRepository,
     private val endpointTokenRepository: EndpointTokenRepository,
@@ -378,6 +380,7 @@ class ChatViewModel(
         chatRepository = chatRepository,
         requestBuilder = requestBuilder,
         resumeFailureMessage = { message -> message ?: "Could not resume the paused response." },
+        resumePinStore = resumePinStore,
     )
 
     private val steeringDelegate = SteeringDelegate(

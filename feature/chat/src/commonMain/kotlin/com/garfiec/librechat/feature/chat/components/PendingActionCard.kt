@@ -51,6 +51,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 
 /**
  * The in-thread card for a run paused on the user (v0.8.8 HITL): a tool batch awaiting approval,
@@ -113,8 +115,14 @@ private fun AskUserQuestionSection(
     isResolving: Boolean,
     onSubmitAnswer: (String) -> Unit,
 ) {
-    var selected by remember(actionId) { mutableStateOf(emptySet<String>()) }
-    var freeText by remember(actionId) { mutableStateOf("") }
+    // Saveable, not plain remember: this card is a LazyColumn item, so scrolling it out of
+    // composition drops un-saved state — and the user has to scroll to reach it in the first
+    // place. Rotation and folding a foldable do the same. Losing a half-written answer there is
+    // silent: the submit button just goes back to disabled.
+    var selected by rememberSaveable(actionId, stateSaver = StringSetSaver) {
+        mutableStateOf(emptySet())
+    }
+    var freeText by rememberSaveable(actionId) { mutableStateOf("") }
     val answer = composeAnswer(question.options, selected, freeText)
 
     PendingActionColumn {
@@ -232,6 +240,35 @@ private data class ToolDecisionDraft(
     val responseText: String = "",
 )
 
+/** Flattens the answer's option set for [rememberSaveable]. */
+private val StringSetSaver = listSaver<Set<String>, String>(
+    save = { it.toList() },
+    restore = { it.toSet() },
+)
+
+/**
+ * Flattens the per-call decision drafts for [rememberSaveable] as a flat 4-per-entry list —
+ * `SnapshotStateMap` and [ToolDecisionDraft] are not themselves saveable types.
+ */
+private val ToolDecisionDraftMapSaver = listSaver<SnapshotStateMap<String, ToolDecisionDraft>, String>(
+    save = { map ->
+        map.entries.flatMap { (callId, draft) ->
+            listOf(callId, draft.decision ?: "", draft.editedArguments, draft.responseText)
+        }
+    },
+    restore = { flat ->
+        mutableStateMapOf<String, ToolDecisionDraft>().apply {
+            flat.chunked(FIELDS_PER_DRAFT)
+                .filter { it.size == FIELDS_PER_DRAFT }
+                .forEach { (callId, decision, edited, response) ->
+                    put(callId, ToolDecisionDraft(decision.takeIf { it.isNotEmpty() }, edited, response))
+                }
+        }
+    },
+)
+
+private const val FIELDS_PER_DRAFT = 4
+
 @Composable
 private fun ToolApprovalSection(
     actionId: String,
@@ -239,7 +276,11 @@ private fun ToolApprovalSection(
     isResolving: Boolean,
     onSubmit: (List<ToolApprovalResolution>) -> Unit,
 ) {
-    val drafts = remember(actionId) { mutableStateMapOf<String, ToolDecisionDraft>() }
+    // Saveable for the same reason as the answer editor above — an eight-call approval batch is
+    // eight individual decisions to redo.
+    val drafts = rememberSaveable(actionId, saver = ToolDecisionDraftMapSaver) {
+        mutableStateMapOf<String, ToolDecisionDraft>()
+    }
     // Join by tool_call_id, never by position: one batch can hold the same tool twice (a model
     // fanning out parallel calls), and by-position would then apply the wrong policy.
     val allowedByCallId = remember(payload) {
