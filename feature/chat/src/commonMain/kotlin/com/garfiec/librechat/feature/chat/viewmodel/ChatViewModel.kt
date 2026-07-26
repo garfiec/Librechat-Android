@@ -381,8 +381,12 @@ class ChatViewModel(
         // reconnect, another device) — steers this client sent carry the spec they were
         // composed with, so a model switch mid-run never retro-edits them.
         buildFollowUp = ::buildSendSpec,
+        // Always the queue, never the live-send path: `runWhenSendReady` is allowed to REFUSE
+        // (no model selected, or a readiness timeout), and a degraded steer has nowhere to put
+        // the text back — its composer was cleared at send time. `enqueueSpec` self-drains the
+        // moment the run is over, so an ended run still sends immediately; a paused queue holds
+        // the item for the user's own "Send queued" instead of dropping it.
         enqueueFollowUp = ::enqueueSpec,
-        sendAsNewTurn = { spec -> runWhenSendReady { doSendWithSpec(spec) } },
         isStreaming = { _uiState.value.isStreaming },
     )
 

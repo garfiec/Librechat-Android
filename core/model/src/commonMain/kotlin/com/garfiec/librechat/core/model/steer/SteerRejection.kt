@@ -8,8 +8,9 @@ import kotlinx.serialization.json.contentOrNull
 /**
  * Wire values of the `code` field a rejected `POST /api/agents/chat/steer` returns.
  *
- * The code — not the HTTP status — is what tells a client how to degrade, because several
- * distinct outcomes share a status. See [SteerFallback].
+ * Every rejection degrades the same way — the text goes to the follow-up queue, which drains
+ * itself the moment the run is over — so these are diagnostic rather than a branch point. They
+ * are parsed and logged so a rejection that turns out to be systematic is visible.
  */
 object SteerRejectionCodes {
     /** 404: the run finished (or never existed) before the steer landed. */
@@ -42,33 +43,6 @@ object SteerLimits {
 
     /** Server-side queue depth per run; exceeding it answers `STEER_QUEUE_FULL`. */
     const val MAX_QUEUE_DEPTH = 10
-}
-
-/**
- * What the client should do with the user's text after a steer did not reach the run.
- *
- * Every branch keeps the text: a steer that cannot be injected is never a reason to drop what
- * the user typed. The distinction is only *where* it goes.
- */
-enum class SteerFallback {
-    /** The run is gone; send the text as an ordinary new turn instead. */
-    SEND_NOW,
-
-    /** The run is alive but unreachable (paused / unsupported / queue full); hold it locally. */
-    QUEUE,
-}
-
-/**
- * Maps a rejection [code] to the client's degradation.
- *
- * `NO_ACTIVE_RUN` is the only code that means the turn is over — everything else (including an
- * unrecognized code, a route that 404s with no body on a pre-0.8.8 server, or a transport
- * failure) leaves the local run believed live, so the safe move is to hold the text in the
- * follow-up queue where the run's own end will drain it.
- */
-fun steerFallbackFor(code: String?): SteerFallback = when (code) {
-    SteerRejectionCodes.NO_ACTIVE_RUN -> SteerFallback.SEND_NOW
-    else -> SteerFallback.QUEUE
 }
 
 private val rejectionJson = Json { ignoreUnknownKeys = true }

@@ -34,7 +34,6 @@ class SteeringDelegateTest {
 
     private val chatRepository = mockk<ChatRepository>()
     private val enqueued = mutableListOf<QueuedMessage>()
-    private val sentNow = mutableListOf<QueuedMessage>()
 
     private fun spec(text: String) = QueuedMessage(
         localId = "spec-$text",
@@ -58,7 +57,6 @@ class SteeringDelegateTest {
             chatRepository = chatRepository,
             buildFollowUp = { text -> spec(text) },
             enqueueFollowUp = { enqueued += it },
-            sendAsNewTurn = { sentNow += it },
             isStreaming = { isStreaming },
         )
         return delegate to flow
@@ -94,7 +92,6 @@ class SteeringDelegateTest {
 
         assertThat(flow.value.pendingSteers).isEmpty()
         assertThat(enqueued.map { it.text }).containsExactly("be brief")
-        assertThat(sentNow).isEmpty()
     }
 
     @Test
@@ -111,16 +108,18 @@ class SteeringDelegateTest {
     }
 
     @Test
-    fun `NO_ACTIVE_RUN sends as a new turn once the client agrees the run stopped`() =
+    fun `NO_ACTIVE_RUN queues the text once the client agrees the run stopped`() =
         runTest(UnconfinedTestDispatcher()) {
+            // Queued rather than sent directly: the queue drains itself the moment the run is
+            // over, and unlike the live-send gate it cannot REFUSE the message (no model
+            // selected, readiness timeout) and leave the user with nothing.
             coEvery { chatRepository.steerChat(any()) } returns
                 rejection(SteerRejectionCodes.NO_ACTIVE_RUN)
             val (delegate, _) = delegateWith(this, isStreaming = false)
 
             delegate.steer("conv-1", spec("be brief"))
 
-            assertThat(sentNow.map { it.text }).containsExactly("be brief")
-            assertThat(enqueued).isEmpty()
+            assertThat(enqueued.map { it.text }).containsExactly("be brief")
         }
 
     @Test
@@ -135,7 +134,6 @@ class SteeringDelegateTest {
             delegate.steer("conv-1", spec("be brief"))
 
             assertThat(enqueued.map { it.text }).containsExactly("be brief")
-            assertThat(sentNow).isEmpty()
         }
 
     @Test
@@ -169,7 +167,6 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
-                sendAsNewTurn = { sentNow += it },
                 isStreaming = { streaming },
             )
 
@@ -203,8 +200,7 @@ class SteeringDelegateTest {
             runCurrent()
 
             assertThat(flow.value.pendingSteers).isEmpty()
-            assertThat(sentNow.map { it.text }).containsExactly("be brief")
-            assertThat(enqueued).isEmpty()
+            assertThat(enqueued.map { it.text }).containsExactly("be brief")
         }
 
     @Test
@@ -225,7 +221,6 @@ class SteeringDelegateTest {
             runCurrent()
 
             assertThat(enqueued).isEmpty()
-            assertThat(sentNow).isEmpty()
             coVerify { chatRepository.cancelSteer(SteerCancelRequest("conv-1", "st-1")) }
         }
 
@@ -360,4 +355,207 @@ class SteeringDelegateTest {
 
         coVerify { chatRepository.steerChat(SteerRequest("conv-1", "be brief")) }
     }
+
+    // ── Session-boundary regressions ──────────────────────────────────────
+    // clear() runs on EVERY stream session boundary, including the one a mid-run reconnect
+    // opens (resumeStream → startStreamSession). These cover what it must not throw away.
+
+    /**
+     * A reconnect must not cost the steer the config it was composed with. clear() clears the
+     * rendered chips; the record behind each one — and its spec — has to survive, so the sync
+     * frame's re-seed rejoins it rather than producing a spec-less chip that later gets rebuilt
+     * from whatever the composer holds by then.
+     */
+    @Test
+    fun `a steer re-seeded after a reconnect keeps the spec it was composed with`() =
+        runTest(UnconfinedTestDispatcher()) {
+            coEvery { chatRepository.steerChat(any()) } returns
+                Result.Success(SteerResponse(steerId = "st-1"))
+            val flow = MutableStateFlow(
+                ChatUiState(conversation = ConversationMetaState(conversationId = "conv-1")),
+            )
+            val delegate = SteeringDelegate(
+                handle = SteeringHandle(ChatStateHandle(flow, this)),
+                chatRepository = chatRepository,
+                // A rebuilt spec is distinguishable from the one minted at send time.
+                buildFollowUp = { text -> spec(text).copy(model = "model-at-failure-time") },
+                enqueueFollowUp = { enqueued += it },
+                isStreaming = { true },
+            )
+
+            delegate.steer("conv-1", spec("be brief").copy(model = "model-at-send-time"))
+            // The app is backgrounded and foregrounded: resumeStream opens a new session…
+            delegate.clear()
+            assertThat(flow.value.pendingSteers).isEmpty()
+            // …and the sync frame replays the server's still-queued steers.
+            delegate.onPendingSteersSynced(
+                listOf(PendingSteer(steerId = "st-1", text = "be brief", createdAt = 1L)),
+            )
+            assertThat(flow.value.pendingSteers).hasSize(1)
+            // The run then dies without injecting it.
+            delegate.reclaimLocalChips()
+
+            assertThat(enqueued.single().model).isEqualTo("model-at-send-time")
+        }
+
+    /**
+     * A cancel is optimistic and the server's next sync can still list the steer. Re-seeding it
+     * would let the run's end re-home text the user explicitly withdrew.
+     */
+    @Test
+    fun `a cancelled steer is not resurrected by a stale sync frame`() =
+        runTest(UnconfinedTestDispatcher()) {
+            coEvery { chatRepository.steerChat(any()) } returns
+                Result.Success(SteerResponse(steerId = "st-1"))
+            coEvery { chatRepository.cancelSteer(any()) } returns
+                Result.Success(SteerCancelResponse(removed = true))
+            val (delegate, flow) = delegateWith(this)
+
+            delegate.steer("conv-1", spec("be brief"))
+            delegate.cancel("st-1")
+            assertThat(flow.value.pendingSteers).isEmpty()
+
+            // The server had not processed the cancel when it built this frame.
+            delegate.onPendingSteersSynced(
+                listOf(PendingSteer(steerId = "st-1", text = "be brief", createdAt = 1L)),
+            )
+            assertThat(flow.value.pendingSteers).isEmpty()
+
+            // A stream error ends the run with no server report.
+            delegate.reclaimLocalChips()
+            delegate.clear()
+
+            assertThat(enqueued).isEmpty()
+        }
+
+    /**
+     * `on_steer_applied` regularly beats the steer's own 202. If the run then ends before the ack
+     * lands, the record that says "already injected" is the only thing stopping the late ack from
+     * re-homing text that is already in the reply.
+     */
+    @Test
+    fun `a late ack for an already-applied steer does not re-send it`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val ack = CompletableDeferred<Result<SteerResponse>>()
+            coEvery { chatRepository.steerChat(any()) } coAnswers { ack.await() }
+            var streaming = true
+            val flow = MutableStateFlow(
+                ChatUiState(conversation = ConversationMetaState(conversationId = "conv-1")),
+            )
+            val delegate = SteeringDelegate(
+                handle = SteeringHandle(ChatStateHandle(flow, this)),
+                chatRepository = chatRepository,
+                buildFollowUp = { spec(it) },
+                enqueueFollowUp = { enqueued += it },
+                isStreaming = { streaming },
+            )
+
+            delegate.steer("conv-1", spec("be brief"))
+            // The SSE event wins the race, naming an id this client has not learned yet.
+            delegate.onSteerApplied("st-1")
+            // The run finishes and the session is torn down…
+            streaming = false
+            delegate.clear()
+            // …and only now does the 202 arrive.
+            ack.complete(Result.Success(SteerResponse(steerId = "st-1")))
+            runCurrent()
+
+            assertThat(enqueued).isEmpty()
+            assertThat(flow.value.pendingSteers).isEmpty()
+        }
+
+    /**
+     * Cancelling an in-flight steer must record the withdrawal even when there is no conversation
+     * id to post the cancel against — otherwise the ack treats it as a live steer and re-mints
+     * the chip the user just dismissed.
+     */
+    @Test
+    fun `cancelling with no conversation id still suppresses the ack`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val ack = CompletableDeferred<Result<SteerResponse>>()
+            coEvery { chatRepository.steerChat(any()) } coAnswers { ack.await() }
+            coEvery { chatRepository.cancelSteer(any()) } returns
+                Result.Success(SteerCancelResponse(removed = true))
+            // The conversation was switched out from under the in-flight steer.
+            val flow = MutableStateFlow(ChatUiState())
+            val delegate = SteeringDelegate(
+                handle = SteeringHandle(ChatStateHandle(flow, this)),
+                chatRepository = chatRepository,
+                buildFollowUp = { spec(it) },
+                enqueueFollowUp = { enqueued += it },
+                isStreaming = { true },
+            )
+
+            delegate.steer("conv-1", spec("be brief"))
+            delegate.cancel(flow.value.pendingSteers.single().steerId)
+            ack.complete(Result.Success(SteerResponse(steerId = "st-1")))
+            runCurrent()
+
+            assertThat(flow.value.pendingSteers).isEmpty()
+            assertThat(enqueued).isEmpty()
+        }
+
+    /**
+     * Two steers whose acks settle out of order, with a session boundary between them: neither
+     * may be lost, and neither may be re-homed twice.
+     */
+    @Test
+    fun `interleaved acks across a session boundary lose nothing and duplicate nothing`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val first = CompletableDeferred<Result<SteerResponse>>()
+            val second = CompletableDeferred<Result<SteerResponse>>()
+            coEvery { chatRepository.steerChat(SteerRequest("conv-1", "one")) } coAnswers { first.await() }
+            coEvery { chatRepository.steerChat(SteerRequest("conv-1", "two")) } coAnswers { second.await() }
+            var streaming = true
+            val flow = MutableStateFlow(
+                ChatUiState(conversation = ConversationMetaState(conversationId = "conv-1")),
+            )
+            val delegate = SteeringDelegate(
+                handle = SteeringHandle(ChatStateHandle(flow, this)),
+                chatRepository = chatRepository,
+                buildFollowUp = { spec(it) },
+                enqueueFollowUp = { enqueued += it },
+                isStreaming = { streaming },
+            )
+
+            delegate.steer("conv-1", spec("one"))
+            delegate.steer("conv-1", spec("two"))
+            // The second ack lands first, then the run ends, then the first ack arrives.
+            second.complete(Result.Success(SteerResponse(steerId = "st-2")))
+            runCurrent()
+            streaming = false
+            delegate.reclaimLocalChips()
+            delegate.clear()
+            first.complete(Result.Success(SteerResponse(steerId = "st-1")))
+            runCurrent()
+
+            assertThat(enqueued.map { it.text }).containsExactly("one", "two")
+            assertThat(flow.value.pendingSteers).isEmpty()
+        }
+
+    /**
+     * Settled steers are retained to suppress late acks and repeat reports, so the retention has
+     * to be bounded — but bounding it must never evict a steer that is still owed an ack.
+     */
+    @Test
+    fun `tombstone retention never evicts a steer whose POST is still in flight`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val ack = CompletableDeferred<Result<SteerResponse>>()
+            coEvery { chatRepository.steerChat(any()) } coAnswers { ack.await() }
+            val (delegate, flow) = delegateWith(this)
+
+            delegate.steer("conv-1", spec("be brief"))
+            // Far more settled steers than the retention bound.
+            repeat(80) { delegate.onSteerApplied("applied-$it") }
+
+            assertThat(flow.value.pendingSteers).hasSize(1)
+            ack.complete(Result.Success(SteerResponse(steerId = "st-1")))
+            runCurrent()
+
+            // The in-flight record survived, so its ack settled onto the server id rather than
+            // being treated as an unknown steer.
+            assertThat(flow.value.pendingSteers.single().steerId).isEqualTo("st-1")
+            assertThat(flow.value.pendingSteers.single().status).isEqualTo(SteerChipStatus.PENDING)
+            assertThat(enqueued).isEmpty()
+        }
 }

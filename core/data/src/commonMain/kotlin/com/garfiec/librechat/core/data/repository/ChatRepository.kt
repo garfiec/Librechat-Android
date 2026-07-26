@@ -78,8 +78,8 @@ interface ChatRepository {
      * injection itself arrives as `on_steer_applied` on the open SSE stream.
      *
      * A rejection is expected traffic, not an exception path — the run may have just ended,
-     * paused, or filled its queue. Callers read the code off the failure and degrade with
-     * [com.garfiec.librechat.core.model.steer.steerFallbackFor]; none of the outcomes may drop
+     * paused, or filled its queue. Every rejection degrades the same way: the text goes to the
+     * follow-up queue, whose drain fires it as soon as the run is over. No outcome may drop
      * the user's text.
      */
     suspend fun steerChat(request: SteerRequest): Result<SteerResponse>

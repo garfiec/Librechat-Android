@@ -158,17 +158,41 @@ composer never makes that call itself: its send button routes to `ChatViewModel.
 picker beside it (`DuringRunSendMenu`, rendered only when both routes are open) calls `steerMessage()` /
 `queueMessage()` explicitly.
 
-**Invariant: no steer path may lose the user's text.** Every rejection code, transport failure, and lost
-race re-homes the message — into the queue while a run still looks live, or as a new turn when the server
-proves it is over. A steer therefore carries the `QueuedMessage` spec it *would* have become, minted at send
-time: rebuilding one at failure time would capture whatever model, tools, and attachments the composer holds
-seconds later. Three server reports hand back un-injected steers **claim-on-read** (the `final` frame, the
-abort ack, `/chat/status`'s `unrecoveredSteers`) — parsing one and ignoring it destroys the words. The
-same steer rides more than one of them (a Stop gets the ack AND the aborted final, over a stream the Stop
-deliberately leaves open), so re-homing is deduped by steer id or the words are queued two or three times. A stream
-that dies on an error carries no report, so `reclaimLocalChips()` converts the locally-held chips instead;
-it deliberately does NOT run on `Finalized`, where the frame's own list is authoritative and converting again
-would double-send any steer whose applied event was missed.
+**Invariant: no steer path may lose the user's text, duplicate it, or send text the user withdrew.**
+Every rejection code, transport failure, and lost race re-homes the message into the follow-up queue —
+*always* the queue, never the live-send path, because `runWhenSendReady` is allowed to REFUSE (no model
+selected, readiness timeout) and a degraded steer has no composer left to put the text back into.
+`enqueueSpec` self-drains once the run is over, so an ended run still sends immediately. This is why the
+rejection codes are diagnostic only; there is no `SteerFallback` branch.
+
+A steer carries the `QueuedMessage` spec it *would* have become, minted at send time: rebuilding one at
+failure time would capture whatever model, tools, and attachments the composer holds seconds later.
+
+Three server reports hand back un-injected steers **claim-on-read** (the `final` frame, the abort ack,
+`/chat/status`'s `unrecoveredSteers`) — parsing one and ignoring it destroys the words. That obligation is
+**structural, not conventional**: `ChatRepository.checkStreamStatus` / `abortChat` take a required
+`claimSteers` lambda and invoke it before returning, emptying the field on the value they return, so no
+guard or early `return` at a call site can come between the read and the claim. The final frame's copy is
+claimed at the event-dispatch site, outside `handleFinal`, whose early returns would otherwise skip it.
+The same steer rides more than one report (a Stop gets the ack AND the aborted final), so re-homing is
+deduped by steer id. A stream that dies on an error carries no report, so `reclaimLocalChips()` converts
+the locally-held records instead; it deliberately does NOT run on `Finalized`, where the frame's own list
+is authoritative and converting again would double-send any steer whose applied event was missed.
+
+**`SteeringDelegate` keeps ONE record per steer** (`records: Map<id, SteerRecord>`, status
+`SENDING | PENDING | CANCELLED | APPLIED | RECLAIMED`); `SteerState.pendingSteers` is a derived view of the
+live ones. `clear()` is a **display** boundary, not a memory one — it clears the chips and KEEPS the
+records:
+- a mid-run reconnect runs `clear()` (`resumeStream` → `startStreamSession`) and the sync frame re-seeds
+  the same steers by server id; dropping the records would strand their specs and the re-homed message
+  would be rebuilt from the composer's current selection — the exact failure the specs exist to prevent;
+- an `APPLIED` record is what stops a late 202 from re-homing text already in the reply;
+- a `CANCELLED` record is what stops a stale sync frame from resurrecting a withdrawn steer;
+- a `SENDING` record's POST outlives the boundary and needs its spec to degrade.
+
+Settled records are tombstones, bounded at 32; live ones are never evicted. The map is confined to the
+handle's Main-dispatched scope — do not add a `withContext` inside the delegate, and never mutate the map
+inside a `handle.update { }` block (that is a `MutableStateFlow.update` CAS loop and may re-run).
 
 Steering is text-only on mobile: a during-run send carrying attachments is routed to the queue, where the
 existing upload/usage path already handles them.

@@ -7,9 +7,7 @@ import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.request.SteerCancelRequest
 import com.garfiec.librechat.core.model.request.SteerRequest
-import com.garfiec.librechat.core.model.steer.SteerFallback
 import com.garfiec.librechat.core.model.steer.parseSteerRejectionCode
-import com.garfiec.librechat.core.model.steer.steerFallbackFor
 import com.garfiec.librechat.feature.chat.viewmodel.PendingSteerChip
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.viewmodel.SteerChipStatus
@@ -28,12 +26,12 @@ import kotlin.uuid.Uuid
  * touches the stream — an accepted steer changes what the run writes, and the injection comes
  * back as an ordinary `on_steer_applied` event on the SSE connection already open.
  *
- * **Nothing here may lose the user's text.** Steering is best-effort by construction: the run
- * can end, pause, or fill its queue between the user hitting send and the request landing. So
- * every failure path re-homes the words — into the follow-up queue if a run still looks live, or
- * as an ordinary new turn if it is over. That is also why there is no failed-chip state: a
- * queued message the user can already edit, reorder, and cancel is a better home for text than a
- * dead chip they would have to nurse back to life.
+ * **Nothing here may lose the user's text, duplicate it, or send text they withdrew.** Steering
+ * is best-effort by construction: the run can end, pause, or fill its queue between the user
+ * hitting send and the request landing. So every failure path re-homes the words into the
+ * follow-up queue, whose drain fires them when the run ends. That is also why there is no failed
+ * chip state: a queued message the user can already edit, reorder and cancel is a better home for
+ * text than a dead chip they would have to nurse back to life.
  *
  * Each steer carries the send spec it would have become, minted from the composer at send time.
  * Rebuilding one at failure time would read whatever model, tools, and attachments the composer
@@ -50,60 +48,58 @@ class SteeringDelegate(
     private val buildFollowUp: (String) -> QueuedMessage?,
     /** Holds a message as a follow-up for after the run; the queue's own drain fires it. */
     private val enqueueFollowUp: (QueuedMessage) -> Unit,
-    /**
-     * Sends a message as an ordinary new turn. Used only when the server says the run is over
-     * AND the client agrees, where queueing would leave the item with no run-end left to drain
-     * it.
-     */
-    private val sendAsNewTurn: (QueuedMessage) -> Unit,
-    /** True while the client still believes a run is in flight (decides which fallback applies). */
+    /** True while the client still believes a run is in flight. */
     private val isStreaming: () -> Boolean,
 ) {
 
     /**
-     * The send spec each in-flight or queued steer would fall back to, keyed by the id the chip
-     * currently carries (local placeholder, then the server's).
+     * Every steer this ViewModel has seen, keyed by the id it currently carries (a local
+     * placeholder until the 202 mints the server's, then the server's).
      *
-     * Kept out of [SteerState] because nothing renders it and it must not participate in state
-     * equality — it exists only to survive from send time to whenever the steer fails.
+     * One record per steer rather than a set of parallel collections: a steer's lifecycle is a
+     * single state machine, and splitting it across "has a spec", "was cancelled", "was
+     * applied", "was reclaimed", "is still in flight" made every transition four coordinated
+     * writes with a window between them. Settled steers stay here as tombstones — see [clear].
+     *
+     * **Confined to the handle's Main-dispatched scope** (`viewModelScope`), which is what makes
+     * a plain map safe: every mutation below runs on one thread, and the only suspension points
+     * are the network calls, which resume back on it. Introducing a `withContext` inside this
+     * delegate would break that. A `Mutex` is deliberately NOT the answer — [onSteerApplied],
+     * [onPendingSteersSynced] and [clear] are called from non-suspend event dispatch, so locking
+     * would force them into `launch` and introduce reordering races worse than the one it guards.
+     *
+     * Never mutate this inside a `handle.update { }` block: that delegates to
+     * `MutableStateFlow.update`, a CAS loop that may re-run its transform on contention, which
+     * would apply the mutation twice. Mutate here, then publish the derived chips.
      */
-    private val fallbackSpecs = mutableMapOf<String, QueuedMessage>()
+    private val records = LinkedHashMap<String, SteerRecord>()
 
-    /**
-     * Placeholder ids the user cancelled while their POST was still in flight.
-     *
-     * A `SENDING` chip has no server handle yet, so its cancel cannot be posted when it is
-     * asked for — it has to wait for the ack that mints the id. Without this record the ack
-     * would re-add the chip the user just dismissed and the steer would be injected anyway.
-     */
-    private val cancelledWhileSending = mutableSetOf<String>()
+    private data class SteerRecord(
+        val text: String,
+        val createdAt: Long,
+        val status: Status,
+        /** The send spec this steer falls back to. Null for steers only the server reported. */
+        val spec: QueuedMessage?,
+    ) {
+        enum class Status {
+            /** The POST is in flight; the key is a client-minted placeholder. */
+            SENDING,
 
-    /**
-     * Steer ids already re-homed by [reclaim] or [reclaimLocalChips].
-     *
-     * The three handover reports are not mutually exclusive: the server builds ONE list of
-     * un-injected steers per abort and puts it on both the abort ack and the aborted `final`
-     * frame, and parks the same steers for `/chat/status` — and a Stop deliberately leaves the
-     * stream collector running, so both arrive. Re-homing is not naturally idempotent (the
-     * second pass finds no spec and rebuilds one from the chip text), so without this record the
-     * user's steer is queued two or three times.
-     *
-     * Bounded like the applied-id record, and deliberately NOT wiped by [clear]: the later
-     * reports land after the run — and therefore after the session boundary — which is exactly
-     * the window it has to cover.
-     */
-    private val reclaimedSteerIds = LinkedHashSet<String>()
+            /** The server accepted it (202); awaiting injection. */
+            PENDING,
 
-    /**
-     * Local ids whose POST has not answered yet.
-     *
-     * [clear] runs on every session boundary, but a steer's POST resumes on a scope that outlives
-     * the stream — so an ack landing after the run ended finds whatever [clear] left behind. If it
-     * finds no spec it re-homes nothing and the user's words are gone, and if it finds no cancel
-     * record it never withdraws the steer the user already dismissed. These ids are therefore
-     * exempt from the wipe until their own coroutine settles.
-     */
-    private val outstandingSends = mutableSetOf<String>()
+            /** The user withdrew it. Must never be rendered, re-seeded or re-homed. */
+            CANCELLED,
+
+            /** Tombstone: the run injected it, so its text is already in the reply. */
+            APPLIED,
+
+            /** Tombstone: already re-homed into the follow-up queue. */
+            RECLAIMED,
+        }
+
+        val isLive: Boolean get() = status == Status.SENDING || status == Status.PENDING
+    }
 
     /**
      * Steers [fallback]'s text into the run on [conversationId].
@@ -121,38 +117,31 @@ class SteeringDelegate(
         // sent them, not by how long each round-trip took, or a steer sent first can end up
         // displayed behind one sent after it.
         val createdAt = Clock.System.now().toEpochMilliseconds()
-        fallbackSpecs[localId] = fallback
-        outstandingSends += localId
-        upsertChip(PendingSteerChip(localId, trimmed, SteerChipStatus.SENDING, createdAt))
+        records[localId] = SteerRecord(trimmed, createdAt, SteerRecord.Status.SENDING, fallback)
+        publishChips()
 
         handle.scope.launch {
-            val result = try {
-                chatRepository.steerChat(SteerRequest(conversationId, trimmed))
-            } finally {
-                // Settled: this id no longer needs protection from clear(). Dropped before the
-                // branches below rather than after, because they are the ones that consume the
-                // spec, and nothing can call clear() between here and them (no suspension left).
-                outstandingSends -= localId
-            }
+            val result = chatRepository.steerChat(SteerRequest(conversationId, trimmed))
+            val record = records[localId] ?: return@launch
             when (result) {
                 is Result.Success ->
-                    acknowledge(conversationId, localId, result.data.steerId, trimmed, createdAt)
+                    acknowledge(conversationId, localId, record, result.data.steerId)
 
                 is Result.Error -> {
                     Logger.d(result.exception) { "Steer rejected: ${result.message}" }
-                    val spec = fallbackSpecs.remove(localId)
-                    dropChip(localId)
                     // A steer the user cancelled mid-flight must not come back as a queued
                     // follow-up: they withdrew the words, not just the delivery route.
-                    if (cancelledWhileSending.remove(localId)) return@launch
-                    if (spec != null) degrade(spec, rejectionCode(result))
+                    if (record.status == SteerRecord.Status.CANCELLED) {
+                        publishChips()
+                        return@launch
+                    }
+                    settle(localId, SteerRecord.Status.RECLAIMED)
+                    val code = parseSteerRejectionCode((result.exception as? ApiException)?.body)
+                    Logger.d { "Steer degraded to the follow-up queue (code=$code)" }
+                    record.spec?.let(enqueueFollowUp)
                 }
 
-                is Result.Loading -> {
-                    fallbackSpecs.remove(localId)
-                    cancelledWhileSending.remove(localId)
-                    dropChip(localId)
-                }
+                is Result.Loading -> settle(localId, SteerRecord.Status.RECLAIMED)
             }
         }
     }
@@ -169,89 +158,59 @@ class SteeringDelegate(
     private fun acknowledge(
         conversationId: String,
         localId: String,
+        record: SteerRecord,
         serverId: String?,
-        text: String,
-        createdAt: Long,
     ) {
-        val spec = fallbackSpecs.remove(localId)
-        val wasCancelled = cancelledWhileSending.remove(localId)
+        val wasCancelled = record.status == SteerRecord.Status.CANCELLED
         // A 202 with no id is unusable: it can be neither cancelled nor matched to an applied
         // event, so treat it as un-steered rather than showing a chip that can never resolve.
         if (serverId.isNullOrBlank()) {
-            dropChip(localId)
-            if (!wasCancelled && spec != null) enqueueFollowUp(spec)
+            settle(localId, if (wasCancelled) SteerRecord.Status.CANCELLED else SteerRecord.Status.RECLAIMED)
+            if (!wasCancelled) record.spec?.let(enqueueFollowUp)
             return
         }
+
+        // Re-key onto the server id, keeping createdAt (display order follows what the user did)
+        // and the spec (the config the steer was composed with).
+        records.remove(localId)
+        val existing = records[serverId]
         if (wasCancelled) {
-            dropChip(localId)
+            records[serverId] = record.copy(status = SteerRecord.Status.CANCELLED)
+            publishChips()
             postCancel(conversationId, serverId)
             return
         }
-        if (serverId in handle.state.steer.appliedSteerIds) {
-            dropChip(localId)
+        // The applied event can beat this ack, naming an id the client had not learned yet.
+        // Without the tombstone the ack would mint a chip for a steer already in the reply.
+        if (existing != null && !existing.isLive) {
+            records[serverId] = existing
+            publishChips()
             return
         }
         if (!isStreaming()) {
-            dropChip(localId)
-            if (spec != null) enqueueFollowUp(spec)
+            records[serverId] = record.copy(status = SteerRecord.Status.RECLAIMED)
+            publishChips()
+            record.spec?.let(enqueueFollowUp)
             return
         }
-        if (spec != null) fallbackSpecs[serverId] = spec
-        handle.update {
-            val remaining = steer.pendingSteers.filterNot { it.steerId == localId }
-            // Upsert rather than append: a sync frame may already have re-seeded this steer
-            // under its server id while the ack was in flight.
-            steer = if (remaining.any { it.steerId == serverId }) {
-                steer.copy(pendingSteers = remaining)
-            } else {
-                steer.copy(
-                    pendingSteers = remaining + PendingSteerChip(
-                        steerId = serverId,
-                        text = text,
-                        status = SteerChipStatus.PENDING,
-                        createdAt = createdAt,
-                    ),
-                )
-            }
-        }
+        records[serverId] = record.copy(status = SteerRecord.Status.PENDING)
+        publishChips()
     }
-
-    /**
-     * Routes a message the run refused to take.
-     *
-     * [SteerFallback.SEND_NOW] applies only when the server reported the run gone AND the client
-     * agrees it has stopped. While the client still believes a run is live — the common case,
-     * because the final frame is usually still settling — the message goes to the queue, whose
-     * drain fires it the moment the run ends. Sending directly there would hit the send path's
-     * own in-flight guard and be dropped.
-     */
-    private fun degrade(spec: QueuedMessage, code: String?) {
-        when (steerFallbackFor(code)) {
-            SteerFallback.SEND_NOW -> if (isStreaming()) enqueueFollowUp(spec) else sendAsNewTurn(spec)
-            SteerFallback.QUEUE -> enqueueFollowUp(spec)
-        }
-    }
-
-    private fun rejectionCode(result: Result.Error): String? =
-        parseSteerRejectionCode((result.exception as? ApiException)?.body)
 
     /**
      * A steer reached the run and is now part of the reply (`on_steer_applied`).
      *
-     * The id is recorded even when no chip matches: the event can arrive before this client's
-     * own 202, and the record is what stops that ack from re-minting a chip for a steer already
-     * in the content.
+     * The id is recorded even when no record matches: the event can arrive before this client's
+     * own 202, and the tombstone is what stops that ack from re-minting a chip for a steer
+     * already in the content.
      */
     fun onSteerApplied(steerId: String) {
         if (steerId.isBlank()) return
-        fallbackSpecs.remove(steerId)
-        handle.update {
-            steer = steer.copy(
-                pendingSteers = steer.pendingSteers.filterNot { it.steerId == steerId },
-                appliedSteerIds = (steer.appliedSteerIds + steerId)
-                    .takeLast(SteerState.MAX_APPLIED_IDS),
-            )
-        }
+        val existing = records[steerId]
+        records[steerId] = existing?.copy(status = SteerRecord.Status.APPLIED)
+            ?: SteerRecord("", 0L, SteerRecord.Status.APPLIED, spec = null)
+        evictSettled()
+        publishChips()
     }
 
     /**
@@ -259,15 +218,25 @@ class SteeringDelegate(
      * `resumeState.pendingSteers`.
      *
      * The server's list is authoritative — it knows what was injected while this client was away
-     * — so an empty one correctly clears stale chips. In-flight local chips are kept: their own
+     * — so an empty one correctly clears stale chips. In-flight local records are kept: their own
      * POST has not answered yet, and by definition their ids are not in the server's list.
+     *
+     * A steer the user cancelled is NOT re-seeded even when the server still lists it: the cancel
+     * may simply not have been processed yet, and resurrecting the chip here would let the run's
+     * end re-home text the user withdrew.
      */
     fun onPendingSteersSynced(steers: List<PendingSteer>) {
-        val synced = steers.mapNotNull { it.toChip() }
-        handle.update {
-            val inFlight = steer.pendingSteers.filter { it.status == SteerChipStatus.SENDING }
-            steer = steer.copy(pendingSteers = (synced + inFlight).sortedBy { it.createdAt })
+        val reported = steers.mapNotNull { it.toRecordEntry() }
+        val reportedIds = reported.map { it.first }.toSet()
+        // Drop PENDING records the server no longer lists — they were injected or dropped while
+        // this client was away. SENDING records have no server id yet, so they cannot be listed.
+        records.entries.removeAll { (id, record) ->
+            record.status == SteerRecord.Status.PENDING && id !in reportedIds
         }
+        // A steer this client already knows keeps its own record — including the spec it was
+        // composed with, which a server report cannot carry. Only genuinely new ones are added.
+        reported.forEach { (id, incoming) -> records.getOrPut(id) { incoming } }
+        publishChips()
     }
 
     /**
@@ -282,69 +251,58 @@ class SteeringDelegate(
      * here (another device, a reconnect) get a fresh snapshot of the current config.
      *
      * All three reports can carry the SAME steer — a stopped run reports its list on the ack and
-     * again on the aborted final — so ids already re-homed are dropped here ([reclaimedSteerIds])
-     * rather than queued a second time. The chips still clear on every report: a repeat is proof
-     * the steer is gone from the run either way.
+     * again on the aborted final — so ids already settled are skipped rather than queued a second
+     * time. A steer the user cancelled is skipped for the same reason it is not re-seeded.
      */
     fun reclaim(steers: List<PendingSteer>) {
         if (steers.isEmpty()) return
-        val reported = steers.mapNotNull { it.toChip() }
+        val reported = steers.mapNotNull { it.toRecordEntry() }
         if (reported.isEmpty()) return
-        handle.update {
-            val ids = reported.map { it.steerId }.toSet()
-            steer = steer.copy(pendingSteers = steer.pendingSteers.filterNot { it.steerId in ids })
-        }
-        reported.filter { markReclaimed(it.steerId) }
-            .sortedBy { it.createdAt }
-            .forEach { chip -> requeue(chip) }
+        reported.sortedBy { it.second.createdAt }
+            .forEach { (id, incoming) -> rehome(id, records[id] ?: incoming) }
+        evictSettled()
+        publishChips()
     }
 
     /**
-     * Converts chips the run left behind into queued follow-ups when no server report arrives to
-     * reclaim them — a stream that dies on an error carries no `pendingSteers`, but the text of
-     * every accepted chip is still held here.
+     * Converts records the run left behind into queued follow-ups when no server report arrives
+     * to reclaim them — a stream that dies on an error carries no `pendingSteers`, but the text
+     * of every accepted steer is still held here.
      *
-     * Only [SteerChipStatus.PENDING] chips convert: a `SENDING` chip's POST has not answered yet
-     * and will re-home its own text through the degrade path, so taking it here as well would
-     * send the same message twice. Converted ids are recorded like a server report's, so a
-     * `/chat/status` claim for the same steer afterwards does not queue it again.
+     * Only PENDING records convert: a SENDING record's POST has not answered yet and will
+     * re-home its own text through the rejection path, so taking it here as well would send the
+     * same message twice.
      */
     fun reclaimLocalChips() {
-        val settled = handle.state.steer.pendingSteers
-            .filter { it.status == SteerChipStatus.PENDING }
-            .sortedBy { it.createdAt }
-        if (settled.isEmpty()) return
-        handle.update {
-            steer = steer.copy(
-                pendingSteers = steer.pendingSteers.filter { it.status == SteerChipStatus.SENDING },
-            )
-        }
-        settled.filter { markReclaimed(it.steerId) }.forEach { chip -> requeue(chip) }
+        records.filterValues { it.status == SteerRecord.Status.PENDING }
+            .entries
+            .sortedBy { it.value.createdAt }
+            .forEach { (id, record) -> rehome(id, record) }
+        evictSettled()
+        publishChips()
     }
 
-    private fun requeue(chip: PendingSteerChip) {
-        val spec = fallbackSpecs.remove(chip.steerId) ?: buildFollowUp(chip.text) ?: return
+    /** Re-homes one steer's text into the follow-up queue, exactly once. */
+    private fun rehome(id: String, record: SteerRecord) {
+        // Already settled: injected, withdrawn, or re-homed by an earlier report.
+        if (records[id]?.isLive == false) return
+        records[id] = record.copy(status = SteerRecord.Status.RECLAIMED)
+        val spec = record.spec ?: buildFollowUp(record.text) ?: return
         enqueueFollowUp(spec)
-    }
-
-    /** Records [steerId] as re-homed; false when a previous report already claimed it. */
-    private fun markReclaimed(steerId: String): Boolean {
-        if (!reclaimedSteerIds.add(steerId)) return false
-        while (reclaimedSteerIds.size > SteerState.MAX_APPLIED_IDS) {
-            reclaimedSteerIds.remove(reclaimedSteerIds.first())
-        }
-        return true
     }
 
     /** Withdraws a queued steer. Optimistic — the row goes immediately, the POST just confirms. */
     fun cancel(steerId: String) {
-        val chip = handle.state.steer.pendingSteers.firstOrNull { it.steerId == steerId } ?: return
-        fallbackSpecs.remove(steerId)
-        dropChip(steerId)
+        val record = records[steerId]?.takeIf { it.isLive } ?: return
+        // Recorded BEFORE the conversation lookup below: on the no-conversation path the chip is
+        // already gone from view, and leaving the withdrawal unrecorded would let the steer's own
+        // ack resurrect it.
+        records[steerId] = record.copy(status = SteerRecord.Status.CANCELLED)
+        publishChips()
         val conversationId = handle.state.conversationId ?: return
-        // A `SENDING` chip has no server id to cancel yet — record the intent so its own ack
-        // cancels the real steer instead of resurrecting the chip.
-        if (chip.isCancellable) postCancel(conversationId, steerId) else cancelledWhileSending += steerId
+        // A SENDING record has no server id to cancel yet — its own ack posts the cancel once the
+        // id exists (see acknowledge).
+        if (record.status == SteerRecord.Status.PENDING) postCancel(conversationId, steerId)
     }
 
     private fun postCancel(conversationId: String, steerId: String) {
@@ -359,47 +317,79 @@ class SteeringDelegate(
     }
 
     /**
-     * Session boundary: drops every chip and the applied-id record.
+     * Session boundary: stops rendering the current run's chips.
      *
-     * Chips describe one run's queue, so carrying them into the next stream would show pending
-     * work against a run that never accepted it. Text still owed to the user has already been
-     * re-homed by [reclaim] / [reclaimLocalChips] on the ending frame; this only clears display
-     * state.
+     * This is a DISPLAY boundary, not a memory one. Chips describe one run's injection queue, so
+     * carrying them into the next stream would show pending work against a run that never
+     * accepted it — but the records behind them are kept, with their specs:
      *
-     * The exception is a steer whose POST is still in flight ([outstandingSends]): neither
-     * reclaim path takes a `SENDING` chip, so its own continuation is the only thing left that
-     * can re-home the text — and it needs the spec and cancel record to do it.
+     * - a mid-run reconnect goes through here ([resumeStream] starts a new session), and the sync
+     *   frame then re-seeds the same steers by server id. Dropping the records would strand their
+     *   specs, and the re-homed message would be rebuilt from whatever the composer holds by then
+     *   — the exact failure the specs exist to prevent;
+     * - a settled record is the only thing that stops a late ack, or a second server report, from
+     *   re-homing text that is already in the reply or already queued;
+     * - a SENDING record's POST outlives the boundary and needs its spec to degrade.
      */
     fun clear() {
-        fallbackSpecs.keys.retainAll(outstandingSends)
-        cancelledWhileSending.retainAll(outstandingSends)
-        if (handle.state.steer == SteerState()) return
+        evictSettled()
+        if (handle.state.steer.pendingSteers.isEmpty()) return
         handle.update { steer = SteerState() }
     }
 
-    private fun upsertChip(chip: PendingSteerChip) {
-        handle.update {
-            val others = steer.pendingSteers.filterNot { it.steerId == chip.steerId }
-            steer = steer.copy(pendingSteers = (others + chip).sortedBy { it.createdAt })
-        }
+    /** Marks a record settled without re-homing anything. */
+    private fun settle(id: String, status: SteerRecord.Status) {
+        records[id] = records[id]?.copy(status = status) ?: return
+        evictSettled()
+        publishChips()
     }
 
-    private fun dropChip(steerId: String) {
-        if (handle.state.steer.pendingSteers.none { it.steerId == steerId }) return
-        handle.update {
-            steer = steer.copy(pendingSteers = steer.pendingSteers.filterNot { it.steerId == steerId })
-        }
+    /**
+     * Bounds the tombstones. Live records are never evicted — a SENDING record's ack and a
+     * PENDING record's injection are both still owed — so only settled ones age out, oldest
+     * first, well past any plausible in-flight ack or duplicate-report window.
+     */
+    private fun evictSettled() {
+        val settled = records.entries.filter { !it.value.isLive }
+        if (settled.size <= MAX_SETTLED_RECORDS) return
+        settled.take(settled.size - MAX_SETTLED_RECORDS).forEach { records.remove(it.key) }
+    }
+
+    /** Publishes the live records as the rendered chip list. */
+    private fun publishChips() {
+        val chips = records.entries
+            .filter { it.value.isLive }
+            .map { (id, record) ->
+                PendingSteerChip(
+                    steerId = id,
+                    text = record.text,
+                    status = if (record.status == SteerRecord.Status.SENDING) {
+                        SteerChipStatus.SENDING
+                    } else {
+                        SteerChipStatus.PENDING
+                    },
+                    createdAt = record.createdAt,
+                )
+            }
+            .sortedBy { it.createdAt }
+        if (handle.state.steer.pendingSteers == chips) return
+        handle.update { steer = steer.copy(pendingSteers = chips) }
     }
 
     /** Server records with no id or no text can be neither cancelled nor replayed; drop them. */
-    private fun PendingSteer.toChip(): PendingSteerChip? {
+    private fun PendingSteer.toRecordEntry(): Pair<String, SteerRecord>? {
         val id = steerId?.takeIf { it.isNotBlank() } ?: return null
         val body = text?.takeIf { it.isNotBlank() } ?: return null
-        return PendingSteerChip(
-            steerId = id,
+        return id to SteerRecord(
             text = body,
-            status = SteerChipStatus.PENDING,
             createdAt = createdAt ?: Clock.System.now().toEpochMilliseconds(),
+            status = SteerRecord.Status.PENDING,
+            spec = null,
         )
+    }
+
+    private companion object {
+        /** Retention for settled records; well past any plausible in-flight ack window. */
+        const val MAX_SETTLED_RECORDS = 32
     }
 }

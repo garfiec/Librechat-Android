@@ -112,11 +112,10 @@ class ChatApi constructor(
      * Accepted is 202 *queued*, not applied: the run injects at its next tool-batch boundary and
      * announces it with `on_steer_applied` over the SSE stream the caller already holds.
      *
-     * Every rejection carries a `code` that decides how the caller degrades — see
-     * [com.garfiec.librechat.core.model.steer.steerFallbackFor]. The codes are what matters, not
-     * the statuses: 404 `NO_ACTIVE_RUN` means the turn is over, while 409/429/501 all mean the
-     * run is alive but unreachable. Both surface as an `ApiException` whose `body` carries the
-     * code, so nothing here interprets them.
+     * Every rejection carries a `code` (404 `NO_ACTIVE_RUN`, 409/429/501 for a run that is alive
+     * but unreachable). The caller re-homes the text into the follow-up queue regardless of which
+     * one it is, so the codes are diagnostic rather than a branch point. All surface as an
+     * `ApiException` whose `body` carries the code; nothing here interprets them.
      */
     suspend fun steerChat(request: SteerRequest): SteerResponse =
         client.post {

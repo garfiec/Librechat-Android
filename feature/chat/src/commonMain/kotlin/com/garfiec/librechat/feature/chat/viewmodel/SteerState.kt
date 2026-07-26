@@ -18,24 +18,16 @@ import androidx.compose.runtime.Immutable
  */
 @Immutable
 data class SteerState(
-    /** Steers awaiting injection, oldest first — the order the run will apply them in. */
-    val pendingSteers: List<PendingSteerChip> = emptyList(),
     /**
-     * Steer ids the run has already injected this session.
+     * Steers awaiting injection, oldest first — the order the run will apply them in.
      *
-     * Needed because `on_steer_applied` and the steer's own HTTP 202 race: the SSE event
-     * regularly wins, naming an id the client has not learned yet. Without this record the ack
-     * would then mint a chip for a steer that is already in the reply, and nothing would ever
-     * remove it. Bounded by [MAX_APPLIED_IDS] — only ids that could still have an ack in flight
-     * matter, and the set is cleared at each session boundary anyway.
+     * This is a rendered *view*, derived from the delegate's own record of every steer this
+     * ViewModel has seen. Settled steers (injected, cancelled, already re-homed) are tracked
+     * there, not here: nothing renders them, and keeping them out of state means they cannot
+     * participate in its equality.
      */
-    val appliedSteerIds: List<String> = emptyList(),
-) {
-    companion object {
-        /** Retention for [appliedSteerIds]; well past any plausible in-flight ack window. */
-        const val MAX_APPLIED_IDS = 32
-    }
-}
+    val pendingSteers: List<PendingSteerChip> = emptyList(),
+)
 
 /** Lifecycle of a steer between the user sending it and the run injecting it. */
 enum class SteerChipStatus {
