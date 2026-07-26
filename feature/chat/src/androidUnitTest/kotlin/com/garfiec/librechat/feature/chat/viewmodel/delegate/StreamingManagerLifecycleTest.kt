@@ -16,6 +16,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.ConversationMetaState
 import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
 import com.garfiec.librechat.feature.chat.viewmodel.StreamingHandle
 import com.google.common.truth.Truth.assertThat
+import io.mockk.MockKAnswerScope
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -52,6 +53,19 @@ class StreamingManagerLifecycleTest {
     private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
     private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
     private val steeringDelegate = mockk<SteeringDelegate>(relaxed = true)
+
+    /**
+     * Mirrors what `ChatRepositoryImpl.checkStreamStatus` does: hand the parked steers to the
+     * caller's claimer before returning, and empty the list on the returned copy. Stubbing the
+     * repository without this would model a server that never hands anything over, which is the
+     * one case these tests are not about.
+     */
+    private fun MockKAnswerScope<ChatStatusResponse, ChatStatusResponse>.claimingStatusAnswer(
+        status: ChatStatusResponse,
+    ): ChatStatusResponse {
+        arg<(List<PendingSteer>) -> Unit>(1)(status.unrecoveredSteers)
+        return status.copy(unrecoveredSteers = emptyList())
+    }
 
     private fun message(id: String, isUser: Boolean = false) = Message(
         messageId = id,
@@ -107,7 +121,7 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `stop then background still delivers the partial and resume touches nothing`() =
         runTest(StandardTestDispatcher()) {
-            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
+            coEvery { chatRepository.abortChat("conv-1", any(), any()) } returns Result.Success(ChatAbortResponse())
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, _) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -131,7 +145,7 @@ class StreamingManagerLifecycleTest {
             // no status check, no state write, no reload.
             delegate.onResume()
             advanceUntilIdle()
-            coVerify(exactly = 0) { chatRepository.checkStreamStatus(any()) }
+            coVerify(exactly = 0) { chatRepository.checkStreamStatus(any(), any()) }
             verify(exactly = 0) { reloadConversation(any()) }
             events.close()
             advanceUntilIdle()
@@ -160,7 +174,7 @@ class StreamingManagerLifecycleTest {
 
     @Test
     fun `resume with an active server stream reattaches`() = runTest(StandardTestDispatcher()) {
-        coEvery { chatRepository.checkStreamStatus("conv-1") } returns ChatStatusResponse(active = true)
+        coEvery { chatRepository.checkStreamStatus("conv-1", any()) } returns ChatStatusResponse(active = true)
         coEvery { chatRepository.resumeStream("conv-1") } returns emptyFlow()
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, flow) = delegateWith(this)
@@ -188,7 +202,7 @@ class StreamingManagerLifecycleTest {
      */
     @Test
     fun `resume with an expired stream wipes and reloads`() = runTest(StandardTestDispatcher()) {
-        coEvery { chatRepository.checkStreamStatus("conv-1") } returns ChatStatusResponse(active = false)
+        coEvery { chatRepository.checkStreamStatus("conv-1", any()) } returns ChatStatusResponse(active = false)
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, flow) = delegateWith(this)
         delegate.launchStream(events.receiveAsFlow())
@@ -217,9 +231,9 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `a stop during the resume reattach window preserves the partial`() =
         runTest(StandardTestDispatcher()) {
-            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
+            coEvery { chatRepository.abortChat("conv-1", any(), any()) } returns Result.Success(ChatAbortResponse())
             val statusGate = CompletableDeferred<ChatStatusResponse>()
-            coEvery { chatRepository.checkStreamStatus("conv-1") } coAnswers { statusGate.await() }
+            coEvery { chatRepository.checkStreamStatus("conv-1", any()) } coAnswers { statusGate.await() }
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, flow) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -257,7 +271,7 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `an overlapping resume does not wipe a newer session`() = runTest(StandardTestDispatcher()) {
         val statusGate = CompletableDeferred<ChatStatusResponse>()
-        coEvery { chatRepository.checkStreamStatus("conv-1") } coAnswers { statusGate.await() }
+        coEvery { chatRepository.checkStreamStatus("conv-1", any()) } coAnswers { statusGate.await() }
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, flow) = delegateWith(this)
         delegate.launchStream(events.receiveAsFlow())
@@ -298,7 +312,9 @@ class StreamingManagerLifecycleTest {
         runTest(StandardTestDispatcher()) {
             val parked = listOf(PendingSteer(steerId = "s1", text = "also check the logs"))
             val statusGate = CompletableDeferred<ChatStatusResponse>()
-            coEvery { chatRepository.checkStreamStatus("conv-1") } coAnswers { statusGate.await() }
+            coEvery { chatRepository.checkStreamStatus("conv-1", any()) } coAnswers {
+                claimingStatusAnswer(statusGate.await())
+            }
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, _) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -323,13 +339,38 @@ class StreamingManagerLifecycleTest {
             advanceUntilIdle()
         }
 
+    /**
+     * The `final` frame's own `pendingSteers` are claim-on-read too, and an `earlyAbort` frame
+     * takes one of `handleFinal`'s earliest exits (no conversation, no response message, the
+     * whole turn is un-sent). Claiming from inside that function would be skipped on exactly
+     * this path, so the claim lives at the dispatch site instead.
+     */
+    @Test
+    fun `an early-abort final still claims the steers riding the frame`() =
+        runTest(StandardTestDispatcher()) {
+            val parked = listOf(PendingSteer(steerId = "s3", text = "keep it short"))
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, _) = delegateWith(this)
+            delegate.launchStream(events.receiveAsFlow())
+            runCurrent()
+
+            events.send(AbortFrameFixtures.earlyAbortFrame().copy(pendingSteers = parked))
+            runCurrent()
+
+            verify { steeringDelegate.reclaim(parked) }
+            events.close()
+            advanceUntilIdle()
+        }
+
     /** Same claim-before-guard rule on the conversation-open sibling. */
     @Test
     fun `a stale resumeActiveStreamIfNeeded still claims its parked steers`() =
         runTest(StandardTestDispatcher()) {
             val parked = listOf(PendingSteer(steerId = "s2", text = "use metric units"))
             val statusGate = CompletableDeferred<ChatStatusResponse>()
-            coEvery { chatRepository.checkStreamStatus("conv-1") } coAnswers { statusGate.await() }
+            coEvery { chatRepository.checkStreamStatus("conv-1", any()) } coAnswers {
+                claimingStatusAnswer(statusGate.await())
+            }
             val (delegate, _) = delegateWith(this)
 
             delegate.resumeActiveStreamIfNeeded("conv-1")
@@ -359,7 +400,7 @@ class StreamingManagerLifecycleTest {
         runTest(StandardTestDispatcher()) {
             val staleAck = CompletableDeferred<Result<ChatAbortResponse>>()
             var abortCalls = 0
-            coEvery { chatRepository.abortChat("conv-1") } coAnswers {
+            coEvery { chatRepository.abortChat("conv-1", any(), any()) } coAnswers {
                 abortCalls++
                 if (abortCalls == 1) staleAck.await() else Result.Success(ChatAbortResponse())
             }
@@ -403,7 +444,7 @@ class StreamingManagerLifecycleTest {
     @Test
     fun `a transient resume-check failure preserves the partial instead of wiping`() =
         runTest(StandardTestDispatcher()) {
-            coEvery { chatRepository.checkStreamStatus("conv-1") } throws RuntimeException("network blip")
+            coEvery { chatRepository.checkStreamStatus("conv-1", any()) } throws RuntimeException("network blip")
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, flow) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -429,7 +470,7 @@ class StreamingManagerLifecycleTest {
     fun `resumeActiveStreamIfNeeded defers while a stop is pending`() =
         runTest(StandardTestDispatcher()) {
             val gate = CompletableDeferred<Result<ChatAbortResponse>>()
-            coEvery { chatRepository.abortChat("conv-1") } coAnswers { gate.await() }
+            coEvery { chatRepository.abortChat("conv-1", any(), any()) } coAnswers { gate.await() }
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, _) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -440,7 +481,7 @@ class StreamingManagerLifecycleTest {
             delegate.resumeActiveStreamIfNeeded("conv-1")
             runCurrent()
 
-            coVerify(exactly = 0) { chatRepository.checkStreamStatus(any()) }
+            coVerify(exactly = 0) { chatRepository.checkStreamStatus(any(), any()) }
             gate.complete(Result.Success(ChatAbortResponse()))
             events.close()
             advanceUntilIdle()

@@ -26,6 +26,10 @@ data class ChatStatusResponse(
      * Acknowledged steers the terminal parked because no subscriber was live to receive them.
      * Claim-on-read: the server clears them once returned, so a caller that ignores this list
      * drops them permanently. Only populated when the run is *not* active.
+     *
+     * **Always empty on a value returned by `ChatRepository.checkStreamStatus`** — that call
+     * hands the list to its `claimSteers` parameter and empties it here, so the claim cannot be
+     * skipped. This field carries data only on the raw wire decode.
      */
     val unrecoveredSteers: List<PendingSteer> = emptyList(),
 )

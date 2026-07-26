@@ -12,7 +12,11 @@ data class ChatAbortResponse(
      * Steers the user queued that never reached an injection boundary before the abort.
      * The server hands them back exactly once so the client can restore them as queued
      * follow-ups; it clears its own copy when it writes this, so an ack that carries them and
-     * is ignored loses the user's words. Claimed and re-homed by `SteeringDelegate.reclaim`.
+     * is ignored loses the user's words.
+     *
+     * **Always empty on a value returned by `ChatRepository.abortChat`** — that call hands the
+     * list to its `claimSteers` parameter and empties it here. This field carries data only on
+     * the raw wire decode.
      */
     val pendingSteers: List<PendingSteer> = emptyList(),
 )

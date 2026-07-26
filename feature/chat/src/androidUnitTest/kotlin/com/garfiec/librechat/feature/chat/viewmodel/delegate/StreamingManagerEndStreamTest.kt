@@ -111,7 +111,7 @@ class StreamingManagerEndStreamTest {
     @Test
     fun `the watchdog stops the stream locally when the aborted final never arrives`() =
         runTest(StandardTestDispatcher()) {
-            coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
+            coEvery { chatRepository.abortChat("conv-1", any(), any()) } returns Result.Success(ChatAbortResponse())
             val events = Channel<StreamEvent>(Channel.UNLIMITED)
             val (delegate, flow) = delegateWith(this)
             delegate.launchStream(events.receiveAsFlow())
@@ -140,7 +140,7 @@ class StreamingManagerEndStreamTest {
 
     @Test
     fun `the aborted final disarms the watchdog`() = runTest(StandardTestDispatcher()) {
-        coEvery { chatRepository.abortChat("conv-1") } returns Result.Success(ChatAbortResponse())
+        coEvery { chatRepository.abortChat("conv-1", any(), any()) } returns Result.Success(ChatAbortResponse())
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, _) = delegateWith(this)
         delegate.launchStream(events.receiveAsFlow())
@@ -173,7 +173,7 @@ class StreamingManagerEndStreamTest {
     @Test
     fun `a late abort failure after the final is a no-op`() = runTest(StandardTestDispatcher()) {
         val gate = CompletableDeferred<Result<ChatAbortResponse>>()
-        coEvery { chatRepository.abortChat("conv-1") } coAnswers { gate.await() }
+        coEvery { chatRepository.abortChat("conv-1", any(), any()) } coAnswers { gate.await() }
         val events = Channel<StreamEvent>(Channel.UNLIMITED)
         val (delegate, flow) = delegateWith(this)
         delegate.launchStream(events.receiveAsFlow())
@@ -206,7 +206,7 @@ class StreamingManagerEndStreamTest {
     fun `a stale end from a previous stream cannot touch the new one`() =
         runTest(StandardTestDispatcher()) {
             val gate = CompletableDeferred<Result<ChatAbortResponse>>()
-            coEvery { chatRepository.abortChat("conv-1") } coAnswers { gate.await() }
+            coEvery { chatRepository.abortChat("conv-1", any(), any()) } coAnswers { gate.await() }
             val (delegate, flow) = delegateWith(this)
 
             delegate.stopGeneration()

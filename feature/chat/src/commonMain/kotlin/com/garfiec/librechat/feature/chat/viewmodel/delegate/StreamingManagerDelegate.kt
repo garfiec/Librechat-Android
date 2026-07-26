@@ -324,7 +324,12 @@ class StreamingManagerDelegate(
                 streamingBuffer.append(event.chunk)
                 streamingBufferDirty = true
             }
-            is StreamEvent.Final -> handleFinal(event)
+            is StreamEvent.Final -> {
+                // Claim-on-read: the server dropped its copy writing this frame. Claimed here,
+                // outside handleFinal, so none of its early returns can skip it.
+                steeringDelegate.reclaim(event.pendingSteers)
+                handleFinal(event)
+            }
             is StreamEvent.Error -> {
                 endStream(StreamEndReason.StreamError(event.message, event.isNetworkError))
             }
@@ -513,11 +518,8 @@ class StreamingManagerDelegate(
         // the event rather than off local stop state, so an abort issued from another client on
         // the same conversation is treated identically.
         val aborted = rawEvent.aborted
-        // Steers this run accepted but never injected ride the final frame, claim-on-read: the
-        // server has already dropped its copy by the time this arrives, so re-home them now, as
-        // the FIRST thing the frame does. Every early return below (an early abort, a degenerate
-        // frame) would otherwise skip it and take the user's words with it.
-        steeringDelegate.reclaim(rawEvent.pendingSteers)
+        // Note: the frame's `pendingSteers` were already claimed by the caller, outside this
+        // function, so the early returns below cannot skip the hand-over.
         // Flush the tail of the buffer before it is read below; endStream repeats this
         // idempotently at the end.
         stopStreamingUpdater()
@@ -687,12 +689,10 @@ class StreamingManagerDelegate(
                 // SECURITY: temp-chat data-at-rest guard — without this the partial the abort
                 // route persists gets no expiry. See ChatAbortRequest.isTemporary.
                 isTemporary = handle.state.isTemporaryChat,
+                // The ack hands back the steers the stopped run never injected — the only report
+                // for this ending. Claimed inside the call so it cannot be skipped.
+                claimSteers = steeringDelegate::reclaim,
             )
-            if (abortResult is Result.Success) {
-                // The abort ack hands back the steers the stopped run never injected — the only
-                // report for this ending, and claim-on-read like the rest.
-                steeringDelegate.reclaim(abortResult.data.pendingSteers)
-            }
             if (abortResult is Result.Error) {
                 Logger.w(abortResult.exception) { "Failed to abort chat: ${abortResult.message}" }
                 // The server never accepted the abort (404 job-not-found, offline, legacy backend
@@ -889,11 +889,7 @@ class StreamingManagerDelegate(
         val session = streamSession
         scope.launch {
             try {
-                val status = chatRepository.checkStreamStatus(conversationId)
-                // Claim BEFORE any guard: the server cleared the parked steers as it answered, so
-                // a response discarded as stale destroys them. Re-homing is correct regardless of
-                // which session is current — the words belong to the user, not to this stream.
-                applyStatusSteers(status)
+                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaim)
                 // A concurrent resume advanced the session (or it ended) while we were suspended:
                 // bail rather than redundantly restart or wipe the now-current stream.
                 if (isResumeStale(session)) return@launch
@@ -939,21 +935,6 @@ class StreamingManagerDelegate(
     }
 
     /**
-     * Claims the steers `/chat/status` parked because no subscriber was live to receive them
-     * (v0.8.8 `unrecoveredSteers`) — the run accepted these and then ended with nobody attached.
-     *
-     * Claim-on-read like every other steer handover: the server clears them as it answers, so a
-     * status call whose response is only read for `active` silently destroys them. Populated
-     * only when the run is NOT active — so every `/chat/status` read in this file must route its
-     * response through here as the FIRST statement after the call returns, before any staleness
-     * or abort guard: a discarded response is still a consumed one, and re-homing into the
-     * follow-up queue is correct no matter which session is current by then.
-     */
-    private fun applyStatusSteers(status: ChatStatusResponse) {
-        steeringDelegate.reclaim(status.unrecoveredSteers)
-    }
-
-    /**
      * Shared resume logic: clears the buffer, starts the updater, and launches
      * stream collection. Caller is responsible for setting any UI state fields
      * (e.g. isStreaming, error) before calling this.
@@ -982,10 +963,7 @@ class StreamingManagerDelegate(
         val session = streamSession
         scope.launch {
             try {
-                val status = chatRepository.checkStreamStatus(conversationId)
-                // Claim BEFORE the staleness/abort guard, as in onResume: the read already
-                // consumed the parked steers server-side, so returning early would destroy them.
-                applyStatusSteers(status)
+                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaim)
                 if (isResumeStale(session) || abortRequested) return@launch
                 if (status.active) {
                     handle.update {
@@ -1046,11 +1024,7 @@ class StreamingManagerDelegate(
 
         scope.launch {
             try {
-                val status = chatRepository.checkStreamStatus(conversationId)
-                // Claim first, unconditionally: the run ended while this client was offline, which
-                // is exactly when the server parks steers, and this read is the only hand-off it
-                // will ever make.
-                applyStatusSteers(status)
+                val status = chatRepository.checkStreamStatus(conversationId, steeringDelegate::reclaim)
                 if (status.active) {
                     handle.update {
                         content = content.copy(

@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.repository
 
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.FileReference
+import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.request.AddedConversation
 import com.garfiec.librechat.core.model.request.ChatResumeRequest
@@ -51,10 +52,16 @@ interface ChatRepository {
      * [isTemporary] is forwarded so the server stamps the partial it persists with the temp-chat
      * expiry; omitting it leaves the row with no TTL. See [ChatAbortRequest].
      *
-     * The ack is returned rather than discarded because it carries `pendingSteers`: steers the
-     * aborted run never injected, handed over claim-on-read. Ignoring the body loses them.
+     * The ack carries `pendingSteers` — steers the aborted run never injected, handed over
+     * claim-on-read. [claimSteers] receives them before this returns and the returned response
+     * has the list emptied, so the hand-over cannot be skipped by a caller that only reads
+     * `success`. See [checkStreamStatus] for why the claim is a parameter rather than a flow.
      */
-    suspend fun abortChat(streamId: String?, isTemporary: Boolean = false): Result<ChatAbortResponse>
+    suspend fun abortChat(
+        streamId: String?,
+        isTemporary: Boolean = false,
+        claimSteers: (List<PendingSteer>) -> Unit,
+    ): Result<ChatAbortResponse>
 
     /**
      * Resolves a run paused for human review (tool approval / ask-user question).
@@ -83,6 +90,24 @@ interface ChatRepository {
      */
     suspend fun cancelSteer(request: SteerCancelRequest): Result<SteerCancelResponse>
 
-    suspend fun checkStreamStatus(conversationId: String): ChatStatusResponse
+    /**
+     * Reads the server's view of the run on [conversationId].
+     *
+     * The response carries `unrecoveredSteers` **claim-on-read**: the server deletes its copy as
+     * it answers, so a caller that reads only `active` destroys the user's queued text. That is
+     * why claiming is a required parameter rather than something the caller does afterwards —
+     * [claimSteers] is invoked inside this call, before it returns, so no guard or early `return`
+     * at the call site can come between the read and the claim. The returned response has
+     * `unrecoveredSteers` emptied; there is nothing left to forget.
+     *
+     * Deliberately a per-call lambda rather than a repository-level flow: this repository is a
+     * singleton, so a broadcast would deliver one conversation's steers to every live
+     * `ChatViewModel` (the landing and chat view models coexist during a new-chat handoff).
+     */
+    suspend fun checkStreamStatus(
+        conversationId: String,
+        claimSteers: (List<PendingSteer>) -> Unit,
+    ): ChatStatusResponse
+
     fun resumeStream(conversationId: String): Flow<StreamEvent>
 }
