@@ -39,6 +39,13 @@ data class ChatPrefsState(
      * What the send control does while a reply is generating (v0.8.8 steering): inject into the
      * running turn, or queue for after it. Read through [ChatUiState.effectiveDuringRunAction],
      * which degrades to queueing when steering is unavailable.
+     *
+     * **Unlike every other field here this one drives BEHAVIOUR, not just rendering**, so
+     * `ChatViewModel` mirrors it into the backing `_uiState` with its own collector rather than
+     * relying on the `uiState` combine that fills the rest of this slice. A decision made from the
+     * backing state would otherwise always read the default below: that is exactly how steering
+     * became unreachable from the composer while the send button still drew itself as "Steer this
+     * reply". Anything added here that a non-UI code path branches on needs the same treatment.
      */
     val duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
 )
