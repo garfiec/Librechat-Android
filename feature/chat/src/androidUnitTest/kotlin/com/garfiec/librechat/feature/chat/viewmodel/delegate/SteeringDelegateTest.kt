@@ -33,6 +33,17 @@ import org.junit.Test
 class SteeringDelegateTest {
 
     private val chatRepository = mockk<ChatRepository>()
+
+    /**
+     * Both enqueue callbacks land here. These fakes cover the delegate's DECISIONS — which steer
+     * is re-homed, once, and which is suppressed — and deliberately not the queue's drain policy:
+     * the real `enqueueFollowUp` self-drains and the real `pauseQueue` ignores an empty queue,
+     * and modelling either here would turn every assertion below into a queue test.
+     *
+     * The consequence is that the ordering between them is NOT observable at this level — a
+     * parked steer auto-sending on conversation open passed right through here. That guarantee
+     * belongs to `ChatViewModelDuringRunSendTest`, which runs the real queue.
+     */
     private val enqueued = mutableListOf<QueuedMessage>()
     private var queuePaused = false
 
@@ -58,6 +69,7 @@ class SteeringDelegateTest {
             chatRepository = chatRepository,
             buildFollowUp = { text -> spec(text) },
             enqueueFollowUp = { enqueued += it },
+            enqueueParked = { enqueued += it },
             pauseQueue = { queuePaused = true },
             isStreaming = { isStreaming },
         )
@@ -169,6 +181,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                enqueueParked = { enqueued += it },
                 pauseQueue = { queuePaused = true },
                 isStreaming = { streaming },
             )
@@ -383,6 +396,7 @@ class SteeringDelegateTest {
                 // A rebuilt spec is distinguishable from the one minted at send time.
                 buildFollowUp = { text -> spec(text).copy(model = "model-at-failure-time") },
                 enqueueFollowUp = { enqueued += it },
+                enqueueParked = { enqueued += it },
                 pauseQueue = { queuePaused = true },
                 isStreaming = { true },
             )
@@ -451,6 +465,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                enqueueParked = { enqueued += it },
                 pauseQueue = { queuePaused = true },
                 isStreaming = { streaming },
             )
@@ -488,6 +503,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                enqueueParked = { enqueued += it },
                 pauseQueue = { queuePaused = true },
                 isStreaming = { true },
             )
@@ -521,6 +537,7 @@ class SteeringDelegateTest {
                 chatRepository = chatRepository,
                 buildFollowUp = { spec(it) },
                 enqueueFollowUp = { enqueued += it },
+                enqueueParked = { enqueued += it },
                 pauseQueue = { queuePaused = true },
                 isStreaming = { streaming },
             )

@@ -49,6 +49,12 @@ class SteeringDelegate(
     /** Holds a message as a follow-up for after the run; the queue's own drain fires it. */
     private val enqueueFollowUp: (QueuedMessage) -> Unit,
     /**
+     * Queues a message WITHOUT kicking the drain, so it stays put until [pauseQueue] can hold it.
+     * Only [reclaimParked] uses this, and only because the ordinary [enqueueFollowUp] self-drains
+     * the instant the run is over — which is precisely the state a parked claim arrives in.
+     */
+    private val enqueueParked: (QueuedMessage) -> Unit,
+    /**
      * Holds the follow-up queue instead of letting it auto-drain. Used for steers the server
      * PARKED for a run that ended while nobody was attached — see [reclaimParked].
      */
@@ -288,12 +294,14 @@ class SteeringDelegate(
      * again on the aborted final — so ids already settled are skipped rather than queued a second
      * time. A steer the user cancelled is skipped for the same reason it is not re-seeded.
      */
-    fun reclaim(steers: List<PendingSteer>): Int {
+    fun reclaim(steers: List<PendingSteer>): Int = reclaimInto(steers, enqueueFollowUp)
+
+    private fun reclaimInto(steers: List<PendingSteer>, enqueue: (QueuedMessage) -> Unit): Int {
         if (steers.isEmpty()) return 0
         val reported = steers.mapNotNull { it.toRecordEntry() }
         if (reported.isEmpty()) return 0
         val queued = reported.sortedBy { it.second.createdAt }
-            .count { (id, incoming) -> rehome(id, records[id] ?: incoming) }
+            .count { (id, incoming) -> rehome(id, records[id] ?: incoming, enqueue) }
         evictSettled()
         publishChips()
         return queued
@@ -312,18 +320,18 @@ class SteeringDelegate(
         records.filterValues { it.status == SteerRecord.Status.PENDING && it.turnEpoch == turnEpoch }
             .entries
             .sortedBy { it.value.createdAt }
-            .forEach { (id, record) -> rehome(id, record) }
+            .forEach { (id, record) -> rehome(id, record, enqueueFollowUp) }
         evictSettled()
         publishChips()
     }
 
     /** Re-homes one steer's text into the follow-up queue, exactly once. Returns true if queued. */
-    private fun rehome(id: String, record: SteerRecord): Boolean {
+    private fun rehome(id: String, record: SteerRecord, enqueue: (QueuedMessage) -> Unit): Boolean {
         // Already settled: injected, withdrawn, or re-homed by an earlier report.
         if (records[id]?.isLive == false) return false
         records[id] = record.copy(status = SteerRecord.Status.RECLAIMED)
         val spec = record.spec ?: buildFollowUp(record.text) ?: return false
-        enqueueFollowUp(spec)
+        enqueue(spec)
         return true
     }
 
@@ -384,9 +392,16 @@ class SteeringDelegate(
      * enqueue would auto-drain and send, unprompted, a message the user last saw parked behind a
      * Stop, possibly from a much earlier session. Pausing surfaces it as "Send queued" instead,
      * which is recoverable and never surprises.
+     *
+     * The claim therefore goes through [enqueueParked], which does NOT kick the drain, and the
+     * hold is applied once something is actually queued. Both halves are load-bearing and each
+     * defeated the original "claim, then pause": the ordinary enqueue self-drains, so the message
+     * was already sent by the time the pause ran; and a queue with nothing in it cannot be paused
+     * anyway, so that pause was a no-op regardless. Together they auto-sent a parked steer on
+     * conversation open — verified on device, not hypothetical.
      */
     fun reclaimParked(steers: List<PendingSteer>) {
-        if (reclaim(steers) > 0) pauseQueue()
+        if (reclaimInto(steers, enqueueParked) > 0) pauseQueue()
     }
 
     /**

@@ -396,6 +396,9 @@ class ChatViewModel(
         // moment the run is over, so an ended run still sends immediately; a paused queue holds
         // the item for the user's own "Send queued" instead of dropping it.
         enqueueFollowUp = ::enqueueSpec,
+        // Deliberately NOT `enqueueSpec`: its self-drain is what auto-sent a parked steer on
+        // conversation open, where the run is already over. See SteeringDelegate.reclaimParked.
+        enqueueParked = queueDelegate::enqueue,
         pauseQueue = { queueDelegate.pause() },
         isStreaming = { _uiState.value.isStreaming },
     )
