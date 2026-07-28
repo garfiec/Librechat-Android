@@ -276,6 +276,7 @@ actual fun ChatScreen(
                 onSteer = { viewModel.steerMessage() },
                 canSteer = uiState.canSteerNow,
                 duringRunAction = uiState.effectiveDuringRunAction,
+                duringRunSendTarget = uiState.duringRunSendTarget,
                 pendingSteers = uiState.pendingSteers,
                 onCancelSteer = viewModel::cancelSteer,
                 onSetDuringRunAction = viewModel::setDuringRunAction,

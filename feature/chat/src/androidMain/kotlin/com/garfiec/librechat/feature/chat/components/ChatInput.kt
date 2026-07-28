@@ -43,6 +43,7 @@ import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.DuringRunSendTarget
 import com.garfiec.librechat.feature.chat.viewmodel.PendingSteerChip
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.resources.*
@@ -68,6 +69,7 @@ fun ChatInput(
     onSteer: () -> Unit = {},
     canSteer: Boolean = false,
     duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
+    duringRunSendTarget: DuringRunSendTarget = DuringRunSendTarget.QUEUE,
     pendingSteers: List<PendingSteerChip> = emptyList(),
     onCancelSteer: (steerId: String) -> Unit = {},
     onSetDuringRunAction: (DuringRunAction) -> Unit = {},
@@ -146,6 +148,7 @@ fun ChatInput(
         canQueue = canQueue,
         canSteer = canSteer,
         duringRunAction = duringRunAction,
+        duringRunSendTarget = duringRunSendTarget,
         pendingSteers = pendingSteers,
         isEditingQueued = isEditingQueued,
         isAwaitingUploadSend = isAwaitingUploadSend,

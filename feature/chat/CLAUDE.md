@@ -158,6 +158,13 @@ composer never makes that call itself: its send button routes to `ChatViewModel.
 picker beside it (`DuringRunSendMenu`, rendered only when both routes are open) calls `steerMessage()` /
 `queueMessage()` explicitly.
 
+**The button's face and its action must come from the same value.** `sendDuringRun()` switches on
+`ChatUiState.duringRunSendTarget`, so the button's icon/label does too (`sendButtonModeFor`, extracted from
+the composable purely so this module — which has no Compose test harness — can assert the mapping). Deriving
+the face from the *preference* instead is a bug that nothing catches: a live `ask_user_question` pause
+overrides the preference, so the button read "add to queue" over a tap that answered the question. Behaviour
+correct, label lying. `duringRunAction` in `ChatInputState` is now the picker's checkmark only.
+
 **Invariant: no steer path may lose the user's text, duplicate it, or send text the user withdrew.**
 Every rejection code, transport failure, and lost race re-homes the message into the follow-up queue —
 *always* the queue, never the live-send path, because `runWhenSendReady` is allowed to REFUSE (no model

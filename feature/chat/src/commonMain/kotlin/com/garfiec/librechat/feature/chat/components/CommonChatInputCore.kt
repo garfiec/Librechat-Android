@@ -61,6 +61,7 @@ import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_add_to_queue
+import com.garfiec.librechat.feature.chat.resources.cd_answer_question
 import com.garfiec.librechat.feature.chat.resources.cd_cancel_edit
 import com.garfiec.librechat.feature.chat.resources.cd_cancel_pending_send
 import com.garfiec.librechat.feature.chat.resources.cd_send_message
@@ -73,6 +74,7 @@ import com.garfiec.librechat.feature.chat.resources.hint_message
 import com.garfiec.librechat.feature.chat.resources.hint_message_model
 import com.garfiec.librechat.feature.chat.resources.recording
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.DuringRunSendTarget
 import com.garfiec.librechat.feature.chat.viewmodel.PendingSteerChip
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import org.jetbrains.compose.resources.stringResource
@@ -100,9 +102,15 @@ data class ChatInputState(
     /** Whether a mid-stream send could instead be steered into the running reply (v0.8.8).
      *  False leaves the composer with queueing alone and hides the during-run picker. */
     val canSteer: Boolean = false,
-    /** What a mid-stream send does by default — already degraded to
-     *  [DuringRunAction.QUEUE] by the ViewModel when steering is unavailable. */
+    /** Which route the during-run picker marks as the standing default — already degraded to
+     *  [DuringRunAction.QUEUE] by the ViewModel when steering is unavailable. This is the
+     *  *preference*; it is NOT what the send button does. See [duringRunSendTarget]. */
     val duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
+    /** What a mid-stream tap on the send button actually does, resolved by the ViewModel. The
+     *  two differ whenever a live `ask_user_question` pause overrides the preference, and the
+     *  button must name THIS — reading the preference instead is what once labelled an answer
+     *  as "add to queue". */
+    val duringRunSendTarget: DuringRunSendTarget = DuringRunSendTarget.QUEUE,
     /** Steers accepted by the running turn but not yet injected; rendered above the queue. */
     val pendingSteers: List<PendingSteerChip> = emptyList(),
     /** True while the composer is editing a queued item (queued-edit mode): the send button
@@ -295,7 +303,9 @@ fun CommonChatInputCore(
                 val duringRunSend = state.canQueue && hasComposerContent && onQueue != null &&
                     !state.isEditingQueued
                 // The picker only earns its space when both routes are open; with steering
-                // unavailable the send button alone says everything there is to say.
+                // unavailable the send button alone says everything there is to say. `canSteer`
+                // is false while a run is paused for review, which is also what keeps the picker
+                // from offering a steer/queue choice over a send that will answer the pause.
                 if (duringRunSend && state.canSteer) {
                     DuringRunSendMenu(
                         defaultAction = state.duringRunAction,
@@ -308,7 +318,7 @@ fun CommonChatInputCore(
                     isStreaming = state.isStreaming,
                     canSend = hasComposerContent,
                     canQueue = duringRunSend,
-                    isSteerDefault = state.duringRunAction == DuringRunAction.STEER,
+                    duringRunTarget = state.duringRunSendTarget,
                     onSend = onSend,
                     onStop = onStop,
                     onQueue = onDuringRunSend,
@@ -326,17 +336,53 @@ fun CommonChatInputCore(
 }
 
 /** Visual mode of the trailing composer button. */
-private enum class SendButtonMode { SEND, STOP, QUEUE, STEER, UPDATE, AWAITING }
+internal enum class SendButtonMode { SEND, STOP, QUEUE, STEER, ANSWER, UPDATE, AWAITING }
 
 /**
- * Animated send / stop / add-to-queue / update button shared between platforms.
+ * Which face the composer's trailing button shows. Pulled out of the composable so the mapping
+ * from state to affordance is testable without a Compose harness — this module has none, and the
+ * one defect this rule has produced was a *label* that disagreed with the action behind it, which
+ * no behavioural test could ever catch.
+ */
+@Suppress("LongParameterList")
+internal fun sendButtonModeFor(
+    isStreaming: Boolean,
+    canQueue: Boolean,
+    duringRunTarget: DuringRunSendTarget,
+    isEditingQueued: Boolean,
+    isAwaitingUploadSend: Boolean,
+): SendButtonMode = when {
+    isEditingQueued -> SendButtonMode.UPDATE
+    // A send parked behind an in-flight upload only takes over the button when NOT streaming —
+    // during a stream the Stop control must stay reachable, so a queued-message send parked
+    // behind its upload keeps Stop (the parked enqueue still fires once the upload settles).
+    isAwaitingUploadSend && !isStreaming -> SendButtonMode.AWAITING
+    isAwaitingUploadSend -> SendButtonMode.STOP
+    !isStreaming -> SendButtonMode.SEND
+    canQueue -> when (duringRunTarget) {
+        DuringRunSendTarget.ANSWER_PAUSE -> SendButtonMode.ANSWER
+        DuringRunSendTarget.STEER -> SendButtonMode.STEER
+        DuringRunSendTarget.QUEUE -> SendButtonMode.QUEUE
+    }
+
+    else -> SendButtonMode.STOP
+}
+
+/**
+ * Animated send / stop / steer / add-to-queue / answer / update button shared between platforms.
  *
  * A send parked behind an in-flight upload ([isAwaitingUploadSend]) shows a cancellable **spinner**
  * — but only when not streaming, so a mid-stream Stop is never hidden behind it. Otherwise, in
  * queued-edit mode ([isEditingQueued]) it is **Update** (commit the edit); while streaming it is
- * **Stop** by default but morphs into **Add to queue** when the composer has content and queueing is
- * allowed ([canQueue]) — the "clear the box to reveal Stop" rule; and when not streaming it is the
- * usual **Send** (enabled on [canSend]).
+ * **Stop** by default but morphs into whatever [duringRunTarget] names when the composer has
+ * content and queueing is allowed ([canQueue]) — the "clear the box to reveal Stop" rule; and when
+ * not streaming it is the usual **Send** (enabled on [canSend]).
+ *
+ * The during-run mode is derived from [duringRunTarget] and nothing else. It used to be derived
+ * from the user's steer/queue *preference*, which a live `ask_user_question` pause overrides —
+ * so the button announced "add to queue" over a tap that answered the question. The behaviour was
+ * right and only the label lied, which is exactly why it survived: an affordance read from a
+ * different source than the action it triggers can drift without anything failing.
  */
 @Composable
 fun SendStopButton(
@@ -347,25 +393,21 @@ fun SendStopButton(
     modifier: Modifier = Modifier,
     canQueue: Boolean = false,
     onQueue: () -> Unit = {},
-    /** Renders the during-run button as Steer rather than Add-to-queue. [onQueue] carries
-     *  whichever action this names — the caller resolves it, so the button stays one control. */
-    isSteerDefault: Boolean = false,
+    /** What the during-run button names. [onQueue] carries whichever action this names — the
+     *  caller resolves it, so the button stays one control. */
+    duringRunTarget: DuringRunSendTarget = DuringRunSendTarget.QUEUE,
     isEditingQueued: Boolean = false,
     onUpdate: () -> Unit = {},
     isAwaitingUploadSend: Boolean = false,
     onCancelPendingSend: () -> Unit = {},
 ) {
-    val mode = when {
-        isEditingQueued -> SendButtonMode.UPDATE
-        // A send parked behind an in-flight upload only takes over the button when NOT streaming —
-        // during a stream the Stop control must stay reachable, so a queued-message send parked
-        // behind its upload keeps Stop (the parked enqueue still fires once the upload settles).
-        isAwaitingUploadSend && !isStreaming -> SendButtonMode.AWAITING
-        isAwaitingUploadSend -> SendButtonMode.STOP
-        !isStreaming -> SendButtonMode.SEND
-        canQueue -> if (isSteerDefault) SendButtonMode.STEER else SendButtonMode.QUEUE
-        else -> SendButtonMode.STOP
-    }
+    val mode = sendButtonModeFor(
+        isStreaming = isStreaming,
+        canQueue = canQueue,
+        duringRunTarget = duringRunTarget,
+        isEditingQueued = isEditingQueued,
+        isAwaitingUploadSend = isAwaitingUploadSend,
+    )
     AnimatedContent(
         targetState = mode,
         transitionSpec = {
@@ -468,6 +510,23 @@ fun SendStopButton(
                 Icon(
                     imageVector = Icons.Default.Bolt,
                     contentDescription = stringResource(Res.string.cd_steer_message),
+                )
+            }
+
+            // Deliberately looks like Send, because that is what it does: the run is parked
+            // waiting for this text, so the tap delivers it rather than deferring it. Only the
+            // click target differs (onQueue → sendDuringRun → resolve the pause).
+            SendButtonMode.ANSWER -> IconButton(
+                onClick = onQueue,
+                modifier = Modifier.size(56.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(Res.string.cd_answer_question),
                 )
             }
 

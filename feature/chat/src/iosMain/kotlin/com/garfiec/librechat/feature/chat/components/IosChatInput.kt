@@ -33,6 +33,7 @@ import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_attach_file
 import com.garfiec.librechat.feature.chat.resources.cd_paste_image
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
+import com.garfiec.librechat.feature.chat.viewmodel.DuringRunSendTarget
 import com.garfiec.librechat.feature.chat.viewmodel.PendingSteerChip
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import org.jetbrains.compose.resources.stringResource
@@ -56,6 +57,7 @@ fun IosChatInput(
     onSteer: () -> Unit = {},
     canSteer: Boolean = false,
     duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
+    duringRunSendTarget: DuringRunSendTarget = DuringRunSendTarget.QUEUE,
     pendingSteers: List<PendingSteerChip> = emptyList(),
     onCancelSteer: (steerId: String) -> Unit = {},
     onSetDuringRunAction: (DuringRunAction) -> Unit = {},
@@ -112,6 +114,7 @@ fun IosChatInput(
         canQueue = canQueue,
         canSteer = canSteer,
         duringRunAction = duringRunAction,
+        duringRunSendTarget = duringRunSendTarget,
         pendingSteers = pendingSteers,
         isEditingQueued = isEditingQueued,
         isAwaitingUploadSend = isAwaitingUploadSend,
