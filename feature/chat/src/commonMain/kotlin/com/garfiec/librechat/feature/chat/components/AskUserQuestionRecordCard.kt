@@ -84,7 +84,10 @@ internal fun AskUserQuestionRecordCard(
         answered -> stringResource(Res.string.ask_user_question_record_asked)
         else -> stringResource(Res.string.ask_user_question_record_asking)
     }
-    val questionText = question?.question?.takeIf { it.isNotBlank() } ?: headline
+    // Null when the call carries no arguments — a question the run abandoned before it streamed
+    // any. The headline already names what this card is, so nothing stands in for the question:
+    // repeating the headline underneath itself reads as a question the agent literally asked.
+    val questionText = question?.question?.takeIf { it.isNotBlank() }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -137,13 +140,15 @@ internal fun AskUserQuestionRecordCard(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
-                    Text(
-                        text = questionText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = if (isExpanded) Int.MAX_VALUE else COLLAPSED_QUESTION_LINES,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    if (questionText != null) {
+                        Text(
+                            text = questionText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = if (isExpanded) Int.MAX_VALUE else COLLAPSED_QUESTION_LINES,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     AnswerLine(display = display, answered = answered, failed = failed, isExpanded = isExpanded)
                 }
                 if (hasDetail) {
