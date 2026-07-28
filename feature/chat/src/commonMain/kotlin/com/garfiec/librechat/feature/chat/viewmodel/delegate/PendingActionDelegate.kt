@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ResumePinStore
@@ -25,6 +26,12 @@ import kotlinx.serialization.json.JsonPrimitive
  * arrives until the pause resolves — so this delegate never starts or ends a stream. It only
  * flips the pause fields; the resumed continuation flows back through the events
  * [StreamingManagerDelegate] is already collecting.
+ *
+ * **An `ask_user_question` answer is the user's own text, so it falls under the same rule as a
+ * steer: no path may lose it.** [ChatViewModel.sendDuringRun] clears the composer before posting,
+ * which means the words exist nowhere else while the resume is in flight — so every way this can
+ * fail (rejection, transport error, or the pause being cleared out from under the POST) hands
+ * them back through [restoreAnswer]. Tool decisions carry no prose and need none of this.
  */
 class PendingActionDelegate(
     private val handle: PendingActionHandle,
@@ -32,6 +39,18 @@ class PendingActionDelegate(
     private val requestBuilder: ChatRequestBuilder,
     /** Surfaces a resume rejection as user-facing copy; the raw server message is not localized. */
     private val resumeFailureMessage: (String?) -> String,
+    /**
+     * Copy for the one rejection the user cannot act on by retrying: the server recomputed the
+     * request fingerprint and it did not match the run being resumed, so this client cannot
+     * answer that pause at all. Distinct from [resumeFailureMessage] because the raw server text
+     * ("Forbidden") tells the user nothing about what to do next.
+     */
+    private val fingerprintRejectedMessage: () -> String,
+    /**
+     * Puts an unresolved answer back in the composer. See the class KDoc: the composer is cleared
+     * before the POST, so this is the only thing standing between a failed resume and lost words.
+     */
+    private val restoreAnswer: (String) -> Unit,
     /**
      * Carries the started-with config across ViewModel boundaries. The ViewModel that resolves a
      * pause is often not the one that started the run — a handed-off new chat, or reopening a
@@ -165,12 +184,12 @@ class PendingActionDelegate(
 
     /** Resolves a `tool_approval` pause with one decision per paused tool call. */
     fun submitToolDecisions(decisions: List<ToolApprovalResolution>) {
-        submit { request -> request.copy(decisions = decisions) }
+        submit(answerText = null) { request -> request.copy(decisions = decisions) }
     }
 
     /** Resolves an `ask_user_question` pause with the user's reply. */
     fun submitAnswer(answer: String) {
-        submit { request -> request.copy(answer = answer) }
+        submit(answerText = answer) { request -> request.copy(answer = answer) }
     }
 
     /**
@@ -179,8 +198,16 @@ class PendingActionDelegate(
      * The pause is cleared only after the server accepts it. Clearing optimistically would, on a
      * 409 (someone else resolved it, or it expired), leave the run with no controls and no way
      * back to them — the card is the only route to a resume.
+     *
+     * [answerText] is the user's prose for an `ask_user_question` pause, null for tool decisions.
+     * It is captured by the continuation rather than stored in a field precisely because [clear]
+     * can run while this is in flight: the closure survives that, a field would have to be
+     * cleaned up by the very code path that invalidates the pause.
      */
-    private fun submit(withDecision: (ChatResumeRequest) -> ChatResumeRequest) {
+    private fun submit(
+        answerText: String?,
+        withDecision: (ChatResumeRequest) -> ChatResumeRequest,
+    ) {
         val state = handle.state
         val action = state.pendingAction ?: return
         val actionId = action.actionId ?: return
@@ -190,9 +217,13 @@ class PendingActionDelegate(
         // actually started the run, and only then a guess from the live selection. The guess
         // cannot reproduce ephemeralAgent or promptPrefix, so it 403s on any run started with a
         // tool, an MCP server or custom instructions.
-        val turn = pinnedTurn
-            ?: resumePinStore.get(conversationId)?.toPinnedTurn()
-            ?: captureTurnConfig()
+        val pinned = pinnedTurn ?: resumePinStore.get(conversationId)?.toPinnedTurn()
+        // No pin anywhere means the run was started by a process that is gone (ResumePinStore is
+        // deliberately in-memory), so the fingerprint below is a GUESS off the live selection. It
+        // matches for a plain run and cannot match one started with tools, an MCP server or custom
+        // instructions — the server 403s those. Logged so a 403 in the field is attributable.
+        if (pinned == null) Logger.d { "Resuming with a guessed fingerprint; no pin for $conversationId" }
+        val turn = pinned ?: captureTurnConfig()
 
         handle.update { isResolvingPendingAction = true }
         inFlightActionId = actionId
@@ -216,6 +247,10 @@ class PendingActionDelegate(
             // newer run may have announced its own pause. Writing here would wipe it.
             if (issuedEpoch != epoch) {
                 Logger.d { "Resume answered after its pause was cleared; dropping the result" }
+                // The shared pause fields are off limits, but the words are not the pause. Give
+                // them back UNLESS the POST actually landed, in which case the run already has
+                // them and restoring would invite the user to send the same thing twice.
+                if (result !is Result.Success) answerText?.let(restoreAnswer)
                 return@launch
             }
             inFlightActionId = null
@@ -230,12 +265,23 @@ class PendingActionDelegate(
                 }
                 is Result.Error -> {
                     Logger.w(result.exception) { "Failed to resume paused run: ${result.message}" }
+                    // The card stays up so a transient failure can be retried — but the composer
+                    // was emptied to send this, so the text has to come back either way.
+                    answerText?.let(restoreAnswer)
+                    val fingerprintRejected = (result.exception as? ApiException)?.statusCode == HTTP_FORBIDDEN
                     handle.update {
                         isResolvingPendingAction = false
-                        error = resumeFailureMessage(result.message)
+                        error = if (fingerprintRejected) {
+                            fingerprintRejectedMessage()
+                        } else {
+                            resumeFailureMessage(result.message)
+                        }
                     }
                 }
-                is Result.Loading -> handle.update { isResolvingPendingAction = false }
+                is Result.Loading -> {
+                    answerText?.let(restoreAnswer)
+                    handle.update { isResolvingPendingAction = false }
+                }
             }
         }
     }
@@ -291,5 +337,8 @@ class PendingActionDelegate(
 
     private companion object {
         const val PROMPT_PREFIX_KEY = "promptPrefix"
+
+        /** The resume route's answer to a request fingerprint that does not match the paused run. */
+        const val HTTP_FORBIDDEN = 403
     }
 }

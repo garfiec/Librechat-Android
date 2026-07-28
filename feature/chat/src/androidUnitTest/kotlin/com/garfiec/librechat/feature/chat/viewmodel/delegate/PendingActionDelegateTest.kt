@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.data.repository.ChatRepository
@@ -69,10 +70,15 @@ class PendingActionDelegateTest {
             chatRepository = chatRepository,
             requestBuilder = ChatRequestBuilder { flow.value },
             resumeFailureMessage = { it ?: "failed" },
+            fingerprintRejectedMessage = { FINGERPRINT_REJECTED },
+            restoreAnswer = { restored += it },
             resumePinStore = store,
         )
         return delegate to flow
     }
+
+    /** Answers handed back to the composer because the resume did not land. */
+    private val restored = mutableListOf<String>()
 
     private fun toolApproval(actionId: String = "act-1") = PendingAction(
         actionId = actionId,
@@ -365,4 +371,102 @@ class PendingActionDelegateTest {
 
             assertThat(flow.value.pendingAction).isEqualTo(newer)
         }
+
+    /**
+     * An `ask_user_question` answer is the user's own prose, and the composer is emptied to send
+     * it — so a rejection with no restore loses words the user cannot get back. Same invariant the
+     * steering paths enforce; the pause path did not implement it.
+     */
+    @Test
+    fun `a rejected answer goes back to the composer`() = runTest(UnconfinedTestDispatcher()) {
+        coEvery { chatRepository.resumeChat(any()) } returns Result.Error(message = "boom")
+        val (delegate, flow) = delegateWith(this)
+
+        delegate.onPendingAction(askQuestion())
+        delegate.submitAnswer("the blue one")
+
+        assertThat(restored).containsExactly("the blue one")
+        // The card stays up: the failure may be transient and it is the only route to a resume.
+        assertThat(flow.value.pendingAction).isNotNull()
+        assertThat(flow.value.isResolvingPendingAction).isFalse()
+    }
+
+    /** A 403 is the fingerprint mismatch, which retrying cannot fix — say so rather than relaying
+     *  the server's "Forbidden". */
+    @Test
+    fun `a fingerprint rejection is reported as its own failure`() = runTest(UnconfinedTestDispatcher()) {
+        coEvery { chatRepository.resumeChat(any()) } returns
+            Result.Error(ApiException(statusCode = 403, message = "Forbidden"))
+        val (delegate, flow) = delegateWith(this)
+
+        delegate.onPendingAction(askQuestion())
+        delegate.submitAnswer("the blue one")
+
+        assertThat(flow.value.error).isEqualTo(FINGERPRINT_REJECTED)
+        assertThat(restored).containsExactly("the blue one")
+    }
+
+    /**
+     * The stream can end while the answer is still in flight — `endStream` clears the pause, and
+     * the continuation is then forbidden from touching the shared fields. The words are not the
+     * pause, though, and this is the path that silently ate them.
+     */
+    @Test
+    fun `an answer whose pause is cleared mid-flight is not lost`() = runTest(UnconfinedTestDispatcher()) {
+        val gate = CompletableDeferred<Result<ChatResumeResponse>>()
+        coEvery { chatRepository.resumeChat(any()) } coAnswers { gate.await() }
+        val (delegate, _) = delegateWith(this)
+
+        delegate.onPendingAction(askQuestion())
+        delegate.submitAnswer("the blue one")
+        delegate.clear() // the run ended under the POST
+
+        gate.complete(Result.Error(message = "gone"))
+        runCurrent()
+
+        assertThat(restored).containsExactly("the blue one")
+    }
+
+    /** ...but a POST that actually landed must NOT come back: the run already has the answer, and
+     *  restoring would invite the user to send it a second time. */
+    @Test
+    fun `an answer accepted after its pause was cleared is not restored`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gate = CompletableDeferred<Result<ChatResumeResponse>>()
+            coEvery { chatRepository.resumeChat(any()) } coAnswers { gate.await() }
+            val (delegate, _) = delegateWith(this)
+
+            delegate.onPendingAction(askQuestion())
+            delegate.submitAnswer("the blue one")
+            delegate.clear()
+
+            gate.complete(Result.Success(ChatResumeResponse()))
+            runCurrent()
+
+            assertThat(restored).isEmpty()
+        }
+
+    /** Tool decisions carry no prose, so there is nothing to hand back. */
+    @Test
+    fun `a rejected tool decision restores nothing`() = runTest(UnconfinedTestDispatcher()) {
+        coEvery { chatRepository.resumeChat(any()) } returns Result.Error(message = "boom")
+        val (delegate, _) = delegateWith(this)
+
+        delegate.onPendingAction(toolApproval())
+        delegate.submitToolDecisions(
+            listOf(ToolApprovalResolution(toolCallId = "call-1", decision = ToolApprovalDecisions.APPROVE)),
+        )
+
+        assertThat(restored).isEmpty()
+    }
+
+    private fun askQuestion(actionId: String = "act-1") = PendingAction(
+        actionId = actionId,
+        conversationId = "conv-1",
+        payload = PendingActionPayload(type = PendingActionTypes.ASK_USER_QUESTION),
+    )
+
+    private companion object {
+        const val FINGERPRINT_REJECTED = "started with a different setup"
+    }
 }

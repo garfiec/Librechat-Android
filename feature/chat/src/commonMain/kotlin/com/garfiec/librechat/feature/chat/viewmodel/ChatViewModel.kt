@@ -380,6 +380,10 @@ class ChatViewModel(
         chatRepository = chatRepository,
         requestBuilder = requestBuilder,
         resumeFailureMessage = { message -> message ?: "Could not resume the paused response." },
+        fingerprintRejectedMessage = {
+            "This paused response was started with a different setup, so it can't be answered here."
+        },
+        restoreAnswer = ::restoreUnsentInput,
         resumePinStore = resumePinStore,
     )
 
