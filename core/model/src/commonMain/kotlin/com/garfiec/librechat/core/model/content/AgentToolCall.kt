@@ -23,4 +23,13 @@ data class AgentToolCall(
      * survive a refresh, mirroring the web client's persisted `subagent_content`.
      */
     @SerialName("subagent_content") val subagentContent: List<MessageContentPart>? = null,
+    /**
+     * True when the server rejected this call's arguments against the tool's schema, so the tool
+     * never ran. Stamped onto the persisted part at run-step completion, and sent as `true` or
+     * not at all — never `false`.
+     *
+     * Only `ask_user_question` reads it today: a question whose args failed validation was never
+     * put to the user, and rendering it as one they declined to answer would be a lie.
+     */
+    val inputValidationError: Boolean? = null,
 )

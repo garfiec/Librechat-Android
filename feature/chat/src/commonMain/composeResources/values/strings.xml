@@ -412,6 +412,18 @@
     <string name="ask_user_question_send">Send</string>
     <string name="ask_user_question_skip">Skip</string>
     <string name="ask_user_question_multi_select_hint">Pick as many as apply</string>
+    <!-- Durable record of a resolved ask_user_question, shown in place of its tool card -->
+    <string name="ask_user_question_record_asked">Asked</string>
+    <string name="ask_user_question_record_asking">Asking</string>
+    <string name="ask_user_question_record_answer_label">You answered:</string>
+    <string name="ask_user_question_record_unanswered">No answer was given</string>
+    <string name="ask_user_question_record_skipped">You skipped this question</string>
+    <string name="ask_user_question_record_options">Options offered</string>
+    <string name="ask_user_question_record_options_multi">Options offered (pick as many as apply)</string>
+    <string name="ask_user_question_record_failed">Question wasn\'t shown</string>
+    <string name="ask_user_question_record_failed_description">The assistant couldn\'t show this question and may retry automatically.</string>
+    <string name="cd_expand_ask_user_question">Expand question details</string>
+    <string name="cd_collapse_ask_user_question">Collapse question details</string>
     <string name="tool_memory">Memory</string>
     <string name="tool_memory_desc">Let the assistant remember details from this chat</string>
 

@@ -61,6 +61,19 @@ fun StreamingToolCallCard(
         return
     }
 
+    // An answered question renders as its Q&A record, so the exchange stays on screen for the
+    // rest of the run instead of reappearing only when the message finalizes. An unanswered one
+    // never reaches here — `withoutUnansweredQuestions` drops it while the pause card owns it.
+    if (isAskUserQuestionToolCall(toolCall.name.lowercase())) {
+        val question = remember(toolCall.input) { parseAskUserQuestion(toolCall.input) }
+        AskUserQuestionRecordCard(
+            question = question,
+            answer = toolCall.output.orEmpty(),
+            modifier = modifier,
+        )
+        return
+    }
+
     // Web search: as soon as `web_search` attachments arrive (streamed once per source
     // processed) render the same "Searched the web" sources card the finalized message uses,
     // so sources appear live instead of a generic spinner that only resolves on reload.

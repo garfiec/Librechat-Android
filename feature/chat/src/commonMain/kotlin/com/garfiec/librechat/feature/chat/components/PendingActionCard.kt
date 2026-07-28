@@ -228,9 +228,6 @@ private fun composeAnswer(
         .joinToString(", ")
 }
 
-/** Sent when the user skips; mirrors upstream's `ASK_USER_DECLINED_ANSWER`. */
-private const val ASK_USER_DECLINED_ANSWER = "The user chose not to answer this question."
-
 // ── tool_approval ─────────────────────────────────────────────────────────
 
 /** One call's in-progress decision. */

@@ -76,6 +76,21 @@ internal fun ToolCallDispatcher(
         return
     }
 
+    // A settled `ask_user_question` call is a Q&A exchange, not a tool run — render the record
+    // rather than the call. Its arguments carry the question and options, its output the answer.
+    if (isAskUserQuestionToolCall(toolNameLower)) {
+        val question = remember(toolCall) {
+            parseAskUserQuestion(toolCall?.args) ?: parseAskUserQuestion(toolCall?.function?.arguments)
+        }
+        AskUserQuestionRecordCard(
+            question = question,
+            answer = output.orEmpty(),
+            modifier = modifier,
+            failed = toolCall?.inputValidationError == true,
+        )
+        return
+    }
+
     val isImageGen = isImageGenToolCall(toolNameLower)
 
     // The card, then (for every non-image-gen tool) the files this tool call generated. Web passes

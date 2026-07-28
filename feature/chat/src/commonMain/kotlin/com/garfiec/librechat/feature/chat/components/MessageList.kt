@@ -142,7 +142,9 @@ fun MessageList(
     val topContentPaddingPx = with(LocalDensity.current) { topContentPadding.toPx() }
     var lastNavigatedParentKey by remember { mutableStateOf<String?>(null) }
 
-    val streamingToolCallCount = if (isStreaming) activeToolCalls.size else 0
+    // A live `ask_user_question` pause is rendered by PendingActionCard, not as a tool card.
+    val renderedToolCalls = remember(activeToolCalls) { activeToolCalls.withoutUnansweredQuestions() }
+    val streamingToolCallCount = if (isStreaming) renderedToolCalls.size else 0
     val totalItemCount = displayMessages.size + streamingToolCallCount + if (isStreaming) 1 else 0
 
     // Track whether user has deliberately scrolled away from the bottom.
@@ -550,9 +552,9 @@ fun MessageList(
                     )
                 }
 
-                if (activeToolCalls.isNotEmpty()) {
+                if (renderedToolCalls.isNotEmpty()) {
                     items(
-                        items = activeToolCalls,
+                        items = renderedToolCalls,
                         key = { "tool_call_${it.id}" },
                         contentType = { "tool_call" },
                     ) { toolCall ->

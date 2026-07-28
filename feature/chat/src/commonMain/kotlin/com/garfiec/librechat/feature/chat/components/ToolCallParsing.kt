@@ -2,14 +2,18 @@ package com.garfiec.librechat.feature.chat.components
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.ToolConstants
+import com.garfiec.librechat.core.model.AskUserQuestionOption
+import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.content.AgentToolCall
 import com.garfiec.librechat.feature.chat.util.resolveAttachmentUrl
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
@@ -413,4 +417,125 @@ internal fun parseLogContent(toolCall: AgentToolCall?): LogContent {
         log.d(e) { "Failed to parse log content tool call" }
         LogContent()
     }
+}
+
+// --- ask_user_question (HITL) ---
+
+/** The literal answer the Skip button sends. Mirrors upstream's `ASK_USER_DECLINED_ANSWER`, which
+ *  the web client sends for the same action — so a question skipped on either client reads as
+ *  skipped on both. */
+internal const val ASK_USER_DECLINED_ANSWER = "The user chose not to answer this question."
+
+internal fun isAskUserQuestionToolCall(toolNameLower: String): Boolean =
+    toolNameLower == ToolConstants.ASK_USER_QUESTION
+
+/**
+ * The streaming tool-call cards to render.
+ *
+ * An `ask_user_question` call is dropped until its answer lands on it. While the run is paused,
+ * [PendingActionCard] *is* the question — a second card restating it under a spinner (the call
+ * cannot complete until the user replies) is both a duplicate and a lie about what is running.
+ * Once the answer arrives the same call renders as the durable Q&A record, so the question is
+ * never on screen twice and never absent after it is settled.
+ */
+internal fun List<ActiveToolCall>.withoutUnansweredQuestions(): List<ActiveToolCall> =
+    filterNot { isAskUserQuestionToolCall(it.name.lowercase()) && it.output.isNullOrBlank() }
+
+/**
+ * Parses `ask_user_question` arguments, which arrive as an object mid-stream and as a JSON string
+ * on a persisted message.
+ *
+ * Every field here is model-generated, so the shape is normalized rather than trusted: a malformed
+ * `options` entry is dropped and anything without a string `question` degrades to null, which the
+ * card renders as a plain unlabeled record instead of throwing inside composition.
+ */
+internal fun parseAskUserQuestion(raw: JsonElement?): AskUserQuestionRequest? = when (raw) {
+    is JsonObject -> raw.toAskUserQuestion()
+    is JsonPrimitive -> if (raw.isString) parseAskUserQuestion(raw.content) else null
+    else -> null
+}
+
+/** [parseAskUserQuestion] for args held as raw text (the streaming path's `input`). Accepts only
+ *  a JSON object, which is also what stops the [JsonElement] overload from recursing: lenient
+ *  parsing turns a bare word back into a string, and re-entering on that would not terminate. */
+internal fun parseAskUserQuestion(raw: String?): AskUserQuestionRequest? {
+    val text = raw?.trim().orEmpty()
+    if (text.isEmpty()) return null
+    val parsed = try {
+        toolCallJson.parseToJsonElement(text)
+    } catch (e: Exception) {
+        log.d(e) { "Failed to parse ask_user_question args" }
+        return null
+    }
+    return (parsed as? JsonObject)?.toAskUserQuestion()
+}
+
+private fun JsonObject.toAskUserQuestion(): AskUserQuestionRequest? {
+    val question = stringField("question") ?: return null
+    val options = (this["options"] as? JsonArray).orEmpty().mapNotNull { element ->
+        val option = element as? JsonObject ?: return@mapNotNull null
+        val label = option.stringField("label") ?: return@mapNotNull null
+        val value = option.stringField("value") ?: return@mapNotNull null
+        AskUserQuestionOption(label = label, value = value)
+    }
+    return AskUserQuestionRequest(
+        question = question,
+        description = stringField("description"),
+        options = options,
+        multiSelect = (this["multiSelect"] as? JsonPrimitive)?.booleanOrNull == true,
+    )
+}
+
+private fun JsonObject.stringField(key: String): String? =
+    (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+/** How an answer reads back against the question that was asked. */
+internal data class AskAnswerDisplay(
+    /** The answer with option values swapped for their labels, or the raw answer. */
+    val label: String,
+    /** Values of the options the answer picked; empty when it is free text. */
+    val selectedValues: Set<String>,
+    /** True when the user dismissed the question rather than answering it. */
+    val declined: Boolean,
+)
+
+/**
+ * Reads an answer back against its question, preferring the picked option's label over its wire
+ * value.
+ *
+ * Multi-select answers are option values joined by `", "`, so segments are mapped back to labels
+ * **only when every one of them matches an option**: a value may legally contain `", "` itself,
+ * and a partial mapping could split such a value into fragments that relabel as options the user
+ * never picked. A mobile answer that qualifies a chip with free text also lands here — it has a
+ * segment that matches nothing — and correctly shows raw. Ported from upstream
+ * `AskUserQuestionCall`.
+ */
+internal fun askAnswerDisplay(
+    question: AskUserQuestionRequest?,
+    answer: String,
+): AskAnswerDisplay {
+    if (answer == ASK_USER_DECLINED_ANSWER) {
+        return AskAnswerDisplay(label = answer, selectedValues = emptySet(), declined = true)
+    }
+    val options = question?.options.orEmpty()
+    val raw = AskAnswerDisplay(label = answer, selectedValues = emptySet(), declined = false)
+    if (options.isEmpty() || answer.isEmpty()) return raw
+
+    options.firstOrNull { it.value == answer }?.let { exact ->
+        return AskAnswerDisplay(
+            label = exact.label.ifBlank { exact.value },
+            selectedValues = setOf(exact.value),
+            declined = false,
+        )
+    }
+    if (question?.multiSelect != true) return raw
+
+    val matched = answer.split(", ").map { segment -> options.firstOrNull { it.value == segment } }
+    if (matched.any { it == null }) return raw
+    val picked = matched.filterNotNull()
+    return AskAnswerDisplay(
+        label = picked.joinToString(", ") { it.label.ifBlank { it.value } },
+        selectedValues = picked.map { it.value }.toSet(),
+        declined = false,
+    )
 }

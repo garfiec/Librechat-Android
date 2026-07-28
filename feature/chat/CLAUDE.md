@@ -102,7 +102,8 @@ Two consequences worth knowing before touching that block:
 - `ContentPartRenderer` dispatches by `ContentPart.type`:
   - `text` -> `MarkdownContent` (custom regex parser with LaTeX support)
   - `think` -> collapsible thinking block
-  - `tool_call` -> `StreamingToolCallCard` (expandable, shows args/output)
+  - `tool_call` -> `StreamingToolCallCard` (expandable, shows args/output), except `ask_user_question`
+    (see below)
   - `image_file` / `image_url` -> inline AsyncImage, tap opens `FullscreenImageViewer`
   - `error` -> red-styled error display
 - `CodeBlock` renders fenced code with syntax highlighting, language badge, and copy button (3s checkmark)
@@ -141,6 +142,35 @@ Two consequences worth knowing before touching that block:
 - `PromptsLibraryScreen` and `PromptDetailScreen` live in `chat/prompts/`
 - `PromptsViewModel` loads prompt groups from `PromptRepository`
 - `handlePromptMention()` on ChatViewModel inserts prompt command text at `@` position
+
+## `ask_user_question`: one question, two cards (v0.8.8)
+
+A clarifying question reaches the screen twice over its life, and the two must never overlap.
+
+- **While the run is paused** it is the interactive `PendingActionCard` — the only thing that can
+  resolve it. The same question is *also* sitting in `activeToolCalls`, because the agent called a
+  tool to ask it; `withoutUnansweredQuestions()` drops it from both streaming lists so the user is
+  not asked the same thing twice, once under a spinner for a "call" that cannot finish until they
+  answer.
+- **Once answered** the same tool call renders as `AskUserQuestionRecordCard` — the durable record
+  of the exchange, collapsed to question + answer and expanding to the description and the options
+  offered, with the picked ones marked. `ToolCallDispatcher` routes the persisted part there too,
+  so history, reload and a mid-run reconnect all show the record rather than the generic card's
+  tool name over a JSON dump.
+
+Everything the record shows is already on the wire: the question, its description, options and
+`multiSelect` come from the call's own `args` (an object mid-stream, a JSON *string* once
+persisted — `parseAskUserQuestion` takes both), and the answer from its `output`. Nothing is
+gathered or stashed client-side to make it work, so a conversation opened on a second device
+renders identically.
+
+The answer is shown by option **label** only when every segment of it maps back to an option
+(`askAnswerDisplay`) — a value may legally contain the `", "` that joins a multi-select answer, so
+a partial mapping could split one value into fragments and relabel them as choices the user never
+made. Skip posts upstream's `ASK_USER_DECLINED_ANSWER` sentinel (the run must resume either way),
+which reads back as "skipped" rather than as a sentence the user typed. A call whose args failed
+schema validation carries `inputValidationError` and says so — it was never put to the user, so
+rendering it as unanswered would be a lie.
 
 ## During-run send: queue vs steer (v0.8.8)
 Two different things can happen when the user sends while a reply is generating, and they are not

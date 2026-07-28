@@ -40,6 +40,16 @@ object ToolConstants {
      *  `AgentHandoff`). */
     const val LC_TRANSFER_TO_PREFIX = "lc_transfer_to_"
 
+    /**
+     * The clarifying-question tool an agent calls to pause the run on the user (v0.8.8 HITL).
+     *
+     * The same literal as the interrupt discriminator
+     * ([com.garfiec.librechat.core.model.PendingActionTypes.ASK_USER_QUESTION] on the mobile side)
+     * — upstream keys the tool, the interrupt payload and the content part on one string by
+     * design. Named here too because this is where a tool *name* is matched.
+     */
+    const val ASK_USER_QUESTION = "ask_user_question"
+
     /** The `subagent` tool a parent agent invokes to delegate to a child agent
      *  (v0.8.6). Matches upstream `Constants.SUBAGENT`; used to correlate live
      *  `on_subagent_update` traces to their parent tool_call and to render the

@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
@@ -49,9 +50,11 @@ fun SecondaryMessageList(
     bottomContentPadding: Dp = 160.dp,
 ) {
     val listState = rememberLazyListState()
+    // A live `ask_user_question` pause is rendered by PendingActionCard, not as a tool card.
+    val renderedToolCalls = remember(activeToolCalls) { activeToolCalls.withoutUnansweredQuestions() }
     val totalItemCount = displayMessages.size +
         (if (isStreaming) 1 else 0) +
-        (if (isStreaming) activeToolCalls.size else 0)
+        (if (isStreaming) renderedToolCalls.size else 0)
 
     // Auto-scroll to bottom during streaming
     LaunchedEffect(streamingContent.length, totalItemCount) {
@@ -123,9 +126,9 @@ fun SecondaryMessageList(
                         )
                     }
 
-                    if (activeToolCalls.isNotEmpty()) {
+                    if (renderedToolCalls.isNotEmpty()) {
                         items(
-                            items = activeToolCalls,
+                            items = renderedToolCalls,
                             key = { "secondary_tool_call_${it.id}" },
                             contentType = { "tool_call" },
                         ) { toolCall ->
