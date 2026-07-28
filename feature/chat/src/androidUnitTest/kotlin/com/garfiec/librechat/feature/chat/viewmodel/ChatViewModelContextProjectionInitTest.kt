@@ -130,7 +130,7 @@ class ChatViewModelContextProjectionInitTest {
         // so a relaxed mock throws KotlinNothingValueException. Feed real never-emitting flows.
         // (All unrelated to the gauge path under test.)
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
-        every { platformDelegateFactory.createShareConsumer().shareAvailable } returns MutableSharedFlow()
+        every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()
 
         // On the agents branch `resolveProjectionModel` falls through the (empty) `resolvedAgentModels`
         // cache to the agent-detail fetch; a benign Error keeps the path deterministic and network-free.

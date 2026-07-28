@@ -78,6 +78,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.PendingActionDelega
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendCompletionDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.ShareData
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SteeringDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.StreamingManagerDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SubagentTraceDelegate
@@ -531,16 +532,14 @@ class ChatViewModel(
             // For new chats, mark conversationModelLoaded so refilterModels
             // doesn't wait for a conversation model that will never arrive.
             modelDelegate.conversationModelLoaded = true
-            // Consume any pending share intent data (text and/or files shared from another app)
-            consumeShareIntent()
             restoreDraft(NEW_CHAT_DRAFT_KEY)
         }
 
-        // Observe share intents that arrive while this ViewModel is already active
+        // Content shared in from another app, addressed to this chat by the navigation layer.
+        // Covers both a share that launched the app (staged before this screen composed, drained
+        // on subscribe) and one arriving while this ViewModel is already on screen.
         viewModelScope.launch {
-            shareConsumer.shareAvailable.collect {
-                consumeShareIntent()
-            }
+            shareConsumer.sharesFor(initialConversationId).collect(::applyShare)
         }
 
         // Collect server-file picker results routed to this conversation's own channel
@@ -954,12 +953,18 @@ class ChatViewModel(
         }
     }
 
-    private fun consumeShareIntent() {
-        val shareData = shareConsumer.consume() ?: return
-        Logger.d { "consumeShareIntent: text=${shareData.text != null}, files=${shareData.fileRefs.size}" }
+    private fun applyShare(shareData: ShareData) {
+        Logger.d { "applyShare: text=${shareData.text != null}, files=${shareData.fileRefs.size}" }
 
         if (!shareData.text.isNullOrBlank()) {
-            _uiState.update { it.copy(composer = it.composer.copy(inputText = shareData.text)) }
+            // Appended, never assigned: the composer may already hold a restored draft or something
+            // half-typed, and a share is one more thing the user wants to send — not a reason to
+            // drop what is already there.
+            _uiState.update {
+                val existing = it.composer.inputText
+                val merged = if (existing.isBlank()) shareData.text else "$existing\n${shareData.text}"
+                it.copy(composer = it.composer.copy(inputText = merged))
+            }
         }
 
         if (shareData.fileRefs.isNotEmpty()) {

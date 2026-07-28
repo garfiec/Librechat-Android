@@ -28,7 +28,6 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,14 +70,6 @@ class MainActivity : ComponentActivity() {
     private val settingsDataStore: SettingsDataStore by inject()
 
     private var deepLinkUri by mutableStateOf<Uri?>(null)
-
-    /**
-     * Incremented each time a share intent arrives.
-     * The NavDisplay observes this and either:
-     * - Navigates to NewChat if the user is not on a chat screen, or
-     * - Lets the active ChatViewModel consume the shared content in-place if already on a chat screen.
-     */
-    private var shareNavigationTrigger by mutableIntStateOf(0)
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class, ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -185,7 +176,6 @@ class MainActivity : ComponentActivity() {
                                 windowSizeClass = windowSizeClass,
                                 deepLinkUri = deepLinkUri,
                                 onDeepLinkConsume = { deepLinkUri = null },
-                                shareNavigationTrigger = shareNavigationTrigger,
                                 appLocaleTag = appLocale,
                                 modifier = Modifier
                                     .weight(1f)
@@ -255,10 +245,10 @@ class MainActivity : ComponentActivity() {
 
         if (sharedText != null || fileUris.isNotEmpty()) {
             Logger.d { "Share intent received: text=${sharedText != null}, uris=${fileUris.size}" }
+            // Staged only — the nav host addresses it to whichever chat is on screen.
             ShareIntentConsumer.setPendingShare(
                 SharedContent(text = sharedText, fileUris = fileUris),
             )
-            shareNavigationTrigger++
         }
     }
 
@@ -275,7 +265,6 @@ class MainActivity : ComponentActivity() {
             ShareIntentConsumer.setPendingShare(
                 SharedContent(fileUris = sharedUris),
             )
-            shareNavigationTrigger++
         }
     }
 }

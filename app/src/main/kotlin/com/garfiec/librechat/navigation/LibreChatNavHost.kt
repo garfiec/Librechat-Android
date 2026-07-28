@@ -9,7 +9,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.feature.chat.ShareIntentConsumer
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.shared.navigation.DeepLinkResolution
@@ -27,7 +29,6 @@ fun LibreChatNavHost(
     windowSizeClass: WindowSizeClass? = null,
     deepLinkUri: Uri? = null,
     onDeepLinkConsume: () -> Unit = {},
-    shareNavigationTrigger: Int = 0,
     appLocaleTag: String? = null,
 ) {
     // Resolve the pending link once (both the auth-suppression flag and the handler below use it).
@@ -75,14 +76,26 @@ fun LibreChatNavHost(
             currentOnDeepLinkConsume()
         }
 
-        // Handle share intent
-        LaunchedEffect(shareNavigationTrigger) {
-            if (shareNavigationTrigger > 0) {
-                val currentRoute = navigator.currentRoute
-                if (currentRoute !is Chat && currentRoute !is NewChat) {
+        // Handle share intent. This is the only place that knows both that a share is waiting and
+        // which chat is on screen, so it owns addressing it: the share is delivered to exactly that
+        // chat's composer instead of being offered to every live ChatViewModel, where the landing
+        // one sitting in the back stack would often claim it first. Driven off the consumer's own
+        // state rather than an activity-held trigger so a recreation mid-warm-up can't strand it.
+        val pendingShare by ShareIntentConsumer.undelivered.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingShare) {
+            if (pendingShare == null) return@LaunchedEffect
+            val currentRoute = navigator.currentRoute
+            val target = when (currentRoute) {
+                is Chat -> currentRoute.conversationId
+                is NewChat -> null
+                // Not on a chat at all — open the landing and address the share to it. It has not
+                // composed yet; the consumer holds the share for its first collector.
+                else -> {
                     navigator.navigateToTopLevel(NewChat())
+                    null
                 }
             }
+            ShareIntentConsumer.dispatchTo(target)
         }
 
         val isTablet = windowSizeClass?.widthSizeClass?.let {

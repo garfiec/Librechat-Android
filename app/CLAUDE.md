@@ -7,7 +7,8 @@ Single Activity architecture. `MainActivity` is the sole entry point.
 `LibreChatNavHost` (in this module) is the Android-specific entry point. It wraps the shared module's `LibreChatNavHost` via a `content` lambda, adding:
 
 - **Deep link handling** (`librechat://conversation/{conversationId}`)
-- **Share intent routing** (navigates to NewChat if not already on a chat screen)
+- **Share intent routing** (addresses the share to the chat on screen; navigates to NewChat first if
+  the user is not on one — see Share Intents below)
 - **Tablet layout branching** based on `WindowSizeClass`
 
 The shared module owns the core navigation: `Navigator`, `NavHostViewModel`, `MainNavDisplay`, `PhoneLayout`, sidebar/drawer composables, and all feature entry providers. See `shared/CLAUDE.md` for details.
@@ -49,6 +50,22 @@ Conversations are integrated into the drawer body. Agents, Files, and Settings a
   artifact) open logged-out. `oauth` is `Consumed` — its token returns via cookie read by the login
   screen (`checkOAuthResult`), so the link only brings the app forward.
 - `onNewIntent` handles deep links when the app is already running.
+
+## Share Intents
+
+- `MainActivity.handleShareIntent()` only **stages** the payload on `ShareIntentConsumer`; it does
+  not deliver it. This module's `LibreChatNavHost` then reads `navigator.currentRoute` and calls
+  `dispatchTo(conversationId)` — `null` for the `NewChat` landing — navigating there first if the
+  user is not on a chat at all.
+- **A share must be addressed, never broadcast.** Several `ChatViewModel`s are alive at once (the
+  landing sits in the back stack beneath an open `Chat`), so an unaddressed share is claimed by
+  whichever one collects first — usually the invisible landing, which put the user's text in a
+  composer they weren't looking at. `ShareIntentConsumer.sharesFor(conversationId)` gives each
+  screen its own channel; the nav host is the only place that knows both that a share is waiting
+  and which chat is on screen, so addressing lives there.
+- Delivery is driven off `ShareIntentConsumer.undelivered`, not an activity-held counter: the launch
+  intent is processed only on a fresh start, so a recreation during the theme/locale warm-up gate
+  would otherwise strand a share nothing had addressed yet.
 
 ## Connectivity
 

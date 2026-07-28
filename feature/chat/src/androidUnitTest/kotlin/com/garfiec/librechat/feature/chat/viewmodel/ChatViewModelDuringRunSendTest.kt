@@ -167,7 +167,7 @@ class ChatViewModelDuringRunSendTest {
         every { serverFileSelectionHandoff.selectionsFor(any()) } returns emptyFlow()
         // `SharedFlow.collect` returns Nothing, so a relaxed mock throws on these init collectors.
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
-        every { platformDelegateFactory.createShareConsumer().shareAvailable } returns MutableSharedFlow()
+        every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()
 
         // buildSendSpec reads the attachment list; the relaxed factory would hand back an
         // untyped stub that fails the List cast.
