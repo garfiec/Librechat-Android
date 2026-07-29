@@ -194,9 +194,6 @@
     <string name="select_agent">エージェントを選択</string>
 
     <!-- MCP Tools selector -->
-    <string name="mcp_tools_count">MCPツール（%1$d 個選択）</string>
-    <string name="no_mcp_tools">利用可能なMCPツールがありません。設定でMCPサーバーを構成してください。</string>
-    <string name="unknown_server">不明なサーバー</string>
 
     <!-- Model picker -->
     <string name="model_required_label">モデル *</string>

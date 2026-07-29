@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,7 +49,6 @@ import com.garfiec.librechat.feature.agents.components.AgentFileAttachments
 import com.garfiec.librechat.feature.agents.components.AgentFileContextSection
 import com.garfiec.librechat.feature.agents.components.AgentFileSearchSection
 import com.garfiec.librechat.feature.agents.components.AgentHandoffsSection
-import com.garfiec.librechat.feature.agents.components.AgentMcpToolsSelector
 import com.garfiec.librechat.feature.agents.components.AgentModelPicker
 import com.garfiec.librechat.feature.agents.components.AgentSharingSection
 import com.garfiec.librechat.feature.agents.components.AgentSkillsSection
@@ -67,7 +67,7 @@ import org.koin.compose.viewmodel.koinViewModel
 /**
  * The scrollable editor body. Field order mirrors the web app's AgentConfig:
  * avatar, name, description, category, instructions, model, capabilities,
- * MCP tools, tools & actions, support contact, conversation starters, sharing,
+ * tools & actions, support contact, conversation starters, sharing,
  * chain/handoffs, advanced, save. Each gated section renders only when its
  * server capability is present.
  */
@@ -289,18 +289,7 @@ internal fun AgentEditorForm(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 8. MCP Tools selector
-        if (uiState.mcpTools.isNotEmpty()) {
-            AgentMcpToolsSelector(
-                mcpTools = uiState.mcpTools,
-                selectedToolNames = uiState.selectedMcpTools,
-                onToolToggle = viewModel::onMcpToolToggled,
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        // 9. Tools & Actions section
+        // 8. Tools & Actions section
         Text(
             text = stringResource(Res.string.label_tools_and_actions),
             style = MaterialTheme.typography.titleSmall,
@@ -321,6 +310,29 @@ internal fun AgentEditorForm(
                         toolName = toolData?.name ?: toolId,
                         toolDescription = toolData?.description,
                         onRemove = { viewModel.onToolRemoved(toolId) },
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // MCP tools sit in the same selected list as plugin tools: which server a capability was
+        // installed from is a detail of its plumbing, not of what the agent can do. Only the ones
+        // actually on the agent are listed — browsing the rest is the picker's job.
+        if (uiState.selectedMcpTools.isNotEmpty()) {
+            val mcpByName = remember(uiState.mcpTools) { uiState.mcpTools.associateBy { it.name } }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                uiState.selectedMcpTools.forEach { toolName ->
+                    // A tool whose server has since gone away still renders, by raw name, so it
+                    // can be removed rather than sitting invisibly on the agent.
+                    val mcpTool = mcpByName[toolName]
+                    SelectedToolRow(
+                        toolName = toolName,
+                        toolDescription = mcpTool?.serverName ?: mcpTool?.description,
+                        onRemove = { viewModel.onMcpToolToggled(toolName) },
                     )
                 }
             }
@@ -373,7 +385,7 @@ internal fun AgentEditorForm(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 10. Support Contact
+        // 9. Support Contact
         AgentSupportContactSection(
             supportContact = uiState.supportContact,
             onSupportContactChange = viewModel::onSupportContactChanged,
@@ -383,7 +395,7 @@ internal fun AgentEditorForm(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 11. Conversation starters
+        // 10. Conversation starters
         Text(
             text = stringResource(Res.string.label_conversation_starters),
             style = MaterialTheme.typography.titleSmall,
@@ -497,7 +509,7 @@ internal fun AgentEditorForm(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 12. Advanced settings (collapsible)
+        // 11. Advanced settings (collapsible)
         AgentAdvancedPanel(
             settings = uiState.advancedSettings,
             onSettingsChange = viewModel::onAdvancedSettingsChanged,

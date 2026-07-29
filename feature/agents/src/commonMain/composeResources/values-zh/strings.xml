@@ -194,9 +194,6 @@
     <string name="select_agent">选择智能体</string>
 
     <!-- MCP Tools selector -->
-    <string name="mcp_tools_count">MCP 工具（已选 %1$d 个）</string>
-    <string name="no_mcp_tools">没有可用的 MCP 工具。请在设置中配置 MCP 服务器。</string>
-    <string name="unknown_server">未知服务器</string>
 
     <!-- Model picker -->
     <string name="model_required_label">模型 *</string>

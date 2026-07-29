@@ -48,7 +48,6 @@
 ### Agent Editor — Advanced Sections
 - `AgentEditorScreen` now includes 6 collapsible sections below the basic fields:
   - `AgentActionsPanel` — OpenAPI action CRUD (domain, type, auth)
-  - `AgentMcpToolsSelector` — hierarchical MCP tools grouped by server, checkbox selection
   - `AgentCodeInterpreterSection` / `AgentFileSearchSection` — simple capability toggles
   - `AgentSharingSection` — visibility (Private/Team/Public) + collaborative toggle
   - `AgentHandoffConfig` — select agents for handoff, displayed as InputChips
@@ -59,8 +58,18 @@
 ### Unified tools picker (v0.8.8)
 - `ToolsMarketplaceDialog` is the ONE picker for what an agent can do — built-in capabilities,
   plugin tools, MCP servers and skills in one searchable list with kind filter chips. It replaced
-  the separate `ToolSelectDialog` (deleted); `AgentMcpToolsSelector` and `AgentSkillsSection`
-  remain as the "what is currently on this agent" sections.
+  `ToolSelectDialog` and `AgentMcpToolsSelector` (both deleted), which each browsed a slice of the
+  same catalog.
+- Everywhere else in the editor shows only what is ALREADY on the agent, never the catalog:
+  plugin tools, MCP tools and actions are rows in "Tools & Actions"; skills are chips in
+  `AgentSkillsSection`. Adding is the picker's job. An MCP tool whose server has since gone away
+  still gets a row, by raw name, so it can be removed instead of sitting invisibly on the agent.
+- `AgentSkillsSection` keeps its own "Add skills" dialog rather than deferring to the picker —
+  upstream does the same (`ToolsSection` renders a skills `SelectedSection` next to a dedicated
+  `SkillsDialog`), because the skills allowlist has a master switch the catalog has no notion of:
+  enabled with an empty allowlist means "all skills", not "none".
+- `AgentCapabilitiesSection` (Artifacts, EndAfterTools, HideSeq, RecursionLimit) is NOT part of the
+  catalog — those are run-behaviour knobs, not things an agent can be given.
 - The catalog is DERIVED, not stored: `AgentEditorUiState.marketplaceCatalog()` builds it from the
   reference lists the editor already loads, so it cannot go stale against them.
 - **Gotcha**: a row's toggle routes back through the existing per-kind entry point

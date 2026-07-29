@@ -194,9 +194,6 @@
     <string name="select_agent">اختيار وكيل</string>
 
     <!-- MCP Tools selector -->
-    <string name="mcp_tools_count">أدوات MCP (%1$d محددة)</string>
-    <string name="no_mcp_tools">لا توجد أدوات MCP متاحة. هيّئ خوادم MCP في الإعدادات.</string>
-    <string name="unknown_server">خادم غير معروف</string>
 
     <!-- Model picker -->
     <string name="model_required_label">النموذج *</string>

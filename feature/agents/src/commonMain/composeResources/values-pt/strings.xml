@@ -194,9 +194,6 @@
     <string name="select_agent">Selecionar agente</string>
 
     <!-- MCP Tools selector -->
-    <string name="mcp_tools_count">Ferramentas MCP (%1$d selecionada(s))</string>
-    <string name="no_mcp_tools">Nenhuma ferramenta MCP disponível. Configure servidores MCP nas configurações.</string>
-    <string name="unknown_server">Servidor desconhecido</string>
 
     <!-- Model picker -->
     <string name="model_required_label">Modelo *</string>
