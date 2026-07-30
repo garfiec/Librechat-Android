@@ -35,6 +35,14 @@ enum class ContentType {
     @SerialName("summary")
     SUMMARY,
 
+    // Activity-group header part (upstream #14391, 0.8.8 line). Declared for the same reason as
+    // STEER below: an unknown enum value is NOT rescued by `ignoreUnknownKeys`, and
+    // `coerceInputValues` cannot help either because it only coerces into a property default and
+    // `MessageContentPart.type` has none. Without this entry the whole message decode fails on
+    // any server running with `endpoints.*.activityLabel: true`.
+    @SerialName("activity_label")
+    ACTIVITY_LABEL,
+
     // Mid-run steering part (upstream #14220, 0.8.8 line). Declared so a persisted message
     // content carrying a `steer` part deserializes instead of throwing — an unknown enum value
     // is NOT rescued by `ignoreUnknownKeys`, so its absence crashed conversation load on newer

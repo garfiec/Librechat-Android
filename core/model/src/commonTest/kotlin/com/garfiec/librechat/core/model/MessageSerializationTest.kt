@@ -133,6 +133,84 @@ class MessageSerializationTest {
     }
 
     @Test
+    fun messageWithActivityLabelPartDeserializes() {
+        // v0.8.8 activity groups (upstream #14391) persist an `activity_label` part into saved
+        // message content. `ContentType` has no default, so an undeclared value fails the whole
+        // decode and takes every surrounding part with it — the conversation stops opening.
+        val serverJson = """
+            {
+                "messageId": "msg-activity",
+                "conversationId": "conv-activity",
+                "text": "",
+                "content": [
+                    {"type": "text", "text": "Before the group."},
+                    {
+                        "type": "activity_label",
+                        "activity_label": "Searched the codebase",
+                        "tool_call_ids": ["call-1", "call-2"],
+                        "counts": {"searches": 2, "reads": 1, "writes": 0, "commands": 0, "other": 0},
+                        "status": "ok",
+                        "agentId": "agent-1",
+                        "pending": false
+                    },
+                    {"type": "text", "text": "After the group."}
+                ]
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString(Message.serializer(), serverJson)
+        val parts = decoded.content!!
+        assertEquals(3, parts.size)
+        assertEquals("Before the group.", parts[0].text)
+        assertEquals(ContentType.ACTIVITY_LABEL, parts[1].type)
+        assertEquals("Searched the codebase", parts[1].activityLabel)
+        assertEquals(listOf("call-1", "call-2"), parts[1].toolCallIds)
+        assertEquals("agent-1", parts[1].agentId)
+        assertEquals("After the group.", parts[2].text)
+    }
+
+    @Test
+    fun messageWithPendingActivityLabelPartDeserializes() {
+        // The reservation emitted at the tool-batch boundary, before the label model answers:
+        // an empty label plus `pending: true`. Must decode as readily as the resolved form.
+        val serverJson = """
+            {
+                "messageId": "msg-activity-pending",
+                "conversationId": "conv-activity",
+                "text": "",
+                "content": [
+                    {"type": "activity_label", "activity_label": "", "pending": true},
+                    {"type": "text", "text": "Still streaming."}
+                ]
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString(Message.serializer(), serverJson)
+        val parts = decoded.content!!
+        assertEquals(2, parts.size)
+        assertEquals(ContentType.ACTIVITY_LABEL, parts[0].type)
+        assertEquals("", parts[0].activityLabel)
+        assertEquals("Still streaming.", parts[1].text)
+    }
+
+    @Test
+    fun activityLabelPartRoundTrip() {
+        val original = Message(
+            messageId = "msg-activity-rt",
+            conversationId = "conv-activity",
+            content = listOf(
+                MessageContentPart(
+                    type = ContentType.ACTIVITY_LABEL,
+                    activityLabel = "Ran the test suite",
+                    toolCallIds = listOf("call-9"),
+                ),
+                MessageContentPart(type = ContentType.TEXT, text = "Done."),
+            ),
+        )
+        val encoded = json.encodeToString(Message.serializer(), original)
+        val decoded = json.decodeFromString(Message.serializer(), encoded)
+        assertEquals(original, decoded)
+    }
+
+    @Test
     fun messageDeserializesFromServerJson() {
         val serverJson = """
             {

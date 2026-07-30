@@ -22,6 +22,11 @@ data class MessageContentPart(
     // because the app doesn't render steering yet; its presence must not break deserialization
     // of the surrounding message. Paired with [ContentType.STEER].
     @SerialName("steer") val steer: JsonElement? = null,
+    // Activity-group header text (type == "activity_label", upstream #14391). Top-level on the
+    // wire like the SUMMARY fields below, not nested. Empty or absent while the label is still a
+    // pending reservation, which upstream renders as nothing. Paired with
+    // [ContentType.ACTIVITY_LABEL].
+    @SerialName("activity_label") val activityLabel: String? = null,
     // SUMMARY content-part fields (type == "summary"). Fields are top-level on the wire,
     // not nested under a `summary` key. `content` can be an array of {type,text} blocks
     // or a raw string; legacy servers fall back to the top-level `text` field above.
