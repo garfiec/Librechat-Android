@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
+import com.garfiec.librechat.feature.chat.util.resolvedResponseMessage
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.PLACEHOLDER_CONVERSATION_TITLE
 import com.garfiec.librechat.feature.chat.viewmodel.SendCompletionHandle
@@ -163,6 +164,7 @@ class SendCompletionDelegate(
                     // message; ChatContent then renders each pane from its own parts, and reopen
                     // rehydration reads the same attribution. (The live panes were already
                     // finalized in memory by comparisonDelegate.onFinal.)
+                    treeDelegate.markSettled(event.resolvedResponseMessage()?.messageId)
                     reloadConversation(conversationId)
                 } else {
                     // The Final event is authoritative (it echoes the server-adopted ids, PR

@@ -99,6 +99,16 @@ class MessageTreeDelegate(
      * message, which was never written to Room during streaming and would otherwise be lost on
      * reopen. Temp chats ignore the return value.
      */
+    /**
+     * Names the response that is about to take over from the streaming bubble, for the one path
+     * that never reaches [finalizeChatDisplay]: a live comparison turn, which rebuilds from a
+     * background reload. The message is not in the tree yet — the flag is only an id, and the
+     * reload's emission is what makes it match.
+     */
+    fun markSettled(messageId: String?) {
+        handle.update { content = content.copy(justSettledMessageId = messageId) }
+    }
+
     fun finalizeChatDisplay(event: StreamEvent.Final): List<Message> {
         // Defensive: upstream 0.8.7 sets responseMessage.attachments before saving, but the app
         // supports a backend version range. If the Final payload omitted a file that streamed in
@@ -138,6 +148,12 @@ class MessageTreeDelegate(
                 // client-minted id can't strand the seed and keep re-appending it as a phantom
                 // sibling. See pendingResumeUserMessage / NewChatSelectionHandoff.
                 pendingResumeUserMessage = null,
+                // Named in the SAME update that swaps the message in, so the flag is already true
+                // the first time the finalized message composes. A UI-side derivation cannot be:
+                // an effect runs after the composition that registered it, by which point the
+                // activity groups have already picked their initial expansion and nothing re-opens
+                // them. See MessagesState.justSettledMessageId.
+                justSettledMessageId = response?.messageId,
             )
         }
         if (finalMessages.isEmpty()) return emptyList()
@@ -181,6 +197,8 @@ class MessageTreeDelegate(
                 // Defensive: earlyAbort means `created` never fired, so no handoff seeded this —
                 // but clearing keeps the invariant "finalize/unsend always retires the seed".
                 pendingResumeUserMessage = null,
+                // Nothing settled — the turn was un-sent.
+                justSettledMessageId = null,
             )
         }
     }

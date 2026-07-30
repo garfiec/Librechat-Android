@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -35,6 +36,7 @@ fun SecondaryMessageList(
     isStreaming: Boolean,
     streamingContent: String,
     modifier: Modifier = Modifier,
+    justSettledMessageId: String? = null,
     activeToolCalls: List<ActiveToolCall> = emptyList(),
     streamingAttachments: List<Attachment> = emptyList(),
     error: String? = null,
@@ -93,6 +95,13 @@ fun SecondaryMessageList(
                     key = { node -> "secondary_${node.message.messageId}" },
                     contentType = { "message" },
                 ) { node ->
+                    CompositionLocalProvider(
+                        LocalSuppressGroupAutoCollapse provides
+                            (node.message.messageId == justSettledMessageId),
+                        // No feedback affordance in a comparison pane, but provided for the same
+                        // reason as the primary list so the two cannot drift.
+                        LocalFeedbackEnabled provides !isStreaming,
+                    ) {
                     MessageBubble(
                         message = node.message,
                         siblingIndex = node.siblingIndex,
@@ -109,6 +118,7 @@ fun SecondaryMessageList(
                         showBubbles = showBubbles,
                         useKatex = useKatex,
                     )
+                    }
                 }
 
                 if (isStreaming) {

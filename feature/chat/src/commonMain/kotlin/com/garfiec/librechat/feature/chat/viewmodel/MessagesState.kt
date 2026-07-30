@@ -31,6 +31,19 @@ data class MessagesState(
      */
     val pendingResumeUserMessage: Message? = null,
     val activeBranches: Map<String, Int> = emptyMap(),
+    /**
+     * The response message that just took over from the streaming bubble, or null.
+     *
+     * Written in the same atomic update as the swap, so by the time the finalized message is
+     * composable this already says which one it is — a UI-side derivation cannot do that, because
+     * an effect body runs after the composition that registered it and the groups have already
+     * chosen their initial state by then. Set per turn and cleared at the next turn boundary, so
+     * it names a TRANSITION rather than the state "not streaming": simply opening a conversation
+     * must not mark its last message as freshly settled.
+     *
+     * The one consumer is [ActivityGroup]'s auto-collapse suppression.
+     */
+    val justSettledMessageId: String? = null,
     val isStreaming: Boolean = false,
     val streamingContent: String = "",
     val activeToolCalls: List<ActiveToolCall> = emptyList(),

@@ -283,6 +283,8 @@
     <string name="steer_sent_during_reply">sent while replying</string>
     <string name="state_expanded">Expanded</string>
     <string name="state_collapsed">Collapsed</string>
+    <string name="feedback_unavailable_while_generating">You can send this once the reply finishes.</string>
+    <string name="cd_feedback_unavailable">Unavailable while a reply is generating</string>
 
     <!-- Streaming tool call -->
     <string name="tool_call_output">Output:</string>

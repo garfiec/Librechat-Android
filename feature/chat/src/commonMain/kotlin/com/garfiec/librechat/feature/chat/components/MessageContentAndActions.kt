@@ -94,6 +94,9 @@ internal fun ActionButtons(
             val isDown = currentFeedback == FeedbackRating.THUMBS_DOWN
             val feedbackEnabled = LocalFeedbackEnabled.current
             val disabledTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA)
+            // "Thumbs up, disabled" says nothing about why; a disabled control with no reason is
+            // the accessibility equivalent of a silent no-op.
+            val unavailable = stringResource(Res.string.cd_feedback_unavailable)
             IconButton(
                 onClick = { if (isUp) onFeedback(null) else onPickFeedbackTag(FeedbackRating.THUMBS_UP) },
                 enabled = feedbackEnabled,
@@ -101,7 +104,8 @@ internal fun ActionButtons(
             ) {
                 Icon(
                     imageVector = if (isUp) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                    contentDescription = stringResource(Res.string.cd_thumbs_up),
+                    contentDescription = stringResource(Res.string.cd_thumbs_up)
+                        .let { if (feedbackEnabled) it else "$it, $unavailable" },
                     modifier = Modifier.size(18.dp),
                     // The tint is set explicitly, so IconButton's own disabled content colour never
                     // applies — without this the button greys out its ripple but not its icon.
@@ -119,7 +123,8 @@ internal fun ActionButtons(
             ) {
                 Icon(
                     imageVector = if (isDown) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                    contentDescription = stringResource(Res.string.cd_thumbs_down),
+                    contentDescription = stringResource(Res.string.cd_thumbs_down)
+                        .let { if (feedbackEnabled) it else "$it, $unavailable" },
                     modifier = Modifier.size(18.dp),
                     tint = when {
                         !feedbackEnabled -> disabledTint

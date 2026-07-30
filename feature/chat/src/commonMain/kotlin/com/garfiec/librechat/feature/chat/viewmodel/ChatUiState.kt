@@ -131,6 +131,7 @@ data class ChatUiState(
     val displayMessages: List<MessageNode> get() = content.displayMessages
     val pendingResumeUserMessage: Message? get() = content.pendingResumeUserMessage
     val activeBranches: Map<String, Int> get() = content.activeBranches
+    val justSettledMessageId: String? get() = content.justSettledMessageId
     val isStreaming: Boolean get() = content.isStreaming
     val streamingContent: String get() = content.streamingContent
     val activeToolCalls: List<ActiveToolCall> get() = content.activeToolCalls

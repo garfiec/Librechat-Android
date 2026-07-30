@@ -111,6 +111,7 @@ internal fun ComparisonPanes(
         MessageList(
             displayMessages = primaryDisplayMessages,
             isStreaming = comparisonState.primaryIsStreaming || uiState.isStreaming,
+            justSettledMessageId = uiState.justSettledMessageId,
             streamingContent = if (comparisonState.primaryIsStreaming) {
                 comparisonState.primaryStreamingContent
             } else {
@@ -170,6 +171,7 @@ internal fun ComparisonPanes(
         SecondaryMessageList(
             displayMessages = secondaryDisplayMessages,
             isStreaming = comparisonState.secondaryIsStreaming,
+            justSettledMessageId = uiState.justSettledMessageId,
             streamingContent = comparisonState.secondaryStreamingContent,
             activeToolCalls = comparisonState.secondaryActiveToolCalls,
             streamingAttachments = uiState.streamingAttachments,

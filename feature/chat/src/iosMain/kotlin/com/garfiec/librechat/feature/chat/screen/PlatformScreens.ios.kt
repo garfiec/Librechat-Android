@@ -582,6 +582,7 @@ private fun IosChatBody(
             MessageList(
                 displayMessages = singleDisplayMessages,
                 isStreaming = uiState.isStreaming,
+                justSettledMessageId = uiState.justSettledMessageId,
                 streamingContent = uiState.streamingContent,
                 activeToolCalls = uiState.activeToolCalls,
                 streamingAttachments = uiState.streamingAttachments,

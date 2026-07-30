@@ -184,6 +184,7 @@ private fun ChatMessageListPane(
     MessageList(
         displayMessages = displayMessages,
         isStreaming = isStreaming,
+        justSettledMessageId = uiState.justSettledMessageId,
         streamingContent = streamingContent,
         activeToolCalls = activeToolCalls,
         streamingAttachments = uiState.streamingAttachments,

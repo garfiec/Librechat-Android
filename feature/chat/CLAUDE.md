@@ -286,7 +286,10 @@ existing upload/usage path already handles them.
   `MessageList`): the thumbs are *disabled* — not hidden, which would reflow the action row —
   while streaming. Both are required. A sink-only guard sits at the end of a multi-step flow, so
   the user would pick a reason and type a comment before anything refused; an affordance-only gate
-  would leave the Room write unprotected against the next caller. Note the sibling mutations
+  would leave the Room write unprotected against the next caller. `FeedbackTagSheet` reads the same
+  local and disables Submit if a run starts while the sheet is already open (`onResume` adopting
+  another client's run, a queued message draining) — the sheet stays up and keeps the draft rather
+  than dismissing, so Submit re-enables when the run ends. Note the sibling mutations
   (`switchBranch`, `editMessage`, `regenerateMessage`) do NOT gate their affordances — their
   arrows and buttons stay live mid-stream and silently no-op.
 - The sheet is a `ModalBottomSheet` of radio rows, not chips or an `AlertDialog`: `FilterChip`/
@@ -308,9 +311,20 @@ tool block. It is pure because this module has no Compose test harness.
   block's leading `THINK` when its text lands, so `parts[0]` flips at the instant the block becomes
   a group; keying on it remounts the group and drops the user's expansion.
 - **Auto-collapse is latched once per group id**, and suppressed entirely on the message that just
-  took over from the streaming bubble (`LocalSuppressGroupAutoCollapse`, provided by `MessageList`)
-  — the live tool cards vanish in that same swap, and folding the same calls in the same frame
-  drops the reply's height by the whole stack.
+  took over from the streaming bubble — the live tool cards vanish in that same swap, and folding
+  the same calls in the same frame drops the reply's height by the whole stack.
+  **The suppressed message is named by the ViewModel, not derived in the UI**
+  (`MessagesState.justSettledMessageId` → `MessageList` → `LocalSuppressGroupAutoCollapse`).
+  `finalizeChatDisplay` writes it in the SAME atomic update that swaps the message in, so the flag
+  is already true the first time the finalized message composes. Both UI-side derivations fail:
+  a `LaunchedEffect` on `isStreaming` commits *after* the composition that registered it, so the
+  groups have already collapsed and nothing re-opens them; deriving during composition instead
+  marks the last message of every *opened* conversation as freshly settled and keeps its groups
+  open forever. The flag names a **transition**, cleared at the next turn boundary in
+  `beginStreaming`. A live comparison never reaches `finalizeChatDisplay` (it rebuilds from a
+  background reload), so `SendCompletionDelegate` calls `markSettled` on that branch. Guarded by
+  `JustSettledMessageTest` — this module has no Compose harness, and the first attempt at this was
+  a no-op that passed every gate.
 - **Steers.** A `steer` part renders as a user turn where the words entered the run, and each
   segment resuming after one restates attribution. Attribution follows the agent that had taken
   over when the steer landed; a handoff AT the resume point keeps the pre-handoff author so the

@@ -64,6 +64,12 @@ internal fun FeedbackTagSheet(
 ) {
     val sheetState = rememberModalBottomSheetState()
     val tags = remember(rating) { FeedbackTag.forRating(rating) }
+    // A sheet opened while idle outlives a stream that starts under it — `onResume` adopting a run
+    // another client began, or a queued message draining. Submitting then reaches the sink guard
+    // and drops the reason and up to 1024 characters silently, which is the failure disabling the
+    // thumbs was meant to remove. The sheet stays up and keeps the draft; Submit re-enables when
+    // the run ends.
+    val submitEnabled = LocalFeedbackEnabled.current
 
     // Saveable: the sheet outlives a rotation or a fold, and silently eating a typed comment is
     // worse than any of the layout problems this replaced. Enum names, not entries — the default
@@ -126,6 +132,15 @@ internal fun FeedbackTagSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            if (!submitEnabled) {
+                Text(
+                    text = stringResource(Res.string.feedback_unavailable_while_generating),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+
             OutlinedTextField(
                 value = comment,
                 onValueChange = { if (it.length <= MAX_COMMENT_LENGTH) comment = it },
@@ -147,7 +162,7 @@ internal fun FeedbackTagSheet(
                 TextButton(
                     // The server rejects a tagless submission, so an enabled button here would
                     // just produce a 400 the user never sees.
-                    enabled = selectedTag != null,
+                    enabled = selectedTag != null && submitEnabled,
                     onClick = {
                         selectedTag?.let { onSubmit(it, comment.trim().ifBlank { null }) }
                     },

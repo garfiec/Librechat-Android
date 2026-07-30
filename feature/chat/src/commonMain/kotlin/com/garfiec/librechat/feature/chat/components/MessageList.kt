@@ -80,6 +80,13 @@ fun MessageList(
     activeToolCalls: List<ActiveToolCall> = emptyList(),
     streamingAttachments: List<Attachment> = emptyList(),
     onFeedback: (messageId: String, feedback: MinimalFeedback?) -> Unit = { _, _ -> },
+    /**
+     * The response that just took over from the streaming bubble, from `ChatUiState`. Read from
+     * state rather than derived here from `isStreaming`: a UI-side derivation can only run in an
+     * effect, which commits AFTER the composition that first renders the finalized message — by
+     * then its activity groups have already chosen to collapse and nothing re-opens them.
+     */
+    justSettledMessageId: String? = null,
     onContinue: (messageId: String) -> Unit = {},
     onReadAloud: (messageId: String) -> Unit = {},
     onFork: (messageId: String) -> Unit = {},
@@ -141,16 +148,6 @@ fun MessageList(
     // for callers without an overlaid bar (e.g. comparison panes), leaving their behavior unchanged.
     val topContentPaddingPx = with(LocalDensity.current) { topContentPadding.toPx() }
     var lastNavigatedParentKey by remember { mutableStateOf<String?>(null) }
-
-    // The message that took over from the streaming bubble on the run that just ended. Its
-    // activity groups must not auto-collapse on that frame: the live tool cards disappear in the
-    // same swap, and folding the same calls at the same moment drops the reply's height by the
-    // whole stack. Cleared on the next send, so a later visit to this conversation collapses
-    // normally.
-    var settledFromStreamId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(isStreaming) {
-        settledFromStreamId = if (isStreaming) null else displayMessages.lastOrNull()?.message?.messageId
-    }
 
     // A live `ask_user_question` pause is rendered by PendingActionCard, not as a tool card.
     val renderedToolCalls = remember(activeToolCalls) { activeToolCalls.withoutUnansweredQuestions() }
@@ -464,7 +461,7 @@ fun MessageList(
                 CompositionLocalProvider(
                     LocalImmediateMarkdown provides (index == displayMessages.lastIndex),
                     LocalSearchFocusNonce provides if (isCurrent) searchFocusRequest?.requestId ?: 0L else 0L,
-                    LocalSuppressGroupAutoCollapse provides (node.message.messageId == settledFromStreamId),
+                    LocalSuppressGroupAutoCollapse provides (node.message.messageId == justSettledMessageId),
                     LocalFeedbackEnabled provides !isStreaming,
                 ) {
                 MessageBubble(
