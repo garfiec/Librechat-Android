@@ -65,7 +65,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
+import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.core.ui.components.AvatarImage
 import com.garfiec.librechat.core.ui.components.endpointIconPainter
@@ -95,14 +97,14 @@ actual fun MessageBubble(
     onEdit: (() -> Unit)?,
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
-    onFeedback: ((String?) -> Unit)?,
+    onFeedback: ((MinimalFeedback?) -> Unit)?,
     onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
     baseUrl: String,
     fontSizeMultiplier: Float,
     isReading: Boolean,
-    currentFeedback: String?,
+    currentFeedback: FeedbackRating?,
     isEditing: Boolean,
     editText: String,
     onEditTextChange: ((String) -> Unit)?,
@@ -129,21 +131,81 @@ actual fun MessageBubble(
 
     if (chatLayoutStyle == ChatLayoutConstants.TWO_SIDED) {
         TwoSidedBubble(
-            message, modifier, siblingIndex, siblingCount, onSiblingNavigation, onEdit, onRegenerate, onCopy, onFeedback,
-            onContinue, onReadAloud, onFork, baseUrl, fontSizeMultiplier, useKatex, isReading, currentFeedback,
-            isEditing, editText, onEditTextChange, onEditSaveAndSubmit, onEditSaveOnly, onEditCancel,
-            userAvatarUrl, userName, resolvedEndpoint, tintEndpointIcon, showImageDescriptions, showActionsInitially,
-            searchQuery, isSearchMatch, isCurrentSearchMatch, searchFocusedOccurrence, onFocusedOccurrencePosition,
-            showAvatars, showBubbles,
+            message = message,
+            modifier = modifier,
+            siblingIndex = siblingIndex,
+            siblingCount = siblingCount,
+            onSiblingNavigation = onSiblingNavigation,
+            onEdit = onEdit,
+            onRegenerate = onRegenerate,
+            onCopy = onCopy,
+            onFeedback = onFeedback,
+            onContinue = onContinue,
+            onReadAloud = onReadAloud,
+            onFork = onFork,
+            baseUrl = baseUrl,
+            fontSizeMultiplier = fontSizeMultiplier,
+            useKatex = useKatex,
+            isReading = isReading,
+            currentFeedback = currentFeedback,
+            isEditing = isEditing,
+            editText = editText,
+            onEditTextChange = onEditTextChange,
+            onEditSaveAndSubmit = onEditSaveAndSubmit,
+            onEditSaveOnly = onEditSaveOnly,
+            onEditCancel = onEditCancel,
+            userAvatarUrl = userAvatarUrl,
+            userName = userName,
+            resolvedEndpoint = resolvedEndpoint,
+            tintEndpointIcon = tintEndpointIcon,
+            showImageDescriptions = showImageDescriptions,
+            showActionsInitially = showActionsInitially,
+            searchQuery = searchQuery,
+            isSearchMatch = isSearchMatch,
+            isCurrentSearchMatch = isCurrentSearchMatch,
+            searchFocusedOccurrence = searchFocusedOccurrence,
+            onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+            showAvatars = showAvatars,
+            showBubbles = showBubbles,
         )
     } else {
         ThreadBubble(
-            message, modifier, siblingIndex, siblingCount, onSiblingNavigation, onEdit, onRegenerate, onCopy, onFeedback,
-            onContinue, onReadAloud, onFork, baseUrl, fontSizeMultiplier, useKatex, isReading, currentFeedback,
-            isEditing, editText, onEditTextChange, onEditSaveAndSubmit, onEditSaveOnly, onEditCancel,
-            userAvatarUrl, userName, resolvedEndpoint, tintEndpointIcon, showImageDescriptions, showActionsInitially,
-            searchQuery, isSearchMatch, isCurrentSearchMatch, searchFocusedOccurrence, onFocusedOccurrencePosition,
-            showAvatars, showBubbles,
+            message = message,
+            modifier = modifier,
+            siblingIndex = siblingIndex,
+            siblingCount = siblingCount,
+            onSiblingNavigation = onSiblingNavigation,
+            onEdit = onEdit,
+            onRegenerate = onRegenerate,
+            onCopy = onCopy,
+            onFeedback = onFeedback,
+            onContinue = onContinue,
+            onReadAloud = onReadAloud,
+            onFork = onFork,
+            baseUrl = baseUrl,
+            fontSizeMultiplier = fontSizeMultiplier,
+            useKatex = useKatex,
+            isReading = isReading,
+            currentFeedback = currentFeedback,
+            isEditing = isEditing,
+            editText = editText,
+            onEditTextChange = onEditTextChange,
+            onEditSaveAndSubmit = onEditSaveAndSubmit,
+            onEditSaveOnly = onEditSaveOnly,
+            onEditCancel = onEditCancel,
+            userAvatarUrl = userAvatarUrl,
+            userName = userName,
+            resolvedEndpoint = resolvedEndpoint,
+            tintEndpointIcon = tintEndpointIcon,
+            showImageDescriptions = showImageDescriptions,
+            showActionsInitially = showActionsInitially,
+            searchQuery = searchQuery,
+            isSearchMatch = isSearchMatch,
+            isCurrentSearchMatch = isCurrentSearchMatch,
+            searchFocusedOccurrence = searchFocusedOccurrence,
+            onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+            showAvatars = showAvatars,
+            showBubbles = showBubbles,
         )
     }
 }
@@ -153,9 +215,9 @@ actual fun MessageBubble(
 private fun ThreadBubble(
     message: Message, modifier: Modifier, siblingIndex: Int, siblingCount: Int,
     onSiblingNavigation: ((Int) -> Unit)?, onEdit: (() -> Unit)?, onRegenerate: (() -> Unit)?,
-    onCopy: (() -> Unit)?, onFeedback: ((String?) -> Unit)?, onContinue: (() -> Unit)?,
+    onCopy: (() -> Unit)?, onFeedback: ((MinimalFeedback?) -> Unit)?, onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?, onFork: (() -> Unit)?, baseUrl: String, fontSizeMultiplier: Float,
-    useKatex: Boolean, isReading: Boolean, currentFeedback: String?, isEditing: Boolean, editText: String,
+    useKatex: Boolean, isReading: Boolean, currentFeedback: FeedbackRating?, isEditing: Boolean, editText: String,
     onEditTextChange: ((String) -> Unit)?, onEditSaveAndSubmit: (() -> Unit)?, onEditSaveOnly: (() -> Unit)?,
     onEditCancel: (() -> Unit)?, userAvatarUrl: String?, userName: String?,
     resolvedEndpoint: String?, tintEndpointIcon: Boolean,
@@ -165,15 +227,6 @@ private fun ThreadBubble(
 ) {
     val isUser = message.isCreatedByUser
     var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
-    var showFeedbackDialog by remember { mutableStateOf(false) }
-
-    if (showFeedbackDialog && onFeedback != null) {
-        FeedbackCommentDialog(
-            onSubmit = { showFeedbackDialog = false; onFeedback("thumbsDown") },
-            onDismiss = { showFeedbackDialog = false },
-        )
-    }
-
     LaunchedEffect(showActions) { if (showActions) { delay(ACTION_AUTO_HIDE_MILLIS); showActions = false } }
 
     val searchBg = when {
@@ -231,11 +284,36 @@ private fun ThreadBubble(
             ),
         ) {
             MessageContentAndActions(
-                message, isUser, isEditing, editText, onEditTextChange, onEditSaveAndSubmit, onEditSaveOnly, onEditCancel,
-                baseUrl, fontSizeMultiplier, useKatex, showImageDescriptions, searchQuery, isSearchMatch,
-                isCurrentSearchMatch, searchFocusedOccurrence, onFocusedOccurrencePosition, showActions,
-                siblingIndex, siblingCount, onSiblingNavigation, onEdit, onRegenerate, onCopy, onFeedback,
-                onContinue, onReadAloud, onFork, isReading, currentFeedback, { showFeedbackDialog = true },
+                message = message,
+                isUser = isUser,
+                isEditing = isEditing,
+                editText = editText,
+                onEditTextChange = onEditTextChange,
+                onEditSaveAndSubmit = onEditSaveAndSubmit,
+                onEditSaveOnly = onEditSaveOnly,
+                onEditCancel = onEditCancel,
+                baseUrl = baseUrl,
+                fontSizeMultiplier = fontSizeMultiplier,
+                useKatex = useKatex,
+                showImageDescriptions = showImageDescriptions,
+                searchQuery = searchQuery,
+                isSearchMatch = isSearchMatch,
+                isCurrentSearchMatch = isCurrentSearchMatch,
+                searchFocusedOccurrence = searchFocusedOccurrence,
+                onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+                showActions = showActions,
+                siblingIndex = siblingIndex,
+                siblingCount = siblingCount,
+                onSiblingNavigation = onSiblingNavigation,
+                onEdit = onEdit,
+                onRegenerate = onRegenerate,
+                onCopy = onCopy,
+                onFeedback = onFeedback,
+                onContinue = onContinue,
+                onReadAloud = onReadAloud,
+                onFork = onFork,
+                isReading = isReading,
+                currentFeedback = currentFeedback,
             )
         }
     }
@@ -246,9 +324,9 @@ private fun ThreadBubble(
 private fun TwoSidedBubble(
     message: Message, modifier: Modifier, siblingIndex: Int, siblingCount: Int,
     onSiblingNavigation: ((Int) -> Unit)?, onEdit: (() -> Unit)?, onRegenerate: (() -> Unit)?,
-    onCopy: (() -> Unit)?, onFeedback: ((String?) -> Unit)?, onContinue: (() -> Unit)?,
+    onCopy: (() -> Unit)?, onFeedback: ((MinimalFeedback?) -> Unit)?, onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?, onFork: (() -> Unit)?, baseUrl: String, fontSizeMultiplier: Float,
-    useKatex: Boolean, isReading: Boolean, currentFeedback: String?, isEditing: Boolean, editText: String,
+    useKatex: Boolean, isReading: Boolean, currentFeedback: FeedbackRating?, isEditing: Boolean, editText: String,
     onEditTextChange: ((String) -> Unit)?, onEditSaveAndSubmit: (() -> Unit)?, onEditSaveOnly: (() -> Unit)?,
     onEditCancel: (() -> Unit)?, userAvatarUrl: String?, userName: String?,
     resolvedEndpoint: String?, tintEndpointIcon: Boolean,
@@ -258,15 +336,6 @@ private fun TwoSidedBubble(
 ) {
     val isUser = message.isCreatedByUser
     var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
-    var showFeedbackDialog by remember { mutableStateOf(false) }
-
-    if (showFeedbackDialog && onFeedback != null) {
-        FeedbackCommentDialog(
-            onSubmit = { showFeedbackDialog = false; onFeedback("thumbsDown") },
-            onDismiss = { showFeedbackDialog = false },
-        )
-    }
-
     LaunchedEffect(showActions) { if (showActions) { delay(ACTION_AUTO_HIDE_MILLIS); showActions = false } }
 
     val searchBg = when {
@@ -332,11 +401,36 @@ private fun TwoSidedBubble(
             Spacer(Modifier.height(4.dp))
 
             MessageContentAndActions(
-                message, isUser, isEditing, editText, onEditTextChange, onEditSaveAndSubmit, onEditSaveOnly, onEditCancel,
-                baseUrl, fontSizeMultiplier, useKatex, showImageDescriptions, searchQuery, isSearchMatch,
-                isCurrentSearchMatch, searchFocusedOccurrence, onFocusedOccurrencePosition, showActions,
-                siblingIndex, siblingCount, onSiblingNavigation, onEdit, onRegenerate, onCopy, onFeedback,
-                onContinue, onReadAloud, onFork, isReading, currentFeedback, { showFeedbackDialog = true },
+                message = message,
+                isUser = isUser,
+                isEditing = isEditing,
+                editText = editText,
+                onEditTextChange = onEditTextChange,
+                onEditSaveAndSubmit = onEditSaveAndSubmit,
+                onEditSaveOnly = onEditSaveOnly,
+                onEditCancel = onEditCancel,
+                baseUrl = baseUrl,
+                fontSizeMultiplier = fontSizeMultiplier,
+                useKatex = useKatex,
+                showImageDescriptions = showImageDescriptions,
+                searchQuery = searchQuery,
+                isSearchMatch = isSearchMatch,
+                isCurrentSearchMatch = isCurrentSearchMatch,
+                searchFocusedOccurrence = searchFocusedOccurrence,
+                onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+                showActions = showActions,
+                siblingIndex = siblingIndex,
+                siblingCount = siblingCount,
+                onSiblingNavigation = onSiblingNavigation,
+                onEdit = onEdit,
+                onRegenerate = onRegenerate,
+                onCopy = onCopy,
+                onFeedback = onFeedback,
+                onContinue = onContinue,
+                onReadAloud = onReadAloud,
+                onFork = onFork,
+                isReading = isReading,
+                currentFeedback = currentFeedback,
             )
         }
 

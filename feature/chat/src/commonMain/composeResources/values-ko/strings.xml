@@ -235,7 +235,6 @@
     <string name="preset_model">모델: %1$s</string>
 
     <!-- Feedback dialog -->
-    <string name="dialog_title_feedback">피드백 제공</string>
     <string name="feedback_question">이 응답의 문제점은 무엇이었나요?</string>
     <string name="hint_optional_comment">선택 사항 의견…</string>
 

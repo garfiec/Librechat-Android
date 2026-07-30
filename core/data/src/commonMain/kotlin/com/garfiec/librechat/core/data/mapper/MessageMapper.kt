@@ -3,8 +3,10 @@ package com.garfiec.librechat.core.data.mapper
 import com.garfiec.librechat.core.data.db.entity.MessageEntity
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.Feedback
+import com.garfiec.librechat.core.model.FeedbackTag
 import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -14,6 +16,24 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 private val json = Json { ignoreUnknownKeys = true }
+
+/**
+ * Encodes a feedback submission for `MessageEntity.feedback`, exactly as [toModel] decodes it.
+ *
+ * Lives beside that decode on purpose: the write used to store a bare rating string into a column
+ * this file round-trips as `Feedback` JSON, so every read threw and the decode's catch turned the
+ * user's thumb back into null. Encoding anywhere else lets the pair drift again.
+ */
+fun feedbackColumnValue(feedback: MinimalFeedback?): String? = feedback?.let {
+    json.encodeToString(
+        Feedback.serializer(),
+        Feedback(
+            rating = it.rating,
+            tag = json.encodeToJsonElement(FeedbackTag.serializer(), it.tag),
+            text = it.text,
+        ),
+    )
+}
 
 fun Message.toEntity(): MessageEntity = MessageEntity(
     messageId = messageId,

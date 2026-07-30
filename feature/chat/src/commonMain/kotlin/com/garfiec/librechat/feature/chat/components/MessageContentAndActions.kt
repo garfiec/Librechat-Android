@@ -27,13 +27,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -46,9 +51,9 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 internal fun ActionButtons(
     isUser: Boolean,
-    onFeedback: ((String?) -> Unit)?,
-    currentFeedback: String?,
-    onShowFeedbackDialog: () -> Unit,
+    onFeedback: ((MinimalFeedback?) -> Unit)?,
+    currentFeedback: FeedbackRating?,
+    onPickFeedbackTag: (FeedbackRating) -> Unit,
     onCopy: (() -> Unit)?,
     onEdit: (() -> Unit)?,
     onRegenerate: (() -> Unit)?,
@@ -57,17 +62,20 @@ internal fun ActionButtons(
     onFork: (() -> Unit)?,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        // Feedback buttons (AI messages only)
+        // Feedback buttons (AI messages only). Tapping the filled thumb clears; either unfilled
+        // thumb opens the tag picker, because the route rejects a rating with no tag.
         if (!isUser && onFeedback != null) {
+            val isUp = currentFeedback == FeedbackRating.THUMBS_UP
+            val isDown = currentFeedback == FeedbackRating.THUMBS_DOWN
             IconButton(
-                onClick = { onFeedback(if (currentFeedback == "thumbsUp") null else "thumbsUp") },
+                onClick = { if (isUp) onFeedback(null) else onPickFeedbackTag(FeedbackRating.THUMBS_UP) },
                 modifier = Modifier.size(40.dp),
             ) {
                 Icon(
-                    imageVector = if (currentFeedback == "thumbsUp") Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+                    imageVector = if (isUp) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
                     contentDescription = stringResource(Res.string.cd_thumbs_up),
                     modifier = Modifier.size(18.dp),
-                    tint = if (currentFeedback == "thumbsUp") {
+                    tint = if (isUp) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -75,16 +83,14 @@ internal fun ActionButtons(
                 )
             }
             IconButton(
-                onClick = {
-                    if (currentFeedback == "thumbsDown") onFeedback(null) else onShowFeedbackDialog()
-                },
+                onClick = { if (isDown) onFeedback(null) else onPickFeedbackTag(FeedbackRating.THUMBS_DOWN) },
                 modifier = Modifier.size(40.dp),
             ) {
                 Icon(
-                    imageVector = if (currentFeedback == "thumbsDown") Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                    imageVector = if (isDown) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
                     contentDescription = stringResource(Res.string.cd_thumbs_down),
                     modifier = Modifier.size(18.dp),
-                    tint = if (currentFeedback == "thumbsDown") {
+                    tint = if (isDown) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -189,14 +195,28 @@ internal fun MessageContentAndActions(
     onEdit: (() -> Unit)?,
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
-    onFeedback: ((String?) -> Unit)?,
+    onFeedback: ((MinimalFeedback?) -> Unit)?,
     onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
     isReading: Boolean,
-    currentFeedback: String?,
-    onShowFeedbackDialog: () -> Unit,
+    currentFeedback: FeedbackRating?,
 ) {
+    // The picker is hosted here — one site for both layouts on both platforms — rather than in
+    // ActionButtons, whose action row auto-hides on a timer and would take an open sheet with it.
+    var pendingFeedbackRating by remember(message.messageId) { mutableStateOf<FeedbackRating?>(null) }
+    val ratingBeingTagged = pendingFeedbackRating
+    if (ratingBeingTagged != null && onFeedback != null) {
+        FeedbackTagSheet(
+            rating = ratingBeingTagged,
+            onSubmit = { tag, comment ->
+                pendingFeedbackRating = null
+                onFeedback(MinimalFeedback(rating = ratingBeingTagged, tag = tag, text = comment))
+            },
+            onDismiss = { pendingFeedbackRating = null },
+        )
+    }
+
     if (isEditing && onEditTextChange != null && onEditSaveAndSubmit != null && onEditSaveOnly != null && onEditCancel != null) {
         // Show the attached files above the edit field so it's clear they're
         // retained on save & submit (the resubmit carries message.files).
@@ -325,7 +345,7 @@ internal fun MessageContentAndActions(
                         isUser = isUser,
                         onFeedback = onFeedback,
                         currentFeedback = currentFeedback,
-                        onShowFeedbackDialog = onShowFeedbackDialog,
+                        onPickFeedbackTag = { pendingFeedbackRating = it },
                         onCopy = onCopy,
                         onEdit = onEdit,
                         onRegenerate = onRegenerate,

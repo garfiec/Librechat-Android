@@ -38,6 +38,7 @@ import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.FileReference
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.config.InterfaceConfig
 import com.garfiec.librechat.core.model.error.UserKeyError
@@ -1464,10 +1465,11 @@ class ChatViewModel(
 
     fun onResume() = streamingManager.onResume()
 
-    fun submitFeedback(messageId: String, rating: String?) {
+    /** Submits [feedback] for a message, or clears it when null. */
+    fun submitFeedback(messageId: String, feedback: MinimalFeedback?) {
         val conversationId = _uiState.value.conversationId ?: return
         viewModelScope.launch {
-            messageRepository.updateFeedback(conversationId, messageId, rating)
+            messageRepository.updateFeedback(conversationId, messageId, feedback)
         }
     }
 

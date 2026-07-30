@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.network.api
 
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.request.BranchMessageRequest
 import com.garfiec.librechat.core.model.request.FeedbackRequest
 import com.garfiec.librechat.core.model.request.UpdateMessageRequest
@@ -32,7 +33,8 @@ class MessagesApi constructor(
             setBody(request)
         }.body()
 
-    suspend fun updateFeedback(conversationId: String, messageId: String, feedback: String?) {
+    /** Submits [feedback], or clears it when null. */
+    suspend fun updateFeedback(conversationId: String, messageId: String, feedback: MinimalFeedback?) {
         client.put {
             url { path("api/messages/$conversationId/$messageId/feedback") }
             setBody(FeedbackRequest(feedback = feedback))

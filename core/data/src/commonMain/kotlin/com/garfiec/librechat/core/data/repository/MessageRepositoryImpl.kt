@@ -9,9 +9,11 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.db.dao.MessageDao
+import com.garfiec.librechat.core.data.mapper.feedbackColumnValue
 import com.garfiec.librechat.core.data.mapper.toEntity
 import com.garfiec.librechat.core.data.mapper.toModels
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.request.BranchMessageRequest
 import com.garfiec.librechat.core.model.request.UpdateMessageRequest
 import com.garfiec.librechat.core.network.api.MessagesApi
@@ -87,13 +89,16 @@ class MessageRepositoryImpl(
     override suspend fun updateFeedback(
         conversationId: String,
         messageId: String,
-        feedback: String?,
+        feedback: MinimalFeedback?,
     ): Result<Unit> {
         return safeApiCall {
             val accountId = activeAccountProvider.currentAccountId()?.value
             messagesApi.updateFeedback(conversationId, messageId, feedback)
             // Update local cache, scoped to the active account; skip when unresolved.
-            if (accountId != null) messageDao.updateFeedback(messageId, feedback, accountId)
+            // The column is Feedback JSON, so encode through the mapper that reads it back.
+            if (accountId != null) {
+                messageDao.updateFeedback(messageId, feedbackColumnValue(feedback), accountId)
+            }
         }
     }
 

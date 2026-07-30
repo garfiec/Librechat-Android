@@ -27,7 +27,9 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.ui.components.AvatarImage
 import com.garfiec.librechat.core.ui.components.endpointIconPainter
 import com.garfiec.librechat.core.ui.components.isMonochromeEndpointIcon
@@ -48,14 +50,14 @@ actual fun MessageBubble(
     onEdit: (() -> Unit)?,
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
-    onFeedback: ((String?) -> Unit)?,
+    onFeedback: ((MinimalFeedback?) -> Unit)?,
     onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
     baseUrl: String,
     fontSizeMultiplier: Float,
     isReading: Boolean,
-    currentFeedback: String?,
+    currentFeedback: FeedbackRating?,
     isEditing: Boolean,
     editText: String,
     onEditTextChange: ((String) -> Unit)?,
@@ -169,7 +171,7 @@ private fun ThreadMessageBubble(
     onEdit: (() -> Unit)?,
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
-    onFeedback: ((String?) -> Unit)?,
+    onFeedback: ((MinimalFeedback?) -> Unit)?,
     onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
@@ -177,7 +179,7 @@ private fun ThreadMessageBubble(
     fontSizeMultiplier: Float,
     useKatex: Boolean,
     isReading: Boolean,
-    currentFeedback: String?,
+    currentFeedback: FeedbackRating?,
     isEditing: Boolean,
     editText: String,
     onEditTextChange: ((String) -> Unit)?,
@@ -199,18 +201,6 @@ private fun ThreadMessageBubble(
 ) {
     val isUser = message.isCreatedByUser
     var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
-    var showFeedbackDialog by remember { mutableStateOf(false) }
-
-    if (showFeedbackDialog && onFeedback != null) {
-        FeedbackCommentDialog(
-            onSubmit = { comment ->
-                showFeedbackDialog = false
-                onFeedback("thumbsDown")
-            },
-            onDismiss = { showFeedbackDialog = false },
-        )
-    }
-
     // Auto-hide actions after timeout
     LaunchedEffect(showActions) {
         if (showActions) {
@@ -353,7 +343,6 @@ private fun ThreadMessageBubble(
                 onFork = onFork,
                 isReading = isReading,
                 currentFeedback = currentFeedback,
-                onShowFeedbackDialog = { showFeedbackDialog = true },
             )
         }
     }
@@ -372,7 +361,7 @@ private fun TwoSidedMessageBubble(
     onEdit: (() -> Unit)?,
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
-    onFeedback: ((String?) -> Unit)?,
+    onFeedback: ((MinimalFeedback?) -> Unit)?,
     onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
@@ -380,7 +369,7 @@ private fun TwoSidedMessageBubble(
     fontSizeMultiplier: Float,
     useKatex: Boolean,
     isReading: Boolean,
-    currentFeedback: String?,
+    currentFeedback: FeedbackRating?,
     isEditing: Boolean,
     editText: String,
     onEditTextChange: ((String) -> Unit)?,
@@ -402,18 +391,6 @@ private fun TwoSidedMessageBubble(
 ) {
     val isUser = message.isCreatedByUser
     var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
-    var showFeedbackDialog by remember { mutableStateOf(false) }
-
-    if (showFeedbackDialog && onFeedback != null) {
-        FeedbackCommentDialog(
-            onSubmit = { comment ->
-                showFeedbackDialog = false
-                onFeedback("thumbsDown")
-            },
-            onDismiss = { showFeedbackDialog = false },
-        )
-    }
-
     // Auto-hide actions after timeout
     LaunchedEffect(showActions) {
         if (showActions) {
@@ -565,7 +542,6 @@ private fun TwoSidedMessageBubble(
                 onFork = onFork,
                 isReading = isReading,
                 currentFeedback = currentFeedback,
-                onShowFeedbackDialog = { showFeedbackDialog = true },
             )
         }
 

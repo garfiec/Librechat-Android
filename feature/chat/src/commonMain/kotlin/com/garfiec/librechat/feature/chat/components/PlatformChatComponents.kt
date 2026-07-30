@@ -6,7 +6,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
+import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.content.MessageContentPart
 
 /** Platform-specific message bubble. */
@@ -20,14 +22,14 @@ expect fun MessageBubble(
     onEdit: (() -> Unit)? = null,
     onRegenerate: (() -> Unit)? = null,
     onCopy: (() -> Unit)? = null,
-    onFeedback: ((String?) -> Unit)? = null,
+    onFeedback: ((MinimalFeedback?) -> Unit)? = null,
     onContinue: (() -> Unit)? = null,
     onReadAloud: (() -> Unit)? = null,
     onFork: (() -> Unit)? = null,
     baseUrl: String = "",
     fontSizeMultiplier: Float = 1.0f,
     isReading: Boolean = false,
-    currentFeedback: String? = null,
+    currentFeedback: FeedbackRating? = null,
     isEditing: Boolean = false,
     editText: String = "",
     onEditTextChange: ((String) -> Unit)? = null,

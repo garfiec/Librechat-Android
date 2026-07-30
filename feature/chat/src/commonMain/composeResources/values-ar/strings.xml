@@ -235,7 +235,6 @@
     <string name="preset_model">النموذج: %1$s</string>
 
     <!-- Feedback dialog -->
-    <string name="dialog_title_feedback">تقديم ملاحظات</string>
     <string name="feedback_question">ما المشكلة في هذا الرد؟</string>
     <string name="hint_optional_comment">تعليق اختياري…</string>
 

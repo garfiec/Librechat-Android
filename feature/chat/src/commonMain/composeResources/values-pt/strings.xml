@@ -235,7 +235,6 @@
     <string name="preset_model">Modelo: %1$s</string>
 
     <!-- Feedback dialog -->
-    <string name="dialog_title_feedback">Enviar feedback</string>
     <string name="feedback_question">Qual foi o problema com esta resposta?</string>
     <string name="hint_optional_comment">Comentário opcional…</string>
 

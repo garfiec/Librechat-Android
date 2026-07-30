@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
-import com.garfiec.librechat.core.model.FeedbackRating
+import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
@@ -79,7 +79,7 @@ fun MessageList(
     modifier: Modifier = Modifier,
     activeToolCalls: List<ActiveToolCall> = emptyList(),
     streamingAttachments: List<Attachment> = emptyList(),
-    onFeedback: (messageId: String, rating: String?) -> Unit = { _, _ -> },
+    onFeedback: (messageId: String, feedback: MinimalFeedback?) -> Unit = { _, _ -> },
     onContinue: (messageId: String) -> Unit = {},
     onReadAloud: (messageId: String) -> Unit = {},
     onFork: (messageId: String) -> Unit = {},
@@ -442,13 +442,6 @@ fun MessageList(
                     "${chatLayoutStyle}_$role"
                 },
             ) { index, node ->
-                val feedbackRating = node.message.feedback?.rating
-                val currentFeedbackStr = when (feedbackRating) {
-                    FeedbackRating.THUMBS_UP -> "thumbsUp"
-                    FeedbackRating.THUMBS_DOWN -> "thumbsDown"
-                    null -> null
-                }
-
                 val isMatch = index in searchMatchMessageIndexSet
                 val isCurrent = currentSearchMatch != null && index == currentSearchMatch.messageIndex
                 // Which occurrence within this message is focused (-1 when this isn't the current match).
@@ -479,7 +472,7 @@ fun MessageList(
                     },
                     onCopy = { onCopyMessage(node.message.messageId) },
                     onFeedback = if (!node.message.isCreatedByUser) {
-                        { rating -> onFeedback(node.message.messageId, rating) }
+                        { feedback -> onFeedback(node.message.messageId, feedback) }
                     } else {
                         null
                     },
@@ -493,7 +486,7 @@ fun MessageList(
                     baseUrl = baseUrl,
                     fontSizeMultiplier = fontSizeMultiplier,
                     isReading = currentlyReadingMessageId == node.message.messageId,
-                    currentFeedback = currentFeedbackStr,
+                    currentFeedback = node.message.feedback?.rating,
                     isEditing = editingMessageId == node.message.messageId,
                     editText = if (editingMessageId == node.message.messageId) editingText else "",
                     onEditTextChange = onEditTextChange,

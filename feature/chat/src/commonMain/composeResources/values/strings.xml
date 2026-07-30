@@ -262,10 +262,21 @@
     <string name="preset_endpoint">Endpoint: %1$s</string>
     <string name="preset_model">Model: %1$s</string>
 
-    <!-- Feedback dialog -->
-    <string name="dialog_title_feedback">Provide Feedback</string>
+    <!-- Feedback tag picker -->
     <string name="feedback_question">What was the issue with this response?</string>
+    <string name="feedback_question_positive">What was good about this response?</string>
     <string name="hint_optional_comment">Optional comment\u2026</string>
+    <string name="feedback_tag_not_matched">Didn\'t match my request</string>
+    <string name="feedback_tag_inaccurate">Inaccurate or incorrect answer</string>
+    <string name="feedback_tag_bad_style">Poor style or tone</string>
+    <string name="feedback_tag_missing_image">Expected an image</string>
+    <string name="feedback_tag_unjustified_refusal">Refused without reason</string>
+    <string name="feedback_tag_not_helpful">Lacked useful information</string>
+    <string name="feedback_tag_other">Other issue</string>
+    <string name="feedback_tag_accurate_reliable">Accurate and reliable</string>
+    <string name="feedback_tag_creative_solution">Creative solution</string>
+    <string name="feedback_tag_clear_well_written">Clear and well-written</string>
+    <string name="feedback_tag_attention_to_detail">Attention to detail</string>
 
     <!-- Streaming tool call -->
     <string name="tool_call_output">Output:</string>
