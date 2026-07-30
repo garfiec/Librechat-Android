@@ -483,7 +483,17 @@ class StreamingManagerDelegate(
             is StreamEvent.TokenUsageUpdate -> {
                 // Per-call provider usage; the gauge denominator comes from the context
                 // snapshot, but the breakdown sheet shows Input/Output from this. In-memory only.
-                handle.update { content = content.copy(tokenUsage = event.usage) }
+                //
+                // A non-null `usageType` marks a non-primary bucket — a summary pass, an
+                // isolated subagent run, a hidden sequential-agent call, or an activity-label
+                // header. Those are separate model calls, so letting one through would overwrite
+                // the turn's own figures: this handler is last-write-wins. Activity labels make
+                // that acute, emitting one usage event per tool batch (default up to 20 per run)
+                // from a cheap fast model, so the sheet would end up showing the label model's
+                // counts rather than the turn's.
+                if (event.usage.usageType == null) {
+                    handle.update { content = content.copy(tokenUsage = event.usage) }
+                }
             }
         }
     }

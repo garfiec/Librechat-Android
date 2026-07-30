@@ -434,6 +434,31 @@ class SseEventMapperTest {
         assertThat((events[0] as StreamEvent.PendingActionRequested).pendingAction.actionId).isEqualTo("act_4")
     }
 
+    // --- Token usage ---
+
+    @Test
+    fun `carries usage_type through so the delegate can exclude bucketed events`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_token_usage","data":{"input_tokens":30,"output_tokens":8,
+                "total_tokens":38,"model":"claude-haiku-4-5","usage_type":"activity-label"}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.TokenUsageUpdate
+        assertThat(result.usage.usageType).isEqualTo("activity-label")
+    }
+
+    @Test
+    fun `leaves usage_type null on the turn's own model call`() {
+        val event = SseEvent(
+            event = "",
+            data = """{"event":"on_token_usage","data":{"input_tokens":4000,"output_tokens":900,
+                "model":"claude-opus-5"}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.TokenUsageUpdate
+        assertThat(result.usage.usageType).isNull()
+        assertThat(result.usage.inputTokens).isEqualTo(4000)
+    }
+
     // --- Mid-run steering (v0.8.8) ---
 
     @Test

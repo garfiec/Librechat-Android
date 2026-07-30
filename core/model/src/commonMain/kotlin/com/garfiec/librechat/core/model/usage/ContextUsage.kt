@@ -77,6 +77,14 @@ data class TokenUsage(
     @SerialName("total_tokens") val totalTokens: Int? = null,
     val model: String? = null,
     val provider: String? = null,
+    /**
+     * Names a non-primary usage bucket when present — upstream emits `summarization`,
+     * `subagent`, `sequential` and `activity-label`. Absent on the turn's own model call.
+     *
+     * Deliberately a plain `String?` and never an enum: a bucket upstream adds later must stay
+     * inert here (non-null, and therefore excluded) rather than failing the decode.
+     */
+    @SerialName("usage_type") val usageType: String? = null,
 )
 
 /** Per-model context window + (optional) pricing. Mirrors upstream `TModelTokenomics`. */
