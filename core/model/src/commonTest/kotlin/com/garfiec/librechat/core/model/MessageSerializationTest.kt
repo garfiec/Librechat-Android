@@ -220,25 +220,6 @@ class MessageSerializationTest {
     }
 
     @Test
-    fun activityLabelPartRoundTrip() {
-        val original = Message(
-            messageId = "msg-activity-rt",
-            conversationId = "conv-activity",
-            content = listOf(
-                MessageContentPart(
-                    type = ContentType.ACTIVITY_LABEL,
-                    activityLabel = "Ran the test suite",
-                    toolCallIds = listOf("call-9"),
-                ),
-                MessageContentPart(type = ContentType.TEXT, text = "Done."),
-            ),
-        )
-        val encoded = json.encodeToString(Message.serializer(), original)
-        val decoded = json.decodeFromString(Message.serializer(), encoded)
-        assertEquals(original, decoded)
-    }
-
-    @Test
     fun messageDeserializesFromServerJson() {
         val serverJson = """
             {

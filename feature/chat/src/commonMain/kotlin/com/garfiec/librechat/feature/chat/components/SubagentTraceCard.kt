@@ -26,7 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +71,10 @@ internal fun SubagentTraceCard(
     baseUrl: String = "",
     attachments: List<Attachment> = emptyList(),
     showImageDescriptions: Boolean = true,
+    // Scopes this card's expand state and its nested parts'. Unscoped, every subagent card's
+    // first nested part shared one key — the lazy item's SaveableStateHolder is keyed by
+    // conversation slot, so expansion bled between unrelated cards.
+    stateKey: String = "",
 ) {
     // Reload precedence: persisted content is authoritative over any live buffer.
     val parts = persistedParts?.takeIf { it.isNotEmpty() } ?: liveTrace?.parts.orEmpty()
@@ -79,7 +83,7 @@ internal fun SubagentTraceCard(
         ?: liveTrace?.label?.takeIf { it.isNotBlank() }
         ?: stringResource(Res.string.label_subagent)
 
-    var isExpanded by remember { mutableStateOf(false) }
+    var isExpanded by rememberSaveable(key = "subagent:$stateKey") { mutableStateOf(false) }
     val toggleCd =
         stringResource(if (isExpanded) Res.string.cd_collapse_subagent else Res.string.cd_expand_subagent, title)
 
@@ -138,7 +142,7 @@ internal fun SubagentTraceCard(
                             baseUrl = baseUrl,
                             attachments = attachments,
                             showImageDescriptions = showImageDescriptions,
-                            stateKey = "subagent:$index",
+                            stateKey = "$stateKey:$index",
                             // Depth-1 guard: a nested subagent renders flat, never another card.
                             allowSubagentCard = false,
                         )

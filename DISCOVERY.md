@@ -594,15 +594,25 @@ Discriminated by `type`: `text`, `think`, `text_delta`, `tool_call`, `image_file
 `steer`, `error`.
 
 `steer` (v0.8.8 line, #14220) and `activity_label` (v0.8.8 line, #14391) both PERSIST into
-saved message content, so both must be declared client-side even though neither is rendered:
-`ContentType` has no property default, so an undeclared value is not rescued by
-`ignoreUnknownKeys` and fails the whole message decode — which takes conversation load with
-it. The `steer` omission above was a documentation gap from the prior sync, not a new value.
+saved message content, so both must be declared client-side: `ContentType` has no property
+default, so an undeclared value is not rescued by `ignoreUnknownKeys` and fails the whole
+message decode — which takes conversation load with it. The `steer` omission above was a
+documentation gap from the prior sync, not a new value. Both are now rendered as well as
+declared (see `feature/chat/CLAUDE.md`), from persisted content only — mobile drops the live
+`on_activity_label` event through the forward-compat `else -> null` branch.
+
 `activity_label` carries its label as a top-level plain string (`{"type":"activity_label",
 "activity_label":"Searched the codebase", "tool_call_ids":[…], "counts":{…}, "status":…,
-"agentId":…, "pending":…}`); mobile models the label, and `tool_call_ids`/`agentId` already
-existed on the part. Empty label + `pending: true` is the reservation form, which upstream
-renders as nothing.
+"agentId":…, "pending":…}`); mobile models the label, `pending` and `status`, and
+`tool_call_ids`/`agentId` already existed on the part. `counts` is still unmodelled. Empty
+label + `pending: true` is the reservation form, which renders as nothing.
+
+`steer` carries the user's text as a top-level plain string alongside `steerId`, `files` and a
+`createdAt` that is **epoch millis, a number** — unlike every other part's ISO-string
+`createdAt`. Mobile shares one `createdAt: String?` field across part types, so only
+`librechatJson`'s `isLenient` keeps that from throwing; dropping that flag would fail the whole
+`GET /messages` decode. `steerId` and `files` are unmodelled (steer attachments render as
+text-only).
 
 **SUMMARY part wire shape (v0.8.5+)** — context-compaction emits a content part with
 fields at the top level (not nested under a `summary` key):

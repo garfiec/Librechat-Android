@@ -485,8 +485,37 @@ internal fun parseToolIntent(raw: String?): String? {
     return (parsed as? JsonObject)?.intentField()
 }
 
-private fun JsonObject.intentField(): String? =
-    stringField("intent")?.trim()?.takeIf { it.isNotEmpty() }
+/**
+ * Only the FIRST key counts.
+ *
+ * Nothing about the opt-in is client-observable — the capability and the per-tool
+ * `describe_intent` flag live server-side, and the argument is stripped before a tool that did not
+ * declare it ever runs. So a plain "is there an `intent` string" test would retitle a user's own
+ * MCP tool that legitimately takes a parameter by that name, on any server. Upstream injects the
+ * property at position zero precisely so it streams ahead of the real arguments, and that ordering
+ * is the one part of the contract this side can actually check.
+ */
+private fun JsonObject.intentField(): String? {
+    if (keys.firstOrNull() != INTENT_KEY) return null
+    return stringField(INTENT_KEY)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+/** The args as the card should display them: without the label already shown as its title. */
+internal fun argsWithoutIntent(raw: String?): String? {
+    val text = raw?.trim().orEmpty()
+    if (text.isEmpty()) return raw
+    val parsed = try {
+        toolCallJson.parseToJsonElement(text) as? JsonObject
+    } catch (e: Exception) {
+        log.d(e) { "Failed to parse tool args for display" }
+        null
+    } ?: return raw
+    if (parsed.keys.firstOrNull() != INTENT_KEY) return raw
+    val rest = JsonObject(parsed.filterKeys { it != INTENT_KEY })
+    return if (rest.isEmpty()) null else toolCallJson.encodeToString(JsonObject.serializer(), rest)
+}
+
+private const val INTENT_KEY = "intent"
 
 /** [parseAskUserQuestion] for args held as raw text (the streaming path's `input`). Accepts only
  *  a JSON object, which is also what stops the [JsonElement] overload from recursing: lenient

@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,14 +31,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.ContentGroup
 import org.jetbrains.compose.resources.stringResource
+
+/**
+ * True for the message whose reply just finished streaming, provided by `MessageList`.
+ *
+ * Live tool calls render as separate expanded cards outside the message; at Final those vanish and
+ * the same calls re-render inside it. Collapsing them in that same frame drops the reply's height
+ * by the whole stack at once, which reads as content disappearing rather than as a fold. The
+ * groups stay open for this render and collapse on a later load instead.
+ */
+internal val LocalSuppressGroupAutoCollapse = compositionLocalOf { false }
 
 /**
  * A reasoning + tool-call block under one collapsible header.
@@ -63,16 +74,17 @@ internal fun ActivityGroup(
 ) {
     // Saveable and keyed on the group: this is a LazyColumn item, so scrolling the message out of
     // the viewport disposes plain `remember` state and silently re-collapses what the user opened.
+    val suppressAutoCollapse = LocalSuppressGroupAutoCollapse.current
     var isExpanded by rememberSaveable(key = "activity:$stateKey") {
-        mutableStateOf(!group.collapsedByDefault)
+        mutableStateOf(!group.collapsedByDefault || suppressAutoCollapse)
     }
     var userOverride by rememberSaveable(key = "activity-override:$stateKey") { mutableStateOf(false) }
     // Latch: the auto-collapse decision is taken at most ONCE per group. Re-deciding would let a
     // block shut under someone reading it the moment its label settles.
     var autoCollapsed by rememberSaveable(key = "activity-latched:$stateKey") { mutableStateOf(false) }
 
-    LaunchedEffect(group.collapsedByDefault) {
-        if (group.collapsedByDefault && !userOverride && !autoCollapsed) {
+    LaunchedEffect(group.collapsedByDefault, suppressAutoCollapse) {
+        if (group.collapsedByDefault && !userOverride && !autoCollapsed && !suppressAutoCollapse) {
             autoCollapsed = true
             isExpanded = false
         }
@@ -84,8 +96,11 @@ internal fun ActivityGroup(
     val headerLabel = group.labelText.ifEmpty {
         stringResource(Res.string.activity_used_n_tools, group.toolCount)
     }
-    val toggleContentDescription =
-        stringResource(if (isExpanded) Res.string.cd_collapse else Res.string.cd_expand)
+    // A state description, not a content description: `clickable` makes this Row a merging
+    // semantics node, so a contentDescription on top of the merged label announces the label and
+    // then the label again.
+    val expansionState =
+        stringResource(if (isExpanded) Res.string.state_expanded else Res.string.state_collapsed)
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -100,7 +115,7 @@ internal fun ActivityGroup(
                 .padding(vertical = 4.dp)
                 .semantics {
                     role = Role.Button
-                    contentDescription = "$headerLabel, $toggleContentDescription"
+                    stateDescription = expansionState
                 },
             verticalAlignment = Alignment.CenterVertically,
         ) {

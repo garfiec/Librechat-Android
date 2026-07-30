@@ -5,6 +5,8 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactSegment
 import com.garfiec.librechat.feature.chat.components.artifact.detectArtifacts
+import com.garfiec.librechat.feature.chat.util.activityLabelText
+import com.garfiec.librechat.feature.chat.util.steerText
 
 // Shared search-occurrence enumeration used by BOTH the ViewModel side
 // (InConversationSearchDelegate, to build the flat match list) and the renderer side
@@ -70,6 +72,12 @@ internal fun countTextPartOccurrences(text: String, query: String): Int {
 internal fun countPartOccurrences(part: MessageContentPart, query: String): Int = when (part.type) {
     ContentType.TEXT, ContentType.TEXT_DELTA -> countTextPartOccurrences(part.text.orEmpty(), query)
     ContentType.THINK -> countMarkdownOccurrences(part.think.orEmpty(), query)
+    // The user's own mid-run steer renders as a turn inside the response, so it has to be
+    // findable — it is the one thing in a reply they definitely wrote.
+    ContentType.STEER -> countMarkdownOccurrences(part.steerText().orEmpty(), query)
+    // Only a label that renders counts: a blank reservation is invisible, and an orphan label is
+    // a bare line. A group header the search can reach is also how a collapsed group opens.
+    ContentType.ACTIVITY_LABEL -> countMarkdownOccurrences(part.activityLabelText(), query)
     else -> 0
 }
 

@@ -7,11 +7,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +97,12 @@ internal fun SegmentAuthorHeader(
     messageEndpoint: String?,
     modifier: Modifier = Modifier,
 ) {
+    // The run had already handed off when the steer landed, so the resumed content belongs to a
+    // different agent than the message header names. No name is on the wire here — only the id —
+    // and pairing that id with the message's own avatar would put the previous agent's face on it,
+    // which is worse than showing no face. Resolving the name needs an agents lookup this
+    // composable has no access to; until then it is a neutral badge over the raw id.
+    val isOtherAgent = author is SegmentAuthor.Agent
     val label = when (author) {
         is SegmentAuthor.Agent -> author.agentId
         SegmentAuthor.Message -> messageSender ?: stringResource(Res.string.sender_assistant)
@@ -103,10 +112,14 @@ internal fun SegmentAuthorHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AvatarImage(
-            imageUrl = messageIconUrl,
+            imageUrl = if (isOtherAgent) null else messageIconUrl,
             fallbackText = label,
-            fallbackIconPainter = if (messageIconUrl == null) endpointIconPainter(messageEndpoint) else null,
-            tintIcon = if (messageIconUrl == null) isMonochromeEndpointIcon(messageEndpoint) else false,
+            fallbackIconPainter = when {
+                isOtherAgent -> rememberVectorPainter(Icons.Default.SmartToy)
+                messageIconUrl == null -> endpointIconPainter(messageEndpoint)
+                else -> null
+            },
+            tintIcon = isOtherAgent || (messageIconUrl == null && isMonochromeEndpointIcon(messageEndpoint)),
             size = 22.dp,
             contentDescription = null,
         )

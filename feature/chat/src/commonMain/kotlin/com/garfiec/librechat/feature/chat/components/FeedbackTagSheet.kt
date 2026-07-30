@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -96,25 +97,30 @@ internal fun FeedbackTagSheet(
                 modifier = Modifier.padding(vertical = 8.dp),
             )
 
-            tags.forEach { tag ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .selectable(
-                            selected = selectedTag == tag,
-                            onClick = { selectedTagName = tag.name },
-                            role = Role.RadioButton,
+            // selectableGroup, not just the per-row roles: without it TalkBack reads each radio in
+            // isolation ("radio button, not checked") with no position, and D-pad does not treat
+            // the set as one stop.
+            Column(modifier = Modifier.selectableGroup()) {
+                tags.forEach { tag ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .selectable(
+                                selected = selectedTag == tag,
+                                onClick = { selectedTagName = tag.name },
+                                role = Role.RadioButton,
+                            )
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = selectedTag == tag, onClick = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = feedbackTagLabel(tag),
+                            style = MaterialTheme.typography.bodyLarge,
                         )
-                        .padding(vertical = 8.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RadioButton(selected = selectedTag == tag, onClick = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = feedbackTagLabel(tag),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                    }
                 }
             }
 

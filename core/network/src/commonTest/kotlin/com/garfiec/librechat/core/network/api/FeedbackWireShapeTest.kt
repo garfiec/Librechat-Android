@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.network.api
 
+import com.garfiec.librechat.core.model.Feedback
 import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.FeedbackTag
 import com.garfiec.librechat.core.model.MinimalFeedback
@@ -67,6 +68,19 @@ class FeedbackWireShapeTest {
                 ),
             ),
         )
+    }
+
+    @Test
+    fun anUnrecognisedRatingCoercesInsteadOfFailingTheMessageDecode() {
+        // Pinned against the app's real decoder, not a locally-built one: `FeedbackRating.UNKNOWN`
+        // only does anything because `librechatJson` sets `coerceInputValues`, so a test that
+        // rebuilt the config would keep passing if that flag were dropped. Feedback rides on
+        // Message, and a throw here loses every message in the conversation, not just the thumb.
+        val decoded = librechatJson.decodeFromString(
+            Feedback.serializer(),
+            """{"rating":"shrug","tag":"other"}""",
+        )
+        assertEquals(FeedbackRating.UNKNOWN, decoded.rating)
     }
 
     @Test

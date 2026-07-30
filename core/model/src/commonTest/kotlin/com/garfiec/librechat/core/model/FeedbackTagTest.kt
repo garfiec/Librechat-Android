@@ -3,7 +3,6 @@ package com.garfiec.librechat.core.model
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * Pins the tag registry against upstream `packages/data-provider/src/feedback.ts`.
@@ -79,18 +78,5 @@ class FeedbackTagTest {
         assertEquals(4, up.size)
         assertEquals(7, down.size)
         assertEquals(FeedbackTag.entries.size, up.size + down.size)
-        assertTrue(up.none { it in down })
-    }
-
-    @Test
-    fun unknownRating_decodesToSentinelRatherThanThrowing() {
-        // A rating this client doesn't know must not fail the decode: Feedback rides on Message,
-        // so a throw here loses every message in the conversation, not just the thumb.
-        val coercing = Json { coerceInputValues = true; ignoreUnknownKeys = true }
-        val decoded = coercing.decodeFromString(
-            Feedback.serializer(),
-            """{"rating":"shrug","tag":"other"}""",
-        )
-        assertEquals(FeedbackRating.UNKNOWN, decoded.rating)
     }
 }

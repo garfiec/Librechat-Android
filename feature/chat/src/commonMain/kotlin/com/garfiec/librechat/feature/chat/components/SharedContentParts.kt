@@ -86,6 +86,7 @@ internal fun ContentPartDispatcher(
                 baseUrl = baseUrl,
                 attachments = attachments,
                 showImageDescriptions = showImageDescriptions,
+                stateKey = stateKey,
                 allowSubagentCard = allowSubagentCard,
             )
         }

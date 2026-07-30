@@ -142,6 +142,16 @@ fun MessageList(
     val topContentPaddingPx = with(LocalDensity.current) { topContentPadding.toPx() }
     var lastNavigatedParentKey by remember { mutableStateOf<String?>(null) }
 
+    // The message that took over from the streaming bubble on the run that just ended. Its
+    // activity groups must not auto-collapse on that frame: the live tool cards disappear in the
+    // same swap, and folding the same calls at the same moment drops the reply's height by the
+    // whole stack. Cleared on the next send, so a later visit to this conversation collapses
+    // normally.
+    var settledFromStreamId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(isStreaming) {
+        settledFromStreamId = if (isStreaming) null else displayMessages.lastOrNull()?.message?.messageId
+    }
+
     // A live `ask_user_question` pause is rendered by PendingActionCard, not as a tool card.
     val renderedToolCalls = remember(activeToolCalls) { activeToolCalls.withoutUnansweredQuestions() }
     val streamingToolCallCount = if (isStreaming) renderedToolCalls.size else 0
@@ -454,6 +464,7 @@ fun MessageList(
                 CompositionLocalProvider(
                     LocalImmediateMarkdown provides (index == displayMessages.lastIndex),
                     LocalSearchFocusNonce provides if (isCurrent) searchFocusRequest?.requestId ?: 0L else 0L,
+                    LocalSuppressGroupAutoCollapse provides (node.message.messageId == settledFromStreamId),
                 ) {
                 MessageBubble(
                     message = node.message,

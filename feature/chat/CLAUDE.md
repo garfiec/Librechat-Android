@@ -264,10 +264,67 @@ existing upload/usage path already handles them.
 - `AudioContentPlayerFromBytes` variant writes bytes to temp file for MediaPlayer
 - **Gotcha**: Both players must release resources on dispose — use `DisposableEffect`
 
-## Feedback Comment Dialog
-- Thumbs-down opens `FeedbackCommentDialog` before submitting; thumbs-up fires immediately
-- Comment is optional — empty string is a valid submission
-- Toggling off an existing thumbs-down (already selected) calls `onFeedback(null)` directly, skipping the dialog
+## Feedback: rating + reason tag + comment
+- **Both** thumbs open `FeedbackTagSheet` — the route validates against an object schema whose
+  `tag` is REQUIRED, so a bare rating is rejected 400 and there is no one-tap path. Tapping the
+  already-filled thumb clears instead (`onFeedback(null)` → `{}`, which the route's `feedback ==
+  null` guard reads as a clear).
+- The wire shape is `MinimalFeedback` (`{rating, tag, text?}`), deliberately a different type from
+  the read/persist model `Feedback`: neither `rating` nor `tag` carries a default, so
+  `encodeDefaults = false` cannot drop them from the body. `Feedback.rating` *does* default (to
+  `FeedbackRating.UNKNOWN`) so `coerceInputValues` absorbs a rating from a newer server — it rides
+  on `Message`, and a throw there fails the whole `GET /messages` decode.
+- `Feedback.tag` stays a raw `JsonElement`: the validated route persists a bare key string, but
+  rows written before it can hold the full tag object.
+- The Room write goes through `feedbackColumnValue` in `MessageMapper`, beside the decode that
+  reads it. The write used to store a bare rating string into a column that file round-trips as
+  `Feedback` JSON, so every read threw into a catch that returned null and the thumb emptied
+  itself on the next emission.
+- `submitFeedback` is gated on `!isStreaming` like `switchBranch`/`editMessage`/`regenerateMessage`
+  — it caches to Room, which would re-emit through the `loadConversation` observer and un-truncate
+  the streaming anchor. **Consequence: a thumb tapped mid-stream is a no-op.**
+- The sheet is a `ModalBottomSheet` of radio rows, not chips or an `AlertDialog`: `FilterChip`/
+  `InputChip` hardcode `Role.Checkbox` over any caller-supplied role, and `AlertDialog`'s text slot
+  has no scroll modifier, so eleven reasons plus a comment field clip out of reach.
+
+## Activity groups, steers, and content segmentation (v0.8.8)
+`groupContentParts` (`util/ContentSegments.kt`) is ONE pure transform producing both the steer
+segmentation and the activity grouping, memoized at `MessageContentAndActions`. Two passes over the
+same list would eventually disagree about a boundary and render the user's words inside a collapsed
+tool block. It is pure because this module has no Compose test harness.
+
+- **Activity groups.** Consecutive reasoning + tool calls fold under one header, terminated by an
+  `activity_label` part. A blank label is a *reservation* — invisible, and it only moves the claim
+  boundary so a later filled label cannot reach back past it. With no label at all the block
+  re-splits into the legacy shape (reasoning standalone, runs of ≥2 tools grouped), so a server
+  without the feature renders exactly as before.
+- **Group identity is anchored to the first TOOL CALL, never the first part.** A label absorbs the
+  block's leading `THINK` when its text lands, so `parts[0]` flips at the instant the block becomes
+  a group; keying on it remounts the group and drops the user's expansion.
+- **Auto-collapse is latched once per group id**, and suppressed entirely on the message that just
+  took over from the streaming bubble (`LocalSuppressGroupAutoCollapse`, provided by `MessageList`)
+  — the live tool cards vanish in that same swap, and folding the same calls in the same frame
+  drops the reply's height by the whole stack.
+- **Steers.** A `steer` part renders as a user turn where the words entered the run, and each
+  segment resuming after one restates attribution. Attribution follows the agent that had taken
+  over when the steer landed; a handoff AT the resume point keeps the pre-handoff author so the
+  marker announces the transition itself. Only the id is on the wire for a handed-off agent, so it
+  renders under a neutral badge rather than the previous agent's avatar.
+- **Per-part collapse state is keyed and saveable** (`stateKey`, threaded through
+  `ContentPartRenderer`). It was positional `remember`: grouping shifts children under a wrapper,
+  which migrates an expanded thinking block to whichever part now occupies its slot, and lazy-item
+  disposal dropped it on scroll.
+- Steer text and rendered activity labels are counted by `SearchMatchEnumeration`, so in-conversation
+  search can reach them and a collapsed group holding the focused match opens.
+
+## Tool intent labels (v0.8.8)
+A tool card's title is the model's own `intent` string when present, else the raw tool name.
+**Accepted only when it is the FIRST key of the args object** — the opt-in (capability +
+per-tool `describe_intent`) is entirely server-side and unobservable here, so a plain
+"is there an `intent` string" test would retitle a user's MCP tool that legitimately takes a
+parameter by that name. Upstream injects it at position zero, and that ordering is the only part
+of the contract this side can check. Lifted labels are stripped from the expanded args dump.
+Shipped ahead of upstream's own presentation, which scopes rendering as a follow-up.
 
 ## Message Timestamps
 - `MessageTimestamp` shows relative/absolute time, toggled on tap

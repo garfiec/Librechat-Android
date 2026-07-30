@@ -281,6 +281,8 @@
     <!-- Activity groups and mid-run steering -->
     <string name="activity_used_n_tools">Used %1$d tools</string>
     <string name="steer_sent_during_reply">sent while replying</string>
+    <string name="state_expanded">Expanded</string>
+    <string name="state_collapsed">Collapsed</string>
 
     <!-- Streaming tool call -->
     <string name="tool_call_output">Output:</string>
