@@ -6,6 +6,15 @@ A third-party native mobile client for [LibreChat](https://www.librechat.ai/) (A
 
 > **Backend compatibility:** Tested against LibreChat **v0.8.4 – v0.8.7**. Older releases may work but are not guaranteed; newer releases are supported on a best-effort basis until the next sync.
 
+## Why use this instead of the web app?
+
+- **Smoother and faster** — a real native app instead of a website in a wrapper, so scrolling, typing, and watching responses stream in all feel snappier.
+- **Feels like a mobile app, not a shrunk-down website** — familiar gestures like swipe to switch accounts and swipe back, comfortable tap targets, and a layout that adapts to tablets and foldables.
+- **Plays nicely with your phone** — share text, images, and files into the app from anywhere *(Android)*, pin your favorite models or generated content to your home screen, open chat links straight into the right screen, and save or share images through your phone's normal menus.
+- **Works without a connection** — your chat list and any conversations you've opened are saved on your phone, so you can keep reading with spotty or no signal.
+- **Multiple accounts, one app** — sign in to different accounts on different LibreChat servers and switch between them instantly, no re-entering passwords.
+- **Dictation stays on your phone** — voice typing runs on-device instead of through a server.
+
 ## Features
 
 - **Multi-Account & Multi-Server** — Sign in to multiple accounts across different LibreChat servers and switch between them instantly, no re-login. Swipe the account chip to switch; storage is fully scoped per account.
