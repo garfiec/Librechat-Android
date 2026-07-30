@@ -40,6 +40,10 @@ class MessageQueueDelegate(
      * until the request settles so [startHoldRenewal]'s loop can be its own overlap guard.
      */
     private val markFilesUsed: suspend (List<String>) -> Unit = {},
+    /** Whether the server exposes `POST /api/files/usage`. Asked before the heartbeat starts:
+     *  [markFilesUsed] already no-ops without the route, but the loop would otherwise wake every
+     *  30 minutes for the ViewModel's whole life to call something that does nothing. */
+    private val holdRenewalSupported: () -> Boolean = { true },
     /** Clock the renewal heartbeat measures elapsed time with. Injected so a test can drive it
      *  in step with the virtual scheduler — production always uses the monotonic default. */
     private val timeSource: TimeSource = TimeSource.Monotonic,
@@ -68,9 +72,9 @@ class MessageQueueDelegate(
      * `renewMs` after that touch, so [enqueue]'s single touch is no longer the whole story for a
      * queue the user leaves parked.
      *
-     * **Lives only as long as there is something to hold.** Started by [enqueue] when an item
-     * brings uploaded attachments, and returns as soon as a tick finds no file ids left — a
-     * later enqueue starts a fresh loop. Upstream heartbeats "while anything is queued" for the
+     * **Lives only as long as there is something to hold.** Started by [enqueue] and [reinsert]
+     * whenever an item with uploaded attachments joins the queue, and returns as soon as a tick
+     * finds no file ids left — a later add starts a fresh loop. Upstream heartbeats "while anything is queued" for the
      * same reason, and it keeps an idle chat from parking a coroutine that can never have work.
      *
      * **The loop delays first and renews second, deliberately.** Renewing at the top would fire
@@ -91,6 +95,7 @@ class MessageQueueDelegate(
      */
     private fun startHoldRenewal() {
         if (holdRenewalJob?.isActive == true) return
+        if (!holdRenewalSupported()) return
         // Everything queued right now was just touched by the enqueue that got us here (the loop
         // only starts from an idle state), so the interval genuinely starts at this instant.
         lastRenewedAt = timeSource.markNow()
@@ -141,13 +146,21 @@ class MessageQueueDelegate(
         return IndexedValue(index, item)
     }
 
-    /** Re-inserts an item at [index] (clamped to the current bounds) — the commit/cancel counterpart
-     *  to [takeForEdit]. */
+    /**
+     * Re-inserts an item at [index] (clamped to the current bounds) — the commit/cancel counterpart
+     * to [takeForEdit], and also how a refused drain puts its item back at the head.
+     *
+     * Restarts the heartbeat, because none of those paths go through [enqueue]. The loop exits as
+     * soon as a tick finds an empty queue, so a drain that empties the queue and is then refused
+     * would put an attachment back with no ticker and no enqueue-time touch — exactly the
+     * untouched-queue lapse the renewal exists to prevent. Idempotent while a loop is live.
+     */
     fun reinsert(index: Int, item: QueuedMessage) {
         handle.update {
             val clamped = index.coerceIn(0, queue.messageQueue.size)
             queue = queue.copy(messageQueue = queue.messageQueue.toMutableList().apply { add(clamped, item) })
         }
+        if (item.attachments.any { it.fileId != null }) startHoldRenewal()
     }
 
     /** Clears a now-meaningless pause when the queue is empty (e.g. an edit was committed empty,

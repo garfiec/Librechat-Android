@@ -150,20 +150,22 @@ class FileRepositoryImpl(
      * (plus a violation score) on a call that can never succeed. The touch is a best-effort TTL
      * push with send-time marking as its backstop, so suppressing it degrades to the behaviour
      * mobile had before the route existed.
+     *
+     * A date gate, not a version compare: the route landed on the untagged 0.8.8 line, where a dev
+     * build carrying it still reports 0.8.7. Landing day itself rather than the day after — same
+     * landing commit as the steering gate, so both read the same date — which means a same-day
+     * predecessor is misread as having the route and pays one limited 404 per queued message with
+     * attachments; rounding up would instead cost real 0.8.8 servers a day's worth of TTL pushes,
+     * which is the failure that actually loses an attachment.
      */
+    override fun supportsUsageHold(): Boolean = BackendVersion.supportsFeature(
+        configRepository.detectedBackend.value,
+        minVersion = "0.8.8-rc1",
+        landedDate = "2026-07-14",
+    )
+
     override suspend fun markFilesUsed(fileIds: List<String>): Result<Unit> {
-        // Date gate, not a version compare: the route landed on the untagged 0.8.8 line, where a
-        // dev build carrying it still reports 0.8.7. Landing day itself rather than the day after
-        // — same landing commit as the steering gate, so both read the same date — which means a
-        // same-day predecessor is misread as having the route and pays one limited 404 per queued
-        // message with attachments; rounding up would instead cost real 0.8.8 servers a day's
-        // worth of TTL pushes, which is the failure that actually loses an attachment.
-        if (!BackendVersion.supportsFeature(
-                configRepository.detectedBackend.value,
-                minVersion = "0.8.8-rc1",
-                landedDate = "2026-07-14",
-            )
-        ) {
+        if (!supportsUsageHold()) {
             return Result.Success(Unit)
         }
         val ids = fileIds.filter { it.isNotBlank() }.distinct()

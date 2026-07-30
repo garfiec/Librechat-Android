@@ -249,6 +249,7 @@ class ChatViewModel(
         activeAccountProvider = activeAccountProvider,
         onQueuedDropped = { count -> _queuedMessagesDropped.trySend(count) },
         markFilesUsed = { fileIds -> fileRepository.markFilesUsed(fileIds) },
+        holdRenewalSupported = { fileRepository.supportsUsageHold() },
     )
 
     // --- Delegate-owned flows exposed to the UI ---
@@ -1465,11 +1466,26 @@ class ChatViewModel(
 
     fun onResume() = streamingManager.onResume()
 
-    /** Submits [feedback] for a message, or clears it when null. */
+    /**
+     * Submits [feedback] for a message, or clears it when null.
+     *
+     * Gated on `!isStreaming` like `switchBranch` / `editMessage` / `regenerateMessage`, and for
+     * the same reason: the repository caches the result in Room, and the `loadConversation`
+     * observer would re-emit and rebuild `displayMessages` with no `streamingLeafId` — un-truncating
+     * the path so the in-flight reply renders after a stale branch instead of in its place. The
+     * write was unreachable while the body was a bare rating string (the route rejected it), so
+     * correcting the payload is what armed this.
+     */
     fun submitFeedback(messageId: String, feedback: MinimalFeedback?) {
         val conversationId = _uiState.value.conversationId ?: return
+        if (_uiState.value.isStreaming) return
         viewModelScope.launch {
-            messageRepository.updateFeedback(conversationId, messageId, feedback)
+            val result = messageRepository.updateFeedback(conversationId, messageId, feedback)
+            // The user picked a reason and may have typed up to 1024 characters. There is no
+            // optimistic state, so a dropped submission leaves an empty thumb and no explanation.
+            if (result is Result.Error) {
+                _uiState.update { it.copy(error = result.message ?: "Could not save your feedback") }
+            }
         }
     }
 

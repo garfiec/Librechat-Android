@@ -53,6 +53,9 @@ class MessageQueueHoldRenewalTest {
     /** Set to gate a renewal mid-flight; null means the call returns immediately. */
     private var renewalGate: CompletableDeferred<Unit>? = null
 
+    /** Whether the fake server exposes `POST /api/files/usage`. */
+    private var holdSupported = true
+
     private val delegate = MessageQueueDelegate(
         handle = QueueHandle(stateHandle),
         activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("srv:user-1"))),
@@ -62,6 +65,7 @@ class MessageQueueHoldRenewalTest {
             renewedBatches.add(ids)
             renewalGate?.await()
         },
+        holdRenewalSupported = { holdSupported },
         timeSource = timeSource,
     )
 
@@ -228,5 +232,75 @@ class MessageQueueHoldRenewalTest {
 
         assertThat(renewedBatches).hasSize(1)
         assertThat(renewedBatches.single()).containsExactly("file-2")
+    }
+
+    /**
+     * The path that reaches the queue without an enqueue: a drain empties it, the loop exits, the
+     * send gate refuses, and `requeueRefusedDrain` puts the item straight back. Nothing touched
+     * those files on the way through, so without a restart here the attachment sits in a queue no
+     * heartbeat is protecting — the exact lapse this feature exists to prevent. Queued-item
+     * edit commit and cancel re-enter the same way.
+     */
+    @Test
+    fun `reinserting a refused drain restarts the heartbeat`() = heartbeatTest {
+        enqueueQuietly(spec("a", "file-1"))
+
+        val drained = spec("a", "file-1")
+        delegate.drainNext(awaitSettle = false)
+        runCurrent()
+        // The loop notices the empty queue and exits on its next tick.
+        elapse(30.minutes)
+        renewedBatches.clear()
+
+        delegate.reinsert(0, drained)
+        elapse(30.minutes)
+
+        assertThat(renewedBatches).hasSize(1)
+        assertThat(renewedBatches.single()).containsExactly("file-1")
+    }
+
+    /** A text-only reinsert has nothing to hold, so it must not resurrect the ticker. */
+    @Test
+    fun `reinserting a text-only item starts no heartbeat`() = heartbeatTest {
+        delegate.reinsert(0, spec("a"))
+
+        elapse(90.minutes)
+
+        assertThat(renewedBatches).isEmpty()
+    }
+
+    /**
+     * `markFilesUsed` already no-ops when the route is absent, but the loop would still wake every
+     * interval for the ViewModel's whole life. A null `DetectedBackend` fails the gate closed, so
+     * this is also the cold-start state.
+     */
+    @Test
+    fun `no heartbeat starts when the server has no usage route`() = heartbeatTest {
+        holdSupported = false
+
+        enqueueQuietly(spec("a", "file-1"))
+        elapse(90.minutes)
+
+        assertThat(renewedBatches).isEmpty()
+    }
+
+    /**
+     * `delay` is a scheduling hint, not a measurement — Android schedules on uptime and iOS on
+     * wall time, so neither return proves the interval elapsed. Driving the scheduler ahead of the
+     * injected clock is the only way to exercise that guard; every other test moves them in
+     * lockstep, where it can never fire.
+     */
+    @Test
+    fun `a scheduler running ahead of the clock does not renew early`() = heartbeatTest {
+        enqueueQuietly(spec("a", "file-1"))
+
+        // An hour of scheduler time, no elapsed clock time.
+        advanceTimeBy(60.minutes)
+        runCurrent()
+        assertThat(renewedBatches).isEmpty()
+
+        // The clock catches up and the next tick renews once.
+        elapse(30.minutes)
+        assertThat(renewedBatches).hasSize(1)
     }
 }

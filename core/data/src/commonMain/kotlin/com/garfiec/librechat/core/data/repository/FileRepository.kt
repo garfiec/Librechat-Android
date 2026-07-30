@@ -53,4 +53,11 @@ interface FileRepository {
      * changes nothing — send-time marking is still the backstop.
      */
     suspend fun markFilesUsed(fileIds: List<String>): Result<Unit>
+
+    /**
+     * Whether this server exposes the usage-hold route. Callers that would otherwise schedule
+     * recurring work ask first: [markFilesUsed] already no-ops when the route is absent, but a
+     * heartbeat driving it would keep waking for the life of its owner to do nothing.
+     */
+    fun supportsUsageHold(): Boolean
 }

@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -216,8 +217,17 @@ internal fun MessageContentAndActions(
 ) {
     // The picker is hosted here — one site for both layouts on both platforms — rather than in
     // ActionButtons, whose action row auto-hides on a timer and would take an open sheet with it.
-    var pendingFeedbackRating by remember(message.messageId) { mutableStateOf<FeedbackRating?>(null) }
-    val ratingBeingTagged = pendingFeedbackRating
+    // Saveable, like the tag and comment inside the sheet: a plain `remember` here destroys the
+    // sheet on rotation, which takes the child's saved draft with it — the host has to survive
+    // for the child's saved state to be reachable. Enum names, not entries: the default saver
+    // only handles primitives.
+    var pendingFeedbackRating by rememberSaveable(
+        message.messageId,
+        key = "feedback-rating:${message.messageId}",
+    ) { mutableStateOf<String?>(null) }
+    val ratingBeingTagged = pendingFeedbackRating?.let { name ->
+        FeedbackRating.entries.firstOrNull { it.name == name }
+    }
     if (ratingBeingTagged != null && onFeedback != null) {
         FeedbackTagSheet(
             rating = ratingBeingTagged,
@@ -439,7 +449,7 @@ internal fun MessageContentAndActions(
                         isUser = isUser,
                         onFeedback = onFeedback,
                         currentFeedback = currentFeedback,
-                        onPickFeedbackTag = { pendingFeedbackRating = it },
+                        onPickFeedbackTag = { pendingFeedbackRating = it.name },
                         onCopy = onCopy,
                         onEdit = onEdit,
                         onRegenerate = onRegenerate,
