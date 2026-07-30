@@ -25,6 +25,10 @@ local.properties
 keystore.properties
 *.b64
 
+# Python (scripts/)
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store
 Thumbs.db
@@ -34,6 +38,9 @@ Thumbs.db
 .claude/inline-artifacts/
 .claude/worktrees/
 .claude/sync-upstream/
+# Raw i18n-coverage JSON — regenerable from scripts/i18n-coverage.py, large, and the
+# committed REPORT-*.md is the durable artifact worth diffing across audits.
+.claude/skills/audit-i18n/artifacts/
 # Ephemeral runtime state from Claude Code's scheduler (per-session lock)
 .claude/scheduled_tasks.lock
 .claude/*.lock

@@ -1,0 +1,123 @@
+# i18n suppression allowlist — consumed by scripts/i18n-coverage.py
+#
+# Suppresses individual findings from the [S] stub detector and the [H] hardcoded-literal
+# candidate detector. It does NOT affect [P] key parity: a missing or stale key is never
+# a judgment call, so there is nothing to allowlist.
+#
+# Sibling of strings-parity-baseline.txt and it follows the same discipline: SHRINK-ONLY.
+# A directive that suppresses nothing fails the run and must be deleted. Once ko finally
+# translates a key, any line covering it goes stale and the check tells you to remove it,
+# so debt can only go down.
+#
+# FORMAT — TAB-separated fields, one directive per line. Blank lines and lines whose first
+# non-space character is '#' are ignored. Matching is exact string equality: no regex, no
+# globs, no prefix matching, no normalization. That is deliberate — a reviewer must be able
+# to verify any line here by grepping for it.
+#
+#   literal<TAB><exact English base value>
+#       Suppresses every (key, locale) whose BASE value equals this string. Use only for
+#       values with no prose reading at all; prefer 'key' or 'pair'.
+#   key<TAB><module>/<key>
+#       Suppresses this stub key in every locale.
+#   pair<TAB><module>/values-<loc><TAB><key>
+#       Suppresses exactly this (key, locale). The left field intentionally mirrors the
+#       <module>/values-<loc> token used by strings-parity-baseline.txt.
+#   site<TAB><repo-relative-path>:<line>
+#       Drops one [H] hardcoded candidate. Site-keyed, never text-keyed: the same literal
+#       legitimately recurs at many sites with different verdicts.
+#   file<TAB><repo-relative-path>
+#       Drops every [H] candidate in a file. Use sparingly.
+#
+# EVERY ENTRY NEEDS A JUSTIFICATION COMMENT above it. 'the check was noisy' is not one.
+# Note that two whole classes need no entries at all, because the detector exempts them
+# mechanically: terms no locale anywhere translated (shared literals such as Bearer,
+# OAuth, JSON, MCP, SSE, HTML, Markdown, LibreChat, mermaid, shadcn/ui, X-API-Key), and
+# values carrying no translatable prose (arrows, em dashes, pure format strings).
+
+
+# =====================================================================================
+# [S] STUBS — protocol / auth-scheme literals and version patterns
+# =====================================================================================
+# 'Basic' is the HTTP auth-scheme token, sent on the wire verbatim. Only es rendered it
+# as prose ('Básica'); leaving it in English is the defensible reading.
+key	feature/agents/auth_basic
+key	feature/settings/mcp_auth_basic
+
+# 'Streamable HTTP' is the MCP transport's proper name, not a description of it.
+key	feature/settings/mcp_type_streamable_http
+
+# 'URL' is used as the field label. ar translated it ('الرابط'); the remaining locales
+# conventionally keep the acronym.
+key	feature/settings/mcp_url_label
+
+# Version sigils: 'v%1$d' and 'v%1$d/%2$d'. The only translatable atom is the letter 'v',
+# which every locale but ar keeps.
+key	feature/chat/version_number
+key	feature/chat/artifact_version
+
+# '(Gemini API)' — a product name in parentheses; there is no prose to translate.
+key	feature/settings/provider_keys_field_google_gemini_api
+
+# 'lowercase-kebab-case' is an input-format spec the user must literally type, not prose.
+key	feature/skills/skill_field_name_hint
+
+# accent_color_hex ('Hex') is deliberately NOT suppressed: ar, ja and zh all translated it
+# ('16進数', '十六进制'), so ko and ru are genuine misses, not a convention.
+
+
+# =====================================================================================
+# [S] STUBS — locale-specific conventions
+# =====================================================================================
+# Japanese UIs conventionally label the dismiss affordance 'OK' in Latin characters.
+pair	feature/skills/values-ja	skill_conflict_dismiss
+
+# zh treats 'artifact' as a loanword and keeps it Latin inside otherwise-Chinese copy —
+# see feature/settings/.../values-zh/strings.xml artifacts_section_desc, which reads
+# '直接在聊天中渲染 artifact…'. Translating only the label would be internally inconsistent.
+pair	feature/agents/values-zh	label_artifacts
+pair	feature/agents/values-zh	version_snapshot_artifacts
+pair	feature/settings/values-zh	section_artifacts
+
+
+# =====================================================================================
+# [H] HARDCODED CANDIDATES — endpoint / provider proper nouns
+# =====================================================================================
+# Endpoint display names in one when-block. These are LibreChat endpoint identifiers
+# surfaced verbatim, matching the web client. 'Custom', 'Agents' and 'Assistants' are the
+# debatable members of the block — revisit them if endpoint labels ever get localized.
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:140
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:141
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:142
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:143
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:144
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:145
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:146
+site	feature/conversations/src/commonMain/kotlin/com/garfiec/librechat/feature/conversations/components/ConversationItem.kt:147
+
+
+# =====================================================================================
+# [H] HARDCODED CANDIDATES — wire values and technical placeholders
+# =====================================================================================
+# '3gp' is an audio container extension chosen for the recording request, never displayed.
+site	core/network/src/commonMain/kotlin/com/garfiec/librechat/core/network/api/SpeechApi.kt:44
+
+# An interpolated image URL assembled from baseUrl + filepath, not a message.
+site	feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/ToolCallParsing.kt:325
+
+# Example values shown inside input placeholders so the user can see the expected shape:
+# a header name, an OAuth scope list, and a support-address example. Translating them
+# would make them wrong.
+site	feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/components/ActionAuthConfigDialog.kt:162
+site	feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/components/ActionAuthConfigDialog.kt:230
+site	feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/components/AgentSupportContactSection.kt:64
+
+# An OpenAPI JSON skeleton rendered as a monospace placeholder. Line 228 is already
+# dropped by the prose gate ('{' prefix); 229 is its continuation line.
+site	feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/components/ActionEditorDialog.kt:229
+
+# The default value of an Exception subclass's `message` constructor parameter. Exception
+# text is out of scope by policy (the non-UI suppression drops every line containing
+# `Exception(`), but here the class header is on an earlier line so that suppression cannot
+# see it. Not a UI slot despite the `message: String = "…"` shape.
+site	core/network/src/commonMain/kotlin/com/garfiec/librechat/core/network/sse/SseHttpTransport.kt:40
+
