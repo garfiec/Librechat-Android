@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.model.HandoffEdge
+import com.garfiec.librechat.core.model.SkillSummary
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
@@ -167,18 +168,48 @@ class AgentCapabilitiesDelegate(
         }
     }
 
-    /** Fetches the skill catalog for the picker + chip-name resolution. Best
-     *  effort — a denied/empty list leaves saved ids rendering as raw chips. */
+    /**
+     * Fetches the skill catalog for the picker + chip-name resolution. Best
+     * effort — a denied/empty list leaves saved ids rendering as raw chips.
+     *
+     * Walks the cursor to the end of the accessible catalog rather than keeping
+     * the first page. Stopping at 100 truncates the picker, and — because this
+     * same list resolves chip names — a skill already saved on the agent whose
+     * id sits past page one renders as a raw id, which reads as data loss on a
+     * configuration the user did not touch. The `maxCatalogSkills` interface key
+     * bounds what the model is shown, not what the picker lists, so it is no
+     * mitigation. Upstream fixed the same defect in #14429.
+     */
     private fun loadSkills() {
         stateHandle.scope.launch {
-            when (val result = skillsRepository.listSkills()) {
-                is Result.Success -> {
-                    stateHandle.update { copy(availableSkills = result.data.skills) }
+            // Keyed by id so overlapping pages — the catalog can change under a
+            // cursor mid-walk — collapse instead of producing duplicate chips.
+            val collected = LinkedHashMap<String, SkillSummary>()
+            var cursor: String? = null
+            var loadedAnyPage = false
+            var page = 0
+            while (page < MAX_SKILL_CATALOG_PAGES) {
+                val result = skillsRepository.listSkills(cursor = cursor)
+                if (result !is Result.Success) {
+                    if (result is Result.Error) {
+                        Logger.d { "AgentEditor: skills list failed: ${result.message}" }
+                    }
+                    // Keep the pages that did land; a partial catalog resolves
+                    // more chips than none.
+                    break
                 }
-                is Result.Error -> {
-                    Logger.d { "AgentEditor: skills list failed: ${result.message}" }
-                }
-                is Result.Loading -> { /* no-op */ }
+                loadedAnyPage = true
+                val body = result.data
+                body.skills.forEach { collected[it.id] = it }
+                val next = body.after
+                // A server that reports more but hands back the same (or no)
+                // cursor would otherwise spin here forever.
+                if (!body.hasMore || next == null || next == cursor) break
+                cursor = next
+                page++
+            }
+            if (loadedAnyPage) {
+                stateHandle.update { copy(availableSkills = collected.values.toList()) }
             }
         }
     }
@@ -276,5 +307,14 @@ class AgentCapabilitiesDelegate(
             list.removeAt(index)
             stateHandle.update { copy(handoffEdges = list) }
         }
+    }
+
+    private companion object {
+        /**
+         * Hard stop on the catalog walk. At the repository's default page size
+         * of 100 this covers 5,000 skills — far past any real deployment — and
+         * exists only so a misbehaving cursor cannot loop indefinitely.
+         */
+        const val MAX_SKILL_CATALOG_PAGES = 50
     }
 }
