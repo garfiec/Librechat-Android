@@ -26,8 +26,10 @@ import org.junit.Test
  *    Guarded by asserting the flag is set in the SAME emission as the swap — a property that
  *    terminal `flow.value` assertions cannot see.
  *  - **Derived during composition instead.** Merely opening a conversation would mark its last
- *    message as freshly settled. Guarded by running a real display-rebuilding path and asserting
- *    the writer left the flag alone, rather than reading back an untouched default.
+ *    message as freshly settled. Only partly guarded here: these tests pin the writer set, so no
+ *    state-layer path can name a message without a finalize. The bug itself lived in `MessageList`'s
+ *    composition and is out of reach from this module — what rules it out is that the flag is no
+ *    longer derived in the UI layer at all.
  *  - **Cleared at the turn boundary.** A queue drain re-enters `beginStreaming` inline in the same
  *    Main dispatch as the finalize, so the clear landed before Compose saw the flag at all.
  *    Guarded by asserting a following turn OVERWRITES, with no clear in between.
@@ -107,9 +109,14 @@ class JustSettledMessageTest {
 
     @Test
     fun `rebuilding the display without a finalize settles nothing`() {
-        // The mount trap: a derivation from `!isStreaming` would mark the last message of every
-        // opened conversation as freshly settled. This runs a real display-rebuilding path —
-        // asserting an untouched default would pass no matter what any writer did.
+        // Pins the writer set: only a finalize (or the comparison path's explicit markSettled) may
+        // name a message, so a path that merely rebuilds the display leaves the flag alone. Runs a
+        // real rebuild rather than asserting an untouched default, which would pass regardless.
+        //
+        // This does NOT cover the mount trap that motivated the flag — a UI-side derivation from
+        // `!isStreaming` marking the last message of every opened conversation. That bug lived in
+        // `MessageList`'s composition, and nothing in this module can reach it: there is no Compose
+        // harness here. Keeping the flag out of the UI layer is what makes it unreachable.
         val user = message("u1", isUser = true)
         val messages = listOf(user, message("a1", parentId = "u1"), message("a2", parentId = "u1"))
         val (delegate, flow) = delegateWith(
@@ -133,6 +140,10 @@ class JustSettledMessageTest {
         // Deliberately no markSettled(null). A drain re-enters beginStreaming inline in the same
         // dispatch as the finalize — nothing on that path suspends — so a clear there runs before
         // Compose reads the flag. Persisting until the next finalize is what makes it work.
+        //
+        // Persisting is harmless because the value is a response id: it can only ever re-match the
+        // one message it named, so the worst case is that message keeping its groups expanded for
+        // the ViewModel's life, which is exactly what naming it asks for.
         val u1 = message("u1", isUser = true)
         val (delegate, flow) = delegateWith(streamingState(u1))
         delegate.finalizeChatDisplay(finalEvent(u1, message("a1", parentId = "u1")))
@@ -142,18 +153,6 @@ class JustSettledMessageTest {
         delegate.finalizeChatDisplay(finalEvent(u2, message("a2", parentId = "u2")))
 
         assertThat(flow.value.justSettledMessageId).isEqualTo("a2")
-    }
-
-    @Test
-    fun `a persisting flag can only ever re-match the message it named`() {
-        // Why persisting is harmless: the value is a message id, so the worst case is ONE message
-        // keeping its groups expanded for the ViewModel's life — which is what the flag asks for.
-        val u1 = message("u1", isUser = true)
-        val (delegate, flow) = delegateWith(streamingState(u1))
-        delegate.finalizeChatDisplay(finalEvent(u1, message("a1", parentId = "u1")))
-
-        val settled = flow.value.justSettledMessageId
-        assertThat(flow.value.messages.count { it.messageId == settled }).isEqualTo(1)
     }
 
     @Test
