@@ -1,6 +1,6 @@
 # Switchboard: LibreChat Mobile Client
 
-[![LibreChat](https://img.shields.io/badge/LibreChat-v0.8.4_–_v0.8.7_%2Bdev-blue)](https://github.com/danny-avila/LibreChat/commit/6c97a7f4673a227082761d103e97c59bb363adef)
+[![LibreChat](https://img.shields.io/badge/LibreChat-v0.8.4_–_v0.8.7_%2Bdev-blue)](https://github.com/danny-avila/LibreChat/commit/91adcf3f2c3a16266d29e4cee7916518e807f9b3)
 
 A third-party native mobile client for [LibreChat](https://www.librechat.ai/) (Android & iOS). Not affiliated with the official LibreChat project — this is an independent app that connects to any self-hosted LibreChat server, no backend modifications required.
 

@@ -430,14 +430,34 @@ POST   /api/share/:shareId/fork           { targetMessageIndex? } → 201 with t
                                             ShareRepository but with NO caller: mobile has no shared-link viewer
                                             to fork from. Ungated — a pre-0.8.8 server 404s, which is the error
                                             a future caller has to handle anyway. (#13714, landedDate 2026-06-24)
-POST   /api/files/usage                   { file_ids } → { marked }. TTL touch so uploads held in a client-side
-                                            queue are not reaped before they drain. Called when a message is
-                                            enqueued as a follow-up; capped at 10 ids per call server-side, so
+POST   /api/files/usage                   { file_ids } → { held } (was { marked } before #14470). A RENEWABLE
+                                            BOUNDED HOLD, not a release, so uploads sitting in a client-side
+                                            queue are not reaped before they drain:
+                                            expiresAt = max(expiresAt, min(now + renewMs, createdAt +
+                                            maxLifetimeMs)) where renewMs = 24 h + checkpointer.ttl
+                                            (FILES_USAGE_BASE_HOLD_MS) and maxLifetimeMs = 24 h +
+                                            checkpointer.ttl × 8 (FILES_USAGE_QUEUED_RUN_ALLOWANCE). Widen-only,
+                                            and `expiresAt: { $exists: true }` means an already-released file
+                                            never gets a TTL back. Replay converges on a per-file ceiling
+                                            instead of pinning forever, so a client that stops touching lapses
+                                            one renewMs after its last call. No longer $inc: usage — a queue
+                                            touch is not a send, and queued-then-drained files were landing at
+                                            usage: 2. Called when a message is enqueued as a follow-up; capped
+                                            at 10 ids per call server-side (upstream QUEUE_USAGE_MAX_FILES), so
                                             the repository chunks rather than forfeiting a whole batch. Exempt
                                             from the upload rate limiter ONLY on the 0.8.8 line that added it —
                                             older servers limit every POST under /api/files except /speech, so
                                             the call is version-gated (supportsFeature 0.8.8-rc1, landedDate
-                                            2026-07-14); error code FILES_USAGE_FAILED. Mobile
+                                            2026-07-14); error code FILES_USAGE_FAILED. NOW METERED by its own
+                                            per-user limiter — FILE_USAGE_USER_MAX (default 120) per
+                                            FILE_USAGE_USER_WINDOW (default 15 min), 429 { message: "Too many
+                                            file usage requests…" } — and a breach LOGS A FILE_UPLOAD_LIMIT
+                                            VIOLATION scored by FILE_UPLOAD_VIOLATION_SCORE, so it is no longer
+                                            a free call. Still off the upload quota; trailing slash normalized
+                                            (/usage/ hits the same limiter). Web renews on a 30-min heartbeat
+                                            while anything is queued (useQueueDrain); mobile touches at enqueue
+                                            only — the 24 h floor is unconditional and mobile's queue lives and
+                                            dies with its ChatViewModel. Mobile
                                             stays on the multipart-JSON upload path — #14295 / 2026-07-21 is the
                                             separate upload-SSE heartbeat work under F8, which is NOT adopted.
 ```
@@ -510,6 +530,29 @@ purpose: upstream sources their accept sets from the per-`tool_resource` lists
 (`codeInterpreterMimeTypesList`, `retrievalMimeTypesList`), not from `supportedMimeTypes`, so filtering them
 on this allowlist would be the wrong restriction.
 
+### v0.8.8-line partial sync (untagged dev commit 91adcf3f, 2026-07-29) — SSE / shape changes
+Continues the range above; `package.json` still reports 0.8.7 and the commit is still untagged.
+- `on_activity_label` (#14391) — the activity-group header over a reasoning+tool block.
+  `{ index, part: { type:'activity_label', activity_label, tool_call_ids?, counts?, status?,
+  agentId?, pending? }, responseMessageId?, conversationId? }`, where `index` is the ABSOLUTE
+  content index. **Two emissions per block**: an empty reservation at the tool-batch boundary
+  (`activity_label: ""`, `pending: true`), then the resolved label once the fast label model
+  answers. Mobile drops the live event through `SseEventMapper`'s forward-compat `else -> null`
+  and renders labels from persisted content instead — the same posture already documented for
+  `on_subagent_update`. The persisted part is what matters; see the `MessageContentPart` note.
+- `usage_type` on `on_token_usage` (#14391) — `summarization` | `subagent` | `sequential` |
+  `activity-label`. Present ONLY on non-primary buckets; absent on the turn's own model call.
+  These are separate model calls and must be **EXCLUDED** from the live context gauge and the
+  breakdown sheet — mobile's handler is last-write-wins, so a bucketed event that gets through
+  replaces the turn's Input/Output figures with the bucket's. Activity labels make that acute:
+  one usage event per tool batch, default up to 20 per run, from a cheap fast model. Modeled as
+  a plain nullable String, never an enum, so a bucket upstream adds later stays inert (non-null
+  ⇒ excluded) rather than failing the decode. (BUILT)
+- `GET /api/agents/chat/stream/:streamId` no longer waits for a subscriber before generation
+  starts (#14423), and resume subscriptions are two-phase server-side (`activate()` after the
+  sync frame). Contract-identical for the client and requires no change — recorded because it
+  is the kind of thing that would look like the cause of a future resume bug.
+
 ### Other
 ```
 GET/POST/DELETE /api/presets
@@ -545,7 +588,19 @@ GET /api/banner
 
 ### MessageContentPart
 Discriminated by `type`: `text`, `think`, `text_delta`, `tool_call`, `image_file`,
-`image_url`, `video_url`, `input_audio`, `agent_update`, `summary`, `error`.
+`image_url`, `video_url`, `input_audio`, `agent_update`, `summary`, `activity_label`,
+`steer`, `error`.
+
+`steer` (v0.8.8 line, #14220) and `activity_label` (v0.8.8 line, #14391) both PERSIST into
+saved message content, so both must be declared client-side even though neither is rendered:
+`ContentType` has no property default, so an undeclared value is not rescued by
+`ignoreUnknownKeys` and fails the whole message decode — which takes conversation load with
+it. The `steer` omission above was a documentation gap from the prior sync, not a new value.
+`activity_label` carries its label as a top-level plain string (`{"type":"activity_label",
+"activity_label":"Searched the codebase", "tool_call_ids":[…], "counts":{…}, "status":…,
+"agentId":…, "pending":…}`); mobile models the label, and `tool_call_ids`/`agentId` already
+existed on the part. Empty label + `pending: true` is the reservation form, which upstream
+renders as nothing.
 
 **SUMMARY part wire shape (v0.8.5+)** — context-compaction emits a content part with
 fields at the top level (not nested under a `summary` key):
