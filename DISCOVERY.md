@@ -455,9 +455,11 @@ POST   /api/files/usage                   { file_ids } → { held } (was { marke
                                             VIOLATION scored by FILE_UPLOAD_VIOLATION_SCORE, so it is no longer
                                             a free call. Still off the upload quota; trailing slash normalized
                                             (/usage/ hits the same limiter). Web renews on a 30-min heartbeat
-                                            while anything is queued (useQueueDrain); mobile touches at enqueue
-                                            only — the 24 h floor is unconditional and mobile's queue lives and
-                                            dies with its ChatViewModel. Mobile
+                                            while anything is queued (useQueueDrain); mobile matches it —
+                                            MessageQueueDelegate.startHoldRenewal touches at enqueue, then
+                                            renews the whole queue every 30 min on the ChatViewModel scope.
+                                            Deliberately a no-op once that scope or the process is gone: the
+                                            queue is never persisted, so there is nothing left to hold. Mobile
                                             stays on the multipart-JSON upload path — #14295 / 2026-07-21 is the
                                             separate upload-SSE heartbeat work under F8, which is NOT adopted.
 ```
