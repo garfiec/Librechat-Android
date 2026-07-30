@@ -455,6 +455,39 @@ internal fun parseAskUserQuestion(raw: JsonElement?): AskUserQuestionRequest? = 
     else -> null
 }
 
+/**
+ * The model's one-line description of what a call is about to do ("Searching for OAuth handling in
+ * the callback router"), read from the call's own arguments.
+ *
+ * The server injects `intent` as the FIRST property of an opted-in tool's schema, so it is the
+ * first key providers stream and it arrives inside `tool_call.args` verbatim — there is no
+ * separate event to subscribe to and nothing to gate on. Absent whenever the capability is off or
+ * the tool did not opt in, which is why every caller falls back to the tool name.
+ */
+internal fun parseToolIntent(raw: JsonElement?): String? = when (raw) {
+    is JsonObject -> raw.intentField()
+    is JsonPrimitive -> if (raw.isString) parseToolIntent(raw.content) else null
+    else -> null
+}
+
+/** [parseToolIntent] for args held as raw text — the persisted shape, and the streaming `input`. */
+internal fun parseToolIntent(raw: String?): String? {
+    val text = raw?.trim().orEmpty()
+    if (text.isEmpty()) return null
+    // Object-only, which is also what stops the [JsonElement] overload from recursing: lenient
+    // parsing turns a bare word back into a string and re-entering on that would not terminate.
+    val parsed = try {
+        toolCallJson.parseToJsonElement(text)
+    } catch (e: Exception) {
+        log.d(e) { "Failed to parse tool args for intent" }
+        return null
+    }
+    return (parsed as? JsonObject)?.intentField()
+}
+
+private fun JsonObject.intentField(): String? =
+    stringField("intent")?.trim()?.takeIf { it.isNotEmpty() }
+
 /** [parseAskUserQuestion] for args held as raw text (the streaming path's `input`). Accepts only
  *  a JSON object, which is also what stops the [JsonElement] overload from recursing: lenient
  *  parsing turns a bare word back into a string, and re-entering on that would not terminate. */

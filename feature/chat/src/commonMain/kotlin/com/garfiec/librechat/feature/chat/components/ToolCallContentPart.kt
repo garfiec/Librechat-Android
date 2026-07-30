@@ -91,6 +91,13 @@ internal fun ToolCallDispatcher(
         return
     }
 
+    // Shipped ahead of upstream's own presentation, which it scopes as a follow-up slice — kept to
+    // swapping the label so reworking it stays a one-line change.
+    val intent = remember(toolCall) {
+        parseToolIntent(toolCall?.args) ?: parseToolIntent(toolCall?.function?.arguments)
+    }
+    val displayName = intent ?: toolName
+
     val isImageGen = isImageGenToolCall(toolNameLower)
 
     // The card, then (for every non-image-gen tool) the files this tool call generated. Web passes
@@ -116,7 +123,7 @@ internal fun ToolCallDispatcher(
                 if (results.isNotEmpty()) {
                     WebSearchSourcesCard(results = results, modifier = cardModifier)
                 } else {
-                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                    GenericToolCallCard(displayName, toolCall?.function?.arguments, output, cardModifier)
                 }
             }
             isCodeExecutionToolCall(toolNameLower) -> {
@@ -128,7 +135,7 @@ internal fun ToolCallDispatcher(
                 if (result != null) {
                     CodeExecutionCard(result = result, modifier = cardModifier)
                 } else {
-                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                    GenericToolCallCard(displayName, toolCall?.function?.arguments, output, cardModifier)
                 }
             }
             toolNameLower.contains("memory") -> {
@@ -136,7 +143,7 @@ internal fun ToolCallDispatcher(
                 if (artifact != null) {
                     MemoryArtifactCard(artifact = artifact, modifier = cardModifier)
                 } else {
-                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                    GenericToolCallCard(displayName, toolCall?.function?.arguments, output, cardModifier)
                 }
             }
             toolNameLower.contains("mcp") -> {
@@ -144,7 +151,7 @@ internal fun ToolCallDispatcher(
                 if (resources.isNotEmpty()) {
                     McpResourceCarousel(resources = resources, modifier = cardModifier)
                 } else {
-                    GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                    GenericToolCallCard(displayName, toolCall?.function?.arguments, output, cardModifier)
                 }
             }
             isImageGen -> {
@@ -158,7 +165,7 @@ internal fun ToolCallDispatcher(
                 LogContentCard(log = logContent, modifier = cardModifier)
             }
             else -> {
-                GenericToolCallCard(toolName, toolCall?.function?.arguments, output, cardModifier)
+                GenericToolCallCard(displayName, toolCall?.function?.arguments, output, cardModifier)
             }
         }
 

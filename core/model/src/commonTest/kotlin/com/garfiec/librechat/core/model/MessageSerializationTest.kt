@@ -4,6 +4,7 @@ import com.garfiec.librechat.core.model.content.MessageContentPart
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -189,6 +190,33 @@ class MessageSerializationTest {
         assertEquals(ContentType.ACTIVITY_LABEL, parts[0].type)
         assertEquals("", parts[0].activityLabel)
         assertEquals("Still streaming.", parts[1].text)
+    }
+
+    @Test
+    fun steerPartSurvivesItsNumericCreatedAt() {
+        // The server stamps a steer part's `createdAt` as epoch millis — a NUMBER — while the
+        // field is typed String? for every other part that carries an ISO timestamp. Only
+        // `isLenient` (set on the real client Json) keeps that from throwing, and a throw here
+        // fails the whole `GET /messages` decode and loses every message in the conversation.
+        // Pinned because the rescue is a Json setting, not anything visible at the declaration.
+        val lenient = Json { ignoreUnknownKeys = true; isLenient = true }
+        val serverJson = """
+            {
+                "messageId": "msg-steer",
+                "conversationId": "conv-steer",
+                "text": "",
+                "content": [
+                    {"type": "text", "text": "Working on it."},
+                    {"type": "steer", "steer": "actually use Kotlin", "createdAt": 1753900000000},
+                    {"type": "text", "text": "Switching to Kotlin."}
+                ]
+            }
+        """.trimIndent()
+        val parts = lenient.decodeFromString(Message.serializer(), serverJson).content!!
+        assertEquals(3, parts.size)
+        assertEquals(ContentType.STEER, parts[1].type)
+        assertEquals("actually use Kotlin", parts[1].steer?.jsonPrimitive?.content)
+        assertEquals("Switching to Kotlin.", parts[2].text)
     }
 
     @Test
