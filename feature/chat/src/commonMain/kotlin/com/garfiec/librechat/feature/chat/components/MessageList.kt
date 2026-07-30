@@ -465,6 +465,7 @@ fun MessageList(
                     LocalImmediateMarkdown provides (index == displayMessages.lastIndex),
                     LocalSearchFocusNonce provides if (isCurrent) searchFocusRequest?.requestId ?: 0L else 0L,
                     LocalSuppressGroupAutoCollapse provides (node.message.messageId == settledFromStreamId),
+                    LocalFeedbackEnabled provides !isStreaming,
                 ) {
                 MessageBubble(
                     message = node.message,

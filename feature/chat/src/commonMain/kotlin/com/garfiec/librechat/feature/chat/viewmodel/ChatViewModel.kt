@@ -1475,6 +1475,11 @@ class ChatViewModel(
      * the path so the in-flight reply renders after a stale branch instead of in its place. The
      * write was unreachable while the body was a bare rating string (the route rejected it), so
      * correcting the payload is what armed this.
+     *
+     * Defence in depth, not the only line: the thumbs are disabled while streaming
+     * (`LocalFeedbackEnabled`), so the user never reaches the tag sheet, picks a reason and types a
+     * comment only to have all of it dropped here. Keep both — this guard is what makes the Room
+     * write safe regardless of which affordance grows a path to it.
      */
     fun submitFeedback(messageId: String, feedback: MinimalFeedback?) {
         val conversationId = _uiState.value.conversationId ?: return

@@ -282,7 +282,13 @@ existing upload/usage path already handles them.
   itself on the next emission.
 - `submitFeedback` is gated on `!isStreaming` like `switchBranch`/`editMessage`/`regenerateMessage`
   — it caches to Room, which would re-emit through the `loadConversation` observer and un-truncate
-  the streaming anchor. **Consequence: a thumb tapped mid-stream is a no-op.**
+  the streaming anchor. **The affordance is gated too** (`LocalFeedbackEnabled`, provided by
+  `MessageList`): the thumbs are *disabled* — not hidden, which would reflow the action row —
+  while streaming. Both are required. A sink-only guard sits at the end of a multi-step flow, so
+  the user would pick a reason and type a comment before anything refused; an affordance-only gate
+  would leave the Room write unprotected against the next caller. Note the sibling mutations
+  (`switchBranch`, `editMessage`, `regenerateMessage`) do NOT gate their affordances — their
+  arrows and buttons stay live mid-stream and silently no-op.
 - The sheet is a `ModalBottomSheet` of radio rows, not chips or an `AlertDialog`: `FilterChip`/
   `InputChip` hardcode `Role.Checkbox` over any caller-supplied role, and `AlertDialog`'s text slot
   has no scroll modifier, so eleven reasons plus a comment field clip out of reach.

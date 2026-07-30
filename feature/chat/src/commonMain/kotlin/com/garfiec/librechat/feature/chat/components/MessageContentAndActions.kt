@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,20 @@ import com.garfiec.librechat.feature.chat.util.groupContentParts
 import com.garfiec.librechat.feature.chat.util.steerText
 import org.jetbrains.compose.resources.stringResource
 
+/** Material 3's disabled content alpha. */
+private const val DISABLED_ALPHA = 0.38f
+
+/**
+ * False while a reply is streaming, provided by `MessageList`.
+ *
+ * `ChatViewModel.submitFeedback` refuses mid-stream because its Room write would un-truncate the
+ * streaming anchor — but that guard is the last step of a flow that starts several taps earlier.
+ * Left live, the thumbs open a sheet, take a reason and up to 1024 characters of comment, and then
+ * drop all of it at the sink with nothing shown. The affordance has to know, so the flow is never
+ * entered. Disabled rather than hidden: removing the buttons reflows the action row mid-stream.
+ */
+internal val LocalFeedbackEnabled = compositionLocalOf { true }
+
 /**
  * Shared action buttons row for message bubbles (copy, edit, regenerate, feedback, read aloud, fork).
  * Used by both Android and iOS MessageBubble implementations.
@@ -77,33 +92,39 @@ internal fun ActionButtons(
         if (!isUser && onFeedback != null) {
             val isUp = currentFeedback == FeedbackRating.THUMBS_UP
             val isDown = currentFeedback == FeedbackRating.THUMBS_DOWN
+            val feedbackEnabled = LocalFeedbackEnabled.current
+            val disabledTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA)
             IconButton(
                 onClick = { if (isUp) onFeedback(null) else onPickFeedbackTag(FeedbackRating.THUMBS_UP) },
+                enabled = feedbackEnabled,
                 modifier = Modifier.size(40.dp),
             ) {
                 Icon(
                     imageVector = if (isUp) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
                     contentDescription = stringResource(Res.string.cd_thumbs_up),
                     modifier = Modifier.size(18.dp),
-                    tint = if (isUp) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    // The tint is set explicitly, so IconButton's own disabled content colour never
+                    // applies — without this the button greys out its ripple but not its icon.
+                    tint = when {
+                        !feedbackEnabled -> disabledTint
+                        isUp -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
             }
             IconButton(
                 onClick = { if (isDown) onFeedback(null) else onPickFeedbackTag(FeedbackRating.THUMBS_DOWN) },
+                enabled = feedbackEnabled,
                 modifier = Modifier.size(40.dp),
             ) {
                 Icon(
                     imageVector = if (isDown) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
                     contentDescription = stringResource(Res.string.cd_thumbs_down),
                     modifier = Modifier.size(18.dp),
-                    tint = if (isDown) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = when {
+                        !feedbackEnabled -> disabledTint
+                        isDown -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
             }
