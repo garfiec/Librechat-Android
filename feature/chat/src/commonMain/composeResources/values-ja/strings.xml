@@ -64,7 +64,6 @@
     <string name="cd_generating_response">応答を生成中</string>
 
     <!-- Content descriptions - Images -->
-    <string name="cd_fullscreen_image">全画面画像</string>
     <string name="cd_close">閉じる</string>
     <string name="cd_save_to_device">デバイスに保存</string>
     <string name="cd_share_image">画像を共有</string>

@@ -64,7 +64,6 @@
     <string name="cd_generating_response">Gerando resposta</string>
 
     <!-- Content descriptions - Images -->
-    <string name="cd_fullscreen_image">Imagem em tela cheia</string>
     <string name="cd_close">Fechar</string>
     <string name="cd_save_to_device">Salvar no dispositivo</string>
     <string name="cd_share_image">Compartilhar imagem</string>

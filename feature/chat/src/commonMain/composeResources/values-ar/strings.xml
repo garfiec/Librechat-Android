@@ -64,7 +64,6 @@
     <string name="cd_generating_response">جارٍ إنشاء الرد</string>
 
     <!-- Content descriptions - Images -->
-    <string name="cd_fullscreen_image">صورة بملء الشاشة</string>
     <string name="cd_close">إغلاق</string>
     <string name="cd_save_to_device">الحفظ في الجهاز</string>
     <string name="cd_share_image">مشاركة الصورة</string>

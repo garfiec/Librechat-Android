@@ -45,8 +45,6 @@
     <string name="this_file">diese Datei</string>
 
     <!-- File preview -->
-    <string name="image_preview_unavailable">Bildvorschau nicht verfügbar</string>
-    <string name="preview_of">Vorschau von %1$s</string>
     <string name="loading_pdf">PDF wird geladen…</string>
     <string name="page_of">Seite %1$d von %2$d</string>
     <string name="page_cd">Seite %1$d von %2$s</string>

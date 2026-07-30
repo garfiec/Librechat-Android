@@ -45,8 +45,6 @@
     <string name="this_file">此文件</string>
 
     <!-- File preview -->
-    <string name="image_preview_unavailable">图片预览不可用</string>
-    <string name="preview_of">%1$s 的预览</string>
     <string name="loading_pdf">正在加载 PDF…</string>
     <string name="page_of">第 %1$d 页，共 %2$d 页</string>
     <string name="page_cd">第 %1$d 页，共 %2$s 页</string>

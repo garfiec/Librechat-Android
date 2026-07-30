@@ -64,7 +64,6 @@
     <string name="cd_generating_response">Генерация ответа</string>
 
     <!-- Content descriptions - Images -->
-    <string name="cd_fullscreen_image">Изображение во весь экран</string>
     <string name="cd_close">Закрыть</string>
     <string name="cd_save_to_device">Сохранить на устройство</string>
     <string name="cd_share_image">Поделиться изображением</string>

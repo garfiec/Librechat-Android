@@ -64,7 +64,6 @@
     <string name="cd_generating_response">正在生成回复</string>
 
     <!-- Content descriptions - Images -->
-    <string name="cd_fullscreen_image">全屏图片</string>
     <string name="cd_close">关闭</string>
     <string name="cd_save_to_device">保存到设备</string>
     <string name="cd_share_image">分享图片</string>

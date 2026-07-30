@@ -45,8 +45,6 @@
     <string name="this_file">이 파일</string>
 
     <!-- File preview -->
-    <string name="image_preview_unavailable">이미지 미리보기를 사용할 수 없습니다</string>
-    <string name="preview_of">%1$s 미리보기</string>
     <string name="loading_pdf">PDF 불러오는 중…</string>
     <string name="page_of">%2$d페이지 중 %1$d페이지</string>
     <string name="page_cd">%2$s페이지 중 %1$d페이지</string>

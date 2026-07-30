@@ -45,8 +45,6 @@
     <string name="this_file">этот файл</string>
 
     <!-- File preview -->
-    <string name="image_preview_unavailable">Предпросмотр изображения недоступен</string>
-    <string name="preview_of">Предпросмотр %1$s</string>
     <string name="loading_pdf">Загрузка PDF…</string>
     <string name="page_of">Страница %1$d из %2$d</string>
     <string name="page_cd">Страница %1$d из %2$s</string>

@@ -64,7 +64,6 @@
     <string name="cd_generating_response">응답 생성 중</string>
 
     <!-- Content descriptions - Images -->
-    <string name="cd_fullscreen_image">전체 화면 이미지</string>
     <string name="cd_close">닫기</string>
     <string name="cd_save_to_device">기기에 저장</string>
     <string name="cd_share_image">이미지 공유</string>

@@ -45,8 +45,6 @@
     <string name="this_file">このファイル</string>
 
     <!-- File preview -->
-    <string name="image_preview_unavailable">画像のプレビューは利用できません</string>
-    <string name="preview_of">%1$s のプレビュー</string>
     <string name="loading_pdf">PDFを読み込み中…</string>
     <string name="page_of">%2$d ページ中 %1$d ページ</string>
     <string name="page_cd">%2$s ページ中 %1$d ページ</string>
