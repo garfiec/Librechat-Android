@@ -320,11 +320,20 @@ tool block. It is pure because this module has no Compose test harness.
   a `LaunchedEffect` on `isStreaming` commits *after* the composition that registered it, so the
   groups have already collapsed and nothing re-opens them; deriving during composition instead
   marks the last message of every *opened* conversation as freshly settled and keeps its groups
-  open forever. The flag names a **transition**, cleared at the next turn boundary in
-  `beginStreaming`. A live comparison never reaches `finalizeChatDisplay` (it rebuilds from a
-  background reload), so `SendCompletionDelegate` calls `markSettled` on that branch. Guarded by
-  `JustSettledMessageTest` — this module has no Compose harness, and the first attempt at this was
-  a no-op that passed every gate.
+  open forever. Only a finalize writes it, which is what makes it a transition.
+  **It is deliberately NOT cleared at the turn boundary.** A drain of a non-empty queue re-enters
+  `beginStreaming` inline in the *same* Main dispatch as the finalize — nothing on that path
+  suspends, because `awaitReplySettled`'s predicate is already true and `viewModelScope.launch`
+  on an already-Main dispatcher runs inline — so a clear there lands before Compose ever sees the
+  flag. Persisting is safe because the value is a message id: it can only re-match the one message
+  it named, and the next finalize overwrites it. `ActivityGroup` latches the suppressed decision
+  as well as the collapsing one, so a group cannot simply fold later when the flag moves on.
+  A live comparison never reaches `finalizeChatDisplay` (it rebuilds from a background reload), so
+  `SendCompletionDelegate` calls `markSettled` on that branch.
+  Guarded by `JustSettledMessageTest` (single-emission, mount trap, overwrite-without-clear) plus
+  `ChatViewModelDuringRunSendTest`'s drain case, which is the only place the inline-drain
+  interleaving is visible. Each assertion was verified to FAIL on the corresponding broken version
+  — three earlier attempts at this mechanism compiled and passed every gate while doing nothing.
 - **Steers.** A `steer` part renders as a user turn where the words entered the run, and each
   segment resuming after one restates attribution. Attribution follows the agent that had taken
   over when the steer landed; a handoff AT the resume point keeps the pre-handoff author so the

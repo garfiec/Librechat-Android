@@ -341,6 +341,49 @@ class ChatViewModelDuringRunSendTest {
      * assertion would leave the streaming flush loop parked and the run would hang instead of
      * reporting the failure. See the class KDoc.
      */
+    /**
+     * A clean finish with a non-empty queue must not erase the id of the reply that just settled.
+     *
+     * This is the only place the interleaving is visible. `drainNext` runs inside `endStream`, and
+     * nothing between there and `beginStreaming` suspends — `awaitReplySettled`'s predicate was
+     * already made true by the finalize, and `viewModelScope.launch` on an already-Main dispatcher
+     * runs inline — so the whole chain completes in the same dispatch as the finalize, before
+     * Compose gets a frame. A clear at the turn boundary therefore erased the flag before anything
+     * could read it, and the activity groups of the reply just finishing folded at the same instant
+     * the live tool cards vanished. Delegate-level tests cannot see this: the drain is what closes
+     * the loop, and only the assembled ViewModel has one.
+     */
+    @Test
+    fun `a queue drain does not erase the reply that just settled`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            // Queued while the first run streams, so the clean finish below drains it.
+            vm.onInputChanged("the next turn")
+            vm.queueMessage()
+            runCurrent()
+            assertThat(vm.uiState.value.messageQueue).hasSize(1)
+
+            resumedStream.emit(
+                StreamEvent.Final(
+                    requestMessage = null,
+                    responseMessage = com.garfiec.librechat.core.model.Message(
+                        messageId = SETTLED_ID,
+                        conversationId = CONVERSATION_ID,
+                        text = "done",
+                        isCreatedByUser = false,
+                    ),
+                    conversation = null,
+                ),
+            )
+            runCurrent()
+
+            // The drain really ran — without this the assertion below could pass simply because
+            // no second turn ever started.
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+            assertThat(vm.uiState.value.isStreaming).isTrue()
+
+            assertThat(vm.uiState.value.justSettledMessageId).isEqualTo(SETTLED_ID)
+        }
+
     private fun duringRunTest(
         preference: DuringRunAction,
         arrange: () -> Unit = {},
@@ -398,5 +441,6 @@ class ChatViewModelDuringRunSendTest {
         const val ENDPOINT = "anthropic"
         const val MODEL = "claude-haiku-4-5"
         const val TEXT = "Answer only in French."
+        const val SETTLED_ID = "assistant-1"
     }
 }

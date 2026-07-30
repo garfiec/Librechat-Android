@@ -84,10 +84,13 @@ internal fun ActivityGroup(
     var autoCollapsed by rememberSaveable(key = "activity-latched:$stateKey") { mutableStateOf(false) }
 
     LaunchedEffect(group.collapsedByDefault, suppressAutoCollapse) {
-        if (group.collapsedByDefault && !userOverride && !autoCollapsed && !suppressAutoCollapse) {
-            autoCollapsed = true
-            isExpanded = false
-        }
+        if (!group.collapsedByDefault || userOverride || autoCollapsed) return@LaunchedEffect
+        // Latch the decision including when the answer is "no". A suppressed group left unlatched
+        // would simply fold later: the flag moves on to the next turn's reply, suppression flips
+        // back off underneath a message the user has settled into reading, and the height drop
+        // arrives anyway — just further from the cause that explains it.
+        autoCollapsed = true
+        if (!suppressAutoCollapse) isExpanded = false
     }
     LaunchedEffect(autoExpand, autoExpandKey) {
         if (autoExpand) isExpanded = true

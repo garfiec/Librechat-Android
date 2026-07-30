@@ -37,9 +37,16 @@ data class MessagesState(
      * Written in the same atomic update as the swap, so by the time the finalized message is
      * composable this already says which one it is — a UI-side derivation cannot do that, because
      * an effect body runs after the composition that registered it and the groups have already
-     * chosen their initial state by then. Set per turn and cleared at the next turn boundary, so
-     * it names a TRANSITION rather than the state "not streaming": simply opening a conversation
-     * must not mark its last message as freshly settled.
+     * chosen their initial state by then.
+     *
+     * Only a finalize writes it, which is what makes it a TRANSITION rather than the state "not
+     * streaming" — simply opening a conversation must not mark its last message as freshly
+     * settled. It is deliberately NOT cleared at the next turn boundary: a drain of a non-empty
+     * queue runs `beginStreaming` inline in the same Main dispatch as the finalize (nothing on
+     * that path suspends — `awaitReplySettled`'s predicate is already true), so a clear there
+     * lands before Compose ever sees the flag set. Letting it persist is safe because the value
+     * is a message id: it can only ever re-match the one message it named, and the next finalize
+     * overwrites it.
      *
      * The one consumer is [ActivityGroup]'s auto-collapse suppression.
      */

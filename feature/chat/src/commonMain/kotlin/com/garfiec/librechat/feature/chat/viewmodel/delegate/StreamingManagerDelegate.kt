@@ -207,10 +207,6 @@ class StreamingManagerDelegate(
         turnSpec: QueuedMessage? = null,
     ) {
         isEditOrRegenerate = isEdit
-        // A new turn means nothing has just settled. Cleared here, the one per-turn entry point,
-        // rather than at each send site — a flag that outlived its turn would keep a later
-        // visit's activity groups permanently expanded.
-        handle.update { content = content.copy(justSettledMessageId = null) }
         // A new turn: settle anything the previous one stranded before its records can render
         // against this run. Deliberately not called from resumeStream — that re-enters the SAME
         // turn and its records must survive for the sync frame to rejoin them.
