@@ -278,6 +278,10 @@
     <string name="feedback_tag_clear_well_written">Clear and well-written</string>
     <string name="feedback_tag_attention_to_detail">Attention to detail</string>
 
+    <!-- Activity groups and mid-run steering -->
+    <string name="activity_used_n_tools">Used %1$d tools</string>
+    <string name="steer_sent_during_reply">sent while replying</string>
+
     <!-- Streaming tool call -->
     <string name="tool_call_output">Output:</string>
 

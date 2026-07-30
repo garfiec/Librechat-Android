@@ -29,6 +29,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +73,13 @@ private fun CollapsibleDisclosureCard(
     expandActionContentDescription: StringResource,
     collapseActionContentDescription: StringResource,
     modifier: Modifier = Modifier,
+    // Registry key for the expand state. `rememberSaveable` with an explicit key, not `remember`:
+    // this card lives inside a LazyColumn item, so plain remember state is DISPOSED when the
+    // message scrolls out of the viewport — expanding a thinking block, scrolling away and coming
+    // back found it collapsed again. The lazy layout's SaveableStateHolder retains it, and the
+    // explicit key stops two blocks in one message from sharing a slot (the generated key is
+    // positional, and grouping shifts positions).
+    stateKey: String = "",
     // Flips the card open when it becomes true (find-in-page expands folded regions);
     // the user can still collapse it manually afterwards.
     autoExpand: Boolean = false,
@@ -80,7 +88,7 @@ private fun CollapsibleDisclosureCard(
     autoExpandKey: Any? = null,
     body: @Composable () -> Unit,
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    var isExpanded by rememberSaveable(key = "collapsible:$stateKey") { mutableStateOf(false) }
     LaunchedEffect(autoExpand, autoExpandKey) {
         if (autoExpand) isExpanded = true
     }
@@ -146,6 +154,7 @@ internal fun ThinkingContentPart(
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
+    stateKey: String = "",
 ) {
     // The focused occurrence index is already rebased to this part; when it falls
     // inside the thinking text, pop the card open so the match can be scrolled to.
@@ -160,6 +169,7 @@ internal fun ThinkingContentPart(
         expandActionContentDescription = Res.string.cd_expand_thinking,
         collapseActionContentDescription = Res.string.cd_collapse_thinking,
         modifier = modifier,
+        stateKey = "think:$stateKey",
         autoExpand = containsFocusedMatch,
         // Re-arm on every navigation: LocalSearchFocusNonce changes per focus request, so both
         // moving to a different occurrence in this block AND returning to the same one (after a
@@ -191,6 +201,7 @@ internal fun SummaryContentPart(
     modifier: Modifier = Modifier,
     fontSizeMultiplier: Float = 1.0f,
     useKatex: Boolean = false,
+    stateKey: String = "",
 ) {
     if (summaryText.isBlank()) return
 
@@ -201,6 +212,7 @@ internal fun SummaryContentPart(
         expandActionContentDescription = Res.string.cd_expand_summary,
         collapseActionContentDescription = Res.string.cd_collapse_summary,
         modifier = modifier,
+        stateKey = "summary:$stateKey",
     ) {
         MarkdownContent(
             summaryText,

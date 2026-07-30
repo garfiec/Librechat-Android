@@ -314,6 +314,8 @@ private fun ThreadBubble(
                 onFork = onFork,
                 isReading = isReading,
                 currentFeedback = currentFeedback,
+                userName = userName,
+                userAvatarUrl = userAvatarUrl,
             )
         }
     }
@@ -431,6 +433,8 @@ private fun TwoSidedBubble(
                 onFork = onFork,
                 isReading = isReading,
                 currentFeedback = currentFeedback,
+                userName = userName,
+                userAvatarUrl = userAvatarUrl,
             )
         }
 
@@ -454,6 +458,7 @@ actual fun ContentPartRenderer(
     useKatex: Boolean, attachments: List<Attachment>,
     showImageDescriptions: Boolean, searchQuery: String?, searchFocusedOccurrence: Int,
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
+    stateKey: String,
 ) {
     ContentPartDispatcher(
         part = part,
@@ -466,6 +471,7 @@ actual fun ContentPartRenderer(
         searchQuery = searchQuery,
         searchFocusedOccurrence = searchFocusedOccurrence,
         onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+        stateKey = stateKey,
     )
 }
 

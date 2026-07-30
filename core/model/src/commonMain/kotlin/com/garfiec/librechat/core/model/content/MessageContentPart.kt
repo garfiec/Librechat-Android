@@ -27,6 +27,12 @@ data class MessageContentPart(
     // pending reservation, which upstream renders as nothing. Paired with
     // [ContentType.ACTIVITY_LABEL].
     @SerialName("activity_label") val activityLabel: String? = null,
+    // Also activity-label fields. `pending` marks the reservation published at the batch boundary
+    // before the text exists; `status` reports `failed` / `partial` for a batch that did not fully
+    // return. Both only matter to the group header, which is why they arrive with it rather than
+    // with the type itself.
+    val pending: Boolean? = null,
+    val status: String? = null,
     // SUMMARY content-part fields (type == "summary"). Fields are top-level on the wire,
     // not nested under a `summary` key. `content` can be an array of {type,text} blocks
     // or a raw string; legacy servers fall back to the top-level `text` field above.

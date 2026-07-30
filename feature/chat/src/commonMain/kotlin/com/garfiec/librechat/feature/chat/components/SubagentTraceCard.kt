@@ -131,13 +131,14 @@ internal fun SubagentTraceCard(
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
-                    parts.forEach { part ->
+                    parts.forEachIndexed { index, part ->
                         Spacer(modifier = Modifier.padding(top = 6.dp))
                         ContentPartDispatcher(
                             part = part,
                             baseUrl = baseUrl,
                             attachments = attachments,
                             showImageDescriptions = showImageDescriptions,
+                            stateKey = "subagent:$index",
                             // Depth-1 guard: a nested subagent renders flat, never another card.
                             allowSubagentCard = false,
                         )

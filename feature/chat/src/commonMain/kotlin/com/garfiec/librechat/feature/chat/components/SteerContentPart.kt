@@ -1,0 +1,121 @@
+package com.garfiec.librechat.feature.chat.components
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.ui.components.AvatarImage
+import com.garfiec.librechat.core.ui.components.endpointIconPainter
+import com.garfiec.librechat.core.ui.components.isMonochromeEndpointIcon
+import com.garfiec.librechat.feature.chat.resources.*
+import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.SegmentAuthor
+import org.jetbrains.compose.resources.stringResource
+
+/**
+ * A mid-run steer, rendered as a user turn at the point in the response where the words entered
+ * the run — which is also the order the next turn replays them in, since the server splits a
+ * `steer` part back into a human message.
+ *
+ * Before this, mobile dropped the text from the reloaded transcript entirely: the part was parked
+ * as an unrendered raw element, so a reply the user had redirected read as if they never said
+ * anything.
+ */
+@Composable
+internal fun SteerContentPart(
+    text: String,
+    userName: String?,
+    userAvatarUrl: String?,
+    modifier: Modifier = Modifier,
+    fontSizeMultiplier: Float = 1.0f,
+    useKatex: Boolean = false,
+) {
+    if (text.isBlank()) return
+
+    Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AvatarImage(
+                imageUrl = userAvatarUrl,
+                fallbackText = userName ?: stringResource(Res.string.sender_you),
+                showPersonIcon = userAvatarUrl == null,
+                size = 22.dp,
+                // The label beside it already says the name; AvatarImage otherwise defaults to
+                // "<name> avatar" and TalkBack would read the author twice.
+                contentDescription = null,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                // A heading, so TalkBack's next-heading gesture steps between the author changes
+                // in a long response instead of scrubbing through every line.
+                modifier = Modifier.semantics { heading() },
+                text = userName ?: stringResource(Res.string.sender_you),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            // Says why a user message is sitting inside the response.
+            Text(
+                text = stringResource(Res.string.steer_sent_during_reply),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        MarkdownContent(
+            text = text,
+            fontSizeMultiplier = fontSizeMultiplier,
+            useKatex = useKatex,
+        )
+    }
+}
+
+/**
+ * Restates who is speaking for content that resumes after a steer. The bubble's own header only
+ * renders once, at the top, so without this the response's continuation reads as more of the
+ * user's message.
+ */
+@Composable
+internal fun SegmentAuthorHeader(
+    author: SegmentAuthor,
+    messageSender: String?,
+    messageIconUrl: String?,
+    messageEndpoint: String?,
+    modifier: Modifier = Modifier,
+) {
+    val label = when (author) {
+        is SegmentAuthor.Agent -> author.agentId
+        SegmentAuthor.Message -> messageSender ?: stringResource(Res.string.sender_assistant)
+    }
+    Row(
+        modifier = modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AvatarImage(
+            imageUrl = messageIconUrl,
+            fallbackText = label,
+            fallbackIconPainter = if (messageIconUrl == null) endpointIconPainter(messageEndpoint) else null,
+            tintIcon = if (messageIconUrl == null) isMonochromeEndpointIcon(messageEndpoint) else false,
+            size = 22.dp,
+            contentDescription = null,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            modifier = Modifier.semantics { heading() },
+            text = label,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}

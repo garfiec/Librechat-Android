@@ -48,6 +48,8 @@ internal fun ContentPartDispatcher(
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
+    // Registry key for collapse state owned below this point; see [ContentPartRenderer].
+    stateKey: String = "",
     // When false, a `subagent` tool_call renders flat instead of as a trace card.
     // Set false while rendering a subagent's own nested parts (depth-1 guard).
     allowSubagentCard: Boolean = true,
@@ -74,6 +76,7 @@ internal fun ContentPartDispatcher(
                 searchQuery = searchQuery,
                 searchFocusedOccurrence = searchFocusedOccurrence,
                 onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+                stateKey = stateKey,
             )
         }
         ContentType.TOOL_CALL -> {
@@ -137,6 +140,7 @@ internal fun ContentPartDispatcher(
                 modifier = mod,
                 fontSizeMultiplier = fontSizeMultiplier,
                 useKatex = useKatex,
+                stateKey = stateKey,
             )
         }
         else -> {

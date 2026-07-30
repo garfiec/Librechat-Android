@@ -343,6 +343,8 @@ private fun ThreadMessageBubble(
                 onFork = onFork,
                 isReading = isReading,
                 currentFeedback = currentFeedback,
+                userName = userName,
+                userAvatarUrl = userAvatarUrl,
             )
         }
     }
@@ -542,6 +544,8 @@ private fun TwoSidedMessageBubble(
                 onFork = onFork,
                 isReading = isReading,
                 currentFeedback = currentFeedback,
+                userName = userName,
+                userAvatarUrl = userAvatarUrl,
             )
         }
 

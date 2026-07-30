@@ -65,6 +65,10 @@ expect fun ContentPartRenderer(
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
+    // Registry key for this part's collapse state. Positional `remember` state migrates to the
+    // wrong part once grouping wraps parts, and is dropped outright when the lazy item scrolls
+    // out of the viewport.
+    stateKey: String = "",
 )
 
 /** Platform-specific markdown content rendering. */

@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,13 +36,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.ContentGroup
+import com.garfiec.librechat.feature.chat.util.IndexedContentPart
+import com.garfiec.librechat.feature.chat.util.activityLabelText
+import com.garfiec.librechat.feature.chat.util.groupContentParts
+import com.garfiec.librechat.feature.chat.util.steerText
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -201,6 +210,9 @@ internal fun MessageContentAndActions(
     onFork: (() -> Unit)?,
     isReading: Boolean,
     currentFeedback: FeedbackRating?,
+    // Identity for a mid-run steer, which renders as the user's own turn inside the response.
+    userName: String?,
+    userAvatarUrl: String?,
 ) {
     // The picker is hosted here — one site for both layouts on both platforms — rather than in
     // ActionButtons, whose action row auto-hides on a timer and would take an open sheet with it.
@@ -277,20 +289,102 @@ internal fun MessageContentAndActions(
                     }
                     offsets
                 }
-                contentParts.forEachIndexed { index, part ->
-                    val focusedInPart = if (isCurrentSearchMatch) searchFocusedOccurrence - partOffsets[index] else -1
-                    ContentPartRenderer(
-                        part = part,
-                        baseUrl = baseUrl,
-                        fontSizeMultiplier = fontSizeMultiplier,
-                        useKatex = useKatex,
-                        attachments = message.attachments.orEmpty(),
-                        showImageDescriptions = showImageDescriptions,
-                        searchQuery = if (isSearchMatch) searchQuery else null,
-                        searchFocusedOccurrence = focusedInPart,
-                        onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
-                        modifier = Modifier.padding(vertical = 2.dp),
-                    )
+                // Segment + group the parts ONCE, not while emitting them: a group's header has to
+                // be written before its members, which a Column cannot express without knowing the
+                // group's extent up front. Pure, so the boundaries are unit-testable.
+                val segments = remember(contentParts) { groupContentParts(contentParts) }
+
+                // A collapsed group would swallow the match the user just navigated to, so the
+                // one holding it opens. Resolved once per focus rather than per group per frame.
+                val focusedGroupKey = remember(
+                    segments, partOffsets, searchQuery, searchFocusedOccurrence, isCurrentSearchMatch,
+                ) {
+                    if (!isCurrentSearchMatch || searchQuery.isNullOrBlank() || searchFocusedOccurrence < 0) {
+                        null
+                    } else {
+                        segments.asSequence()
+                            .flatMap { it.groups.asSequence() }
+                            .filterIsInstance<ContentGroup.Activity>()
+                            .firstOrNull { group ->
+                                group.entries.any { entry ->
+                                    val start = partOffsets[entry.index]
+                                    val count = countPartOccurrences(entry.part, searchQuery)
+                                    searchFocusedOccurrence in start until (start + count)
+                                }
+                            }?.key
+                    }
+                }
+
+                @Composable
+                fun PartContent(entry: IndexedContentPart) {
+                    val part = entry.part
+                    val focusedInPart =
+                        if (isCurrentSearchMatch) searchFocusedOccurrence - partOffsets[entry.index] else -1
+                    when (part.type) {
+                        // Handled here rather than in the shared dispatcher because both need the
+                        // viewer's identity, which a single-part renderer has no business knowing.
+                        ContentType.STEER -> part.steerText()?.let { steered ->
+                            SteerContentPart(
+                                text = steered,
+                                userName = userName,
+                                userAvatarUrl = userAvatarUrl,
+                                fontSizeMultiplier = fontSizeMultiplier,
+                                useKatex = useKatex,
+                            )
+                        }
+                        ContentType.ACTIVITY_LABEL -> OrphanActivityLabel(part.activityLabelText())
+                        else -> ContentPartRenderer(
+                            part = part,
+                            baseUrl = baseUrl,
+                            fontSizeMultiplier = fontSizeMultiplier,
+                            useKatex = useKatex,
+                            attachments = message.attachments.orEmpty(),
+                            showImageDescriptions = showImageDescriptions,
+                            searchQuery = if (isSearchMatch) searchQuery else null,
+                            searchFocusedOccurrence = focusedInPart,
+                            onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
+                            stateKey = "${message.messageId}:${entry.index}",
+                            modifier = Modifier.padding(vertical = 2.dp),
+                        )
+                    }
+                }
+
+                segments.forEach { segment ->
+                    key(segment.key) {
+                        // A traversal group so the attribution header is read immediately before
+                        // its own content instead of segments interleaving. It is not implicit:
+                        // a plain Column does not set one.
+                        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+                            segment.author?.let { author ->
+                                SegmentAuthorHeader(
+                                    author = author,
+                                    messageSender = message.sender,
+                                    messageIconUrl = message.iconURL,
+                                    messageEndpoint = message.endpoint,
+                                )
+                            }
+                            segment.groups.forEach { group ->
+                                // Keyed, so per-part state (an expanded thinking block) follows its
+                                // part when grouping shifts it under a wrapper instead of staying
+                                // with whatever now occupies that position.
+                                key(group.key) {
+                                    when (group) {
+                                        is ContentGroup.Single -> PartContent(group.entry)
+                                        is ContentGroup.Activity -> ActivityGroup(
+                                            group = group,
+                                            stateKey = "${message.messageId}:${group.key}",
+                                            autoExpand = group.key == focusedGroupKey,
+                                            autoExpandKey = LocalSearchFocusNonce.current,
+                                        ) {
+                                            group.entries.forEach { entry ->
+                                                key(entry.index) { PartContent(entry) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             } else if (message.text.isNotBlank()) {
                 MarkdownContent(
