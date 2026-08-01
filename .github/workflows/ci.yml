@@ -37,7 +37,7 @@ jobs:
 
       - name: Upload detekt SARIF
         if: always() && hashFiles('build/reports/detekt/merged.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.37.3
         with:
           sarif_file: build/reports/detekt/merged.sarif
           category: detekt
