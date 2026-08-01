@@ -55,7 +55,7 @@ jobs:
           token: ${{ secrets.RELEASE_PAT }}
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           distribution: temurin
           java-version: 21
@@ -263,7 +263,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           distribution: temurin
           java-version: 21
