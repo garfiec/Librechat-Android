@@ -207,15 +207,19 @@ class DataStoreRoundTripTest {
         val job = launch { store.lastUsedModel.collect { emissions.add(it) } }
         advanceUntilIdle()
         // While the account is Warming the flow is suppressed (no null emission that a seeder would
-        // mistake for "no last-used saved").
+        // mistake for "no last-used saved"). Asserting an ABSENCE legitimately needs a snapshot, so
+        // the collector stays for this half.
         assertThat(emissions).isEmpty()
+        job.cancel()
 
         provider.set(AccountId("srv:acctX"))
         store.setLastUsedModel("openAI", "gpt-4o")
-        advanceUntilIdle()
-        assertThat(emissions.last()).isEqualTo("gpt-4o")
 
-        job.cancel()
+        // Await with first(), NOT a collector plus advanceUntilIdle(): this DataStore takes no
+        // `scope`, so it reads the file on Dispatchers.IO — real threads on the real clock — while
+        // advanceUntilIdle() only drains the virtual scheduler. Snapshotting a collector after it
+        // races real disk I/O and flakes as "List is empty" under load.
+        assertThat(store.lastUsedModel.first()).isEqualTo("gpt-4o")
     }
 
     // --- SettingsDataStore: model usage ranking (home-screen shortcuts) ---
