@@ -474,4 +474,15 @@
     <string name="role_skills_share">مشاركة المهارات</string>
     <string name="role_skills_share_public">مشاركة المهارات علنًا</string>
     <string name="role_skills_save">حفظ</string>
+    <!-- Post-login editor for the active server's gateway headers (issue #287) -->
+    <string name="section_server_connection">اتصال الخادم</string>
+    <string name="server_headers_scope">تُرسل إلى %1$s</string>
+    <string name="server_headers_save">حفظ الترويسات</string>
+    <string name="server_headers_saved">تم حفظ الترويسات</string>
+    <string name="server_headers_no_server">تعذّر الحفظ — لم يتم إعداد أي خادم بعد.</string>
+    <string name="server_connection_subtitle">رؤوس الطلبات لبوابات الوصول</string>
+    <string name="server_headers_discard_title">تجاهل التغييرات؟</string>
+    <string name="server_headers_discard_message">سيتم فقدان تغييرات الرؤوس غير المحفوظة.</string>
+    <string name="server_headers_discard_confirm">تجاهل</string>
+    <string name="server_headers_keep_editing">متابعة التحرير</string>
 </resources>

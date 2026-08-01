@@ -2,4 +2,17 @@
 <resources>
     <!-- Accessibility label for the bottom-sheet drag handle -->
     <string name="cd_drag_handle">Poignée de déplacement</string>
+    <!-- Custom per-server request headers (issue #287); shared by the pre-login
+         server screen and the post-login Settings editor -->
+    <string name="server_headers_title">En-têtes de requête personnalisés</string>
+    <string name="server_headers_description">Envoyés avec chaque requête vers ce serveur. Nécessaires pour les passerelles d'accès comme Cloudflare Access.</string>
+    <string name="server_headers_name">Nom de l'en-tête</string>
+    <string name="server_headers_value">Valeur</string>
+    <string name="server_headers_add">Ajouter un en-tête</string>
+    <string name="server_headers_remove">Supprimer l'en-tête</string>
+    <string name="server_headers_show_value">Afficher la valeur</string>
+    <string name="server_headers_hide_value">Masquer la valeur</string>
+    <string name="server_headers_error_name">Nom d'en-tête non valide.</string>
+    <string name="server_headers_error_value">Cette valeur contient des caractères qui ne peuvent pas être envoyés.</string>
+    <string name="server_headers_error_reserved">Cet en-tête est défini par l'application et ne peut pas être remplacé.</string>
 </resources>

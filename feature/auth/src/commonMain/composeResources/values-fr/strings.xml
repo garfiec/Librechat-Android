@@ -73,4 +73,7 @@
 
     <!-- Common -->
     <string name="back">Retour</string>
+
+    <!-- Custom server headers (issue #287) -->
+    <string name="server_headers_advanced">Avancé</string>
 </resources>

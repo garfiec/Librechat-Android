@@ -73,4 +73,7 @@
 
     <!-- Common -->
     <string name="back">رجوع</string>
+
+    <!-- Custom server headers (issue #287) -->
+    <string name="server_headers_advanced">متقدم</string>
 </resources>

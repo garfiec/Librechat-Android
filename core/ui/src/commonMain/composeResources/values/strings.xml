@@ -4,4 +4,17 @@
     <string name="cd_drag_handle">Drag handle</string>
     <!-- Inline indicator for a PDF page that failed to render -->
     <string name="pdf_page_failed">Couldn't render this page</string>
+    <!-- Custom per-server request headers (issue #287); shared by the pre-login
+         server screen and the post-login Settings editor -->
+    <string name="server_headers_title">Custom request headers</string>
+    <string name="server_headers_description">Sent with every request to this server. Needed for access gateways such as Cloudflare Access.</string>
+    <string name="server_headers_name">Header name</string>
+    <string name="server_headers_value">Value</string>
+    <string name="server_headers_add">Add header</string>
+    <string name="server_headers_remove">Remove header</string>
+    <string name="server_headers_show_value">Show value</string>
+    <string name="server_headers_hide_value">Hide value</string>
+    <string name="server_headers_error_name">Not a valid header name.</string>
+    <string name="server_headers_error_value">This value contains characters that can't be sent.</string>
+    <string name="server_headers_error_reserved">This header is set by the app and can't be overridden.</string>
 </resources>

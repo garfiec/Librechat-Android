@@ -6,7 +6,9 @@ import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
+import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.toSafeError
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.StreamEvent
@@ -169,6 +171,12 @@ class StreamingManagerDelegate(
     private var currentTurnOptimisticUserMessageId: String? = null
 
     /**
+     * Whether this turn reached the server's `created` milestone. Below that line nothing is
+     * persisted — not even the user message — which is what makes a failed send safe to un-send.
+     */
+    private var currentTurnCreated = false
+
+    /**
      * Resets the streaming-internal session state (buffer, edit flag, traces) and starts the
      * throttled updater. Does NOT touch UI state — callers that already mutate UI state
      * for their send (e.g. the optimistic-insert path) use this; [prepareForStreaming] wraps
@@ -243,6 +251,7 @@ class StreamingManagerDelegate(
         // A resumed stream re-enters without beginStreaming's assignment; never let a previous
         // turn's optimistic id leak into it (the un-send would remove the wrong message).
         currentTurnOptimisticUserMessageId = null
+        currentTurnCreated = false
     }
 
     private suspend fun collectStreamSafely(stream: Flow<StreamEvent>) {
@@ -252,7 +261,17 @@ class StreamingManagerDelegate(
             throw e // Never swallow cancellation
         } catch (e: Exception) {
             Logger.e(e) { "Stream collection failed" }
-            endStream(StreamEndReason.StreamError(e.message ?: "Chat request failed", isNetwork = false))
+            // Classify rather than surfacing `e.message`: this stream is collected directly, not
+            // through safeApiCall, and Ktor builds its messages out of the request URL — a gateway
+            // redirect would put its `meta=` JWT in the error banner. The kind also drives
+            // isNetwork, which is what arms the connectivity observer that resumes the stream.
+            val safe = e.toSafeError()
+            endStream(
+                StreamEndReason.StreamError(
+                    safe.message ?: "Chat request failed",
+                    isNetwork = safe.kind == FailureKind.Network,
+                ),
+            )
         }
     }
 
@@ -417,6 +436,8 @@ class StreamingManagerDelegate(
     }
 
     private fun handleCreated(event: StreamEvent.Created) {
+        // Past this milestone the server owns the turn, so a later failure must NOT un-send it.
+        currentTurnCreated = true
         if (lastErrorWasNetwork) {
             lastErrorWasNetwork = false
             cancelConnectivityObserver()
@@ -685,6 +706,22 @@ class StreamingManagerDelegate(
                 // A typed user-provided-key error surfaces as a snackbar with a Settings CTA
                 // instead of the generic error banner (no double-surfacing).
                 val keyError = parseUserKeyError(reason.message)
+                // The turn died before `created`, so the server persisted nothing — not even the
+                // user message. Un-send it and hand the text back to the composer, exactly as an
+                // early abort does, rather than stranding it: the optimistic bubble is invisible on
+                // a new chat anyway (screenState stays LANDING until `created`) and on an existing
+                // conversation the reload below rebuilds the path without it. Either way the user's
+                // typed text simply disappeared, with nothing to retry from. Null id means the turn
+                // re-submitted a persisted message (regenerate / continue / edit-AI) — never remove
+                // those.
+                val unsentId = currentTurnOptimisticUserMessageId?.takeUnless { currentTurnCreated }
+                if (unsentId != null) {
+                    val unsentText = handle.state.messages
+                        .firstOrNull { it.messageId == unsentId }
+                        ?.text
+                    treeDelegate.unsendOptimisticTurn(unsentId)
+                    unsentText?.takeIf { it.isNotBlank() }?.let(restoreUnsentInput)
+                }
                 // Preserve partial content so users can read/copy what was received.
                 val partialContent = streamingBuffer.toString()
                 handle.update {

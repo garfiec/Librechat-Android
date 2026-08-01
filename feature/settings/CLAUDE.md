@@ -57,6 +57,28 @@
 - `ApiKeyCreateDialog` is two-phase: name input → show created key value with copy button
 - **Gotcha**: The key value is only available in the creation response — it cannot be retrieved again from the server. The dialog must show it immediately after creation.
 
+### Server connection (gateway headers, issue #287)
+- `ServerHeadersDialog` + `ServerHeadersViewModel` — edits the **active** server's static request
+  headers (Cloudflare Access service tokens and equivalents). Reached from **Settings → Account →
+  Server connection**, grouped with the other credentials rather than with data/diagnostics.
+- The dialog is **stateless** (the screen owns the ViewModel and passes state + callbacks down) —
+  forwarding the ViewModel into it trips detekt-compose's `ViewModelForwarding`.
+- Two things the dialog does NOT own: it closes on `saved` turning true, driven from the screen, so a
+  save the store could not persist keeps it open with the typed rows intact; and dismissing with
+  `isDirty` prompts before discarding, then calls `discardEdits()` — the ViewModel outlives the
+  dialog, so an abandoned edit would otherwise still be there on the next open.
+- **Gotcha**: `AlertDialog` clips its content rather than scrolling it, so the dialog body wraps the
+  editor in its own `verticalScroll` — otherwise a few rows plus the keyboard put the fields out of
+  reach.
+- The same headers are editable pre-login on `ServerUrlScreen`; both render `CustomHeadersEditor` from
+  `:core:ui` so the two can't drift.
+- **Why it exists post-login at all**: a gateway credential can be rotated or revoked mid-session, and
+  the pre-login editor is only reachable by signing out — not a step anyone would guess from the
+  resulting "could not reach the server."
+- Save is explicit and does **not** re-probe: `ServerHeadersDataStore` is Flow-backed, so the next
+  ordinary request picks the values up, and in-flight requests keep the headers they were snapshotted
+  with (immutable by design).
+
 ### Dialogs
 - `LanguageSelectorDialog` — 37+ locales with search, single-select radio
 - `ForkSettingsDialog` — 3 fork modes (`DIRECT_PATH`, `INCLUDE_BRANCHES`, `TARGET_LEVEL`); labels/descriptions come from `fork_mode_*` string resources via `forkModeLabel()` / `forkModeDescription()`, not from the enum

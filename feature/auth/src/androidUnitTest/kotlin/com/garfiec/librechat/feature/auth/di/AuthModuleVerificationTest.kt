@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.auth.di
 import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -20,6 +21,7 @@ class AuthModuleVerificationTest {
                 Context::class,
                 Application::class,
                 ServerDataStore::class,
+                ServerHeadersDataStore::class,
                 AuthRepository::class,
                 ConfigRepository::class,
                 UserRepository::class,

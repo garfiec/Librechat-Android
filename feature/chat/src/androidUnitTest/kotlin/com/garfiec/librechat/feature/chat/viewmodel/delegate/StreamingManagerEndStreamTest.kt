@@ -35,8 +35,8 @@ import org.junit.Test
 /**
  * Covers the [StreamingManagerDelegate] termination chokepoint: every stream session ends
  * through exactly one `endStream(reason)`. Pins the session latch (a session cannot end twice,
- * and a stale end from stream N cannot touch stream N+1), the abort watchdog, and the two
- * legacy error paths now producing identical teardown.
+ * and a stale end from stream N cannot touch stream N+1), the abort watchdog, and the identical
+ * teardown the two legacy error paths produce.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StreamingManagerEndStreamTest {
@@ -48,6 +48,13 @@ class StreamingManagerEndStreamTest {
     private val reloadConversation = mockk<(String) -> Unit>(relaxed = true)
     private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
     private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
+
+    /**
+     * Shared so a test can assert whether the connectivity observer was started — that is the only
+     * externally visible consequence of a stream end being flagged as a network failure. JUnit4
+     * builds a fresh test instance per method, so this stays per-test state.
+     */
+    private val connectivityObserver = mockk<ConnectivityObserver>(relaxed = true)
 
     private fun message(id: String, parentId: String? = null, isUser: Boolean = false) = Message(
         messageId = id,
@@ -68,7 +75,7 @@ class StreamingManagerEndStreamTest {
     ): Pair<StreamingManagerDelegate, MutableStateFlow<ChatUiState>> {
         val flow = MutableStateFlow(state)
         val root = ChatStateHandle(flow, scope)
-        val connectivity = mockk<ConnectivityObserver>(relaxed = true)
+        val connectivity = connectivityObserver
         every { connectivity.isConnected } returns flowOf(true)
         val delegate = StreamingManagerDelegate(
             handle = StreamingHandle(root),
@@ -241,6 +248,138 @@ class StreamingManagerEndStreamTest {
         advanceUntilIdle()
     }
 
+    /**
+     * A send rejected before the server's `created` milestone persisted nothing — not even the user
+     * message — so the turn is un-sent and the text handed back, exactly as an early abort does.
+     *
+     * Without this the typed text simply vanishes: on a new chat the optimistic bubble is never even
+     * rendered (screenState stays LANDING until `created`), and on an existing conversation the
+     * reload rebuilds the path without it, leaving nothing to retry from. An access gateway
+     * rejecting the request (issue #287) arrives as an ordinary transport failure well before
+     * `created`.
+     */
+    @Test
+    fun `a send that dies before created un-sends the turn and hands the text back`() =
+        runTest(StandardTestDispatcher()) {
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, flow) = delegateWith(this)
+            delegate.beginStreaming(isEdit = false, optimisticUserMessageId = "u1")
+            delegate.launchStream(events.receiveAsFlow())
+
+            events.send(StreamEvent.Error(message = "Request failed (HTTP 302)"))
+            runCurrent()
+
+            verify(exactly = 1) { treeDelegate.unsendOptimisticTurn("u1") }
+            verify(exactly = 1) { restoreUnsentInput("text-u1") }
+            // The failure is still reported — un-sending is not the same as swallowing it.
+            assertThat(flow.value.error).isEqualTo("Request failed (HTTP 302)")
+
+            events.close()
+            delegate.reset()
+            advanceUntilIdle()
+        }
+
+    /**
+     * Past `created` the server owns the turn, so a later failure must NOT remove the user message —
+     * it is a persisted row, and un-sending it would desync the client from the server's tree.
+     */
+    @Test
+    fun `a failure after created leaves the turn in place`() = runTest(StandardTestDispatcher()) {
+        val events = Channel<StreamEvent>(Channel.UNLIMITED)
+        val (delegate, _) = delegateWith(this)
+        delegate.beginStreaming(isEdit = false, optimisticUserMessageId = "u1")
+        delegate.launchStream(events.receiveAsFlow())
+
+        events.send(
+            StreamEvent.Created(conversationId = "conv-1", messageId = "m1", parentMessageId = "u1"),
+        )
+        events.send(StreamEvent.Error(message = "boom"))
+        runCurrent()
+
+        verify(exactly = 0) { treeDelegate.unsendOptimisticTurn(any()) }
+        verify(exactly = 0) { restoreUnsentInput(any()) }
+
+        events.close()
+        delegate.reset()
+        advanceUntilIdle()
+    }
+
+    /**
+     * Regenerate / continue / edit-AI re-submit a message the server already has, so they mint no
+     * optimistic id — and a failure there must never remove the existing user turn.
+     */
+    @Test
+    fun `a resubmitted turn is never un-sent on failure`() = runTest(StandardTestDispatcher()) {
+        val events = Channel<StreamEvent>(Channel.UNLIMITED)
+        val (delegate, _) = delegateWith(this)
+        delegate.beginStreaming(isEdit = true)
+        delegate.launchStream(events.receiveAsFlow())
+
+        events.send(StreamEvent.Error(message = "boom"))
+        runCurrent()
+
+        verify(exactly = 0) { treeDelegate.unsendOptimisticTurn(any()) }
+        verify(exactly = 0) { restoreUnsentInput(any()) }
+
+        events.close()
+        delegate.reset()
+        advanceUntilIdle()
+    }
+
+    /**
+     * The chat stream is collected directly, not through `safeApiCall`, so it is the one place a
+     * raw exception message could reach the UI. Ktor composes those from the request URL, so an
+     * access gateway's redirect — query string and `meta=` JWT included — would render verbatim in
+     * the chat's own error snackbar.
+     *
+     * The in-band `StreamEvent.Error` path deliberately still shows the server's own wording: the
+     * server wrote that for a person, whereas an exception's message is written for a developer.
+     */
+    @Test
+    fun `a transport exception's raw message never reaches the error banner`() =
+        runTest(StandardTestDispatcher()) {
+            val leaky = "Expected response body of the type 'class User' but was 'class Source'\n" +
+                "In response from `https://team.cloudflareaccess.com/cdn-cgi/access/login/" +
+                "chat.example.com?meta=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9`"
+            val (delegate, state) = delegateWith(this)
+
+            delegate.launchStream(flow { throw IllegalStateException(leaky) })
+            advanceUntilIdle()
+
+            val shown = state.value.error.orEmpty()
+            assertThat(shown).isNotEmpty() // the failure is still reported...
+            assertThat(shown).doesNotContain("cloudflareaccess") // ...just not like this
+            assertThat(shown).doesNotContain("meta=")
+            assertThat(shown).doesNotContain("eyJ")
+            assertThat(shown).doesNotContain("Expected response body")
+        }
+
+    /**
+     * Only a network-flagged end starts the connectivity observer, and that observer is what resumes
+     * the stream when the connection comes back — so the flag must be derived from the failure, not
+     * hardcoded, or a dropped connection never re-arms the one path auto-reconnect exists for.
+     */
+    @Test
+    fun `a dropped connection arms auto-reconnect`() = runTest(StandardTestDispatcher()) {
+        val (delegate, _) = delegateWith(this)
+
+        delegate.launchStream(flow { throw java.io.IOException("Connection reset by peer") })
+        advanceUntilIdle()
+
+        verify(atLeast = 1) { connectivityObserver.isConnected }
+    }
+
+    /** ...and a failure that is NOT the network must not, or every error would poll connectivity. */
+    @Test
+    fun `a non-network failure does not arm auto-reconnect`() = runTest(StandardTestDispatcher()) {
+        val (delegate, _) = delegateWith(this)
+
+        delegate.launchStream(flow { throw IllegalStateException("malformed frame") })
+        advanceUntilIdle()
+
+        verify(exactly = 0) { connectivityObserver.isConnected }
+    }
+
     @Test
     fun `a flow exception preserves the partial and reloads`() = runTest(StandardTestDispatcher()) {
         val (delegate, flow) = delegateWith(this)
@@ -254,7 +393,8 @@ class StreamingManagerEndStreamTest {
 
         assertThat(flow.value.isStreaming).isFalse()
         assertThat(flow.value.streamingContent).isEqualTo("half an answer")
-        assertThat(flow.value.error).isEqualTo("boom")
+        assertThat(flow.value.error).isNotEmpty()
+        assertThat(flow.value.error).doesNotContain("boom")
         verify(atLeast = 1) { queueDelegate.pause() }
         verify(exactly = 0) { queueDelegate.drainNext(any()) }
         verify(exactly = 1) { reloadConversation("conv-1") }

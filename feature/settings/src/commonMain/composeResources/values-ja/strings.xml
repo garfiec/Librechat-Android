@@ -474,4 +474,15 @@
     <string name="role_skills_share">スキルを共有</string>
     <string name="role_skills_share_public">スキルを公開で共有</string>
     <string name="role_skills_save">保存</string>
+    <!-- Post-login editor for the active server's gateway headers (issue #287) -->
+    <string name="section_server_connection">サーバー接続</string>
+    <string name="server_headers_scope">%1$s に送信されます</string>
+    <string name="server_headers_save">ヘッダーを保存</string>
+    <string name="server_headers_saved">ヘッダーを保存しました</string>
+    <string name="server_headers_no_server">保存できません。サーバーがまだ設定されていません。</string>
+    <string name="server_connection_subtitle">アクセスゲートウェイ用のリクエストヘッダー</string>
+    <string name="server_headers_discard_title">変更を破棄しますか？</string>
+    <string name="server_headers_discard_message">保存していないヘッダーの変更は失われます。</string>
+    <string name="server_headers_discard_confirm">破棄</string>
+    <string name="server_headers_keep_editing">編集を続ける</string>
 </resources>

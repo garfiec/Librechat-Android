@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.data.datastore.AccountScopedPrefsPurger
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
@@ -84,6 +85,7 @@ import com.garfiec.librechat.core.data.util.SessionTask
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.data.util.SyncFavoritesSessionTask
 import com.garfiec.librechat.core.network.client.AccountReadyGate
+import com.garfiec.librechat.core.network.client.ServerHeadersProvider
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
@@ -158,6 +160,7 @@ val dataModule = module {
             accountDataPurger = get(),
             prefsPurger = get(),
             sessionCacheCleaner = get(),
+            serverHeadersProvider = get(),
         )
     }
     single { AccountScopedPrefsPurger(dataStore = get()) }
@@ -197,6 +200,14 @@ val dataModule = module {
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }
+    single {
+        ServerHeadersDataStore(
+            dataStore = get(),
+            json = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    } bind ServerHeadersProvider::class
     singleOf(::ConfigCacheDataStore)
     singleOf(::RoleCacheDataStore)
     single {

@@ -1,10 +1,23 @@
 package com.garfiec.librechat.core.common.result
 
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
 
 sealed interface Result<out T> {
     data class Success<T>(val data: T) : Result<T>
-    data class Error(val exception: Throwable? = null, val message: String? = null) : Result<Nothing>
+
+    /**
+     * [message] is safe to render: it is either app-authored or server text that passed
+     * [looksLikeUserMessage]. The untrimmed detail lives on [exception] and in the log — never put
+     * `exception.message` on screen. [kind] lets a UI layer branch (retry affordance, and localized
+     * copy later) without parsing text.
+     */
+    data class Error(
+        val exception: Throwable? = null,
+        val message: String? = null,
+        val kind: FailureKind = FailureKind.Unknown,
+    ) : Result<Nothing>
+
     data object Loading : Result<Nothing>
 }
 
@@ -27,5 +40,27 @@ suspend fun <T> safeApiCall(block: suspend () -> T): Result<T> =
         // not writing stale errors back to state (e.g. SettingsViewModel.loadUserJob).
         throw e
     } catch (e: Exception) {
-        Result.Error(e, e.message ?: "An unexpected error occurred")
+        e.toSafeError()
     }
+
+/**
+ * Turns a caught failure into a [Result.Error] whose message is fit to display, and sends the full
+ * detail to the log instead.
+ *
+ * Never hand `exception.message` to the UI: Ktor composes its messages out of the request URL, so
+ * an access gateway's redirect would render on screen complete with its `meta=` JWT (issue #287).
+ */
+fun Throwable.toSafeError(): Result.Error {
+    val kind = classifyFailure(this)
+    Logger.e(throwable = this) { "Request failed (${kind.name})" }
+    // Only response-body text is screened; the app's own wording is trusted as-is. See
+    // [ApiException.serverAuthored].
+    val apiMessage = (this as? ApiException)?.let { api ->
+        if (api.serverAuthored) api.message.takeIf(::looksLikeUserMessage) else api.message
+    }
+    return Result.Error(
+        exception = this,
+        message = apiMessage ?: kind.defaultMessage(),
+        kind = kind,
+    )
+}

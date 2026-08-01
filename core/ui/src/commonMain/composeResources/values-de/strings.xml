@@ -2,4 +2,17 @@
 <resources>
     <!-- Accessibility label for the bottom-sheet drag handle -->
     <string name="cd_drag_handle">Ziehpunkt</string>
+    <!-- Custom per-server request headers (issue #287); shared by the pre-login
+         server screen and the post-login Settings editor -->
+    <string name="server_headers_title">Benutzerdefinierte Anfrage-Header</string>
+    <string name="server_headers_description">Werden bei jeder Anfrage an diesen Server gesendet. Erforderlich für Zugangs-Gateways wie Cloudflare Access.</string>
+    <string name="server_headers_name">Header-Name</string>
+    <string name="server_headers_value">Wert</string>
+    <string name="server_headers_add">Header hinzufügen</string>
+    <string name="server_headers_remove">Header entfernen</string>
+    <string name="server_headers_show_value">Wert anzeigen</string>
+    <string name="server_headers_hide_value">Wert ausblenden</string>
+    <string name="server_headers_error_name">Kein gültiger Header-Name.</string>
+    <string name="server_headers_error_value">Dieser Wert enthält Zeichen, die nicht gesendet werden können.</string>
+    <string name="server_headers_error_reserved">Dieser Header wird von der App gesetzt und kann nicht überschrieben werden.</string>
 </resources>

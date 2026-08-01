@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.response.RefreshResponse
 import com.garfiec.librechat.core.network.client.CookieHelper
+import com.garfiec.librechat.core.network.client.PinnedServerBaseUrlKey
 import com.garfiec.librechat.core.network.client.RefreshResult
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
 import com.garfiec.librechat.core.network.client.TokenManager
@@ -274,12 +275,18 @@ abstract class CommonTokenDataStore(
 
     override suspend fun refreshAccessToken(): RefreshResult =
         // The live active account, against the live base URL (the refresh client's defaultRequest).
-        performRefresh(accountKey = activeAccountKey, absoluteRefreshUrl = null)
+        performRefresh(accountKey = activeAccountKey, absoluteRefreshUrl = null, pinnedBaseUrl = null)
 
     override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult =
         // URL-pinned: post to an absolute URL so a concurrent server switch can't redirect this
-        // account's refresh token to another server.
-        performRefresh(accountKey = accountId, absoluteRefreshUrl = "${baseUrl.trimTrailingSlash()}$REFRESH_PATH")
+        // account's refresh token to another server. [pinnedBaseUrl] carries the *server* half of that
+        // pin to ServerHeadersPlugin — the request URL alone can't serve as the key, because it is the
+        // refresh endpoint, not the deployment root, and would derive a different serverId.
+        performRefresh(
+            accountKey = accountId,
+            absoluteRefreshUrl = "${baseUrl.trimTrailingSlash()}$REFRESH_PATH",
+            pinnedBaseUrl = baseUrl.trimTrailingSlash(),
+        )
 
     /**
      * Refresh [accountKey]'s tokens with a bounded retry loop, classifying the outcome so a caller can
@@ -300,7 +307,11 @@ abstract class CommonTokenDataStore(
      * [Transient] so the session is kept. A transport failure (server unreachable) is terminal-Transient
      * rather than retried, so the flight lock is not held across repeated full request timeouts.
      */
-    private suspend fun performRefresh(accountKey: String?, absoluteRefreshUrl: String?): RefreshResult =
+    private suspend fun performRefresh(
+        accountKey: String?,
+        absoluteRefreshUrl: String?,
+        pinnedBaseUrl: String?,
+    ): RefreshResult =
         flightFor(accountKey).withLock {
             // Any auth rejection ⇒ a genuinely dead session ⇒ route to re-auth, even if a later attempt
             // hit a transient blip; a purely transient run (5xx / rate-limit / transport) keeps the
@@ -332,7 +343,10 @@ abstract class CommonTokenDataStore(
                 }
 
                 val delayMillis: Long =
-                    when (val outcome = attemptRefresh(accountKey, epochAtStart, storedRefreshToken, absoluteRefreshUrl)) {
+                    when (
+                        val outcome =
+                            attemptRefresh(accountKey, epochAtStart, storedRefreshToken, absoluteRefreshUrl, pinnedBaseUrl)
+                    ) {
                         RefreshAttempt.Success -> return@withLock RefreshResult.Refreshed
                         // A teardown/re-authentication owns the routing for this slot; never double-emit
                         // a session-expired from here and never re-persist over it.
@@ -371,10 +385,15 @@ abstract class CommonTokenDataStore(
         epochAtStart: Int,
         storedRefreshToken: String,
         absoluteRefreshUrl: String?,
+        pinnedBaseUrl: String?,
     ): RefreshAttempt =
         try {
             val httpResponse: HttpResponse = refreshClient.value
                 .post(absoluteRefreshUrl ?: REFRESH_PATH) {
+                    // Tells ServerHeadersPlugin which deployment's gateway headers this POST needs.
+                    // Without it the plugin would fall back to the *live* base URL and pair server B's
+                    // headers with server A's pinned refresh URL.
+                    pinnedBaseUrl?.let { attributes.put(PinnedServerBaseUrlKey, it) }
                     header("Cookie", "refreshToken=$storedRefreshToken")
                     setBody(mapOf("refreshToken" to storedRefreshToken))
                 }

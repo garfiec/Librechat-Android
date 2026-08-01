@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -52,6 +53,7 @@ import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.screen.sections.BackupCodesDialog
 import com.garfiec.librechat.feature.settings.screen.sections.TwoFactorCodeDialog
 import com.garfiec.librechat.feature.settings.screen.sections.TwoFactorSetupDialog
+import com.garfiec.librechat.feature.settings.viewmodel.ServerHeadersViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -114,13 +116,18 @@ fun AccountSettingsContent(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: SettingsViewModel = koinViewModel(),
+    // Hoisted rather than resolved inside the dialog: the save confirmation has to outlive the
+    // dialog that triggered it, since the dialog closes as soon as the save lands.
+    serverHeadersViewModel: ServerHeadersViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val serverHeadersState by serverHeadersViewModel.uiState.collectAsStateWithLifecycle()
     val currentOnLogout by rememberUpdatedState(onLogout)
     val retryLabel = stringResource(Res.string.action_retry)
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showServerHeadersDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
@@ -137,6 +144,27 @@ fun AccountSettingsContent(
     LaunchedEffect(uiState.isLoggedOut, uiState.isAccountDeleted) {
         if (uiState.isLoggedOut || uiState.isAccountDeleted) {
             currentOnLogout()
+        }
+    }
+
+    // Consume after showing: the ViewModel outlives the composition, so a flag that merely *changes*
+    // re-fires on the next fresh composition tree (rotation, fold/unfold, theme change).
+    val headersSavedMsg = stringResource(Res.string.server_headers_saved)
+    LaunchedEffect(serverHeadersState.saved) {
+        if (serverHeadersState.saved) {
+            // Close on a save that actually landed, not on the Save tap — a save the store could not
+            // persist keeps the dialog open with the typed rows intact so it can be retried.
+            showServerHeadersDialog = false
+            snackbarHostState.showSnackbar(message = headersSavedMsg)
+            serverHeadersViewModel.consumeSaved()
+        }
+    }
+
+    val headersNoServerMsg = stringResource(Res.string.server_headers_no_server)
+    LaunchedEffect(serverHeadersState.saveFailure) {
+        if (serverHeadersState.saveFailure != null) {
+            snackbarHostState.showSnackbar(message = headersNoServerMsg)
+            serverHeadersViewModel.consumeSaveFailure()
         }
     }
 
@@ -178,6 +206,14 @@ fun AccountSettingsContent(
             // Security section
             item(key = "security_header") {
                 SectionHeader(stringResource(Res.string.section_security))
+            }
+            item(key = "server_connection_row") {
+                AccountSettingsRow(
+                    icon = Icons.Default.Dns,
+                    title = stringResource(Res.string.section_server_connection),
+                    subtitle = stringResource(Res.string.server_connection_subtitle),
+                    onClick = { showServerHeadersDialog = true },
+                )
             }
             item(key = "security_settings") {
                 SecuritySection(
@@ -276,6 +312,23 @@ fun AccountSettingsContent(
             BackupCodesDialog(
                 backupCodes = uiState.backupCodes,
                 onDismiss = viewModel::dismissBackupCodesDialog,
+            )
+        }
+
+        if (showServerHeadersDialog) {
+            ServerHeadersDialog(
+                serverUrl = serverHeadersState.serverUrl,
+                headers = serverHeadersState.headers,
+                error = serverHeadersState.error,
+                isSaving = serverHeadersState.isSaving,
+                isDirty = serverHeadersState.isDirty,
+                onNameChange = serverHeadersViewModel::onNameChanged,
+                onValueChange = serverHeadersViewModel::onValueChanged,
+                onAdd = serverHeadersViewModel::addHeaderRow,
+                onRemove = serverHeadersViewModel::removeHeaderRow,
+                onSave = serverHeadersViewModel::save,
+                onDiscard = serverHeadersViewModel::discardEdits,
+                onDismiss = { showServerHeadersDialog = false },
             )
         }
 

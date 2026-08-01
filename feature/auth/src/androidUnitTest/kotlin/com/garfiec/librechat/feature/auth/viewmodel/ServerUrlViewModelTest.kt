@@ -2,12 +2,16 @@ package com.garfiec.librechat.feature.auth.viewmodel
 
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.model.config.StartupConfig
+import com.garfiec.librechat.core.network.client.HeaderRejection
+import com.garfiec.librechat.core.ui.components.CustomHeaderRow
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,11 +36,15 @@ class ServerUrlViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
+    private val serverHeadersDataStore = mockk<ServerHeadersDataStore>(relaxed = true)
     private val configRepository = mockk<ConfigRepository>(relaxed = true)
     private val accountSwitcher = mockk<AccountSwitcher>(relaxed = true)
 
     private val pendingUrl = "https://b.example.com"
     private val config = StartupConfig(serverDomain = pendingUrl)
+
+    private val liveUrl = "https://live.example.com"
+    private val liveHeaders = mapOf("CF-Access-Client-Id" to "id-value")
 
     @Before
     fun setup() {
@@ -54,6 +62,7 @@ class ServerUrlViewModelTest {
 
     private fun createViewModel(addAccount: Boolean) = ServerUrlViewModel(
         serverDataStore = serverDataStore,
+        serverHeadersDataStore = serverHeadersDataStore,
         configRepository = configRepository,
         accountSwitcher = accountSwitcher,
         addAccount = addAccount,
@@ -74,6 +83,47 @@ class ServerUrlViewModelTest {
         coVerify(exactly = 1) { accountSwitcher.attachPendingConfig(config) }
         coVerify(exactly = 0) { serverDataStore.setServerUrl(any()) }
         coVerify(exactly = 0) { configRepository.validateServerUrl(any()) }
+    }
+
+    /**
+     * `isValidated` is a one-shot navigation signal, and the screen re-fires its navigate effect
+     * whenever it re-composes with the flag still set. Since this ViewModel outlives the forward
+     * navigation (it sits in the nav back stack), a latched flag would throw the user forward again
+     * the moment they pop BACK onto the screen — in add-account mode, an inescapable loop that only
+     * force-stopping the app can break.
+     */
+    @Test
+    fun `the validated signal is consumable so back does not bounce forward`() = runTest(testDispatcher) {
+        coEvery { configRepository.probeServerUrl() } returns Result.Success(config)
+        val viewModel = createViewModel(addAccount = true)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isValidated).isTrue()
+
+        viewModel.consumeValidated()
+
+        assertThat(viewModel.uiState.value.isValidated).isFalse()
+    }
+
+    /** Consuming must not wedge the screen: a second Connect has to navigate again. */
+    @Test
+    fun `connecting again after a consume re-raises the signal`() = runTest(testDispatcher) {
+        coEvery { configRepository.probeServerUrl() } returns Result.Success(config)
+        val viewModel = createViewModel(addAccount = true)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+        viewModel.consumeValidated()
+
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.isValidated).isTrue()
     }
 
     @Test
@@ -120,5 +170,185 @@ class ServerUrlViewModelTest {
         coVerify(exactly = 1) { serverDataStore.setServerUrl(pendingUrl) }
         coVerify(exactly = 1) { serverDataStore.setServerUrl("") }
         coVerify(exactly = 0) { accountSwitcher.beginAdd(any()) }
+    }
+
+    /**
+     * Add mode prefills the ACTIVE server's URL by design, and must not prefill its headers with it.
+     * A gateway header is a credential: showing it on a screen the user believes is configuring a new
+     * server invites an edit that silently rewrites the live server's credential instead.
+     */
+    @Test
+    fun `add mode prefills the active URL but never the active server's headers`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { serverHeadersDataStore.headersForServer(any()) } returns liveHeaders
+
+        val viewModel = createViewModel(addAccount = true)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.url).isEqualTo(liveUrl)
+        assertThat(viewModel.uiState.value.customHeaders).isEmpty()
+        assertThat(viewModel.uiState.value.showAdvanced).isFalse()
+        // Not merely absent from the state — never read, so it cannot leak via a later copy() either.
+        coVerify(exactly = 0) { serverHeadersDataStore.headersForServer(any()) }
+    }
+
+    /** The same prefill in normal mode DOES restore the headers — that's what makes logout survivable. */
+    @Test
+    fun `normal mode prefills the saved headers and opens the advanced section`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.customHeaders)
+            .containsExactly(CustomHeaderRow("CF-Access-Client-Id", "id-value"))
+        assertThat(viewModel.uiState.value.showAdvanced).isTrue()
+    }
+
+    /**
+     * The probe is the FIRST request to a gateway-protected server, so it is exactly the request that
+     * has to already carry the headers. Persisting them in a separate coroutine (or after the probe)
+     * would make the first Connect fail and the second succeed — indistinguishable from flakiness.
+     */
+    @Test
+    fun `normal mode persists the headers before probing the server`() = runTest(testDispatcher) {
+        coEvery { configRepository.validateServerUrl(pendingUrl) } returns Result.Success(config)
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.addHeaderRow()
+        viewModel.onHeaderNameChanged(0, "CF-Access-Client-Id")
+        // Padded on purpose: pasting a token out of a dashboard is the likely entry path, and the
+        // trailing whitespace must be normalized away before it is persisted.
+        viewModel.onHeaderValueChanged(0, "  id-value  ")
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        coVerifyOrder {
+            serverHeadersDataStore.setHeaders(pendingUrl, mapOf("CF-Access-Client-Id" to "id-value"))
+            serverDataStore.setServerUrl(pendingUrl)
+            configRepository.validateServerUrl(pendingUrl)
+        }
+    }
+
+    /**
+     * Add mode's deadline is earlier still: `beginAdd` mints the PendingRequestIdentity whose headers
+     * lambda reads the store, so a save landing after it probes with an empty header set.
+     */
+    @Test
+    fun `add mode persists the headers before beginAdd mints the pending identity`() = runTest(testDispatcher) {
+        coEvery { configRepository.probeServerUrl() } returns Result.Success(config)
+        val viewModel = createViewModel(addAccount = true)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.addHeaderRow()
+        viewModel.onHeaderNameChanged(0, "CF-Access-Client-Id")
+        viewModel.onHeaderValueChanged(0, "id-value")
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        coVerifyOrder {
+            serverHeadersDataStore.setHeaders(pendingUrl, mapOf("CF-Access-Client-Id" to "id-value"))
+            accountSwitcher.beginAdd(pendingUrl)
+        }
+    }
+
+    /**
+     * The single-tap "add another account on the same server" flow the init comment advertises. Add
+     * mode prefills the ACTIVE server's URL with an empty editor, so an unconditional save writes an
+     * empty map — and an empty map means "delete this server's headers" to the store. That wipes the
+     * live session's gateway credential, which is plaintext-only and has no second copy.
+     */
+    @Test
+    fun `add mode with an untouched editor never writes over the active server's headers`() =
+        runTest(testDispatcher) {
+            coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+            coEvery { configRepository.probeServerUrl() } returns Result.Success(config)
+
+            val viewModel = createViewModel(addAccount = true)
+            advanceUntilIdle()
+
+            // Connect on the unchanged prefill — no header row touched.
+            viewModel.validateAndConnect()
+            advanceUntilIdle()
+
+            coVerify(exactly = 0) { serverHeadersDataStore.setHeaders(any(), any()) }
+        }
+
+    /** Same guard pre-login: an editor that never loaded must not be mistaken for a cleared one. */
+    @Test
+    fun `normal mode with an untouched editor does not rewrite stored headers`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+        coEvery { configRepository.validateServerUrl(any()) } returns Result.Success(config)
+
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { serverHeadersDataStore.setHeaders(any(), any()) }
+    }
+
+    /** Clearing every row IS an edit, so it must still reach the store as an empty map. */
+    @Test
+    fun `removing the last row persists the clear`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+        coEvery { configRepository.validateServerUrl(any()) } returns Result.Success(config)
+
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        viewModel.removeHeaderRow(0)
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { serverHeadersDataStore.setHeaders(liveUrl, emptyMap()) }
+    }
+
+    /**
+     * Both init awaits can outlast the first frame, and `headersForServer` adds a second suspension on
+     * the header store's warm-up. A user typing a rotated token in that window must not have it
+     * replaced by the stale persisted set.
+     */
+    @Test
+    fun `a late prefill does not clobber rows the user already typed`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+
+        val viewModel = createViewModel(addAccount = false)
+        // Deliberately NOT advancing to idle — init is still suspended.
+        viewModel.addHeaderRow()
+        viewModel.onHeaderNameChanged(0, "CF-Access-Client-Secret")
+        viewModel.onHeaderValueChanged(0, "rotated-secret")
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.customHeaders)
+            .containsExactly(CustomHeaderRow("CF-Access-Client-Secret", "rotated-secret"))
+    }
+
+    /** A reserved name is rejected inline, before any network or storage write. */
+    @Test
+    fun `a reserved header name blocks the connect entirely`() = runTest(testDispatcher) {
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.addHeaderRow()
+        viewModel.onHeaderNameChanged(0, "Authorization")
+        viewModel.onHeaderValueChanged(0, "Basic abc")
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.headerError)
+            .isEqualTo(HeaderFieldError(index = 0, reason = HeaderRejection.ReservedName))
+        assertThat(viewModel.uiState.value.showAdvanced).isTrue()
+        coVerify(exactly = 0) { serverHeadersDataStore.setHeaders(any(), any()) }
+        coVerify(exactly = 0) { configRepository.validateServerUrl(any()) }
     }
 }

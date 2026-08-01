@@ -104,9 +104,16 @@ class AuthRepositoryImpl(
      */
     private suspend fun fetchAuthenticatedUser(pending: PendingAddSession?): User {
         if (pending != null) return userApi.getUser()
-        val baseUrl = switchGate.captureSnapshot().baseUrl
+        val snapshot = switchGate.captureSnapshot()
         return withContext(
-            PendingRequestIdentity(baseUrl = baseUrl, bearer = { tokenManager.getStagedAccessToken() }),
+            PendingRequestIdentity(
+                baseUrl = snapshot.baseUrl,
+                // Carried over from the snapshot rather than re-read: this overrides the identity for
+                // a request to the *same* server, so dropping the gateway headers here would make the
+                // post-login profile fetch the one call that can't get through the gateway.
+                headers = { snapshot.customHeaders },
+                bearer = { tokenManager.getStagedAccessToken() },
+            ),
         ) { userApi.getUser() }
     }
 
@@ -271,7 +278,11 @@ class AuthRepositoryImpl(
             val account = snapshot.accountId?.let { AccountId(it) }
             try {
                 withContext(
-                    PendingRequestIdentity(baseUrl = snapshot.baseUrl, bearer = { snapshot.bearer }),
+                    PendingRequestIdentity(
+                        baseUrl = snapshot.baseUrl,
+                        headers = { snapshot.customHeaders },
+                        bearer = { snapshot.bearer },
+                    ),
                 ) { authApi.logout() }
             } finally {
                 // Teardown must finish even if this coroutine is cancelled mid-way (e.g. the Activity

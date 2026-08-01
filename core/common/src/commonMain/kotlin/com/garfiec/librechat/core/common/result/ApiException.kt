@@ -15,4 +15,13 @@ class ApiException(
     val isBanned: Boolean = false,
     val body: String? = null,
     cause: Throwable? = null,
+    /**
+     * True when [message] came out of the response body rather than being written by this app.
+     *
+     * Server-authored text is worth showing ("Invalid credentials" beats "Something went wrong"),
+     * but it is arbitrary and unbounded — a gateway can put an HTML login page there. Only text
+     * flagged here is screened before display; the app's own wording is trusted as-is, so a long
+     * but deliberate message can never be silently swallowed by that screen.
+     */
+    val serverAuthored: Boolean = false,
 ) : Exception(message, cause)

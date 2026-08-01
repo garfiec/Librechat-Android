@@ -2,4 +2,17 @@
 <resources>
     <!-- Accessibility label for the bottom-sheet drag handle -->
     <string name="cd_drag_handle">拖动手柄</string>
+    <!-- Custom per-server request headers (issue #287); shared by the pre-login
+         server screen and the post-login Settings editor -->
+    <string name="server_headers_title">自定义请求头</string>
+    <string name="server_headers_description">发送到此服务器的每个请求都会带上。Cloudflare Access 等访问网关需要。</string>
+    <string name="server_headers_name">请求头名称</string>
+    <string name="server_headers_value">值</string>
+    <string name="server_headers_add">添加请求头</string>
+    <string name="server_headers_remove">删除请求头</string>
+    <string name="server_headers_show_value">显示值</string>
+    <string name="server_headers_hide_value">隐藏值</string>
+    <string name="server_headers_error_name">请求头名称无效。</string>
+    <string name="server_headers_error_value">此值包含无法发送的字符。</string>
+    <string name="server_headers_error_reserved">此请求头由应用设置，无法覆盖。</string>
 </resources>

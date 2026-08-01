@@ -73,4 +73,7 @@
 
     <!-- Common -->
     <string name="back">뒤로</string>
+
+    <!-- Custom server headers (issue #287) -->
+    <string name="server_headers_advanced">고급</string>
 </resources>

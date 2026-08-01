@@ -73,4 +73,7 @@
 
     <!-- Common -->
     <string name="back">Voltar</string>
+
+    <!-- Custom server headers (issue #287) -->
+    <string name="server_headers_advanced">Avançado</string>
 </resources>

@@ -13,7 +13,9 @@ import com.garfiec.librechat.core.data.datastore.AccountScopedPrefsPurger
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.config.StartupConfig
+import com.garfiec.librechat.core.network.client.EmptyServerHeadersProvider
 import com.garfiec.librechat.core.network.client.PendingRequestIdentity
+import com.garfiec.librechat.core.network.client.ServerHeadersProvider
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import kotlinx.coroutines.NonCancellable
@@ -97,6 +99,9 @@ class AccountSwitcher(
     private val accountDataPurger: AccountDataPurger,
     private val prefsPurger: AccountScopedPrefsPurger,
     private val sessionCacheCleaner: SessionCacheCleaner,
+    // Trailing + defaulted: several test harnesses construct this positionally, and an add-account
+    // flow against a server with no gateway in front of it needs nothing from here.
+    private val serverHeadersProvider: ServerHeadersProvider = EmptyServerHeadersProvider,
 ) {
 
     /** The in-progress add-account flow, or null. The auth repository reads this to route sign-in
@@ -174,6 +179,15 @@ class AccountSwitcher(
             serverUrl = normalizedUrl,
             requestIdentity = PendingRequestIdentity(
                 baseUrl = normalizedUrl,
+                // Awaits the header store itself: captureSnapshot short-circuits to the pending
+                // identity before running any of its own awaits, so this is the only place the
+                // add-account probe can be kept from racing a cold store. Keyed on the URL being
+                // added, never the live one — adding a second account on an unprotected server while
+                // signed in to a gateway-protected one must not send that gateway's secret.
+                headers = {
+                    serverHeadersProvider.awaitWarm()
+                    serverHeadersProvider.headersFor(normalizedUrl)
+                },
                 bearer = { tokenManager.getStagedAccessToken() },
             ),
         )

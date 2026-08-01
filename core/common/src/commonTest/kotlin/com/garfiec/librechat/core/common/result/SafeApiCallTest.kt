@@ -21,12 +21,19 @@ class SafeApiCallTest {
         assertEquals("hello", result.data)
     }
 
+    /**
+     * The exception is kept for logging and diagnosis, but its message is NOT the user-facing text:
+     * Ktor quotes the request URL in its own messages, so passing `e.message` through would render
+     * a gateway redirect and its `meta=` JWT in an error banner.
+     */
     @Test
     fun safeApiCallReturnsErrorOnException() = runTest {
         val result = safeApiCall<String> { throw IllegalStateException("boom") }
         assertIs<Result.Error>(result)
-        assertEquals("boom", result.message)
+        assertEquals(FailureMessages.UNKNOWN, result.message)
+        assertEquals(FailureKind.Unknown, result.kind)
         assertIs<IllegalStateException>(result.exception)
+        assertEquals("boom", result.exception?.message)
     }
 
     @Test

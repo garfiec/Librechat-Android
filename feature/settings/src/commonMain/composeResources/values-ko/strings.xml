@@ -474,4 +474,15 @@
     <string name="role_skills_share">스킬 공유</string>
     <string name="role_skills_share_public">스킬 공개 공유</string>
     <string name="role_skills_save">저장</string>
+    <!-- Post-login editor for the active server's gateway headers (issue #287) -->
+    <string name="section_server_connection">서버 연결</string>
+    <string name="server_headers_scope">%1$s(으)로 전송됩니다</string>
+    <string name="server_headers_save">헤더 저장</string>
+    <string name="server_headers_saved">헤더가 저장되었습니다</string>
+    <string name="server_headers_no_server">저장할 수 없습니다. 아직 서버가 설정되지 않았습니다.</string>
+    <string name="server_connection_subtitle">액세스 게이트웨이용 요청 헤더</string>
+    <string name="server_headers_discard_title">변경 사항을 취소할까요?</string>
+    <string name="server_headers_discard_message">저장하지 않은 헤더 변경 사항이 사라집니다.</string>
+    <string name="server_headers_discard_confirm">취소</string>
+    <string name="server_headers_keep_editing">계속 편집</string>
 </resources>

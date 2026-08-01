@@ -10,11 +10,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -30,9 +35,14 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.network.client.HeaderRejection
+import com.garfiec.librechat.core.ui.components.CustomHeaderRow
+import com.garfiec.librechat.core.ui.components.CustomHeaderRowError
+import com.garfiec.librechat.core.ui.components.CustomHeadersEditor
 import com.garfiec.librechat.core.ui.components.testTagsAsResourceIdSubtree
 import com.garfiec.librechat.feature.auth.resources.*
 import com.garfiec.librechat.feature.auth.resources.Res
+import com.garfiec.librechat.feature.auth.viewmodel.HeaderFieldError
 import com.garfiec.librechat.feature.auth.viewmodel.ServerUrlViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -50,6 +60,9 @@ fun ServerUrlScreen(
     LaunchedEffect(uiState.isValidated) {
         if (uiState.isValidated) {
             currentOnServerValidated()
+            // Consume it, or backing out of the next screen lands here and is immediately thrown
+            // forward again — this entry's ViewModel outlives the forward navigation.
+            viewModel.consumeValidated()
         }
     }
 
@@ -105,6 +118,20 @@ fun ServerUrlScreen(
                 enabled = !uiState.isLoading,
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            CustomHeadersSection(
+                expanded = uiState.showAdvanced,
+                headers = uiState.customHeaders,
+                headerError = uiState.headerError,
+                enabled = !uiState.isLoading,
+                onToggle = viewModel::toggleAdvanced,
+                onNameChange = viewModel::onHeaderNameChanged,
+                onValueChange = viewModel::onHeaderValueChanged,
+                onAdd = viewModel::addHeaderRow,
+                onRemove = viewModel::removeHeaderRow,
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
@@ -126,6 +153,65 @@ fun ServerUrlScreen(
 
         BackAffordanceOverlay(onBack)
     }
+}
+
+/**
+ * Collapsed-by-default editor for the server's static gateway headers (issue #287).
+ *
+ * Pre-login only, and that placement is the point: a deployment behind Cloudflare Access (or
+ * Authelia, Authentik, oauth2-proxy…) can't be reached *at all* without these, so a post-login
+ * settings screen would be unreachable for exactly the users who need it.
+ */
+@Composable
+private fun CustomHeadersSection(
+    expanded: Boolean,
+    headers: List<CustomHeaderRow>,
+    headerError: HeaderFieldError?,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    onNameChange: (Int, String) -> Unit,
+    onValueChange: (Int, String) -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        TextButton(
+            onClick = onToggle,
+            modifier = Modifier.align(Alignment.Start).testTag("server_url_advanced_toggle"),
+        ) {
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(stringResource(Res.string.server_headers_advanced))
+        }
+
+        if (!expanded) return@Column
+
+        CustomHeadersEditor(
+            headers = headers,
+            onNameChange = onNameChange,
+            onValueChange = onValueChange,
+            onAdd = onAdd,
+            onRemove = onRemove,
+            errorIndex = headerError?.index,
+            errorReason = headerError?.reason?.toRowError(),
+            enabled = enabled,
+        )
+    }
+}
+
+/**
+ * `:core:ui` deliberately does not depend on `:core:network`, so the wire-level rejection is mapped to
+ * the editor's own enum here. Exhaustive `when` — a new [HeaderRejection] case breaks the build rather
+ * than silently rendering no message.
+ */
+private fun HeaderRejection.toRowError(): CustomHeaderRowError = when (this) {
+    HeaderRejection.InvalidName -> CustomHeaderRowError.InvalidName
+    HeaderRejection.InvalidValue -> CustomHeaderRowError.InvalidValue
+    HeaderRejection.ReservedName -> CustomHeaderRowError.ReservedName
 }
 
 @Composable

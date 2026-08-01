@@ -474,4 +474,15 @@
     <string name="role_skills_share">Skills teilen</string>
     <string name="role_skills_share_public">Skills öffentlich teilen</string>
     <string name="role_skills_save">Speichern</string>
+    <!-- Post-login editor for the active server's gateway headers (issue #287) -->
+    <string name="section_server_connection">Serververbindung</string>
+    <string name="server_headers_scope">Wird an %1$s gesendet</string>
+    <string name="server_headers_save">Header speichern</string>
+    <string name="server_headers_saved">Header gespeichert</string>
+    <string name="server_headers_no_server">Speichern nicht möglich — es ist noch kein Server konfiguriert.</string>
+    <string name="server_connection_subtitle">Anfrage-Header für Zugangs-Gateways</string>
+    <string name="server_headers_discard_title">Änderungen verwerfen?</string>
+    <string name="server_headers_discard_message">Deine nicht gespeicherten Header-Änderungen gehen verloren.</string>
+    <string name="server_headers_discard_confirm">Verwerfen</string>
+    <string name="server_headers_keep_editing">Weiter bearbeiten</string>
 </resources>

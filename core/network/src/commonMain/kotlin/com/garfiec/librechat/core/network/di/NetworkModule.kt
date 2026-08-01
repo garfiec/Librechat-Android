@@ -31,6 +31,8 @@ import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
 import com.garfiec.librechat.core.network.client.AuthInterceptorPlugin
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
+import com.garfiec.librechat.core.network.client.ServerHeadersPlugin
+import com.garfiec.librechat.core.network.client.ServerHeadersProvider
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.ServerUrlReadyPlugin
 import com.garfiec.librechat.core.network.client.SwitchBarrierPlugin
@@ -79,6 +81,7 @@ val networkModule = module {
             serverUrlProvider = get(),
             tokenManager = get(),
             accountReadyGate = getOrNull(),
+            serverHeadersProvider = get(),
         )
     }
 
@@ -91,6 +94,7 @@ val networkModule = module {
             redactor = get(),
             accountReadyGate = getOrNull(),
             switchGate = get(),
+            serverHeadersProvider = get(),
         )
     }
 
@@ -99,9 +103,14 @@ val networkModule = module {
         val serverUrlProvider = get<ServerUrlProvider>()
         val engineFactory = get<HttpClientEngineFactory<*>>()
         val switchGate = get<SwitchGate>()
+        val serverHeadersProvider = get<ServerHeadersProvider>()
         HttpClient(engineFactory) {
             install(AuthInterceptorPlugin) {
                 this.tokenManager = tokenManager
+                this.serverUrlProvider = serverUrlProvider
+            }
+            install(ServerHeadersPlugin) {
+                this.serverHeadersProvider = serverHeadersProvider
                 this.serverUrlProvider = serverUrlProvider
             }
             install(SwitchBarrierPlugin) {
@@ -122,9 +131,22 @@ val networkModule = module {
         val json = get<Json>()
         val serverUrlProvider = get<ServerUrlProvider>()
         val engineFactory = get<HttpClientEngineFactory<*>>()
+        val serverHeadersProvider = get<ServerHeadersProvider>()
         HttpClient(engineFactory) {
             install(ContentNegotiation) { json(json) }
             install(ServerUrlReadyPlugin) {
+                this.serverUrlProvider = serverUrlProvider
+            }
+            // `/api/auth/refresh` is gated by the access gateway like every other route, and this
+            // client has neither a SwitchBarrier snapshot nor an AuthInterceptor to hang an append on.
+            // Without this the session dies at the first refresh: the gateway's 302→200 HTML
+            // deserializes as garbage, which `performRefresh` classifies as Retryable — so it never
+            // routes to re-auth and never recovers, it just silently stops working.
+            //
+            // ServerUrlReadyPlugin could not host this: it intercepts before HttpRequestPipeline.Before,
+            // where `context.url.host` is still empty and no host-scoping is possible.
+            install(ServerHeadersPlugin) {
+                this.serverHeadersProvider = serverHeadersProvider
                 this.serverUrlProvider = serverUrlProvider
             }
             install(HttpTimeout) {

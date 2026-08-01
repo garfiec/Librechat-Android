@@ -38,6 +38,7 @@ object LibreChatHttpClient {
         redactor: LogRedactor,
         accountReadyGate: AccountReadyGate? = null,
         switchGate: SwitchGate? = null,
+        serverHeadersProvider: ServerHeadersProvider = EmptyServerHeadersProvider,
         debug: Boolean = false,
     ): HttpClient = HttpClient(engineFactory) {
         install(ContentNegotiation) {
@@ -53,6 +54,20 @@ object LibreChatHttpClient {
                 }
             }
             level = if (debug) LogLevel.HEADERS else LogLevel.NONE
+            // A user-configured gateway header is a secret under a name only the user knows, so
+            // LogRedactor's pattern matching can't recognise it the way it recognises `Bearer`. Gate
+            // it here, where the name is known, instead. Pre-emptive: `level` is NONE in release
+            // builds, so nothing reaches the logger today — this keeps a future `debug = true` from
+            // silently starting to print the credential.
+            //
+            // Matched against the CONFIGURED names only. "Any name that would be a legal custom
+            // header" is every RFC-7230 token outside RESERVED_NAMES — Location, Set-Cookie,
+            // Retry-After, X-Request-Id — i.e. exactly the fields someone turns HEADERS logging on to
+            // read, and redacting them makes the log useless for the gateway problems it exists for.
+            sanitizeHeader { name ->
+                serverHeadersProvider.headersFor(serverUrlProvider.getBaseUrl())
+                    .keys.any { it.equals(name, ignoreCase = true) }
+            }
         }
 
         install(HttpTimeout) {
@@ -70,6 +85,19 @@ object LibreChatHttpClient {
             // Host-scope the bearer token so a presigned absolute-URL fetch to a
             // third-party CDN (S3/CloudFront file download-url) never leaks the
             // LibreChat session token to that host.
+            this.serverUrlProvider = serverUrlProvider
+        }
+
+        // Installed AFTER AuthInterceptorPlugin so its HttpSend interceptor is the inner one: it then
+        // runs on every actual send, including the auth plugin's post-refresh 401 retry.
+        install(ServerHeadersPlugin) {
+            this.serverHeadersProvider = serverHeadersProvider
+            this.serverUrlProvider = serverUrlProvider
+        }
+
+        // Must see the gateway's own 302, so it has to be inside the redirect loop — following that
+        // redirect yields a 200 sign-in page, which no status-based check can catch.
+        install(GatewayDetectionPlugin) {
             this.serverUrlProvider = serverUrlProvider
         }
 
@@ -93,7 +121,7 @@ object LibreChatHttpClient {
                 if (!response.status.isSuccess()) {
                     val statusCode = response.status.value
                     val bodyText = try { response.bodyAsText() } catch (_: Exception) { "" }
-                    val errorMessage = extractErrorMessage(json, bodyText, statusCode)
+                    val extracted = extractErrorMessage(json, bodyText, statusCode)
                     val isBanned = statusCode == 403 && bodyText.contains("ban", ignoreCase = true)
 
                     Diag.w(
@@ -120,9 +148,10 @@ object LibreChatHttpClient {
 
                     throw ApiException(
                         statusCode = statusCode,
-                        message = errorMessage,
+                        message = extracted.message,
                         isBanned = isBanned,
                         body = bodyText.ifBlank { null },
+                        serverAuthored = extracted.serverAuthored,
                     )
                 }
             }
@@ -138,22 +167,34 @@ object LibreChatHttpClient {
     const val BROWSER_USER_AGENT =
         "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
-    private fun extractErrorMessage(json: Json, body: String, statusCode: Int): String {
+    /**
+     * The message for an error response, plus whether it came from the body.
+     *
+     * The provenance flag matters downstream: server-authored text is screened before it is
+     * rendered (a gateway can put an entire HTML login page in `message`), while this app's own
+     * wording below is shown as-is.
+     */
+    private data class ExtractedError(val message: String, val serverAuthored: Boolean)
+
+    private fun extractErrorMessage(json: Json, body: String, statusCode: Int): ExtractedError {
         if (body.isNotBlank()) {
             try {
                 val jsonObj = json.parseToJsonElement(body).jsonObject
                 val msg = (jsonObj["message"] as? JsonPrimitive)?.content
                     ?: (jsonObj["error"] as? JsonPrimitive)?.content
                     ?: (jsonObj["error_message"] as? JsonPrimitive)?.content
-                if (!msg.isNullOrBlank()) return msg
+                if (!msg.isNullOrBlank()) return ExtractedError(msg, serverAuthored = true)
             } catch (_: Exception) {
                 if (body.contains("banned", ignoreCase = true) || body.contains("forbidden", ignoreCase = true)) {
-                    return "Access denied. Your account may have been restricted."
+                    return ExtractedError(
+                        "Access denied. Your account may have been restricted.",
+                        serverAuthored = false,
+                    )
                 }
             }
         }
 
-        return when (statusCode) {
+        val fallback = when (statusCode) {
             400 -> "Bad request"
             403 -> "Access denied"
             404 -> "Not found"
@@ -161,6 +202,7 @@ object LibreChatHttpClient {
             in 500..599 -> "Server error. Please try again later."
             else -> "Request failed (HTTP $statusCode)"
         }
+        return ExtractedError(fallback, serverAuthored = false)
     }
 }
 

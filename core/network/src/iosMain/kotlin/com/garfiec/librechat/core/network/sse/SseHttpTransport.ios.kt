@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.network.client.BearerResult
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
+import com.garfiec.librechat.core.network.client.customHeaderLines
 import com.garfiec.librechat.core.network.client.refreshBearerFor
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -110,7 +111,7 @@ actual class SseHttpTransport(
         var triedRefresh = false
         while (true) {
             try {
-                emitAll(openConnection(streamPath, resume, snapshot.baseUrl, token))
+                emitAll(openConnection(streamPath, resume, snapshot.baseUrl, token, snapshot.customHeaders))
                 return@flow
             } catch (e: SseHttpStatusException) {
                 if (e.statusCode == 401 && !triedRefresh) {
@@ -148,6 +149,7 @@ actual class SseHttpTransport(
         resume: Boolean,
         snapshotBaseUrl: String,
         bearerToken: String?,
+        customHeaders: Map<String, String>,
     ): Flow<ByteArray> = callbackFlow {
         // Normalize base URL + stream path so there's exactly one slash between
         // them. The base URL comes from the snapshot captured before this connection
@@ -310,6 +312,7 @@ actual class SseHttpTransport(
                         path = requestPath,
                         host = host,
                         bearerToken = bearerToken,
+                        customHeaders = customHeaders,
                     )
                     val requestBytes = request.encodeToByteArray()
                     val dispatchData = byteArrayToDispatchData(requestBytes, queue)
@@ -373,6 +376,7 @@ actual class SseHttpTransport(
         path: String,
         host: String,
         bearerToken: String?,
+        customHeaders: Map<String, String>,
     ): String = buildString {
         append("GET ").append(path).append(" HTTP/1.1\r\n")
         append("Host: ").append(host).append("\r\n")
@@ -383,6 +387,12 @@ actual class SseHttpTransport(
         append("User-Agent: ").append(LibreChatHttpClient.BROWSER_USER_AGENT).append("\r\n")
         append("Accept-Encoding: identity\r\n")
         append("Connection: close\r\n")
+        // The user's gateway headers (issue #287). No host-scoping check is needed here the way the
+        // Ktor plugin needs one: this connection is dialled at the snapshot's own base URL and never
+        // follows a redirect, so it cannot arrive anywhere but the server the headers belong to.
+        // Sanitised again inside customHeaderLines — the names reserved there are exactly the ones
+        // hand-written above, so a user value can never emit a second, ambiguous copy of one.
+        append(customHeaderLines(customHeaders))
         append("\r\n")
     }
 

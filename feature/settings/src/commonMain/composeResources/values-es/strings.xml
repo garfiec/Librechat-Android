@@ -474,4 +474,15 @@
     <string name="role_skills_share">Compartir habilidades</string>
     <string name="role_skills_share_public">Compartir habilidades públicamente</string>
     <string name="role_skills_save">Guardar</string>
+    <!-- Post-login editor for the active server's gateway headers (issue #287) -->
+    <string name="section_server_connection">Conexión al servidor</string>
+    <string name="server_headers_scope">Se envían a %1$s</string>
+    <string name="server_headers_save">Guardar encabezados</string>
+    <string name="server_headers_saved">Encabezados guardados</string>
+    <string name="server_headers_no_server">No se pudo guardar: aún no hay ningún servidor configurado.</string>
+    <string name="server_connection_subtitle">Encabezados de solicitud para pasarelas de acceso</string>
+    <string name="server_headers_discard_title">¿Descartar los cambios?</string>
+    <string name="server_headers_discard_message">Se perderán los cambios de encabezados sin guardar.</string>
+    <string name="server_headers_discard_confirm">Descartar</string>
+    <string name="server_headers_keep_editing">Seguir editando</string>
 </resources>

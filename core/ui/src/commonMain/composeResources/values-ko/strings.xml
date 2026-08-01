@@ -2,4 +2,17 @@
 <resources>
     <!-- Accessibility label for the bottom-sheet drag handle -->
     <string name="cd_drag_handle">드래그 핸들</string>
+    <!-- Custom per-server request headers (issue #287); shared by the pre-login
+         server screen and the post-login Settings editor -->
+    <string name="server_headers_title">사용자 지정 요청 헤더</string>
+    <string name="server_headers_description">이 서버로 보내는 모든 요청에 포함됩니다. Cloudflare Access 같은 액세스 게이트웨이에 필요합니다.</string>
+    <string name="server_headers_name">헤더 이름</string>
+    <string name="server_headers_value">값</string>
+    <string name="server_headers_add">헤더 추가</string>
+    <string name="server_headers_remove">헤더 삭제</string>
+    <string name="server_headers_show_value">값 표시</string>
+    <string name="server_headers_hide_value">값 숨기기</string>
+    <string name="server_headers_error_name">올바른 헤더 이름이 아닙니다.</string>
+    <string name="server_headers_error_value">이 값에는 보낼 수 없는 문자가 있습니다.</string>
+    <string name="server_headers_error_reserved">이 헤더는 앱이 설정하므로 덮어쓸 수 없습니다.</string>
 </resources>

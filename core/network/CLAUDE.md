@@ -61,6 +61,46 @@ Legacy single-phase path (OpenAI Assistants): POST body is the SSE stream itself
 
 The Ktor SSE plugin uses the same `NSURLSessionDataTask` code path as the regular Darwin engine, so it would have the same Layer 2 bug on iOS. The custom transport is mandatory.
 
+## Custom per-server headers (issue #287)
+
+`ServerHeadersPlugin` attaches the user's static gateway headers (Cloudflare Access service tokens and
+equivalents) and is installed on **all three** clients — main, streaming, and refresh. The store lives
+in `:core:data` (`ServerHeadersDataStore`, keyed `srv:<serverId>:custom_headers`, plaintext); iOS SSE
+gets them off the `RequestIdentity` snapshot and renders them via `customHeaderLines`.
+
+Two rules that are load-bearing and easy to undo by accident:
+
+- **The headers must NOT reuse `AuthInterceptorPlugin`'s `skipPaths`.** Those exist to keep the bearer
+  off `auth/login` and `auth/refresh`; gating the gateway credential the same way leaves the app unable
+  to sign in at all.
+- **The cross-authority strip must stay in the `HttpSend` interceptor.** Ktor's `HttpRedirect` copies
+  every header to a redirect target and strips only `Authorization`, and it re-executes below the
+  request pipeline — so a `State`-phase host check cannot see the new host. `FilesApi.downloadFromUrl`
+  fetches server-supplied absolute URLs, so this is reachable. `KtorRedirectContractTest` pins the Ktor
+  behaviour; without it the guard's own test would be unfalsifiable.
+
+Host-scoping for these is stricter than for the bearer (`isSameServerAuthority` vs
+`isSameHostAsServer`, both in `HostScoping.kt`): scheme + host + port, and fail-closed. A gateway token
+is long-lived and never rotates, so an `http://` downgrade or an unknown base URL must not carry it.
+
+The editor UI is shared: `CustomHeadersEditor` in `:core:ui` backs both the pre-login server screen
+(`feature/auth`) and the post-login Settings → Account → Server connection dialog (`feature/settings`),
+and its strings live in `core/ui`'s `composeResources`. `:core:ui` deliberately does **not** depend on
+`:core:network`, so each caller maps `HeaderRejection` to the editor's own `CustomHeaderRowError` —
+three lines, versus a UI-to-network module dependency taken on just to name three cases.
+
+Values are **masked** (`PasswordVisualTransformation`) with a per-row reveal toggle, matching how MCP
+server headers and provider API keys are already treated: these end up in screenshots and
+accessibility dumps otherwise. The reveal set is keyed by row index, so adding or removing a row
+re-masks everything rather than letting a stale index alias onto a different row's credential.
+
+The editor **branches on the width it is given** (`BoxWithConstraints`, stacking below 420dp), not on
+the device or a caller flag — the same phone needs stacking inside a dialog but has room on the
+full-screen pre-login form, and a tablet's dialog is narrow despite the tablet. Side by side, each
+field gets under half the width, which rendered both `CF-Access-Client-Id` and
+`CF-Access-Client-Secret` as `CF-Access-C…`: two different headers looking identical, next to a
+masked value.
+
 ## Key Configuration
 
 - `Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = false; explicitNulls = false; coerceInputValues = true }`

@@ -512,4 +512,15 @@
     <string name="artifact_shortcuts_empty">No artifacts pinned to the home screen yet.</string>
     <string name="artifact_shortcuts_disabled_message">This artifact shortcut was removed.</string>
     <string name="cd_artifact_shortcut_delete">Delete shortcut</string>
+    <!-- Post-login editor for the active server's gateway headers (issue #287) -->
+    <string name="section_server_connection">Server connection</string>
+    <string name="server_headers_scope">Sent to %1$s</string>
+    <string name="server_headers_save">Save headers</string>
+    <string name="server_headers_saved">Headers saved</string>
+    <string name="server_headers_no_server">Couldn't save — no server is configured yet.</string>
+    <string name="server_connection_subtitle">Request headers for access gateways</string>
+    <string name="server_headers_discard_title">Discard changes?</string>
+    <string name="server_headers_discard_message">Your unsaved header changes will be lost.</string>
+    <string name="server_headers_discard_confirm">Discard</string>
+    <string name="server_headers_keep_editing">Keep editing</string>
 </resources>

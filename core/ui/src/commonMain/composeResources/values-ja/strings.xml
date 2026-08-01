@@ -2,4 +2,17 @@
 <resources>
     <!-- Accessibility label for the bottom-sheet drag handle -->
     <string name="cd_drag_handle">ドラッグ ハンドル</string>
+    <!-- Custom per-server request headers (issue #287); shared by the pre-login
+         server screen and the post-login Settings editor -->
+    <string name="server_headers_title">カスタムリクエストヘッダー</string>
+    <string name="server_headers_description">このサーバーへのすべてのリクエストに送信されます。Cloudflare Access などのアクセスゲートウェイに必要です。</string>
+    <string name="server_headers_name">ヘッダー名</string>
+    <string name="server_headers_value">値</string>
+    <string name="server_headers_add">ヘッダーを追加</string>
+    <string name="server_headers_remove">ヘッダーを削除</string>
+    <string name="server_headers_show_value">値を表示</string>
+    <string name="server_headers_hide_value">値を非表示</string>
+    <string name="server_headers_error_name">ヘッダー名が正しくありません。</string>
+    <string name="server_headers_error_value">この値には送信できない文字が含まれています。</string>
+    <string name="server_headers_error_reserved">このヘッダーはアプリが設定するため、上書きできません。</string>
 </resources>

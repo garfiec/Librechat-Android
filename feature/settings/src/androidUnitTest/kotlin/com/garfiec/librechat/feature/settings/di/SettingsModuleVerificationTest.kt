@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
+import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.repository.ApiKeyRepository
@@ -54,6 +55,7 @@ class SettingsModuleVerificationTest {
                 PresetRepository::class,
                 ThemeDataStore::class,
                 ServerDataStore::class,
+                ServerHeadersDataStore::class,
                 SettingsDataStore::class,
                 ContentReader::class,
                 PlatformCacheCleaner::class,

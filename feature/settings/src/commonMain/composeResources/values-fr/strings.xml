@@ -474,4 +474,15 @@
     <string name="role_skills_share">Partager des compétences</string>
     <string name="role_skills_share_public">Partager des compétences publiquement</string>
     <string name="role_skills_save">Enregistrer</string>
+    <!-- Post-login editor for the active server's gateway headers (issue #287) -->
+    <string name="section_server_connection">Connexion au serveur</string>
+    <string name="server_headers_scope">Envoyés à %1$s</string>
+    <string name="server_headers_save">Enregistrer les en-têtes</string>
+    <string name="server_headers_saved">En-têtes enregistrés</string>
+    <string name="server_headers_no_server">Enregistrement impossible — aucun serveur n'est encore configuré.</string>
+    <string name="server_connection_subtitle">En-têtes de requête pour les passerelles d'accès</string>
+    <string name="server_headers_discard_title">Abandonner les modifications ?</string>
+    <string name="server_headers_discard_message">Vos modifications d'en-têtes non enregistrées seront perdues.</string>
+    <string name="server_headers_discard_confirm">Abandonner</string>
+    <string name="server_headers_keep_editing">Continuer l'édition</string>
 </resources>
