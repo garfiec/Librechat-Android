@@ -114,6 +114,73 @@ Global temperatures are rising.
     }
 
     @Test
+    fun `detects artifact fenced with 4 backticks`() {
+        // LibreChat's server-side artifact prompt defaults to a 4-backtick fence
+        // (bumping to 5+ only if the content itself contains a 4-backtick run), so a
+        // 3-backtick-only regex misses every artifact real backends actually emit.
+        val text = """
+:::artifact{identifier="report" type="text/markdown" title="Report"}
+````markdown
+# Report
+
+## Section
+Body text.
+````
+:::
+        """.trimIndent()
+
+        val segments = detectArtifacts(text)
+        assertEquals(1, segments.size)
+        val ref = segments[0] as ArtifactSegment.ArtifactReference
+        assertEquals("report", ref.artifact.identifier)
+        assertEquals("text/markdown", ref.artifact.type)
+        assertEquals("markdown", ref.artifact.language)
+        assertTrue(ref.artifact.content.contains("# Report"))
+    }
+
+    @Test
+    fun `4-backtick fence correctly wraps content containing a 3-backtick code block`() {
+        // This is the actual scenario the artifact instructions bump the fence length for:
+        // a markdown/document artifact whose own content demonstrates a fenced code block.
+        val text = """
+:::artifact{identifier="guide" type="text/markdown" title="Guide"}
+````markdown
+# Guide
+
+Run this:
+
+```bash
+echo hello
+```
+````
+:::
+        """.trimIndent()
+
+        val segments = detectArtifacts(text)
+        assertEquals(1, segments.size)
+        val ref = segments[0] as ArtifactSegment.ArtifactReference
+        assertEquals("guide", ref.artifact.identifier)
+        assertTrue(ref.artifact.content.contains("```bash"))
+        assertTrue(ref.artifact.content.contains("echo hello"))
+    }
+
+    @Test
+    fun `mismatched fence lengths do not match as an artifact`() {
+        // A 4-backtick opening fence must be closed with 4 backticks, not 3 — otherwise
+        // the embedded 3-backtick block from the previous test would close the artifact early.
+        val text = """
+:::artifact{identifier="bad" type="text/markdown" title="Bad"}
+````markdown
+content
+```
+:::
+        """.trimIndent()
+
+        val segments = detectArtifacts(text)
+        assertTrue(segments.none { it is ArtifactSegment.ArtifactReference })
+    }
+
+    @Test
     fun `detects plain text artifact`() {
         val text = """
 :::artifact{identifier="notes" type="text/plain" title="Notes"}

@@ -3,17 +3,18 @@ package com.garfiec.librechat.feature.chat.components.artifact
 /**
  * Matches the remark-directive artifact format:
  *   :::artifact{key="value" ...}
- *   ```optionalLanguage
- *   content
- *   ```
+ *   ```optionalLanguage          (3 or more backticks; LibreChat's own server prompt
+ *   content                       defaults to 4, bumping to 5+ if content itself
+ *   ```                           contains a 4-backtick run)
  *   :::
  *
  * Group 1: attribute string inside braces
- * Group 2: optional language hint after opening backticks
- * Group 3: content between the fences
+ * Group 2: the opening fence (captured so the closing fence must match the same length)
+ * Group 3: optional language hint after opening backticks
+ * Group 4: content between the fences
  */
 private val ARTIFACT_REGEX = Regex(
-    """:::artifact\{([^}]*)\}\s*```(\w*)\n([\s\S]*?)```\s*:::""",
+    """:::artifact\{([^}]*)\}\s*(`{3,})(\w*)\n([\s\S]*?)\2\s*:::""",
 )
 
 /**
@@ -40,8 +41,8 @@ fun detectArtifacts(text: String): List<ArtifactSegment> {
         }
 
         val attrString = match.groupValues[1]
-        val languageHint = match.groupValues[2].ifEmpty { null }
-        val content = match.groupValues[3].trimEnd()
+        val languageHint = match.groupValues[3].ifEmpty { null }
+        val content = match.groupValues[4].trimEnd()
         val attrs = mutableMapOf<String, String>()
         ATTR_REGEX.findAll(attrString).forEach { attrMatch ->
             attrs[attrMatch.groupValues[1]] = attrMatch.groupValues[2]
