@@ -133,8 +133,7 @@ fun ServerUrlScreen(
                 // A save failure supersedes the load warning: it is the more recent, more actionable
                 // of the two, and the load warning is what the refused save was reacting to.
                 // Each case gets the same wording as its Settings counterpart: the two editors write
-                // to one store, and telling the user two different things about one failure is how
-                // "couldn't save" became "your device storage is broken" on this screen.
+                // to one store, so one failure must not be described two different ways.
                 storeWarning = when (uiState.headersSaveFailure) {
                     HeaderWriteFailure.UnverifiedDelete ->
                         stringResource(UiRes.string.server_headers_unverified_delete)

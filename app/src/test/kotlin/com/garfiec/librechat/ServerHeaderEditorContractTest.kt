@@ -35,13 +35,13 @@ import org.junit.Test
  *
  * **A credential that is on disk is only ever removed by a user action that named it.**
  *
- * Lives in `:app` because it is the only module that can see both editors, and because every defect
- * this file exists for was a *composition* fault — the editor and the store each behaving correctly
- * on their own. Both ViewModels are therefore driven against a **real** [ServerRepositoryImpl] over
- * an in-memory DAO, not a mocked repository: a `mockk<ServerRepository>` cannot exhibit a failed
- * read, a refused write, or a read that suspends, which is exactly the state space these bugs live
- * in. The per-editor tests in each feature module keep their mocks for the cases that don't need a
- * real store.
+ * Lives in `:app` because it is the only module that can see both editors, and because the ways this
+ * contract breaks are *composition* faults — the editor and the store each behaving correctly on
+ * their own. Both ViewModels are therefore driven against a **real** [ServerRepositoryImpl] over an
+ * in-memory DAO, not a mocked repository: a `mockk<ServerRepository>` cannot exhibit a failed read, a
+ * refused write, or a read that suspends, which is exactly the state space these failures live in.
+ * The per-editor tests in each feature module keep their mocks for the cases that don't need a real
+ * store.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerHeaderEditorContractTest {

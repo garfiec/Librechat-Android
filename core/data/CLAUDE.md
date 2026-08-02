@@ -121,24 +121,24 @@ re-login through the normal expired-session flow.
 - **A read failure is not "no headers".** `headersForServer` returns null when the store could not be
   read, and both editors render that as a warning instead of an empty list — an empty editor reads as
   "your credential is gone", and saving from it would make that true. Rules that keep the contract
-  honest, each with a test because each was once wrong: a row that won't decode is tracked per-server
-  rather than skipped, as is one whose pairs all sanitize away (both otherwise report as "none
-  configured"); a successful write does not clear the failure flag (a write proves one row is
-  writable, not that the others were ever read); and the read is re-attempted after a failure (it is
-  otherwise attempted once, so one transient error disables headers until the process is killed).
+  honest, each with a test: a row that won't decode is tracked per-server rather than skipped, as is
+  one whose pairs all sanitize away (both otherwise report as "none configured"); a successful write
+  does not clear the failure flag (a write proves one row is writable, not that the others were ever
+  read); and the read is re-attempted after a failure (it is otherwise attempted once, so one
+  transient error disables headers until the process is killed).
 - **The empty-write refusal lives in `setHeaders`, not in the editors.** An empty map is a delete, and
   this repository is the only thing that knows whether the value it is about to destroy was ever
   successfully read — so it refuses that one combination itself and reports
-  `HeaderWriteFailure.UnverifiedDelete`. Both editors write through it. Enforcing it caller-side is
-  what the two editors did before, and they took turns being the one that forgot. A **non-empty**
-  write always goes through: re-entering the credential is the recovery path.
+  `HeaderWriteFailure.UnverifiedDelete`. Both editors write through it. Enforcing it caller-side means
+  a copy of the rule in each editor, either of which can omit it. A **non-empty** write always goes
+  through: re-entering the credential is the recovery path.
 - **Two read paths, and the request path never retries.** `headersFor` / `awaitWarm` serve the request
   pipeline from a snapshot seeded once at startup; `headersForServer` serves the editors and reads
-  through to the table every call. **Don't merge them back.** They were one path, and the retry policy
-  that tried to serve both oscillated across three reviews: bounded, one transient failure disabled
-  headers for the process; unbounded, an unreadable database queued every request behind the same
-  failing query. Split, there is no policy to tune — opening an editor is what heals a store that
-  failed at startup, and that is the moment a user is waiting for the answer anyway.
+  through to the table every call. **Don't merge them.** No single retry policy serves both: bounded,
+  one transient failure disables headers for the rest of the process; unbounded, an unreadable
+  database queues every request behind the same failing query. Split, there is no policy to tune —
+  opening an editor is what heals a store that failed at startup, and that is the moment a user is
+  waiting for the answer anyway.
 - **A write outranks a later failed read** (`writtenHere`). This class is the table's only writer, so
   a value it wrote is not in doubt even when the table stops reading. Without it a store whose reads
   fail but whose writes land confirms a save and then reports it unreadable, and the user re-enters a

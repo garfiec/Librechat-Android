@@ -30,11 +30,10 @@ import kotlin.concurrent.Volatile
  *
  * **Two read paths, deliberately.** [headersFor] / [awaitWarm] serve the request pipeline from a
  * snapshot seeded once at startup and never re-read; [headersForServer] serves the editors and reads
- * through to the table every time. They were one path once, and the retry policy that tried to serve
- * both oscillated across three reviews — bounded, it disabled headers for the process after a
- * transient failure; unbounded, it queued every request behind a failing query. Splitting them
- * removes the question: the request path never retries, and opening an editor is what heals a store
- * that failed at startup.
+ * through to the table every time. **Don't merge them:** no single retry policy serves both —
+ * bounded, a transient failure disables headers for the rest of the process; unbounded, an
+ * unreadable database queues every request behind the same failing query. Split, the request path
+ * never retries, and opening an editor is what heals a store that failed at startup.
  */
 class ServerRepositoryImpl(
     private val serverDao: ServerDao,
@@ -167,8 +166,7 @@ class ServerRepositoryImpl(
                 if (sanitized.isEmpty() && (readFailed || serverId in unreadable)) {
                     // An empty write is a delete, and this store could not show the caller what it is
                     // about to destroy. The rule lives here rather than in the editors because this is
-                    // the only layer that knows the read failed — each editor has, at some point, been
-                    // the one that forgot.
+                    // the only layer that knows the read failed.
                     return@withLock HeaderWriteResult.Refused(HeaderWriteFailure.UnverifiedDelete)
                 }
                 try {

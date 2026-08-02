@@ -51,8 +51,9 @@ class ServerUrlViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        // A relaxed Boolean is false, which Connect now reads as "the credential never reached
-        // disk" and stops on. Default to a store that works; the tests about failure say so.
+        // A relaxed default is not HeaderWriteResult.Saved, and Connect stops on anything else —
+        // reading it as "the credential never reached disk". Default to a store that works; the
+        // tests about failure say so.
         coEvery { serverRepository.setHeaders(any(), any()) } returns HeaderWriteResult.Saved
         // Pass block-running calls through so the probe actually executes.
         coEvery { accountSwitcher.withPendingIdentity(any<suspend () -> Result<StartupConfig>>()) } coAnswers {
