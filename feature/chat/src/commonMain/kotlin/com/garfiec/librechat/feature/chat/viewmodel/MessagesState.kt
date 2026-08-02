@@ -39,6 +39,12 @@ data class MessagesState(
     /** SSE reconnection retry state (null when not retrying). */
     val retryInfo: RetryInfo? = null,
     val isRefreshingMessages: Boolean = false,
+    /**
+     * The message fetch failed *and* the cache had nothing to fall back to. Drives the retryable
+     * empty state; the `error` banner is transient and cannot carry this on its own. Cleared by
+     * any load that succeeds (including an offline cache hit).
+     */
+    val messagesLoadFailed: Boolean = false,
     /** Latest context-window usage snapshot for the gauge (`on_context_usage` SSE / projection). */
     val contextUsage: ContextUsage? = null,
     /** Latest per-call provider token usage (`on_token_usage` SSE). */

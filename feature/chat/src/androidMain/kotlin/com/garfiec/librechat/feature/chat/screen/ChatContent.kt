@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.ui.components.LoadingIndicator
 import com.garfiec.librechat.feature.chat.components.LandingContent
 import com.garfiec.librechat.feature.chat.components.MessageList
+import com.garfiec.librechat.feature.chat.components.MessagesUnavailable
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
@@ -85,7 +86,17 @@ internal fun ColumnScope.ChatContent(
                     model ?: "Assistant"
                 }
             }
-            if (comparisonState.isEnabled) {
+            // Ahead of the comparison branch, matching iOS: with nothing to show, empty comparison
+            // panes are less use than the failure state. !isStreaming is load-bearing — a
+            // handed-off new chat is legitimately empty until the first message lands.
+            if (uiState.messagesLoadFailed && uiState.displayMessages.isEmpty() &&
+                !uiState.isStreaming
+            ) {
+                MessagesUnavailable(
+                    onRetry = viewModel::refreshMessages,
+                    modifier = topInsetModifier,
+                )
+            } else if (comparisonState.isEnabled) {
                 ComparisonPanes(
                     uiState = uiState,
                     viewModel = viewModel,

@@ -49,6 +49,7 @@ import com.garfiec.librechat.feature.chat.components.IosChatInput
 import com.garfiec.librechat.feature.chat.components.LandingContent
 import com.garfiec.librechat.feature.chat.components.ChatRoot
 import com.garfiec.librechat.feature.chat.components.MessageList
+import com.garfiec.librechat.feature.chat.components.MessagesUnavailable
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
 import com.garfiec.librechat.feature.chat.resources.*
@@ -522,6 +523,14 @@ private fun IosChatBody(
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(36.dp))
             }
+        }
+        // `hasMessages` folds in isStreaming, which is load-bearing: a handed-off new chat is
+        // legitimately empty until the first message lands, and must not render as a failure.
+        uiState.messagesLoadFailed && !hasMessages -> {
+            MessagesUnavailable(
+                onRetry = viewModel::refreshMessages,
+                modifier = topPaddedFill,
+            )
         }
         uiState.comparisonState.isEnabled -> {
             ComparisonPanes(

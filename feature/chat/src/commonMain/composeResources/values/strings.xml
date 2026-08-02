@@ -239,6 +239,10 @@
     <string name="cd_open_pdf">Open PDF</string>
     <string name="retry">Retry</string>
 
+    <!-- Messages unavailable (fetch failed, nothing cached) -->
+    <string name="messages_unavailable_title">Messages unavailable</string>
+    <string name="messages_unavailable_body">This conversation couldn't be loaded and no offline copy is saved on this device.</string>
+
     <!-- Model selector sheet -->
     <string name="cd_selected">Selected</string>
     <string name="cd_public_agent">Public agent</string>

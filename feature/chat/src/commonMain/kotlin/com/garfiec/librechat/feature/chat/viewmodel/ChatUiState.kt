@@ -131,6 +131,7 @@ data class ChatUiState(
     val streamingAttachments: List<Attachment> get() = content.streamingAttachments
     val retryInfo: RetryInfo? get() = content.retryInfo
     val isRefreshingMessages: Boolean get() = content.isRefreshingMessages
+    val messagesLoadFailed: Boolean get() = content.messagesLoadFailed
     val contextUsage: ContextUsage? get() = content.contextUsage
     val tokenUsage: TokenUsage? get() = content.tokenUsage
     val conversationId: String? get() = conversation.conversationId

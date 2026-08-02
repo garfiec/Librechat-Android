@@ -612,15 +612,37 @@ class ChatViewModel(
         // re-enable comparison after the user has toggled it off for the session.
         var autoRehydrateHandled = false
         roomObserverJob = viewModelScope.launch {
-            try {
-                messageRepository.getMessages(conversationId)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to fetch messages for $conversationId" }
-                _uiState.update {
-                    it.copy(
-                        error = "Could not load messages",
-                        content = it.content.copy(screenState = ChatScreenState.ACTIVE),
-                    )
+            // getMessages is safeApiCall-wrapped: it reports failure by RETURNING Result.Error and
+            // lets only CancellationException propagate, so the result must be consumed — a
+            // try/catch here can never see a network failure. An Error also means the cache was
+            // empty: the repository falls back to cached rows and returns those as Success.
+            when (val result = messageRepository.getMessages(conversationId)) {
+                is Result.Error -> {
+                    Logger.e(result.exception) { "Failed to fetch messages for $conversationId" }
+                    _uiState.update {
+                        // Only report when the failure actually leaves the screen empty. A
+                        // handed-off new chat streams with just its seeded user message and the
+                        // server persists the request only on completion, so this fetch is
+                        // expected to fail there — reporting it would fire mid-stream on a chat
+                        // that is working fine.
+                        if (it.isStreaming || it.displayMessages.isNotEmpty()) {
+                            it
+                        } else {
+                            it.copy(
+                                // App-authored copy only — Ktor builds exception messages out of
+                                // the request URL, so result.message can leak an access gateway's
+                                // redirect JWT on screen (#287).
+                                error = "Could not load messages",
+                                content = it.content.copy(
+                                    screenState = ChatScreenState.ACTIVE,
+                                    messagesLoadFailed = true,
+                                ),
+                            )
+                        }
+                    }
+                }
+                else -> _uiState.update {
+                    it.copy(content = it.content.copy(messagesLoadFailed = false))
                 }
             }
             // buildActiveMessagePath is pure/synchronous CPU work; computing it on the Default
