@@ -479,7 +479,6 @@
     <string name="server_headers_scope">Enviados para %1$s</string>
     <string name="server_headers_save">Salvar cabeçalhos</string>
     <string name="server_headers_saved">Cabeçalhos salvos</string>
-    <string name="server_headers_no_server">Não foi possível salvar — nenhum servidor configurado ainda.</string>
     <string name="server_connection_subtitle">Cabeçalhos de requisição para gateways de acesso</string>
     <string name="server_headers_discard_title">Descartar alterações?</string>
     <string name="server_headers_discard_message">Suas alterações de cabeçalho não salvas serão perdidas.</string>

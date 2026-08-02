@@ -10,7 +10,6 @@ import com.garfiec.librechat.core.data.datastore.AccountScopedPrefsPurger
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
-import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
@@ -66,6 +65,8 @@ import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.RoleRepositoryImpl
 import com.garfiec.librechat.core.data.repository.SearchRepository
 import com.garfiec.librechat.core.data.repository.SearchRepositoryImpl
+import com.garfiec.librechat.core.data.repository.ServerRepository
+import com.garfiec.librechat.core.data.repository.ServerRepositoryImpl
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.ShareRepositoryImpl
 import com.garfiec.librechat.core.data.repository.SkillsRepository
@@ -109,6 +110,7 @@ val dataModule = module {
     single { get<LibreChatDatabase>().draftDao() }
     single { get<LibreChatDatabase>().accountClaimDao() }
     single { get<LibreChatDatabase>().artifactShortcutDao() }
+    single { get<LibreChatDatabase>().serverDao() }
 
     // --- Account identity (row-tenancy) ---
 
@@ -200,9 +202,12 @@ val dataModule = module {
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }
-    single {
-        ServerHeadersDataStore(
-            dataStore = get(),
+    // Eager because the warm gate blocks the first HTTP request: starting the seed read at Koin start
+    // overlaps the database open it forces with the rest of cold start, instead of serializing it
+    // after whichever client resolves this first.
+    single<ServerRepository>(createdAtStart = true) {
+        ServerRepositoryImpl(
+            serverDao = get(),
             json = get(),
             appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
             ioDispatcher = get(KoinQualifiers.IO),

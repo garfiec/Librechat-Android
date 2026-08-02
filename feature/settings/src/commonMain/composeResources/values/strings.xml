@@ -517,7 +517,6 @@
     <string name="server_headers_scope">Sent to %1$s</string>
     <string name="server_headers_save">Save headers</string>
     <string name="server_headers_saved">Headers saved</string>
-    <string name="server_headers_no_server">Couldn't save — no server is configured yet.</string>
     <string name="server_connection_subtitle">Request headers for access gateways</string>
     <string name="server_headers_discard_title">Discard changes?</string>
     <string name="server_headers_discard_message">Your unsaved header changes will be lost.</string>

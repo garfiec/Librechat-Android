@@ -9,6 +9,10 @@
     <string name="server_headers_name">请求头名称</string>
     <string name="server_headers_value">值</string>
     <string name="server_headers_add">添加请求头</string>
+    <string name="server_headers_load_error">无法读取已保存的请求头。此时编辑可能会覆盖它们。</string>
+    <string name="server_headers_save_error">无法保存 — 存储不可用。</string>
+    <string name="server_headers_no_server">无法保存：尚未配置服务器。</string>
+    <string name="server_headers_unverified_delete">无法清除 — 无法读取已保存的请求头。</string>
     <string name="server_headers_remove">删除请求头</string>
     <string name="server_headers_show_value">显示值</string>
     <string name="server_headers_hide_value">隐藏值</string>

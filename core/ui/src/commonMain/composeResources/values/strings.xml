@@ -11,6 +11,10 @@
     <string name="server_headers_name">Header name</string>
     <string name="server_headers_value">Value</string>
     <string name="server_headers_add">Add header</string>
+    <string name="server_headers_load_error">Couldn\'t read your saved headers. Editing now may overwrite them.</string>
+    <string name="server_headers_save_error">Couldn\'t save — storage is unavailable.</string>
+    <string name="server_headers_no_server">Couldn't save — no server is configured yet.</string>
+    <string name="server_headers_unverified_delete">Couldn\'t clear — your saved headers couldn\'t be read.</string>
     <string name="server_headers_remove">Remove header</string>
     <string name="server_headers_show_value">Show value</string>
     <string name="server_headers_hide_value">Hide value</string>

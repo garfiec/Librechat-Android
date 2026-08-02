@@ -20,6 +20,7 @@ import com.garfiec.librechat.core.network.client.HeaderRejection
 import com.garfiec.librechat.core.ui.components.CustomHeaderRow
 import com.garfiec.librechat.core.ui.components.CustomHeaderRowError
 import com.garfiec.librechat.core.ui.components.CustomHeadersEditor
+import com.garfiec.librechat.core.ui.resources.server_headers_load_error
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.resources.action_cancel
 import com.garfiec.librechat.feature.settings.resources.section_server_connection
@@ -31,6 +32,7 @@ import com.garfiec.librechat.feature.settings.resources.server_headers_save
 import com.garfiec.librechat.feature.settings.resources.server_headers_scope
 import com.garfiec.librechat.feature.settings.viewmodel.ServerHeaderError
 import org.jetbrains.compose.resources.stringResource
+import com.garfiec.librechat.core.ui.resources.Res as UiRes
 
 /**
  * Post-login editor for the active server's gateway headers (issue #287).
@@ -50,6 +52,13 @@ fun ServerHeadersDialog(
     serverUrl: String,
     headers: List<CustomHeaderRow>,
     error: ServerHeaderError?,
+    loadFailed: Boolean,
+    /**
+     * Why the last save didn't land, already localized. Rendered here rather than raised as a
+     * snackbar: this dialog stays open on a refusal, and the host's snackbar draws *behind* its
+     * scrim — leaving a Save button that visibly does nothing.
+     */
+    saveFailure: String?,
     isSaving: Boolean,
     isDirty: Boolean,
     onNameChange: (Int, String) -> Unit,
@@ -85,6 +94,21 @@ fun ServerHeadersDialog(
                         text = stringResource(Res.string.server_headers_scope, serverUrl),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (loadFailed) {
+                    Text(
+                        text = stringResource(UiRes.string.server_headers_load_error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                if (saveFailure != null) {
+                    Text(
+                        text = saveFailure,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("server_headers_save_failure"),
                     )
                 }
                 CustomHeadersEditor(

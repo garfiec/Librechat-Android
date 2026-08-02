@@ -479,7 +479,6 @@
     <string name="server_headers_scope">发送到 %1$s</string>
     <string name="server_headers_save">保存请求头</string>
     <string name="server_headers_saved">请求头已保存</string>
-    <string name="server_headers_no_server">无法保存：尚未配置服务器。</string>
     <string name="server_connection_subtitle">用于访问网关的请求标头</string>
     <string name="server_headers_discard_title">放弃更改？</string>
     <string name="server_headers_discard_message">未保存的标头更改将会丢失。</string>

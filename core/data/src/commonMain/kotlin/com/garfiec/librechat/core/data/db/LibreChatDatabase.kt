@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.data.db.dao.ConversationTagDao
 import com.garfiec.librechat.core.data.db.dao.DraftDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.db.dao.PresetDao
+import com.garfiec.librechat.core.data.db.dao.ServerDao
 import com.garfiec.librechat.core.data.db.entity.AgentEntity
 import com.garfiec.librechat.core.data.db.entity.ArtifactShortcutEntity
 import com.garfiec.librechat.core.data.db.entity.ConversationEntity
@@ -22,6 +23,7 @@ import com.garfiec.librechat.core.data.db.entity.ConversationTagEntity
 import com.garfiec.librechat.core.data.db.entity.DraftEntity
 import com.garfiec.librechat.core.data.db.entity.MessageEntity
 import com.garfiec.librechat.core.data.db.entity.PresetEntity
+import com.garfiec.librechat.core.data.db.entity.ServerEntity
 
 @Database(
     entities = [
@@ -32,8 +34,9 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
         ConversationTagEntity::class,
         DraftEntity::class,
         ArtifactShortcutEntity::class,
+        ServerEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -47,6 +50,8 @@ import com.garfiec.librechat.core.data.db.entity.PresetEntity
         AutoMigration(from = 5, to = 6),
         // 6 -> 7 adds the device-scoped artifact_shortcuts table (home-screen artifact snapshots).
         AutoMigration(from = 6, to = 7),
+        // 7 -> 8 adds the device-scoped servers table (per-deployment registry; gateway headers).
+        AutoMigration(from = 7, to = 8),
     ],
 )
 @TypeConverters(Converters::class)
@@ -60,6 +65,7 @@ abstract class LibreChatDatabase : RoomDatabase() {
     abstract fun draftDao(): DraftDao
     abstract fun accountClaimDao(): AccountClaimDao
     abstract fun artifactShortcutDao(): ArtifactShortcutDao
+    abstract fun serverDao(): ServerDao
 }
 
 // Room KSP auto-generates the actual implementations for each platform

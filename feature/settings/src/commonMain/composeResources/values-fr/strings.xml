@@ -479,7 +479,6 @@
     <string name="server_headers_scope">Envoyés à %1$s</string>
     <string name="server_headers_save">Enregistrer les en-têtes</string>
     <string name="server_headers_saved">En-têtes enregistrés</string>
-    <string name="server_headers_no_server">Enregistrement impossible — aucun serveur n'est encore configuré.</string>
     <string name="server_connection_subtitle">En-têtes de requête pour les passerelles d'accès</string>
     <string name="server_headers_discard_title">Abandonner les modifications ?</string>
     <string name="server_headers_discard_message">Vos modifications d'en-têtes non enregistrées seront perdues.</string>

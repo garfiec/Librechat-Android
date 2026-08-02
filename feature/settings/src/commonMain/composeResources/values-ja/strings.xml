@@ -479,7 +479,6 @@
     <string name="server_headers_scope">%1$s に送信されます</string>
     <string name="server_headers_save">ヘッダーを保存</string>
     <string name="server_headers_saved">ヘッダーを保存しました</string>
-    <string name="server_headers_no_server">保存できません。サーバーがまだ設定されていません。</string>
     <string name="server_connection_subtitle">アクセスゲートウェイ用のリクエストヘッダー</string>
     <string name="server_headers_discard_title">変更を破棄しますか？</string>
     <string name="server_headers_discard_message">保存していないヘッダーの変更は失われます。</string>

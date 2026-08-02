@@ -479,7 +479,6 @@
     <string name="server_headers_scope">Se envían a %1$s</string>
     <string name="server_headers_save">Guardar encabezados</string>
     <string name="server_headers_saved">Encabezados guardados</string>
-    <string name="server_headers_no_server">No se pudo guardar: aún no hay ningún servidor configurado.</string>
     <string name="server_connection_subtitle">Encabezados de solicitud para pasarelas de acceso</string>
     <string name="server_headers_discard_title">¿Descartar los cambios?</string>
     <string name="server_headers_discard_message">Se perderán los cambios de encabezados sin guardar.</string>

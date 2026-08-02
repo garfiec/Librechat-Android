@@ -9,6 +9,10 @@
     <string name="server_headers_name">Header-Name</string>
     <string name="server_headers_value">Wert</string>
     <string name="server_headers_add">Header hinzufügen</string>
+    <string name="server_headers_load_error">Gespeicherte Header konnten nicht gelesen werden. Änderungen könnten sie überschreiben.</string>
+    <string name="server_headers_save_error">Speichern fehlgeschlagen – Speicher nicht verfügbar.</string>
+    <string name="server_headers_no_server">Speichern nicht möglich — es ist noch kein Server konfiguriert.</string>
+    <string name="server_headers_unverified_delete">Löschen nicht möglich – gespeicherte Header konnten nicht gelesen werden.</string>
     <string name="server_headers_remove">Header entfernen</string>
     <string name="server_headers_show_value">Wert anzeigen</string>
     <string name="server_headers_hide_value">Wert ausblenden</string>

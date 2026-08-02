@@ -88,3 +88,66 @@ re-login through the normal expired-session flow.
 - `BannerRepository` / `BannerRepositoryImpl` — wraps `BannerApi` for fetching server banners
 - `AgentRepository.getAgentsPaginated()` — server-side paginated agent fetch, maps response to `PaginatedAgents` domain model
 - Both bound in `DataModule.kt` via `singleOf`, both use `safeApiCall`, no local caching
+
+### Per-server gateway headers (`servers` table)
+
+`ServerRepository` / `ServerRepositoryImpl` own the gateway headers of issue #287 and are the
+`ServerHeadersProvider` the HTTP clients read them through.
+
+- **Device-scoped, no `accountId`.** Like `artifact_shortcuts`, deliberately absent from
+  `AccountDataPurger` and from the detekt tenancy rule's table list: the headers are what let a user
+  log back *in*, so logout must not take them.
+- **Natural primary key.** `server_id` is the derived server id, not a surrogate — Room resolves
+  `@Upsert` by primary key, so a surrogate would make every save after the first match zero rows and
+  vanish silently. The whole-row `@Upsert` is safe *only* while the table has one non-key column and
+  one writer; **any added per-server column (cert pinning, detected version, a label) has to make the
+  writes column-scoped first.**
+- **`headersFor` is non-suspend** — it is called inside `SwitchGate`'s lock and in the request
+  pipeline's `State` phase. Persistence stays behind a `@Volatile` map guarded by `awaitWarm()`.
+- **One seed read, then patch-on-write.** The repository is the table's only writer, so it keeps the
+  map current by patching its own writes under the same lock. Observing the table instead hands those
+  writes back a moment later, and a Room emission whose query snapshot predates a save can arrive
+  after it, reverting a credential the user just typed.
+- **Resolved `createdAtStart`.** The warm gate blocks the first HTTP request, so the database open it
+  forces should overlap cold start rather than be serialized after it.
+- **No migration — correct only while the release timeline holds.** An interim version kept these in
+  the preference store under `srv:<serverId>:custom_headers`. No release tag contains it (verify with
+  `git tag --contains <PR1 merge>`), so there is nothing on any device to move and no drain code.
+  **This is a fact about the calendar, not a property of the code**: cut a release from `develop`
+  between PR1 and this change and every user who configures headers on that build loses them silently
+  on upgrade — no error, just a server they can no longer reach. If that ever happens, a drain is
+  required after all. Otherwise don't add one back "for safety" — it would reintroduce a second writer
+  and with it the patch-on-write race above.
+- **A read failure is not "no headers".** `headersForServer` returns null when the store could not be
+  read, and both editors render that as a warning instead of an empty list — an empty editor reads as
+  "your credential is gone", and saving from it would make that true. Rules that keep the contract
+  honest, each with a test because each was once wrong: a row that won't decode is tracked per-server
+  rather than skipped, as is one whose pairs all sanitize away (both otherwise report as "none
+  configured"); a successful write does not clear the failure flag (a write proves one row is
+  writable, not that the others were ever read); and the read is re-attempted after a failure (it is
+  otherwise attempted once, so one transient error disables headers until the process is killed).
+- **The empty-write refusal lives in `setHeaders`, not in the editors.** An empty map is a delete, and
+  this repository is the only thing that knows whether the value it is about to destroy was ever
+  successfully read — so it refuses that one combination itself and reports
+  `HeaderWriteFailure.UnverifiedDelete`. Both editors write through it. Enforcing it caller-side is
+  what the two editors did before, and they took turns being the one that forgot. A **non-empty**
+  write always goes through: re-entering the credential is the recovery path.
+- **Two read paths, and the request path never retries.** `headersFor` / `awaitWarm` serve the request
+  pipeline from a snapshot seeded once at startup; `headersForServer` serves the editors and reads
+  through to the table every call. **Don't merge them back.** They were one path, and the retry policy
+  that tried to serve both oscillated across three reviews: bounded, one transient failure disabled
+  headers for the process; unbounded, an unreadable database queued every request behind the same
+  failing query. Split, there is no policy to tune — opening an editor is what heals a store that
+  failed at startup, and that is the moment a user is waiting for the answer anyway.
+- **A write outranks a later failed read** (`writtenHere`). This class is the table's only writer, so
+  a value it wrote is not in doubt even when the table stops reading. Without it a store whose reads
+  fail but whose writes land confirms a save and then reports it unreadable, and the user re-enters a
+  secret every request is already carrying.
+- **Plaintext, deliberately.** The realistic exfiltration path for the app-private database is an ADB
+  backup, which `android:allowBackup="false"` already closes; on iOS the app container is sandboxed.
+  Against that, encrypting it would add the wipe-and-rebuild failure mode `TokenDataStore` has on OEMs
+  with broken Keystores — and losing this particular value doesn't degrade to a re-login prompt, it
+  degrades to a server the user can no longer reach at all.
+- **The table is named for the deployment, not for the headers**, because per-server state with
+  nowhere else to live (cert pinning, detected backend version, a user-chosen label) belongs here. It
+  carries only the headers today; see the natural-primary-key bullet before adding a column.

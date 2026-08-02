@@ -56,6 +56,9 @@ enum class HeaderRejection {
     ReservedName,
 }
 
+/** A rejected pair, as its position in the caller's list plus the reason. */
+data class IndexedRejection(val index: Int, val reason: HeaderRejection)
+
 /**
  * Validation for user-entered header pairs. Enforced at the UI entry point *and* again at the
  * injection sites, so a value that reached storage through an older build (or a future import path)
@@ -154,6 +157,30 @@ object CustomHeaderRules {
             val normalizedValue = normalizeValue(value)
             if (validate(trimmedName, normalizedValue) == null) trimmedName to normalizedValue else null
         }.toMap()
+
+    /**
+     * The first pair that can't be sent, or null. Fully blank pairs are skipped rather than rejected:
+     * an editor's row list always ends with one the user hasn't filled in yet.
+     *
+     * Takes plain pairs rather than an editor row type because both editors feed it and `:core:ui`
+     * (which owns that type) deliberately does not depend on this module. Single-sourced because the
+     * two editors write to the same store: if one of them decided a row was blank and the other did
+     * not, they would disagree about whether a given set of rows means "delete this credential".
+     */
+    fun firstRejection(pairs: List<Pair<String, String>>): IndexedRejection? =
+        pairs.withIndex().firstNotNullOfOrNull { (index, pair) ->
+            val (name, value) = pair
+            if (name.isBlank() && value.isBlank()) {
+                null
+            } else {
+                validate(name, value)?.let { IndexedRejection(index, it) }
+            }
+        }
+
+    /** Drops blank pairs and normalizes what's left. Later pairs win on a duplicate name. */
+    fun toHeaderMap(pairs: List<Pair<String, String>>): Map<String, String> =
+        pairs.filterNot { (name, value) -> name.isBlank() && value.isBlank() }
+            .associate { (name, value) -> name.trim() to normalizeValue(value) }
 }
 
 /**

@@ -65,7 +65,7 @@ The Ktor SSE plugin uses the same `NSURLSessionDataTask` code path as the regula
 
 `ServerHeadersPlugin` attaches the user's static gateway headers (Cloudflare Access service tokens and
 equivalents) and is installed on **all three** clients — main, streaming, and refresh. The store lives
-in `:core:data` (`ServerHeadersDataStore`, keyed `srv:<serverId>:custom_headers`, plaintext); iOS SSE
+in `:core:data` (`ServerRepository`, the `servers` table keyed by `serverId`, plaintext); iOS SSE
 gets them off the `RequestIdentity` snapshot and renders them via `customHeaderLines`.
 
 Two rules that are load-bearing and easy to undo by accident:

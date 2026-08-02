@@ -9,6 +9,10 @@
     <string name="server_headers_name">Имя заголовка</string>
     <string name="server_headers_value">Значение</string>
     <string name="server_headers_add">Добавить заголовок</string>
+    <string name="server_headers_load_error">Не удалось прочитать сохранённые заголовки. Изменение сейчас может их перезаписать.</string>
+    <string name="server_headers_save_error">Не удалось сохранить — хранилище недоступно.</string>
+    <string name="server_headers_no_server">Не удалось сохранить — сервер ещё не настроен.</string>
+    <string name="server_headers_unverified_delete">Не удалось очистить — сохранённые заголовки не удалось прочитать.</string>
     <string name="server_headers_remove">Удалить заголовок</string>
     <string name="server_headers_show_value">Показать значение</string>
     <string name="server_headers_hide_value">Скрыть значение</string>

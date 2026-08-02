@@ -479,7 +479,6 @@
     <string name="server_headers_scope">Отправляются на %1$s</string>
     <string name="server_headers_save">Сохранить заголовки</string>
     <string name="server_headers_saved">Заголовки сохранены</string>
-    <string name="server_headers_no_server">Не удалось сохранить — сервер ещё не настроен.</string>
     <string name="server_connection_subtitle">Заголовки запросов для шлюзов доступа</string>
     <string name="server_headers_discard_title">Отменить изменения?</string>
     <string name="server_headers_discard_message">Несохранённые изменения заголовков будут потеряны.</string>

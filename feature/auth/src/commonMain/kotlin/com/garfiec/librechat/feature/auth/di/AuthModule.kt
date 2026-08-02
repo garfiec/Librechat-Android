@@ -23,7 +23,7 @@ val authModule = module {
     viewModel { params ->
         ServerUrlViewModel(
             serverDataStore = get(),
-            serverHeadersDataStore = get(),
+            serverRepository = get(),
             configRepository = get(),
             accountSwitcher = get(),
             addAccount = params.getOrNull() ?: false,

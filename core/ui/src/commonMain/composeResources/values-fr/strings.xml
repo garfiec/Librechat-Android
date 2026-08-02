@@ -9,6 +9,10 @@
     <string name="server_headers_name">Nom de l'en-tête</string>
     <string name="server_headers_value">Valeur</string>
     <string name="server_headers_add">Ajouter un en-tête</string>
+    <string name="server_headers_load_error">Impossible de lire les en-têtes enregistrés. Les modifier maintenant risque de les écraser.</string>
+    <string name="server_headers_save_error">Enregistrement impossible — stockage indisponible.</string>
+    <string name="server_headers_no_server">Enregistrement impossible — aucun serveur n'est encore configuré.</string>
+    <string name="server_headers_unverified_delete">Suppression impossible — les en-têtes enregistrés n\'ont pas pu être lus.</string>
     <string name="server_headers_remove">Supprimer l'en-tête</string>
     <string name="server_headers_show_value">Afficher la valeur</string>
     <string name="server_headers_hide_value">Masquer la valeur</string>

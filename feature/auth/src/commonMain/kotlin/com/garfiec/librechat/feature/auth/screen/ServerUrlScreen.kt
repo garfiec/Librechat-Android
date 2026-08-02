@@ -35,17 +35,23 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.data.repository.HeaderWriteFailure
 import com.garfiec.librechat.core.network.client.HeaderRejection
 import com.garfiec.librechat.core.ui.components.CustomHeaderRow
 import com.garfiec.librechat.core.ui.components.CustomHeaderRowError
 import com.garfiec.librechat.core.ui.components.CustomHeadersEditor
 import com.garfiec.librechat.core.ui.components.testTagsAsResourceIdSubtree
+import com.garfiec.librechat.core.ui.resources.server_headers_load_error
+import com.garfiec.librechat.core.ui.resources.server_headers_no_server
+import com.garfiec.librechat.core.ui.resources.server_headers_save_error
+import com.garfiec.librechat.core.ui.resources.server_headers_unverified_delete
 import com.garfiec.librechat.feature.auth.resources.*
 import com.garfiec.librechat.feature.auth.resources.Res
 import com.garfiec.librechat.feature.auth.viewmodel.HeaderFieldError
 import com.garfiec.librechat.feature.auth.viewmodel.ServerUrlViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.garfiec.librechat.core.ui.resources.Res as UiRes
 
 @Composable
 fun ServerUrlScreen(
@@ -124,6 +130,23 @@ fun ServerUrlScreen(
                 expanded = uiState.showAdvanced,
                 headers = uiState.customHeaders,
                 headerError = uiState.headerError,
+                // A save failure supersedes the load warning: it is the more recent, more actionable
+                // of the two, and the load warning is what the refused save was reacting to.
+                // Each case gets the same wording as its Settings counterpart: the two editors write
+                // to one store, and telling the user two different things about one failure is how
+                // "couldn't save" became "your device storage is broken" on this screen.
+                storeWarning = when (uiState.headersSaveFailure) {
+                    HeaderWriteFailure.UnverifiedDelete ->
+                        stringResource(UiRes.string.server_headers_unverified_delete)
+                    HeaderWriteFailure.NoServer ->
+                        stringResource(UiRes.string.server_headers_no_server)
+                    // NothingUsable is unreachable from here — Connect validates every row first —
+                    // so it shares the generic message rather than getting a string of its own.
+                    HeaderWriteFailure.StorageUnavailable, HeaderWriteFailure.NothingUsable ->
+                        stringResource(UiRes.string.server_headers_save_error)
+                    null -> stringResource(UiRes.string.server_headers_load_error)
+                        .takeIf { uiState.headersLoadFailed }
+                },
                 enabled = !uiState.isLoading,
                 onToggle = viewModel::toggleAdvanced,
                 onNameChange = viewModel::onHeaderNameChanged,
@@ -167,6 +190,8 @@ private fun CustomHeadersSection(
     expanded: Boolean,
     headers: List<CustomHeaderRow>,
     headerError: HeaderFieldError?,
+    /** Store-level warning (a read or a write that failed), as opposed to a rejected row. */
+    storeWarning: String?,
     enabled: Boolean,
     onToggle: () -> Unit,
     onNameChange: (Int, String) -> Unit,
@@ -189,6 +214,16 @@ private fun CustomHeadersSection(
         }
 
         if (!expanded) return@Column
+
+        if (storeWarning != null) {
+            Text(
+                text = storeWarning,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("server_url_headers_warning"),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         CustomHeadersEditor(
             headers = headers,

@@ -9,6 +9,10 @@
     <string name="server_headers_name">ヘッダー名</string>
     <string name="server_headers_value">値</string>
     <string name="server_headers_add">ヘッダーを追加</string>
+    <string name="server_headers_load_error">保存されたヘッダーを読み込めませんでした。ここで編集すると上書きされる可能性があります。</string>
+    <string name="server_headers_save_error">保存できません — ストレージを利用できません。</string>
+    <string name="server_headers_no_server">保存できません。サーバーがまだ設定されていません。</string>
+    <string name="server_headers_unverified_delete">消去できません — 保存されたヘッダーを読み込めませんでした。</string>
     <string name="server_headers_remove">ヘッダーを削除</string>
     <string name="server_headers_show_value">値を表示</string>
     <string name="server_headers_hide_value">値を非表示</string>

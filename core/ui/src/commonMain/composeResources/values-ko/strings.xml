@@ -9,6 +9,10 @@
     <string name="server_headers_name">헤더 이름</string>
     <string name="server_headers_value">값</string>
     <string name="server_headers_add">헤더 추가</string>
+    <string name="server_headers_load_error">저장된 헤더를 읽지 못했습니다. 지금 편집하면 덮어쓸 수 있습니다.</string>
+    <string name="server_headers_save_error">저장할 수 없음 — 저장소를 사용할 수 없습니다.</string>
+    <string name="server_headers_no_server">저장할 수 없습니다. 아직 서버가 설정되지 않았습니다.</string>
+    <string name="server_headers_unverified_delete">지울 수 없음 — 저장된 헤더를 읽지 못했습니다.</string>
     <string name="server_headers_remove">헤더 삭제</string>
     <string name="server_headers_show_value">값 표시</string>
     <string name="server_headers_hide_value">값 숨기기</string>

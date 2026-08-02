@@ -75,9 +75,29 @@
 - **Why it exists post-login at all**: a gateway credential can be rotated or revoked mid-session, and
   the pre-login editor is only reachable by signing out — not a step anyone would guess from the
   resulting "could not reach the server."
-- Save is explicit and does **not** re-probe: `ServerHeadersDataStore` is Flow-backed, so the next
-  ordinary request picks the values up, and in-flight requests keep the headers they were snapshotted
-  with (immutable by design).
+- **A null read is not an empty header set.** `headersForServer` returning null sets `loadFailed`: the
+  editor shows a warning instead of an empty list, and a server change clears the typed rows even
+  though the new server's read failed, because those rows belong to the server that just went away.
+  Refusing the *empty save* that would delete an unloaded credential is deliberately **not** here —
+  `ServerRepository.setHeaders` owns it, so the pre-login editor is covered by the same rule instead
+  of a second copy of it. A non-empty save is the recovery path and goes through.
+- **The dialog re-reads when it opens** (`reload()`, called from the row's `onClick`). The URL is
+  observed, so for one server the load happens exactly once — a read that failed would otherwise keep
+  warning about a store that has since recovered, for the life of the process. Unsaved edits win over
+  the re-read, and that is checked on **both** sides of the read: it genuinely suspends while the
+  store is recovering, and the dialog is already on screen by then, so the user is typing into it.
+- `showServerHeadersDialog` is `rememberSaveable`, unlike the screen's other dialog flags. This
+  ViewModel outlives the composition and holds half-typed rows, so a rotation that closed the dialog
+  without running the discard prompt would strand them behind a `reload()` that (correctly) refuses to
+  overwrite unsaved edits.
+- **Save failures render inside the dialog**, not as a snackbar: a refused save leaves the dialog open
+  and otherwise unchanged, and the Scaffold's snackbar draws behind its scrim — so the message would
+  be invisible and the Save button would look dead. `saveFailure` is therefore state that clears on
+  the next edit, not a one-shot event.
+- Save is explicit and does **not** re-probe: `ServerRepository` patches its in-memory map under the
+  same lock that performs the write (it is the table's only writer, and deliberately does *not*
+  observe it), so the next ordinary request picks the values up. In-flight requests keep the headers
+  they were snapshotted with — immutable by design.
 
 ### Dialogs
 - `LanguageSelectorDialog` — 37+ locales with search, single-select radio

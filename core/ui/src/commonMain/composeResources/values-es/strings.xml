@@ -9,6 +9,10 @@
     <string name="server_headers_name">Nombre del encabezado</string>
     <string name="server_headers_value">Valor</string>
     <string name="server_headers_add">Añadir encabezado</string>
+    <string name="server_headers_load_error">No se pudieron leer las cabeceras guardadas. Editarlas ahora podría sobrescribirlas.</string>
+    <string name="server_headers_save_error">No se pudo guardar: el almacenamiento no está disponible.</string>
+    <string name="server_headers_no_server">No se pudo guardar: aún no hay ningún servidor configurado.</string>
+    <string name="server_headers_unverified_delete">No se pudo borrar: no se pudieron leer las cabeceras guardadas.</string>
     <string name="server_headers_remove">Eliminar encabezado</string>
     <string name="server_headers_show_value">Mostrar valor</string>
     <string name="server_headers_hide_value">Ocultar valor</string>

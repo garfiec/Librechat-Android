@@ -9,6 +9,10 @@
     <string name="server_headers_name">اسم الترويسة</string>
     <string name="server_headers_value">القيمة</string>
     <string name="server_headers_add">إضافة ترويسة</string>
+    <string name="server_headers_load_error">تعذّرت قراءة الترويسات المحفوظة. قد يؤدي التعديل الآن إلى استبدالها.</string>
+    <string name="server_headers_save_error">تعذّر الحفظ — التخزين غير متاح.</string>
+    <string name="server_headers_no_server">تعذّر الحفظ — لم يتم إعداد أي خادم بعد.</string>
+    <string name="server_headers_unverified_delete">تعذّر المسح — تعذّرت قراءة الترويسات المحفوظة.</string>
     <string name="server_headers_remove">إزالة الترويسة</string>
     <string name="server_headers_show_value">إظهار القيمة</string>
     <string name="server_headers_hide_value">إخفاء القيمة</string>

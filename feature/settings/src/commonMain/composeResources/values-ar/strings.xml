@@ -479,7 +479,6 @@
     <string name="server_headers_scope">تُرسل إلى %1$s</string>
     <string name="server_headers_save">حفظ الترويسات</string>
     <string name="server_headers_saved">تم حفظ الترويسات</string>
-    <string name="server_headers_no_server">تعذّر الحفظ — لم يتم إعداد أي خادم بعد.</string>
     <string name="server_connection_subtitle">رؤوس الطلبات لبوابات الوصول</string>
     <string name="server_headers_discard_title">تجاهل التغييرات؟</string>
     <string name="server_headers_discard_message">سيتم فقدان تغييرات الرؤوس غير المحفوظة.</string>

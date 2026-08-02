@@ -54,6 +54,13 @@ import org.jetbrains.compose.resources.stringResource
 data class CustomHeaderRow(val name: String = "", val value: String = "")
 
 /**
+ * The rows as name-to-value pairs, for the validation and normalization helpers in `:core:network`
+ * (which this module deliberately does not depend on). Named rather than inlined at each call site so
+ * the two halves can't be transposed.
+ */
+fun List<CustomHeaderRow>.toPairs(): List<Pair<String, String>> = map { it.name to it.value }
+
+/**
  * Why a row can't be sent, as a UI-level enum.
  *
  * Deliberately not `:core:network`'s `HeaderRejection`: mapping the two at each call site (three

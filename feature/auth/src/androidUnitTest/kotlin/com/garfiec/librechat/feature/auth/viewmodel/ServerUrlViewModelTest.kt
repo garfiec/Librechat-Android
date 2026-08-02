@@ -2,9 +2,11 @@ package com.garfiec.librechat.feature.auth.viewmodel
 
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
-import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.ConfigRepository
+import com.garfiec.librechat.core.data.repository.HeaderWriteFailure
+import com.garfiec.librechat.core.data.repository.HeaderWriteResult
+import com.garfiec.librechat.core.data.repository.ServerRepository
 import com.garfiec.librechat.core.model.config.StartupConfig
 import com.garfiec.librechat.core.network.client.HeaderRejection
 import com.garfiec.librechat.core.ui.components.CustomHeaderRow
@@ -36,7 +38,7 @@ class ServerUrlViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
-    private val serverHeadersDataStore = mockk<ServerHeadersDataStore>(relaxed = true)
+    private val serverRepository = mockk<ServerRepository>(relaxed = true)
     private val configRepository = mockk<ConfigRepository>(relaxed = true)
     private val accountSwitcher = mockk<AccountSwitcher>(relaxed = true)
 
@@ -49,6 +51,9 @@ class ServerUrlViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        // A relaxed Boolean is false, which Connect now reads as "the credential never reached
+        // disk" and stops on. Default to a store that works; the tests about failure say so.
+        coEvery { serverRepository.setHeaders(any(), any()) } returns HeaderWriteResult.Saved
         // Pass block-running calls through so the probe actually executes.
         coEvery { accountSwitcher.withPendingIdentity(any<suspend () -> Result<StartupConfig>>()) } coAnswers {
             firstArg<suspend () -> Result<StartupConfig>>().invoke()
@@ -62,7 +67,7 @@ class ServerUrlViewModelTest {
 
     private fun createViewModel(addAccount: Boolean) = ServerUrlViewModel(
         serverDataStore = serverDataStore,
-        serverHeadersDataStore = serverHeadersDataStore,
+        serverRepository = serverRepository,
         configRepository = configRepository,
         accountSwitcher = accountSwitcher,
         addAccount = addAccount,
@@ -180,7 +185,7 @@ class ServerUrlViewModelTest {
     @Test
     fun `add mode prefills the active URL but never the active server's headers`() = runTest(testDispatcher) {
         coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
-        coEvery { serverHeadersDataStore.headersForServer(any()) } returns liveHeaders
+        coEvery { serverRepository.headersForServer(any()) } returns liveHeaders
 
         val viewModel = createViewModel(addAccount = true)
         advanceUntilIdle()
@@ -189,14 +194,14 @@ class ServerUrlViewModelTest {
         assertThat(viewModel.uiState.value.customHeaders).isEmpty()
         assertThat(viewModel.uiState.value.showAdvanced).isFalse()
         // Not merely absent from the state — never read, so it cannot leak via a later copy() either.
-        coVerify(exactly = 0) { serverHeadersDataStore.headersForServer(any()) }
+        coVerify(exactly = 0) { serverRepository.headersForServer(any()) }
     }
 
     /** The same prefill in normal mode DOES restore the headers — that's what makes logout survivable. */
     @Test
     fun `normal mode prefills the saved headers and opens the advanced section`() = runTest(testDispatcher) {
         coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
-        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+        coEvery { serverRepository.headersForServer(liveUrl) } returns liveHeaders
 
         val viewModel = createViewModel(addAccount = false)
         advanceUntilIdle()
@@ -227,7 +232,7 @@ class ServerUrlViewModelTest {
         advanceUntilIdle()
 
         coVerifyOrder {
-            serverHeadersDataStore.setHeaders(pendingUrl, mapOf("CF-Access-Client-Id" to "id-value"))
+            serverRepository.setHeaders(pendingUrl, mapOf("CF-Access-Client-Id" to "id-value"))
             serverDataStore.setServerUrl(pendingUrl)
             configRepository.validateServerUrl(pendingUrl)
         }
@@ -251,7 +256,7 @@ class ServerUrlViewModelTest {
         advanceUntilIdle()
 
         coVerifyOrder {
-            serverHeadersDataStore.setHeaders(pendingUrl, mapOf("CF-Access-Client-Id" to "id-value"))
+            serverRepository.setHeaders(pendingUrl, mapOf("CF-Access-Client-Id" to "id-value"))
             accountSwitcher.beginAdd(pendingUrl)
         }
     }
@@ -275,14 +280,81 @@ class ServerUrlViewModelTest {
             viewModel.validateAndConnect()
             advanceUntilIdle()
 
-            coVerify(exactly = 0) { serverHeadersDataStore.setHeaders(any(), any()) }
+            coVerify(exactly = 0) { serverRepository.setHeaders(any(), any()) }
         }
+
+    /**
+     * The untouched-editor test above only covers a user who never opened Advanced. Touching a row
+     * and leaving it blank is the same situation — add mode's editor starts empty *by design*, so it
+     * never represented the active server's stored headers and an empty map from it is not a clear.
+     * The URL is the active server's, so writing one deletes a live session's credential.
+     */
+    @Test
+    fun `add mode with a touched but blank editor still writes nothing`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { configRepository.probeServerUrl() } returns Result.Success(config)
+
+        val viewModel = createViewModel(addAccount = true)
+        advanceUntilIdle()
+
+        viewModel.addHeaderRow()
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { serverRepository.setHeaders(any(), any()) }
+    }
+
+    /** Typing a credential in add mode is a real edit and must still reach the store. */
+    @Test
+    fun `add mode still saves headers the user actually typed`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { configRepository.probeServerUrl() } returns Result.Success(config)
+
+        val viewModel = createViewModel(addAccount = true)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.addHeaderRow()
+        viewModel.onHeaderNameChanged(0, "CF-Access-Client-Id")
+        viewModel.onHeaderValueChanged(0, "id-value")
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            serverRepository.setHeaders(pendingUrl, mapOf("CF-Access-Client-Id" to "id-value"))
+        }
+    }
+
+    /**
+     * The refusal message tells the user to re-enter the credential, and it renders in the same slot
+     * as the load warning that explains why. Leaving it up while they comply means a stale error over
+     * valid input, with the explanation suppressed behind it.
+     */
+    @Test
+    fun `editing a row clears a stale store failure`() = runTest(testDispatcher) {
+        coEvery { serverRepository.setHeaders(any(), any()) } returns
+            HeaderWriteResult.Refused(HeaderWriteFailure.UnverifiedDelete)
+
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.addHeaderRow()
+        viewModel.removeHeaderRow(0)
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.headersSaveFailure).isNotNull()
+
+        viewModel.addHeaderRow()
+
+        assertThat(viewModel.uiState.value.headersSaveFailure).isNull()
+    }
 
     /** Same guard pre-login: an editor that never loaded must not be mistaken for a cleared one. */
     @Test
     fun `normal mode with an untouched editor does not rewrite stored headers`() = runTest(testDispatcher) {
         coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
-        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+        coEvery { serverRepository.headersForServer(liveUrl) } returns liveHeaders
         coEvery { configRepository.validateServerUrl(any()) } returns Result.Success(config)
 
         val viewModel = createViewModel(addAccount = false)
@@ -291,14 +363,14 @@ class ServerUrlViewModelTest {
         viewModel.validateAndConnect()
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { serverHeadersDataStore.setHeaders(any(), any()) }
+        coVerify(exactly = 0) { serverRepository.setHeaders(any(), any()) }
     }
 
     /** Clearing every row IS an edit, so it must still reach the store as an empty map. */
     @Test
     fun `removing the last row persists the clear`() = runTest(testDispatcher) {
         coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
-        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+        coEvery { serverRepository.headersForServer(liveUrl) } returns liveHeaders
         coEvery { configRepository.validateServerUrl(any()) } returns Result.Success(config)
 
         val viewModel = createViewModel(addAccount = false)
@@ -308,7 +380,7 @@ class ServerUrlViewModelTest {
         viewModel.validateAndConnect()
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { serverHeadersDataStore.setHeaders(liveUrl, emptyMap()) }
+        coVerify(exactly = 1) { serverRepository.setHeaders(liveUrl, emptyMap()) }
     }
 
     /**
@@ -319,7 +391,7 @@ class ServerUrlViewModelTest {
     @Test
     fun `a late prefill does not clobber rows the user already typed`() = runTest(testDispatcher) {
         coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
-        coEvery { serverHeadersDataStore.headersForServer(liveUrl) } returns liveHeaders
+        coEvery { serverRepository.headersForServer(liveUrl) } returns liveHeaders
 
         val viewModel = createViewModel(addAccount = false)
         // Deliberately NOT advancing to idle — init is still suspended.
@@ -348,7 +420,77 @@ class ServerUrlViewModelTest {
         assertThat(viewModel.uiState.value.headerError)
             .isEqualTo(HeaderFieldError(index = 0, reason = HeaderRejection.ReservedName))
         assertThat(viewModel.uiState.value.showAdvanced).isTrue()
-        coVerify(exactly = 0) { serverHeadersDataStore.setHeaders(any(), any()) }
+        coVerify(exactly = 0) { serverRepository.setHeaders(any(), any()) }
         coVerify(exactly = 0) { configRepository.validateServerUrl(any()) }
+    }
+
+    /**
+     * A probe without the credential comes back as the gateway's own login page, which surfaces as a
+     * generic connection error — sending the user to re-check a URL that was never the problem while
+     * the token they typed was never stored.
+     */
+    @Test
+    fun `a header write the store refuses stops the connect instead of probing`() = runTest(testDispatcher) {
+        coEvery { serverRepository.setHeaders(any(), any()) } returns
+            HeaderWriteResult.Refused(HeaderWriteFailure.StorageUnavailable)
+        coEvery { configRepository.validateServerUrl(any()) } returns Result.Success(config)
+
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        viewModel.onUrlChanged(pendingUrl)
+        viewModel.addHeaderRow()
+        viewModel.onHeaderNameChanged(0, "CF-Access-Client-Id")
+        viewModel.onHeaderValueChanged(0, "id-value")
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.headersSaveFailure)
+            .isEqualTo(HeaderWriteFailure.StorageUnavailable)
+        assertThat(viewModel.uiState.value.showAdvanced).isTrue()
+        assertThat(viewModel.uiState.value.isLoading).isFalse()
+        coVerify(exactly = 0) { configRepository.validateServerUrl(any()) }
+    }
+
+    /**
+     * The pre-login twin of the settings editor's refusal. This screen is reached *because* the
+     * server is unreachable, so an editor that could not load its credential is the normal case here,
+     * not an edge one — and clearing a row in it must not be able to delete the only copy.
+     */
+    @Test
+    fun `a clear the store refuses stops the connect and names the reason`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { serverRepository.headersForServer(liveUrl) } returns null
+        coEvery { serverRepository.setHeaders(any(), any()) } returns
+            HeaderWriteResult.Refused(HeaderWriteFailure.UnverifiedDelete)
+        coEvery { configRepository.validateServerUrl(any()) } returns Result.Success(config)
+
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        viewModel.addHeaderRow()
+        viewModel.removeHeaderRow(0)
+        viewModel.validateAndConnect()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.headersSaveFailure)
+            .isEqualTo(HeaderWriteFailure.UnverifiedDelete)
+        assertThat(viewModel.uiState.value.showAdvanced).isTrue()
+        assertThat(viewModel.uiState.value.isLoading).isFalse()
+        // Probing anyway would blame the URL for a credential that was never written.
+        coVerify(exactly = 0) { configRepository.validateServerUrl(any()) }
+    }
+
+    @Test
+    fun `an unreadable store is flagged rather than shown as an empty editor`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns liveUrl
+        coEvery { serverRepository.headersForServer(liveUrl) } returns null
+
+        val viewModel = createViewModel(addAccount = false)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.headersLoadFailed).isTrue()
+        // Expanded, so the warning isn't hidden behind a collapsed section.
+        assertThat(viewModel.uiState.value.showAdvanced).isTrue()
     }
 }

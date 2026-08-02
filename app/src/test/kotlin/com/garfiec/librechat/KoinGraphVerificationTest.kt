@@ -8,7 +8,6 @@ import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
-import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
@@ -35,6 +34,7 @@ import com.garfiec.librechat.core.data.repository.ProjectRepository
 import com.garfiec.librechat.core.data.repository.PromptRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.SearchRepository
+import com.garfiec.librechat.core.data.repository.ServerRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
@@ -155,7 +155,7 @@ class KoinGraphVerificationTest {
             // core:data provides
             ConfigCacheDataStore::class,
             ServerDataStore::class,
-            ServerHeadersDataStore::class,
+            ServerRepository::class,
             AccountRoster::class,
             AccountSwitcher::class,
             SettingsDataStore::class,

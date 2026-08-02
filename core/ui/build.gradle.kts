@@ -7,6 +7,14 @@ android {
     namespace = "com.garfiec.librechat.core.ui"
 }
 
+// Compose Resources generates its accessors `internal` by default, which is why strings for shared
+// components used to be copied into each consuming feature module — and why four gateway-header
+// warnings drifted into saying different things about the same failure. This module owns components
+// that two features render, so its strings have to be reachable from both.
+compose.resources {
+    publicResClass = true
+}
+
 kotlin {
     sourceSets {
         commonMain.dependencies {

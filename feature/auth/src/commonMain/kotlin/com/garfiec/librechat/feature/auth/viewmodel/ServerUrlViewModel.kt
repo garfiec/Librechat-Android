@@ -5,12 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
-import com.garfiec.librechat.core.data.datastore.ServerHeadersDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.ConfigRepository
+import com.garfiec.librechat.core.data.repository.HeaderWriteFailure
+import com.garfiec.librechat.core.data.repository.HeaderWriteResult
+import com.garfiec.librechat.core.data.repository.ServerRepository
 import com.garfiec.librechat.core.network.client.CustomHeaderRules
 import com.garfiec.librechat.core.network.client.HeaderRejection
 import com.garfiec.librechat.core.ui.components.CustomHeaderRow
+import com.garfiec.librechat.core.ui.components.toPairs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +37,18 @@ data class ServerUrlUiState(
     val showAdvanced: Boolean = false,
     val customHeaders: List<CustomHeaderRow> = emptyList(),
     val headerError: HeaderFieldError? = null,
+    /**
+     * The stored headers could not be read, so [customHeaders] is empty because nothing loaded, not
+     * because nothing is configured. Rendered as a warning: an unlabelled empty editor reads as the
+     * credential having been lost.
+     */
+    val headersLoadFailed: Boolean = false,
+    /**
+     * Why the typed headers could not be persisted, or null. Connect stops on any of these rather
+     * than probing, because a probe without the credential fails as an opaque connection error and
+     * sends the user to fix a URL that was never the problem.
+     */
+    val headersSaveFailure: HeaderWriteFailure? = null,
 )
 
 /**
@@ -50,7 +65,7 @@ data class ServerUrlUiState(
  */
 class ServerUrlViewModel(
     private val serverDataStore: ServerDataStore,
-    private val serverHeadersDataStore: ServerHeadersDataStore,
+    private val serverRepository: ServerRepository,
     private val configRepository: ConfigRepository,
     private val accountSwitcher: AccountSwitcher,
     private val addAccount: Boolean = false,
@@ -82,7 +97,7 @@ class ServerUrlViewModel(
             // live server's secret on a screen the user believes is configuring a *new* server; an
             // edit there would then silently rewrite the live server's credential. Add mode starts
             // empty and the user re-enters what the new server needs.
-            val savedHeaders = if (addAccount) emptyMap() else serverHeadersDataStore.headersForServer(existingUrl)
+            val savedHeaders = if (addAccount) emptyMap() else serverRepository.headersForServer(existingUrl)
             // Both awaits above can outlast the first frame, and `headersForServer` adds a second
             // suspension on the header store's own warm-up. By the time they resolve the user may
             // already be typing — applying the prefill then overwrites a URL or a freshly rotated
@@ -90,9 +105,14 @@ class ServerUrlViewModel(
             if (userEdited) return@launch
             _uiState.value = _uiState.value.copy(
                 url = existingUrl,
-                customHeaders = savedHeaders.map { (name, value) -> CustomHeaderRow(name, value) },
-                // Auto-expand when headers already exist, so a saved credential is never invisible.
-                showAdvanced = savedHeaders.isNotEmpty(),
+                customHeaders = savedHeaders.orEmpty().map { (name, value) -> CustomHeaderRow(name, value) },
+                // Auto-expand when headers already exist, so a saved credential is never invisible —
+                // and equally when they could not be read, so the warning is not hidden behind a
+                // collapsed section.
+                showAdvanced = savedHeaders == null || savedHeaders.isNotEmpty(),
+                // Null is "could not read", not "none configured": an unlabelled empty editor would
+                // read as the credential having been lost.
+                headersLoadFailed = savedHeaders == null,
             )
         }
     }
@@ -126,6 +146,7 @@ class ServerUrlViewModel(
         _uiState.value = _uiState.value.copy(
             customHeaders = _uiState.value.customHeaders + CustomHeaderRow(),
             headerError = null,
+            headersSaveFailure = null,
         )
     }
 
@@ -136,6 +157,7 @@ class ServerUrlViewModel(
         _uiState.value = _uiState.value.copy(
             customHeaders = current.filterIndexed { i, _ -> i != index },
             headerError = null,
+            headersSaveFailure = null,
         )
     }
 
@@ -155,8 +177,11 @@ class ServerUrlViewModel(
         _uiState.value = _uiState.value.copy(
             customHeaders = current.mapIndexed { i, field -> if (i == index) transform(field) else field },
             // Clear the rejection as soon as the user edits: leaving it pinned to a stale index would
-            // point at the wrong row after an add/remove.
+            // point at the wrong row after an add/remove. The store-level failure goes for a second
+            // reason — it masks the load warning, so leaving it up hides the explanation for the very
+            // situation the user is typing their way out of.
             headerError = null,
+            headersSaveFailure = null,
         )
     }
 
@@ -196,17 +221,25 @@ class ServerUrlViewModel(
     }
 
     private fun doValidateAndConnect(url: String) {
-        val headers = _uiState.value.customHeaders
-        firstInvalidHeader(headers)?.let { rejection ->
+        val headers = _uiState.value.customHeaders.toPairs()
+        CustomHeaderRules.firstRejection(headers)?.let { rejection ->
             // Reject before touching the network: a gateway answers a malformed credential with a
             // redirect to its own login page, which surfaces as an opaque "could not reach the
             // server" — the user would have no way to tell a typo from a wrong URL.
-            _uiState.value = _uiState.value.copy(headerError = rejection, showAdvanced = true)
+            _uiState.value = _uiState.value.copy(
+                headerError = HeaderFieldError(rejection.index, rejection.reason),
+                showAdvanced = true,
+            )
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, headerError = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null,
+                headerError = null,
+                headersSaveFailure = null,
+            )
 
             // Three rules here, each easy to undo:
             // - Awaited BEFORE the probe below, which is the first request to a gateway-protected
@@ -220,8 +253,32 @@ class ServerUrlViewModel(
             //   ACTIVE server's URL, so one tap on the untouched prefill would wipe the live
             //   session's credential) and before the store resolves. Clearing is expressed by
             //   removing rows, which sets the flag.
-            if (headersEdited) {
-                serverHeadersDataStore.setHeaders(url, headers.toHeaderMap())
+            // Stop on a refusal rather than probing anyway: the probe would go out without the
+            // credential, come back as the gateway's login page, and surface as "could not connect
+            // to server" — sending the user to re-check a URL that was never the problem, with the
+            // typed token silently not stored and every retry failing identically. That includes the
+            // store refusing to clear a value it could not read, which this screen does not
+            // second-guess: the rule lives in one place and both editors write through it.
+            val typed = CustomHeaderRules.toHeaderMap(headers)
+            // Add mode's editor starts empty by design — it must not show the active server's secret
+            // — so an empty map here is "the user typed nothing", never "the user cleared their
+            // headers". The URL is prefilled with the ACTIVE server, so writing it would delete a
+            // credential belonging to a session the user is still signed in to, from a screen about
+            // a different account. There is nothing to clear in add mode: the editor never
+            // represented anything stored.
+            val wouldClearWithoutHavingLoaded = addAccount && typed.isEmpty()
+            if (headersEdited && !wouldClearWithoutHavingLoaded) {
+                val written = serverRepository.setHeaders(url, typed)
+                if (written is HeaderWriteResult.Refused) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        showAdvanced = true,
+                        headersSaveFailure = written.reason,
+                    )
+                    return@launch
+                }
+                // A write that landed replaces whatever could not be read, so the warning is spent.
+                _uiState.value = _uiState.value.copy(headersLoadFailed = false)
             }
 
             val result = if (addAccount) validatePendingServer(url) else validateLiveServer(url)
@@ -274,22 +331,4 @@ class ServerUrlViewModel(
         }
         return result
     }
-
-    /**
-     * The first row that can't be sent, or null. Fully blank rows are skipped — the list always ends
-     * with an empty row the user hasn't filled in yet, and that isn't an error.
-     */
-    private fun firstInvalidHeader(headers: List<CustomHeaderRow>): HeaderFieldError? =
-        headers.withIndex().firstNotNullOfOrNull { (index, field) ->
-            if (field.name.isBlank() && field.value.isBlank()) {
-                null
-            } else {
-                CustomHeaderRules.validate(field.name, field.value)?.let { HeaderFieldError(index, it) }
-            }
-        }
-
-    /** Drops blank rows and normalizes what's left. Later rows win on a duplicate name. */
-    private fun List<CustomHeaderRow>.toHeaderMap(): Map<String, String> =
-        filterNot { it.name.isBlank() && it.value.isBlank() }
-            .associate { it.name.trim() to CustomHeaderRules.normalizeValue(it.value) }
 }

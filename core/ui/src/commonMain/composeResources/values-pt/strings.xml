@@ -9,6 +9,10 @@
     <string name="server_headers_name">Nome do cabeçalho</string>
     <string name="server_headers_value">Valor</string>
     <string name="server_headers_add">Adicionar cabeçalho</string>
+    <string name="server_headers_load_error">Não foi possível ler os cabeçalhos salvos. Editar agora pode sobrescrevê-los.</string>
+    <string name="server_headers_save_error">Não foi possível salvar — armazenamento indisponível.</string>
+    <string name="server_headers_no_server">Não foi possível salvar — nenhum servidor configurado ainda.</string>
+    <string name="server_headers_unverified_delete">Não foi possível limpar — não foi possível ler os cabeçalhos salvos.</string>
     <string name="server_headers_remove">Remover cabeçalho</string>
     <string name="server_headers_show_value">Mostrar valor</string>
     <string name="server_headers_hide_value">Ocultar valor</string>
