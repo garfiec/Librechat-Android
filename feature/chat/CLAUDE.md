@@ -40,8 +40,33 @@
 ## Screen States
 `ChatScreenState` enum: `LANDING` | `LOADING` | `ACTIVE`
 - **Landing**: no conversation selected, shows greeting + model icon + optional conversation starters
-- **Loading**: spinner while fetching messages for a conversation
+- **Loading**: full-screen spinner — *nothing is cached* and the message fetch has not settled
 - **Active**: message list + streaming content + input area
+
+### Cache-first open (#300)
+`loadConversation(conversationId, cacheFirst)` picks the ordering between the Room read-through
+and the server fetch. `cacheFirst = true` subscribes the observer first and revalidates in a child
+coroutine, so an **open** paints the cached copy immediately instead of holding the spinner
+through a GET that is retried twice with exponential backoff before it can fail. `ChatViewModel.init`
+is the only opt-in; every other caller stays network-first **deliberately**. Each of them reloads
+precisely because the server holds something the cache does not — a just-finalized turn
+(`SendCompletionDelegate`), a just-created branch (`ComparisonModeDelegate.branchFromComparison`),
+a stream that ended server-side (`StreamingManagerDelegate`'s `StreamError` / `ResumeExpired` /
+`attemptNetworkRecovery`, plus the `launchStream` safety net), or an explicit refresh
+(`refreshMessages`) — so a cache emission there serves a snapshot that predates the very thing
+being fetched. After a Final that is also the completion flash: the finalized turn is in memory
+and Room stays stale until `cacheMessages` lands, so painting the cache re-renders the pre-Final tree.
+
+Two consequences worth knowing before touching that block:
+- The fetch's settle is a **`combine` input**, not a flag read inside `collect`. A conversation
+  with genuinely zero messages upserts nothing, so Room never emits again — without the
+  re-emission the screen spins forever. The comparison auto-rehydrate latch is gated on the same
+  input so it still burns on the *authoritative* tail, not a stale cached one.
+- `isRefreshingMessages` now means "a messages fetch is in flight" (pull-to-refresh **or** a
+  background revalidate) and drives `MessageList`'s pull-to-refresh indicator, which animates off
+  that boolean with no gesture. `refreshMessages` early-returns while it is set, which is what
+  keeps the two paths from racing each other's clear — and which means a pull issued during the
+  open's revalidate is dropped rather than queued, since a fetch is already running.
 
 ## Navigation
 - Sealed interface: `ChatRoute : NavKey` with typed route classes

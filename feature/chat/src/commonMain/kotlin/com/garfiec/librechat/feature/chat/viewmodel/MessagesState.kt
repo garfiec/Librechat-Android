@@ -38,6 +38,12 @@ data class MessagesState(
     val streamingAttachments: List<Attachment> = emptyList(),
     /** SSE reconnection retry state (null when not retrying). */
     val retryInfo: RetryInfo? = null,
+    /**
+     * A messages fetch is in flight — a pull-to-refresh, or the background revalidate behind a
+     * cache-first open. Drives `MessageList`'s pull-to-refresh indicator, which animates off this
+     * boolean alone and needs no gesture. `refreshMessages` early-returns while it is set, so the
+     * two paths cannot race each other's clear.
+     */
     val isRefreshingMessages: Boolean = false,
     /**
      * The message fetch failed *and* the cache had nothing to fall back to. Drives the retryable

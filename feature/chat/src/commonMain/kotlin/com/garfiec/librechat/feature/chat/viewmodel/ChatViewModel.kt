@@ -50,6 +50,7 @@ import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
+import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
@@ -453,7 +454,7 @@ class ChatViewModel(
                     )
                 }
             }
-            loadConversation(conversationId)
+            loadConversation(conversationId, cacheFirst = true)
             loadConversationModel(conversationId)
             restoreDraft(conversationId)
             // Check if there's an active stream for this conversation (e.g. when
@@ -598,7 +599,58 @@ class ChatViewModel(
 
     // ── Core chat flow ──────────────────────────────────────────────
 
-    private fun loadConversation(conversationId: String) {
+    /**
+     * Fetches the conversation's messages and records the outcome.
+     *
+     * `getMessages` is `safeApiCall`-wrapped: it reports failure by RETURNING [Result.Error] and
+     * lets only `CancellationException` propagate, so the result must be consumed — a `try/catch`
+     * around it can never see a network failure. An `Error` also means the cache was empty: the
+     * repository falls back to cached rows and returns those as `Success`.
+     */
+    private suspend fun revalidateMessages(conversationId: String) {
+        when (val result = messageRepository.getMessages(conversationId)) {
+            is Result.Error -> {
+                Logger.e(result.exception) { "Failed to fetch messages for $conversationId" }
+                _uiState.update {
+                    // Only report when the failure actually leaves the screen empty. A revalidate
+                    // that fails over cached rows is the ordinary offline case, and a handed-off
+                    // new chat streams with just its seeded user message while the server persists
+                    // the request only on completion — this fetch is *expected* to fail there.
+                    if (it.isStreaming || it.displayMessages.isNotEmpty()) {
+                        it
+                    } else {
+                        it.copy(
+                            // App-authored copy only — Ktor builds exception messages out of
+                            // the request URL, so result.message can leak an access gateway's
+                            // redirect JWT on screen (#287).
+                            error = "Could not load messages",
+                            content = it.content.copy(
+                                screenState = ChatScreenState.ACTIVE,
+                                messagesLoadFailed = true,
+                            ),
+                        )
+                    }
+                }
+            }
+            else -> _uiState.update {
+                it.copy(content = it.content.copy(messagesLoadFailed = false))
+            }
+        }
+    }
+
+    /**
+     * Subscribes the Room read-through for [conversationId] and revalidates it from the server.
+     *
+     * [cacheFirst] picks the ordering. `false` (the default) awaits the fetch before subscribing,
+     * so the first emission is the authoritative one. Every other caller reloads precisely because
+     * the server holds something the cache does not — a just-finalized turn, a just-created branch,
+     * a stream that ended server-side, or an explicit refresh — so a cache emission there serves a
+     * snapshot that predates the thing being fetched. After a Final that is also the completion
+     * flash: the finalized turn is in memory and Room stays stale until `cacheMessages` lands, so
+     * painting the cache would re-render the pre-Final tree. `true` subscribes first and revalidates
+     * in the background; `init` is the only opt-in (#300).
+     */
+    private fun loadConversation(conversationId: String, cacheFirst: Boolean = false) {
         // SECURITY: do not remove — temp-chat data-at-rest guard.
         // Defense-in-depth for temporary chats: never route a temp conversation
         // through the Room read-through, which would upsert its message rows to disk (the
@@ -613,38 +665,26 @@ class ChatViewModel(
         // re-enable comparison after the user has toggled it off for the session.
         var autoRehydrateHandled = false
         roomObserverJob = viewModelScope.launch {
-            // getMessages is safeApiCall-wrapped: it reports failure by RETURNING Result.Error and
-            // lets only CancellationException propagate, so the result must be consumed — a
-            // try/catch here can never see a network failure. An Error also means the cache was
-            // empty: the repository falls back to cached rows and returns those as Success.
-            when (val result = messageRepository.getMessages(conversationId)) {
-                is Result.Error -> {
-                    Logger.e(result.exception) { "Failed to fetch messages for $conversationId" }
-                    _uiState.update {
-                        // Only report when the failure actually leaves the screen empty. A
-                        // handed-off new chat streams with just its seeded user message and the
-                        // server persists the request only on completion, so this fetch is
-                        // expected to fail there — reporting it would fire mid-stream on a chat
-                        // that is working fine.
-                        if (it.isStreaming || it.displayMessages.isNotEmpty()) {
-                            it
-                        } else {
-                            it.copy(
-                                // App-authored copy only — Ktor builds exception messages out of
-                                // the request URL, so result.message can leak an access gateway's
-                                // redirect JWT on screen (#287).
-                                error = "Could not load messages",
-                                content = it.content.copy(
-                                    screenState = ChatScreenState.ACTIVE,
-                                    messagesLoadFailed = true,
-                                ),
-                            )
-                        }
+            // A flow, not a plain flag: it is a `combine` input below, so settling re-runs the
+            // transform even when Room never emits again — a conversation with genuinely zero
+            // messages upserts nothing, and an empty cache offline emits `[]` once. Read as a
+            // flag inside `collect`, both spin forever.
+            val revalidated = MutableStateFlow(false)
+            if (cacheFirst) {
+                // A child of roomObserverJob, so re-entering loadConversation cancels it with the
+                // observer.
+                launch {
+                    _uiState.update { it.copy(content = it.content.copy(isRefreshingMessages = true)) }
+                    try {
+                        revalidateMessages(conversationId)
+                    } finally {
+                        _uiState.update { it.copy(content = it.content.copy(isRefreshingMessages = false)) }
                     }
+                    revalidated.value = true
                 }
-                else -> _uiState.update {
-                    it.copy(content = it.content.copy(messagesLoadFailed = false))
-                }
+            } else {
+                revalidateMessages(conversationId)
+                revalidated.value = true
             }
             // buildActiveMessagePath is pure/synchronous CPU work; computing it on the Default
             // dispatcher keeps the tree walk off Main. Combining the active-branch selection in
@@ -655,7 +695,8 @@ class ChatViewModel(
             combine(
                 messageRepository.observeMessages(conversationId),
                 _uiState.map { it.activeBranches }.distinctUntilChanged(),
-            ) { messages, branches ->
+                revalidated,
+            ) { messages, branches, settled ->
                 // Reuse on-screen Message instances that changed only in volatile fields, so
                 // the rebuilt path stays value-equal and the cosmetic Room reconcile conflates
                 // instead of re-rendering the list (see [stabilizeMessageInstances]). The
@@ -678,19 +719,33 @@ class ChatViewModel(
                     stabilized.none { it.messageId == seed.messageId }
                 }
                 val merged = retainedPending?.let { stabilized + it } ?: stabilized
-                Triple(merged, buildActiveMessagePath(merged, branches), retainedPending)
+                MessagePathEmission(
+                    messages = merged,
+                    displayMessages = buildActiveMessagePath(merged, branches),
+                    retainedPending = retainedPending,
+                    revalidated = settled,
+                )
             }
                 .flowOn(defaultDispatcher)
-                .collect { (messages, displayMessages, retainedPending) ->
+                .collect { emission ->
+                    val displayMessages = emission.displayMessages
+                    val settled = emission.revalidated
                     _uiState.update {
                         it.copy(
                             content = it.content.copy(
-                                messages = messages,
+                                messages = emission.messages,
                                 displayMessages = displayMessages,
-                                screenState = ChatScreenState.ACTIVE,
+                                // Cached rows go straight to ACTIVE; an empty cache keeps
+                                // spinning, so an uncached online open never flashes a blank
+                                // thread first. Settling releases it either way.
+                                screenState = if (displayMessages.isNotEmpty() || settled) {
+                                    ChatScreenState.ACTIVE
+                                } else {
+                                    it.content.screenState
+                                },
                                 // Null once the server echoes its own copy (or there was never a seed) →
                                 // a later server-side delete can then still remove the row.
-                                pendingResumeUserMessage = retainedPending,
+                                pendingResumeUserMessage = emission.retainedPending,
                             ),
                         )
                     }
@@ -699,7 +754,10 @@ class ChatViewModel(
                     // else records it was a comparison. Only when not streaming and not already
                     // comparing (respects a session toggle-off); the branched-away case has a
                     // single-agent tail, so it naturally shows the normal view.
-                    if (!autoRehydrateHandled && displayMessages.isNotEmpty()) {
+                    // Gated on `settled` so the latch burns on the AUTHORITATIVE tail, not a stale
+                    // cached one: a comparison tail that exists only server-side would otherwise
+                    // never rehydrate.
+                    if (!autoRehydrateHandled && settled && displayMessages.isNotEmpty()) {
                         autoRehydrateHandled = true
                         val state = _uiState.value
                         val tail = displayMessages.lastOrNull()?.message
@@ -1720,3 +1778,10 @@ class ChatViewModel(
         }
     }
 }
+
+private data class MessagePathEmission(
+    val messages: List<Message>,
+    val displayMessages: List<MessageNode>,
+    val retainedPending: Message?,
+    val revalidated: Boolean,
+)
