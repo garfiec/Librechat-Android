@@ -47,7 +47,7 @@
     <string name="cd_more_options">خيارات إضافية</string>
     <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>
     <string name="cd_select_model">اختيار النموذج</string>
-    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_librechat">Switchboard</string>
     <string name="cd_comparison_enabled">المقارنة مُفعّلة</string>
 
     <!-- Content descriptions - Messages -->

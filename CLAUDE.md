@@ -1,4 +1,4 @@
-# LibreChat Mobile
+# Switchboard
 
 Native mobile client for LibreChat (Android & iOS). Connects to existing LibreChat backend servers (no backend changes). Users specify server URL during onboarding.
 

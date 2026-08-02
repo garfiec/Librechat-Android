@@ -30,6 +30,13 @@ const A = args || {}
 const RANGE = `${A.baseCommit}..${A.targetCommit}`
 const IS_AUDIT = A.mode === 'audit'
 
+// Every agent below starts cold. "Switchboard upstream sync" on its own reads as though upstream
+// were also called Switchboard — the old product name happened to carry the backend's identity for
+// free, and the rename took that away. State the relationship once, explicitly, per prompt.
+const CONTEXT = `CONTEXT: Switchboard is a third-party native mobile client for LibreChat.
+"Upstream" always means the official LibreChat server repo (danny-avila/LibreChat), vendored
+read-only at ./upstream. Switchboard is the client, never the upstream.`
+
 // The lens flips the whole run — the same range, read with opposite intent.
 const LENS = IS_AUDIT
   ? `AUDIT LENS: the mobile pin is ALREADY at ${A.targetCommit}. You are NOT finding new
@@ -83,7 +90,9 @@ const RAW_FINDING = {
 phase('Multi-angle sweep')
 
 const angleResults = await parallel(ANGLES.map((angle) => () => agent(
-  `You are the "${angle.label}" discovery angle for a LibreChat Mobile upstream ${A.mode}.
+  `${CONTEXT}
+
+You are the "${angle.label}" discovery angle for a Switchboard upstream ${A.mode}.
 Repo root is the current working directory. Upstream submodule is at ./upstream (read-only).
 
 ${LENS}
@@ -139,7 +148,9 @@ const CONVERGED_FINDING = {
 }
 
 const converged = await agent(
-  `Converge the raw discovery findings for a LibreChat Mobile upstream ${A.mode}
+  `${CONTEXT}
+
+Converge the raw discovery findings for a Switchboard upstream ${A.mode}
 (${A.baseVersion}, targetMode=${A.targetMode}, anchor=${A.anchorTag}). Repo root is CWD.
 
 ${LENS}
@@ -193,7 +204,9 @@ Return the structured report.`,
 phase('Completeness critic')
 
 const critic = await agent(
-  `You are the completeness critic for a LibreChat Mobile upstream ${A.mode}. Repo root is CWD.
+  `${CONTEXT}
+
+You are the completeness critic for a Switchboard upstream ${A.mode}. Repo root is CWD.
 The converged discovery report is at ${converged.reportPath}. Read it.
 
 Your ONLY job is to find what the sweep MISSED. Check, concretely:

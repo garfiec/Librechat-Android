@@ -1,4 +1,4 @@
-# LibreChat iOS App
+# Switchboard iOS App
 
 Compose Multiplatform iOS client for LibreChat. The iOS app is a thin SwiftUI wrapper around the full Compose Multiplatform UI — all screens, navigation, and business logic are shared with Android via KMP.
 

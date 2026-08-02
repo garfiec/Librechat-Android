@@ -55,7 +55,7 @@ Once the CA is trusted on the device, you only need to re-install it if you crea
 
 Android imposes no equivalent validity-period cap — multi-year self-signed certificates are accepted as long as the requirements in the common table above are met.
 
-However, since Android 7.0 (API 24), apps trust **only the system CA store** by default. A CA that a user installs via **Settings → Security → Encryption & credentials → Install a certificate** is *not* trusted by apps unless the app explicitly opts in via its Network Security Config. **LibreChat Mobile does not currently opt in**, so a self-signed CA installed in device settings will not be trusted and the connection will fail with an `SSLHandshakeException` wrapping `CertPathValidatorException: Trust anchor for certification path not found`.
+However, since Android 7.0 (API 24), apps trust **only the system CA store** by default. A CA that a user installs via **Settings → Security → Encryption & credentials → Install a certificate** is *not* trusted by apps unless the app explicitly opts in via its Network Security Config. **Switchboard does not currently opt in**, so a self-signed CA installed in device settings will not be trusted and the connection will fail with an `SSLHandshakeException` wrapping `CertPathValidatorException: Trust anchor for certification path not found`.
 
 If you need TLS with a self-hosted server on Android today, the practical options are:
 

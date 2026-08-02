@@ -79,7 +79,7 @@ class DataManagementDelegate(
             stateHandle.update { copy(isLogsExporting = true) }
             try {
                 val content = diagnosticLogRepository.exportText()
-                val fileName = "librechat-logs-${Clock.System.now().toEpochMilliseconds()}.jsonl"
+                val fileName = "switchboard-logs-${Clock.System.now().toEpochMilliseconds()}.jsonl"
                 stateHandle.update {
                     copy(
                         isLogsExporting = false,

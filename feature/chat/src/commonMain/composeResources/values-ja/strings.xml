@@ -47,7 +47,7 @@
     <string name="cd_more_options">その他のオプション</string>
     <string name="cd_scroll_to_bottom">一番下までスクロール</string>
     <string name="cd_select_model">モデルを選択</string>
-    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_librechat">Switchboard</string>
     <string name="cd_comparison_enabled">比較が有効</string>
 
     <!-- Content descriptions - Messages -->

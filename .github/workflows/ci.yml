@@ -107,7 +107,7 @@ jobs:
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''
         uses: actions/upload-artifact@v7
         with:
-          name: librechat-android-debug-${{ github.event.pull_request.number || github.sha }}
+          name: switchboard-android-debug-${{ github.event.pull_request.number || github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
           if-no-files-found: error
@@ -115,7 +115,7 @@ jobs:
       - name: Write APK summary
         if: always() && steps.upload_apk.outputs.artifact-url != ''
         env:
-          ARTIFACT_NAME: librechat-android-debug-${{ github.event.pull_request.number || github.sha }}
+          ARTIFACT_NAME: switchboard-android-debug-${{ github.event.pull_request.number || github.sha }}
           ARTIFACT_URL: ${{ steps.upload_apk.outputs.artifact-url }}
         run: |
           {
@@ -137,8 +137,8 @@ jobs:
           message: |
             ## Android debug APK
 
-            **Artifact:** `librechat-android-debug-${{ github.event.pull_request.number }}`
-            **Download:** [librechat-android-debug-${{ github.event.pull_request.number }}.zip](${{ steps.upload_apk.outputs.artifact-url }})
+            **Artifact:** `switchboard-android-debug-${{ github.event.pull_request.number }}`
+            **Download:** [switchboard-android-debug-${{ github.event.pull_request.number }}.zip](${{ steps.upload_apk.outputs.artifact-url }})
             **Retention:** 90 days
             **Commit:** `${{ github.event.pull_request.head.sha }}`
 

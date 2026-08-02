@@ -1,6 +1,6 @@
 # Version Gates
 
-LibreChat Mobile supports a range of backend server versions. This file catalogs every
+Switchboard supports a range of LibreChat backend server versions. This file catalogs every
 place in the codebase where behavior branches based on the detected server version so
 the compatibility surface is auditable. When the minimum supported server version is
 raised, entries here can be simplified or removed.

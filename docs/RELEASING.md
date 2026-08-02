@@ -1,6 +1,6 @@
 # Releasing
 
-How releases are versioned, signed, and published for LibreChat Mobile (Android & iOS).
+How releases are versioned, signed, and published for Switchboard (Android & iOS).
 
 ## Versioning
 
@@ -93,6 +93,11 @@ user's update fails with a signature conflict and recovery requires uninstall + 
      -dname "CN=LibreChat Mobile, O=LibreChat, C=US"
    ```
 
+   > The `librechat` filename, alias, and dname above are historical — they record how the
+   > existing release key was actually generated, before the app was renamed to Switchboard.
+   > Do **not** "fix" them to match the new name: the dname is baked into the certificate, and
+   > re-keying would make Android refuse the update for every existing install.
+
    Back it up in **2+ secure locations** (password manager / offline). Do **not** commit it
    (`.gitignore` already excludes `*.jks` and `keystore.properties`).
 
@@ -137,7 +142,7 @@ release builds fall back to the debug key so local builds and CI checks still wo
    versions are flagged as pre-releases automatically. If the build fails, nothing is committed
    or tagged — just re-run after fixing it.
 3. A **secondary `ios` job** (macOS runner) then checks out the freshly tagged commit, builds
-   an **unsigned device IPA**, attests it, and attaches `librechat-vX.ipa` + `.sha256` to the
+   an **unsigned device IPA**, attests it, and attaches `switchboard-vX.ipa` + `.sha256` to the
    same draft. It uses **no secrets and no Apple account** (sideload installers re-sign on the
    user's device), so it needs nothing beyond the standard CI setup. It is **non-blocking**: if
    the macOS build fails the Android tag + APK + draft already stand — re-run just the `ios` job
@@ -160,7 +165,7 @@ release builds fall back to the debug key so local builds and CI checks still wo
 
 ## Installing the iOS IPA
 
-The iOS asset (`librechat-vX.ipa`) is **unsigned** — there is no Apple Developer account or
+The iOS asset (`switchboard-vX.ipa`) is **unsigned** — there is no Apple Developer account or
 App Store path. iOS refuses to run unsigned code, so every install route below re-signs the
 app on (or for) your device. Pick whichever your device supports:
 

@@ -1,4 +1,4 @@
-# Contributing to LibreChat Mobile
+# Contributing to Switchboard
 
 ## Prerequisites
 

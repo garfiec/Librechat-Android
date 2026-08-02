@@ -38,6 +38,14 @@ export const meta = {
 // ---------------------------------------------------------------------------
 
 const A = args || {}
+
+// Every agent below starts cold. "Switchboard upstream sync" on its own reads as though upstream
+// were also called Switchboard — the old product name happened to carry the backend's identity for
+// free, and the rename took that away. State the relationship once, explicitly, per prompt.
+const CONTEXT = `CONTEXT: Switchboard is a third-party native mobile client for LibreChat.
+"Upstream" always means the official LibreChat server repo (danny-avila/LibreChat), vendored
+read-only at ./upstream. Switchboard is the client, never the upstream.`
+
 const MAX_BUILD_FIX_ROUNDS = 3
 const MAX_REVIEW_ROUNDS = 4
 const REVIEW_ROLES = ['reviewer', 'auditor']
@@ -54,7 +62,9 @@ const BUILD_SCHEMA = {
 
 async function runBuildGates(round) {
   return agent(
-    `Run the four build gates for the LibreChat Mobile sync branch, IN ORDER, and report each pass/fail.
+    `${CONTEXT}
+
+Run the four build gates for the Switchboard sync branch, IN ORDER, and report each pass/fail.
 Do NOT use --ignore-failures. Repo root is CWD.
 1. ./gradlew assembleDebug                                    (Android compiles)
 2. ./gradlew detekt                                           (static analysis, ALL source sets)
@@ -72,7 +82,9 @@ function gatesGreen(b) {
 phase('Implement')
 
 await agent(
-  `You are the implementer for a LibreChat Mobile upstream ${A.mode}. Repo root is CWD. Read the root
+  `${CONTEXT}
+
+You are the implementer for a Switchboard upstream ${A.mode}. Repo root is CWD. Read the root
 CLAUDE.md, ${A.skillDir}/reference/android-architecture.md, and each touched module's CLAUDE.md before editing.
 
 Create the branch first:  git checkout -b ${A.branchName}   (off current HEAD).
@@ -104,7 +116,9 @@ if (A.bumpVersion) {
   // keyed off the new pin). Two sequential agents make the order structural.
   phase('Version bookkeeping')
   await agent(
-    `Version bookkeeping for the LibreChat Mobile ${A.targetMode} sync (base ${A.baseVersion},
+    `${CONTEXT}
+
+Version bookkeeping for the Switchboard ${A.targetMode} sync (base ${A.baseVersion},
 target commit ${A.targetCommit}). Repo root is CWD. Do these IN ORDER:
 1. Set backendTargetVersion in version.properties to the mode-correct form:
    release -> "${A.baseVersion}"   rc -> "${A.targetTag ? A.targetTag.replace(/^v/, '') : A.baseVersion}"
@@ -141,7 +155,9 @@ let build = await runBuildGates(0)
 
 phase('Consistency asserts')
 const consistency = await agent(
-  `Run version-consistency checks for the LibreChat Mobile ${A.mode} and report each as a pass/fail boolean.
+  `${CONTEXT}
+
+Run version-consistency checks for the Switchboard ${A.mode} and report each as a pass/fail boolean.
 Repo root is CWD. ${A.bumpVersion
     ? `This was a version-advancing ${A.targetMode} sync — assert:
   - sha8Prefix:   ${A.targetMode === 'partial' ? `version.properties backendTargetVersion ends with "+dev.${A.sha8}" and ${A.sha8} is a prefix of UPSTREAM_VERSION commit=` : 'backendTargetVersion matches the tag form (no +dev)'}
@@ -213,7 +229,9 @@ let confirmedOpen = true
 while (reviewRound < MAX_REVIEW_ROUNDS && (reviewRound < REVIEW_ROLES.length || confirmedOpen)) {
   const role = REVIEW_ROLES[reviewRound % REVIEW_ROLES.length]
   const r = await agent(
-    `You are an INDEPENDENT ${role} for a LibreChat Mobile upstream ${A.mode}. You have NOT seen any prior
+    `${CONTEXT}
+
+You are an INDEPENDENT ${role} for a Switchboard upstream ${A.mode}. You have NOT seen any prior
 review pass — that independence is the point. Repo root is CWD; branch is ${A.branchName}.
 Read the approved discovery report at ${A.reportPath} and compare it against the actual changes on the branch
 (git diff/log against the branch point).
@@ -249,7 +267,9 @@ const reviewClean = reviewPasses.length >= REVIEW_ROLES.length && !confirmedOpen
 
 phase('Test plan')
 const testPlan = await agent(
-  `Author the on-device test plan for this LibreChat Mobile ${A.mode} on branch ${A.branchName}. Repo root is CWD.
+  `${CONTEXT}
+
+Author the on-device test plan for this Switchboard ${A.mode} on branch ${A.branchName}. Repo root is CWD.
 Read the approved report at ${A.reportPath} and the branch diff. Produce concrete user-testable behaviors,
 split into three lists: android, ios, and compat (older-server / version-gate behavior — e.g. "feature X is
 HIDDEN on a v0.8.6 server, visible on the target"). Be specific enough to walk without re-reading the diff.`,

@@ -5,15 +5,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>LibreChat</string>
+	<string>Switchboard</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.garfiec.librechat.ios</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<!-- Literal, not $(PRODUCT_NAME) — that resolves to the Xcode target name "iosApp".
+	     Renaming the target instead would break release.yml's -scheme/-archivePath. -->
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>Switchboard</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<!-- Overwritten at build time by the "Stamp Version from version.properties"
@@ -52,13 +54,13 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>LibreChat needs microphone access for voice input to transcribe speech to text.</string>
+	<string>Switchboard needs microphone access for voice input to transcribe speech to text.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>LibreChat uses speech recognition to convert your voice into text messages.</string>
+	<string>Switchboard uses speech recognition to convert your voice into text messages.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>LibreChat needs camera access to take photos for sharing in conversations.</string>
+	<string>Switchboard needs camera access to take photos for sharing in conversations.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>LibreChat needs photo library access to share images in conversations.</string>
+	<string>Switchboard needs photo library access to share images in conversations.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -1,7 +1,7 @@
 ---
 name: sync-upstream
 description: >
-  Sync the LibreChat Mobile client with a newer official LibreChat server version —
+  Sync the Switchboard client with a newer official LibreChat server version —
   a stable release, a release candidate, or a PARTIAL sync up to an untagged upstream
   commit (e.g. current dev HEAD). If the client is ALREADY at the target commit, runs
   an AUDIT of the last synced delta to catch anything that was missed. Coordinates two
@@ -12,7 +12,7 @@ argument-hint: "[target] (stable tag | rc tag | branch dev/main | commit SHA; ad
 
 # Sync Upstream
 
-Synchronize the LibreChat Mobile app with a newer version of the official LibreChat server.
+Synchronize the Switchboard app with a newer version of the official LibreChat server.
 
 **You are the coordinator.** You run the lightweight deterministic work yourself with `Bash`
 (prereqs, target/mode resolution, final consistency asserts) and own the three human decision

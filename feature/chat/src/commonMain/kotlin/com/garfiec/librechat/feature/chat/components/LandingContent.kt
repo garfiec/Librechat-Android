@@ -48,7 +48,6 @@ fun LandingContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // LibreChat conversation icon
         Box(
             modifier = Modifier
                 .size(56.dp)

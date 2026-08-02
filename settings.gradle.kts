@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LibreChat-Mobile"
+rootProject.name = "Switchboard"
 
 include(":app")
 include(":core:common")

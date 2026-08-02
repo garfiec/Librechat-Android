@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic i18n coverage checker for LibreChat Mobile.
+"""Deterministic i18n coverage checker for Switchboard.
 
 Three independent detectors over the compose-resources localization surface:
 
@@ -1332,7 +1332,7 @@ def render_text(report: dict, out) -> None:
     w = lambda *a: print(*a, file=out)  # noqa: E731
 
     w("=" * 78)
-    w("i18n COVERAGE REPORT — LibreChat Mobile")
+    w("i18n COVERAGE REPORT — Switchboard")
     w("=" * 78)
     w(f"allowlist: {report['allowlist'] or '(none)'}")
     w(f"detectors: {report['detector']}")
@@ -1557,7 +1557,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="i18n-coverage.py",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Deterministic i18n coverage checker for the LibreChat Mobile compose-resources\n"
+            "Deterministic i18n coverage checker for the Switchboard compose-resources\n"
             "localization surface (9 modules x 9 locales)."
         ),
         epilog="""

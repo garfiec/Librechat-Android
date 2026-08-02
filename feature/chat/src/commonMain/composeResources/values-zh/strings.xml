@@ -47,7 +47,7 @@
     <string name="cd_more_options">更多选项</string>
     <string name="cd_scroll_to_bottom">滚动到底部</string>
     <string name="cd_select_model">选择模型</string>
-    <string name="cd_librechat">LibreChat</string>
+    <string name="cd_librechat">Switchboard</string>
     <string name="cd_comparison_enabled">已启用对比</string>
 
     <!-- Content descriptions - Messages -->

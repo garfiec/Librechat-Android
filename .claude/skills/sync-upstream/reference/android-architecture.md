@@ -1,6 +1,6 @@
-# LibreChat Mobile Architecture Reference
+# Switchboard Architecture Reference
 
-Condensed architecture guide for the LibreChat Mobile app. Read module-specific `CLAUDE.md` files for full details.
+Condensed architecture guide for Switchboard, a third-party native mobile client for LibreChat. Read module-specific `CLAUDE.md` files for full details.
 
 ## Module Dependency Graph
 

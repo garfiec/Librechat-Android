@@ -141,7 +141,7 @@ jobs:
           VERSION: ${{ steps.bump.outputs.version_name }}
         run: |
           src="app/build/outputs/apk/release/app-release.apk"
-          out="librechat-v${VERSION}.apk"
+          out="switchboard-v${VERSION}.apk"
           cp "$src" "$out"
           sha256sum "$out" > "${out}.sha256"
           echo "apk=$out" >> "$GITHUB_OUTPUT"
@@ -191,7 +191,7 @@ jobs:
 
           # The iOS job uploads this deterministic asset name to the same draft; reference it
           # statically here even though this step runs before that job finishes.
-          IPA="librechat-v${VERSION}.ipa"
+          IPA="switchboard-v${VERSION}.ipa"
 
           # Badge row (rendered side-by-side). The Target Backend badge replaces the old
           # plain-text "Target backend: LibreChat v…" line. The Downloads badges track
@@ -308,12 +308,24 @@ jobs:
             CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="" \
             DEVELOPMENT_TEAM="" ONLY_ACTIVE_ARCH=NO
 
-          # Repackage the archived .app into an unsigned IPA (Payload/ + zip).
+          # Repackage the archived .app into an unsigned IPA (Payload/ + zip). The bundle is
+          # globbed rather than named, but the step is only half rename-safe: -scheme and
+          # -archivePath above stay hardcoded to the Xcode target. Payload/ must hold exactly
+          # one bundle — a share extension or watch app added to this scheme would otherwise
+          # ship an IPA sideloaders reject. The ${apps[@]+...} guard is load-bearing: macOS
+          # runners ship bash 3.2, where expanding an empty array under `set -u` aborts before
+          # the ::error:: annotation is emitted, hiding the zero-bundle case it exists to report.
           cd "$RUNNER_TEMP/iosApp.xcarchive/Products/Applications"
-          mkdir -p Payload && mv iosApp.app Payload/
-          OUT="$RUNNER_TEMP/librechat-v${VERSION}.ipa"
+          shopt -s nullglob
+          apps=(./*.app)
+          if [ "${#apps[@]}" -ne 1 ]; then
+            echo "::error::expected exactly 1 .app in the archive, found ${#apps[@]}: ${apps[@]+${apps[*]}}"
+            exit 1
+          fi
+          mkdir -p Payload && mv "${apps[0]}" Payload/
+          OUT="$RUNNER_TEMP/switchboard-v${VERSION}.ipa"
           zip -qry "$OUT" Payload
-          ( cd "$RUNNER_TEMP" && shasum -a 256 "librechat-v${VERSION}.ipa" > "librechat-v${VERSION}.ipa.sha256" )
+          ( cd "$RUNNER_TEMP" && shasum -a 256 "switchboard-v${VERSION}.ipa" > "switchboard-v${VERSION}.ipa.sha256" )
           echo "ipa=$OUT" >> "$GITHUB_OUTPUT"
           echo "sha=$OUT.sha256" >> "$GITHUB_OUTPUT"
 

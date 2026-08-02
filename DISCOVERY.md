@@ -1,7 +1,7 @@
-# LibreChat Mobile - Discovery & Context Document
+# Switchboard - Discovery & Context Document
 
 ## Project Goal
-Build a native mobile app (LibreChat-Mobile) with full feature parity to the LibreChat web application. The app must connect to an existing LibreChat backend server (no backend changes). Users specify the server URL during onboarding.
+Build a native mobile app (Switchboard) with full feature parity to the LibreChat web application. The app must connect to an existing LibreChat backend server (no backend changes). Users specify the server URL during onboarding.
 
 ## Tech Stack (Mandated)
 - **UI**: Jetpack Compose + Compose Navigation

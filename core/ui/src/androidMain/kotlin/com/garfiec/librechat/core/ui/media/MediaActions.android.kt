@@ -176,12 +176,12 @@ private suspend fun saveUrlToGallery(context: Context, url: String) {
 }
 
 private fun writeImageToGallery(context: Context, image: EncodedImage) {
-    val fileName = "librechat_${System.currentTimeMillis()}.${image.extension}"
+    val fileName = "switchboard_${System.currentTimeMillis()}.${image.extension}"
     val contentValues = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
         put(MediaStore.Images.Media.MIME_TYPE, image.mimeType)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/LibreChat")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Switchboard")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
     }
