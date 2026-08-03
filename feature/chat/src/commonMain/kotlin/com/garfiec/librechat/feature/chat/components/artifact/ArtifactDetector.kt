@@ -9,7 +9,7 @@ package com.garfiec.librechat.feature.chat.components.artifact
  * `packages/api/src/artifacts/update.ts`, which is close enough to that contract to agree with the
  * web client on 22 of a 25-case differential corpus.
  *
- * The three remaining divergences are deliberate, not bugs:
+ * The divergences are deliberate, not bugs (the first three are the corpus's divergent rows):
  *  - `::: trailing` closes the artifact here; remark-directive does not, so web swallows the rest of
  *    the message. Upstream's own backend scanner agrees with us — its two implementations disagree
  *    with each other, so "match web exactly" is not a well-defined target.
@@ -20,6 +20,9 @@ package com.garfiec.librechat.feature.chat.components.artifact
  *  - The *closing* `:::` is accepted at any indent, while the opening directive is capped at 3
  *    columns. Micromark would treat a deeply-indented close as an indented code block; upstream's
  *    backend scanner accepts it, and so do we.
+ *  - An unclosed directive whose fence *did* close ends its segment at the fence, with the trailing
+ *    text emitted as ordinary text. Micromark runs the container to EOF and folds that tail into the
+ *    card's content instead. Both keep the tail visible — ours keeps prose out of the artifact.
  *
  * Line endings are normalised to `\n`, so [ArtifactSegment.Text] from a CRLF message loses its `\r`.
  * Harmless for markdown rendering.
