@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
+import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ChatRepository
@@ -22,6 +23,7 @@ import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.data.repository.PresetRepository
 import com.garfiec.librechat.core.data.repository.PromptRepository
+import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
@@ -102,6 +104,7 @@ class ChatViewModelMessageLoadFailureTest {
 
         every { configRepository.startupConfig } returns MutableStateFlow(null)
         every { configRepository.detectedBackendVersion } returns MutableStateFlow("0.8.7")
+        every { configRepository.detectedBackend } returns MutableStateFlow(null)
         every { roleRepository.userPermissions } returns MutableStateFlow(null)
         every { configRepository.endpointConfigs } returns MutableStateFlow(emptyMap())
         every { configRepository.availableModels } returns MutableStateFlow(emptyMap())
@@ -110,7 +113,7 @@ class ChatViewModelMessageLoadFailureTest {
         every { settingsDataStore.enabledTools } returns flowOf(emptySet())
         every { serverFileSelectionHandoff.selectionsFor(any()) } returns emptyFlow()
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
-        every { platformDelegateFactory.createShareConsumer().shareAvailable } returns MutableSharedFlow()
+        every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()
 
         // `uiState` is combine(_uiState, these pref flows).stateIn(Eagerly, ChatUiState()): until
         // EVERY one of them emits, `uiState.value` is the untouched initial state no matter what
@@ -122,6 +125,7 @@ class ChatViewModelMessageLoadFailureTest {
         every { settingsDataStore.chatHeaderAlignment } returns MutableStateFlow(ChatHeaderAlignment.CENTER)
         every { settingsDataStore.contextBarPlacement } returns MutableStateFlow(ContextBarPlacement.HIDDEN)
         every { settingsDataStore.contextGaugeExpanded } returns MutableStateFlow(false)
+        every { settingsDataStore.duringRunAction } returns MutableStateFlow(DuringRunAction.QUEUE)
 
         // The offline case: nothing cached, so the Room read-through emits an empty list.
         every { messageRepository.observeMessages(any()) } returns flowOf(emptyList())
@@ -202,6 +206,7 @@ class ChatViewModelMessageLoadFailureTest {
             chatRepository = chatRepository,
             messageRepository = messageRepository,
             fileRepository = fileRepository,
+            resumePinStore = ResumePinStore(),
             configRepository = configRepository,
             conversationRepository = conversationRepository,
             endpointTokenRepository = endpointTokenRepository,
