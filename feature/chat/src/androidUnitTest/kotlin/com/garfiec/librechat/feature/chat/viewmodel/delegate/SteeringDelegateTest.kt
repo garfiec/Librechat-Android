@@ -372,7 +372,7 @@ class SteeringDelegateTest {
         coVerify { chatRepository.steerChat(SteerRequest("conv-1", "be brief")) }
     }
 
-    // ── Session-boundary regressions ──────────────────────────────────────
+    // ── Session boundaries ────────────────────────────────────────────────
     // clear() runs on EVERY stream session boundary, including the one a mid-run reconnect
     // opens (resumeStream → startStreamSession). These cover what it must not throw away.
 

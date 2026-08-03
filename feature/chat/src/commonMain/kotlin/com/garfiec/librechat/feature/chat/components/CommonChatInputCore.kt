@@ -378,11 +378,11 @@ internal fun sendButtonModeFor(
  * content and queueing is allowed ([canQueue]) — the "clear the box to reveal Stop" rule; and when
  * not streaming it is the usual **Send** (enabled on [canSend]).
  *
- * The during-run mode is derived from [duringRunTarget] and nothing else. It used to be derived
- * from the user's steer/queue *preference*, which a live `ask_user_question` pause overrides —
- * so the button announced "add to queue" over a tap that answered the question. The behaviour was
- * right and only the label lied, which is exactly why it survived: an affordance read from a
- * different source than the action it triggers can drift without anything failing.
+ * The during-run mode is derived from [duringRunTarget] and nothing else — never from the user's
+ * steer/queue *preference*, which a live `ask_user_question` pause overrides: the button would
+ * announce "add to queue" over a tap that answers the question. Behaviour right, label lying, and
+ * nothing fails — an affordance read from a different source than the action it triggers drifts
+ * silently.
  */
 @Composable
 fun SendStopButton(

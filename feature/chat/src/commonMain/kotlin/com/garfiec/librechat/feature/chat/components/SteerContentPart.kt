@@ -32,9 +32,8 @@ import org.jetbrains.compose.resources.stringResource
  * the run — which is also the order the next turn replays them in, since the server splits a
  * `steer` part back into a human message.
  *
- * Before this, mobile dropped the text from the reloaded transcript entirely: the part was parked
- * as an unrendered raw element, so a reply the user had redirected read as if they never said
- * anything.
+ * Without a renderer the part stays parked as an unrendered raw element and the text vanishes from
+ * the reloaded transcript, so a reply the user redirected reads as if they never said anything.
  */
 @Composable
 internal fun SteerContentPart(

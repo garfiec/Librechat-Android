@@ -95,9 +95,9 @@ class StreamingManagerTokenUsageTest {
     }
 
     /**
-     * The regression this exists for: an activity-label header runs on a cheap fast model and
-     * emits its own usage once per tool batch, so without the exclusion the sheet ends up showing
-     * a two-digit count for a turn that spent thousands.
+     * An activity-label header runs on a cheap fast model and emits its own usage once per tool
+     * batch, so without the exclusion the sheet ends up showing a two-digit count for a turn that
+     * spent thousands.
      */
     @Test
     fun `a bucketed usage event does not overwrite the primary figures`() =

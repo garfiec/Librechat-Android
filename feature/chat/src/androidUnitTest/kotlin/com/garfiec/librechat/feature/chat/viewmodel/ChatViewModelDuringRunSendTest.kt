@@ -202,8 +202,8 @@ class ChatViewModelDuringRunSendTest {
     @Test
     fun `send during a run steers when the preference is steer`() =
         duringRunTest(DuringRunAction.STEER) { vm ->
-            // The defect: this preference reached only the exposed state, so the send below queued
-            // while the button that triggered it drew itself "Steer this reply".
+            // The preference has to reach `_uiState`, not just the exposed copy: `sendDuringRun`
+            // decides from the former while the button takes its face from the latter.
             assertThat(vm.uiState.value.isStreaming).isTrue()
 
             vm.onInputChanged(TEXT)
@@ -218,7 +218,7 @@ class ChatViewModelDuringRunSendTest {
     fun `send during a run queues when the preference is queue`() =
         duringRunTest(DuringRunAction.QUEUE) { vm ->
             // The negative control. Without it the test above would also pass on a build that
-            // steers unconditionally — the same defect pointing the other way.
+            // steers unconditionally, ignoring the preference in the other direction.
             assertThat(vm.uiState.value.isStreaming).isTrue()
 
             vm.onInputChanged(TEXT)

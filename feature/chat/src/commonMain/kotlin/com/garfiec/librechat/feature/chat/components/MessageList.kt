@@ -190,8 +190,8 @@ fun MessageList(
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             // The LIST's own count, not the hand-computed [totalItemCount] above: that one omits
             // the trailing office-preview and human-review-pause items, so with one of those off
-            // screen the last visible index equalled it and the FAB — the only cue that the
-            // thread scrolls further — was suppressed exactly when it was needed.
+            // screen the last visible index equals it and the FAB — the only cue that the thread
+            // scrolls further — is suppressed exactly when it is needed.
             val rendered = listState.layoutInfo.totalItemsCount
             rendered > 0 && lastVisibleItem < rendered - 1
         }

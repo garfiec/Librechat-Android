@@ -126,9 +126,9 @@ class AskUserQuestionRecordTest {
     // ── streaming suppression ───────────────────────────────────────
 
     /**
-     * The regression this fixes: while the run is paused, the pause card IS the question, and the
-     * same question also sits in `activeToolCalls` as a call that cannot complete — rendering both
-     * asked the user the same thing twice, once under a spinner.
+     * While the run is paused, the pause card IS the question, and the same question also sits in
+     * `activeToolCalls` as a call that cannot complete — rendering both asks the user the same
+     * thing twice, once under a spinner.
      */
     @Test
     fun `an unanswered question is not rendered as a tool card`() {

@@ -48,8 +48,8 @@ class SendButtonModeTest {
     }
 
     /**
-     * The regression itself, stated as an invariant rather than a case: every target maps to its
-     * own face. Collapsing two of them back together is what the old preference-derived rule did.
+     * The invariant behind the cases above: every target maps to its own face. A preference-derived
+     * rule collapses two of them together, because a pause overrides the preference but not the icon.
      */
     @Test
     fun `every during-run target gets a distinct face`() {

@@ -71,9 +71,8 @@ internal fun FeedbackTagSheet(
     // the run ends.
     val submitEnabled = LocalFeedbackEnabled.current
 
-    // Saveable: the sheet outlives a rotation or a fold, and silently eating a typed comment is
-    // worse than any of the layout problems this replaced. Enum names, not entries — the default
-    // saver only handles primitives.
+    // Saveable: the sheet outlives a rotation or a fold, and a plain `remember` silently eats the
+    // typed comment. Enum names, not entries — the default saver only handles primitives.
     var selectedTagName by rememberSaveable(rating) { mutableStateOf<String?>(null) }
     var comment by rememberSaveable(rating) { mutableStateOf("") }
     val selectedTag = tags.firstOrNull { it.name == selectedTagName }

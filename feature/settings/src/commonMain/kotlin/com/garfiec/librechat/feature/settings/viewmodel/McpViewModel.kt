@@ -189,9 +189,9 @@ class McpViewModel(
             when (val result = mcpRepository.reinitialize(serverName)) {
                 is Result.Success -> {
                     val response = result.data
-                    // An oauthRequired ack is NOT a connection: the server is telling us it
-                    // cannot proceed until the user authorizes it. Reporting the old "initialized
-                    // successfully" here left the user staring at a server that never connects.
+                    // An oauthRequired ack is NOT a connection: the server is telling us it cannot
+                    // proceed until the user authorizes it. Reporting it as "initialized
+                    // successfully" leaves the user staring at a server that never connects.
                     val oauthUrl = response.oauthUrl?.takeIf { response.oauthRequired == true }
                     val message = when {
                         oauthUrl != null -> null

@@ -104,7 +104,7 @@ class McpServerDelegate(
             when (val result = mcpRepository.reinitialize(serverName)) {
                 is Result.Success -> {
                     val response = result.data
-                    // Same correction as the dedicated MCP screen: an oauthRequired ack means the
+                    // Same rule as the dedicated MCP screen: an oauthRequired ack means the
                     // server is waiting on the user, not that it connected. This compact section
                     // has no room for a consent dialog, so it points at the screen that does.
                     val needsOAuth = response.oauthRequired == true && !response.oauthUrl.isNullOrBlank()
