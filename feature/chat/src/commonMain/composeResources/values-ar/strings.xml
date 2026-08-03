@@ -259,6 +259,7 @@
     <string name="cd_previous_version">الإصدار السابق</string>
     <string name="cd_next_version">الإصدار التالي</string>
     <string name="artifact_version">الإصدار %1$d/%2$d</string>
+    <string name="artifact_incomplete">غير مكتمل</string>
     <!-- Prompts -->
     <string name="prompts_library">مكتبة المطالبات</string>
     <string name="use_in_chat">استخدام في المحادثة</string>

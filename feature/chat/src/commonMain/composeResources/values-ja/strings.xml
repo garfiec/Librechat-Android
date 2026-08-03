@@ -259,6 +259,7 @@
     <string name="cd_previous_version">前のバージョン</string>
     <string name="cd_next_version">次のバージョン</string>
     <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="artifact_incomplete">不完全</string>
     <!-- Prompts -->
     <string name="prompts_library">プロンプトライブラリ</string>
     <string name="use_in_chat">チャットで使用</string>

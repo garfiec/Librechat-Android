@@ -259,6 +259,7 @@
     <string name="cd_previous_version">이전 버전</string>
     <string name="cd_next_version">다음 버전</string>
     <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="artifact_incomplete">미완성</string>
     <!-- Prompts -->
     <string name="prompts_library">프롬프트 라이브러리</string>
     <string name="use_in_chat">채팅에서 사용</string>

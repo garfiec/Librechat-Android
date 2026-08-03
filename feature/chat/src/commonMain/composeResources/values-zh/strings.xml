@@ -259,6 +259,7 @@
     <string name="cd_previous_version">上一个版本</string>
     <string name="cd_next_version">下一个版本</string>
     <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="artifact_incomplete">未完成</string>
     <!-- Prompts -->
     <string name="prompts_library">提示词库</string>
     <string name="use_in_chat">在聊天中使用</string>

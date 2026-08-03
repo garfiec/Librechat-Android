@@ -259,6 +259,7 @@
     <string name="cd_previous_version">Vorherige Version</string>
     <string name="cd_next_version">Nächste Version</string>
     <string name="artifact_version">v%1$d/%2$d</string>
+    <string name="artifact_incomplete">Unvollständig</string>
     <!-- Prompts -->
     <string name="prompts_library">Prompt-Bibliothek</string>
     <string name="use_in_chat">Im Chat verwenden</string>
