@@ -69,10 +69,14 @@ func verifySharedFrameworkImport() {
     switch onEnum(of: contentDelta as (any StreamEvent)) {
     case .contentDelta(let d):
         assert(d.chunk == "Hello")
+    // Deliberately no `default:` — this switch is the guard that a new StreamEvent subclass
+    // reaches Swift. The Gradle framework link stays green when one is added, so without an
+    // exhaustive switch here nothing catches it until an iOS build runs.
     case .error, .final, .toolCallStart, .toolCallComplete,
          .thinkingDelta, .attachmentCreated, .retrying, .sync,
          .step, .created, .contextSummary, .subagentUpdate,
-         .titleUpdate, .tokenUsageUpdate, .contextUsageUpdate:
+         .titleUpdate, .tokenUsageUpdate, .contextUsageUpdate,
+         .pendingActionRequested, .pendingSteersSynced, .steerApplied:
         assertionFailure("Wrong case")
     }
 
