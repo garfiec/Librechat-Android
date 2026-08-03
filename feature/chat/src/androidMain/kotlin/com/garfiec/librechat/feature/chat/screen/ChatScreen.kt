@@ -37,6 +37,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.garfiec.librechat.feature.chat.prompts.components.VariableInputDialog
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -470,7 +471,6 @@ actual fun ChatScreen(
                 attachedFiles = attachedFiles,
                 onRemoveFile = viewModel::removeFile,
                 promptSuggestions = uiState.availablePrompts,
-                onPromptSelected = viewModel::handlePromptMention,
                 onSlashCommandSelected = viewModel::handleSlashCommand,
                 isRecording = uiState.isRecording,
                 isTranscribing = uiState.isTranscribing,
@@ -674,5 +674,16 @@ actual fun ChatScreen(
         onSetShowSecondaryModelSheet = { showSecondaryModelSheet = it },
         onNavigateToProviderKeys = onNavigateToProviderKeys,
     )
+
+    LaunchedEffect(Unit) { viewModel.consumePendingPromptInsertion() }
+
+    uiState.pendingVariablePrompt?.let { pending ->
+        VariableInputDialog(
+            promptTemplate = pending.template,
+            variables = pending.variables,
+            onInsert = { interpolated, _ -> viewModel.confirmVariablePrompt(interpolated) },
+            onDismiss = viewModel::dismissVariablePrompt,
+        )
+    }
     }
 }

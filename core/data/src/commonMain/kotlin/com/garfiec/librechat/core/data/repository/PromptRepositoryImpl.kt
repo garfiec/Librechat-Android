@@ -21,6 +21,12 @@ class PromptRepositoryImpl(
         }
     }
 
+    override suspend fun getAllGroups(): Result<List<PromptGroup>> {
+        return safeApiCall {
+            promptsApi.getAllPromptGroups()
+        }
+    }
+
     override suspend fun getGroup(groupId: String): Result<PromptGroup> {
         return safeApiCall {
             promptsApi.getPromptGroup(groupId)

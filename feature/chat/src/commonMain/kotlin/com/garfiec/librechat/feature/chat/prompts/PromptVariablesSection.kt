@@ -18,30 +18,6 @@ import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
 
-private val VARIABLE_REGEX = Regex("\\{\\{\\s*(\\w+)\\s*\\}\\}")
-
-/**
- * Extracts unique variable names from a prompt template string.
- * Variables are written as `{{variable_name}}`.
- */
-fun extractVariables(promptText: String): List<String> {
-    return VARIABLE_REGEX.findAll(promptText)
-        .map { it.groupValues[1] }
-        .distinct()
-        .toList()
-}
-
-/**
- * Substitutes `{{variable_name}}` placeholders in [promptText]
- * with the corresponding values from [variableValues].
- */
-fun substituteVariables(promptText: String, variableValues: Map<String, String>): String {
-    return VARIABLE_REGEX.replace(promptText) { matchResult ->
-        val varName = matchResult.groupValues[1]
-        variableValues[varName]?.ifBlank { matchResult.value } ?: matchResult.value
-    }
-}
-
 /**
  * Composable that parses `{{variable_name}}` patterns from [promptText],
  * renders an [OutlinedTextField] per variable, and shows a preview of the
@@ -54,7 +30,7 @@ fun PromptVariablesSection(
     onVariableChange: (name: String, value: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val variables = remember(promptText) { extractVariables(promptText) }
+    val variables = remember(promptText) { extractPromptVariables(promptText) }
 
     if (variables.isEmpty()) return
 
@@ -86,7 +62,7 @@ fun PromptVariablesSection(
         Spacer(modifier = Modifier.height(4.dp))
 
         val preview = remember(promptText, variableValues) {
-            substituteVariables(promptText, variableValues)
+            substitutePromptVariables(promptText, variableValues)
         }
 
         Card(

@@ -28,26 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.feature.chat.prompts.substitutePromptVariables
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
-
-private val VARIABLE_PATTERN = Regex("\\{\\{(\\w+)\\}\\}")
-
-fun extractVariables(template: String): List<String> {
-    return VARIABLE_PATTERN.findAll(template)
-        .map { it.groupValues[1] }
-        .distinct()
-        .toList()
-}
-
-fun interpolateTemplate(template: String, values: Map<String, String>): String {
-    var result = template
-    values.forEach { (key, value) ->
-        result = result.replace("{{$key}}", value)
-    }
-    return result
-}
 
 @Composable
 fun VariableInputDialog(
@@ -60,7 +44,7 @@ fun VariableInputDialog(
     val variableValues = remember { mutableStateMapOf<String, String>() }
     var autoSend by remember { mutableStateOf(false) }
 
-    val preview = interpolateTemplate(promptTemplate, variableValues)
+    val preview = substitutePromptVariables(promptTemplate, variableValues)
 
     AlertDialog(
         onDismissRequest = onDismiss,

@@ -78,7 +78,6 @@
     <string name="title_account">账户</string>
     <string name="title_api_keys">API 密钥</string>
     <string name="title_chat">聊天</string>
-    <string name="title_commands">命令</string>
     <string name="title_data">数据</string>
     <string name="title_general">通用</string>
     <string name="title_memories">记忆</string>
@@ -112,8 +111,6 @@
     <string name="status_enabled">已启用</string>
     <string name="status_disabled">已禁用</string>
     <string name="fork_behavior">分叉行为</string>
-    <string name="commands">命令</string>
-    <string name="commands_enabled_count">已启用 %1$d 个</string>
     <string name="api_keys">API 密钥</string>
     <string name="api_keys_subtitle">管理用于程序化访问的 API 密钥</string>
     <string name="presets">预设</string>
@@ -364,9 +361,6 @@
     <string name="about_you_hint">为了提供上下文，AI 应该了解你的哪些信息？</string>
     <string name="response_style_label">AI 应如何回复？</string>
     <string name="response_style_hint">回复时偏好的语气、格式或风格</string>
-
-    <!-- Commands screen -->
-    <string name="no_commands_available">没有可用的命令</string>
 
     <!-- Avatar upload dialog -->
     <string name="dialog_title_update_avatar">更新头像</string>

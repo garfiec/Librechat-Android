@@ -79,7 +79,6 @@
     <string name="title_account">Account</string>
     <string name="title_api_keys">API Keys</string>
     <string name="title_chat">Chat</string>
-    <string name="title_commands">Commands</string>
     <string name="title_data">Data</string>
     <string name="title_general">General</string>
     <string name="title_memories">Memories</string>
@@ -113,8 +112,6 @@
     <string name="status_enabled">Enabled</string>
     <string name="status_disabled">Disabled</string>
     <string name="fork_behavior">Fork Behavior</string>
-    <string name="commands">Commands</string>
-    <string name="commands_enabled_count">%1$d enabled</string>
     <string name="api_keys">API Keys</string>
     <string name="api_keys_subtitle">Manage API keys for programmatic access</string>
     <string name="presets">Presets</string>
@@ -396,9 +393,6 @@
     <string name="about_you_hint">What should the AI know about you for context?</string>
     <string name="response_style_label">How should AI respond?</string>
     <string name="response_style_hint">Preferred tone, format, or style for responses</string>
-
-    <!-- Commands screen -->
-    <string name="no_commands_available">No commands available</string>
 
     <!-- Avatar upload dialog -->
     <string name="dialog_title_update_avatar">Update Avatar</string>

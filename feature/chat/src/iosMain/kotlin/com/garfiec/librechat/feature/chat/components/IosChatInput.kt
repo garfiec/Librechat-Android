@@ -27,6 +27,7 @@ import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
+import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_attach_file
 import com.garfiec.librechat.feature.chat.resources.cd_paste_image
@@ -81,6 +82,8 @@ fun IosChatInput(
     tokenUsage: TokenUsage? = null,
     contextUsageEnabled: Boolean = false,
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    promptSuggestions: List<PromptMentionDisplayData> = emptyList(),
+    onSlashCommandSelected: (PromptMentionDisplayData) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -104,12 +107,14 @@ fun IosChatInput(
         tokenUsage = tokenUsage,
         contextUsageEnabled = contextUsageEnabled,
         contextBarPlacement = contextBarPlacement,
+        promptSuggestions = promptSuggestions,
     )
 
     CommonChatInputCore(
         state = state,
         onSend = onSend,
         onStop = onStop,
+        onSelectPrompt = onSlashCommandSelected,
         onToggleTool = onToggleTool,
         onQueue = onQueue,
         queuedPausedCount = queuedPausedCount,

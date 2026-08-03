@@ -78,7 +78,6 @@
     <string name="title_account">Konto</string>
     <string name="title_api_keys">API-Schlüssel</string>
     <string name="title_chat">Chat</string>
-    <string name="title_commands">Befehle</string>
     <string name="title_data">Daten</string>
     <string name="title_general">Allgemein</string>
     <string name="title_memories">Erinnerungen</string>
@@ -112,8 +111,6 @@
     <string name="status_enabled">Aktiviert</string>
     <string name="status_disabled">Deaktiviert</string>
     <string name="fork_behavior">Verzweigungsverhalten</string>
-    <string name="commands">Befehle</string>
-    <string name="commands_enabled_count">%1$d aktiviert</string>
     <string name="api_keys">API-Schlüssel</string>
     <string name="api_keys_subtitle">API-Schlüssel für programmatischen Zugriff verwalten</string>
     <string name="presets">Vorlagen</string>
@@ -364,9 +361,6 @@
     <string name="about_you_hint">Was sollte die KI für den Kontext über dich wissen?</string>
     <string name="response_style_label">Wie soll die KI antworten?</string>
     <string name="response_style_hint">Bevorzugter Ton, Format oder Stil für Antworten</string>
-
-    <!-- Commands screen -->
-    <string name="no_commands_available">Keine Befehle verfügbar</string>
 
     <!-- Avatar upload dialog -->
     <string name="dialog_title_update_avatar">Avatar aktualisieren</string>

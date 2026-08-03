@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.feature.chat.prompts.substitutePromptVariables
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -20,7 +21,7 @@ fun PromptPreviewPanel(
     variableValues: Map<String, String>,
     modifier: Modifier = Modifier,
 ) {
-    val interpolated = interpolateTemplate(promptTemplate, variableValues)
+    val interpolated = substitutePromptVariables(promptTemplate, variableValues)
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(

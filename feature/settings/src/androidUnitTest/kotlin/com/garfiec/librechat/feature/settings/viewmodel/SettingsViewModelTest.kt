@@ -399,18 +399,6 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `toggleCommand updates command enabled state`() = runTest {
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.toggleCommand("help", false)
-        advanceUntilIdle()
-
-        val helpCmd = viewModel.uiState.value.commands.find { it.name == "help" }
-        assertThat(helpCmd?.enabled).isFalse()
-    }
-
-    @Test
     fun `retry reloads user profile`() = runTest {
         coEvery { userRepository.getUser() } returns Result.Success(testUser)
 

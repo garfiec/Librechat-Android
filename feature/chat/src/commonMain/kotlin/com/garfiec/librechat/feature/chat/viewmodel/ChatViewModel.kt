@@ -137,6 +137,7 @@ class ChatViewModel(
     private val defaultDispatcher: CoroutineDispatcher,
     private val selectionHandoff: NewChatSelectionHandoff,
     private val serverFileSelectionHandoff: ServerFileSelectionHandoff,
+    private val promptInsertionHandoff: PromptInsertionHandoff,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -1680,8 +1681,18 @@ class ChatViewModel(
     fun loadPreset(displayData: PresetDisplayData) = presetPromptDelegate.loadPreset(displayData)
     fun deletePreset(presetId: String) = presetPromptDelegate.deletePreset(presetId)
     fun editPreset(preset: Preset) = presetPromptDelegate.editPreset(preset)
-    fun handlePromptMention(displayData: PromptMentionDisplayData) = presetPromptDelegate.handlePromptMention(displayData)
     fun handleSlashCommand(displayData: PromptMentionDisplayData) = presetPromptDelegate.handleSlashCommand(displayData)
+
+    /**
+     * Picks up prompt text staged by the prompts library. Called when the chat screen re-enters
+     * composition after the library pops, which is the only moment the text can have been staged.
+     */
+    fun consumePendingPromptInsertion() {
+        promptInsertionHandoff.take()?.let(presetPromptDelegate::insertPromptText)
+    }
+
+    fun confirmVariablePrompt(interpolated: String) = presetPromptDelegate.confirmVariablePrompt(interpolated)
+    fun dismissVariablePrompt() = presetPromptDelegate.dismissVariablePrompt()
 
     // Favorites (v0.8.5)
     fun toggleAgentFavorite(agentId: String) = favoritesDelegate.toggleAgent(agentId)

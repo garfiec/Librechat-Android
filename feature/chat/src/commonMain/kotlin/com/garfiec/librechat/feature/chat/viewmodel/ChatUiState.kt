@@ -90,6 +90,7 @@ data class ChatUiState(
     val isAwaitingUploadSend: Boolean get() = composer.isAwaitingUploadSend
     val presets: List<PresetDisplayData> get() = presetPrompts.presets
     val availablePrompts: List<PromptMentionDisplayData> get() = presetPrompts.availablePrompts
+    val pendingVariablePrompt: PendingVariablePrompt? get() = presetPrompts.pendingVariablePrompt
     val isRecording: Boolean get() = voice.isRecording
     val isTranscribing: Boolean get() = voice.isTranscribing
     val serverSttEnabled: Boolean get() = voice.serverSttEnabled

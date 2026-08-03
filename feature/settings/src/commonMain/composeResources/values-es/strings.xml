@@ -78,7 +78,6 @@
     <string name="title_account">Cuenta</string>
     <string name="title_api_keys">Claves de API</string>
     <string name="title_chat">Chat</string>
-    <string name="title_commands">Comandos</string>
     <string name="title_data">Datos</string>
     <string name="title_general">General</string>
     <string name="title_memories">Recuerdos</string>
@@ -112,8 +111,6 @@
     <string name="status_enabled">Activado</string>
     <string name="status_disabled">Desactivado</string>
     <string name="fork_behavior">Comportamiento de bifurcación</string>
-    <string name="commands">Comandos</string>
-    <string name="commands_enabled_count">%1$d activados</string>
     <string name="api_keys">Claves de API</string>
     <string name="api_keys_subtitle">Gestiona las claves de API para el acceso programático</string>
     <string name="presets">Preajustes</string>
@@ -364,9 +361,6 @@
     <string name="about_you_hint">¿Qué debería saber la IA sobre ti para tener contexto?</string>
     <string name="response_style_label">¿Cómo debería responder la IA?</string>
     <string name="response_style_hint">Tono, formato o estilo preferido para las respuestas</string>
-
-    <!-- Commands screen -->
-    <string name="no_commands_available">No hay comandos disponibles</string>
 
     <!-- Avatar upload dialog -->
     <string name="dialog_title_update_avatar">Actualizar avatar</string>

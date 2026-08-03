@@ -17,7 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -178,14 +177,6 @@ fun ChatSettingsContent(
                     title = stringResource(Res.string.fork_behavior),
                     subtitle = forkModeLabel(ForkMode.fromApiValue(uiState.forkMode)),
                     onClick = viewModel::showForkSettingsDialog,
-                )
-            }
-            item(key = "commands_row") {
-                ChatSettingsRow(
-                    icon = Icons.Default.Terminal,
-                    title = stringResource(Res.string.commands),
-                    subtitle = stringResource(Res.string.commands_enabled_count, uiState.commands.count { it.enabled }),
-                    onClick = viewModel::showCommandsScreen,
                 )
             }
 
@@ -376,21 +367,6 @@ fun ChatSettingsContent(
                 onStopPreview = viewModel::stopTtsPreview,
                 onConfirm = viewModel::saveTtsSettings,
                 onDismiss = viewModel::dismissTtsDetailDialog,
-            )
-        }
-
-        // Commands screen (full screen overlay)
-        if (uiState.showCommandsScreen) {
-            CommandsConfigScreen(
-                commands = uiState.commands.map { cmd ->
-                    CommandConfig(
-                        name = cmd.name,
-                        description = cmd.description,
-                        enabled = cmd.enabled,
-                    )
-                },
-                onToggleCommand = viewModel::toggleCommand,
-                onNavigateBack = viewModel::hideCommandsScreen,
             )
         }
     } // Box

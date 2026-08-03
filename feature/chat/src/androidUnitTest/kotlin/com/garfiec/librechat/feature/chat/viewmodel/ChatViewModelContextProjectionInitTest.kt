@@ -206,6 +206,7 @@ class ChatViewModelContextProjectionInitTest {
             defaultDispatcher = testDispatcher,
             selectionHandoff = selectionHandoff,
             serverFileSelectionHandoff = serverFileSelectionHandoff,
+            promptInsertionHandoff = PromptInsertionHandoff(),
             activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("srv:user-1"))),
         )
 }

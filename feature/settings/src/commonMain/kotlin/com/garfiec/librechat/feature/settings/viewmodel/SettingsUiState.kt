@@ -23,26 +23,11 @@ import com.garfiec.librechat.feature.settings.model.SharedLinkDisplayData
 import com.garfiec.librechat.feature.settings.model.UserDisplayData
 import com.garfiec.librechat.feature.settings.screen.DeviceVoiceInfo
 
-data class SettingsCommand(
-    val name: String,
-    val description: String,
-    val enabled: Boolean = true,
-)
-
 /** One-shot diagnostic-log export payload handed from the ViewModel to the platform file saver. */
 @Immutable
 data class LogsExportPayload(
     val content: String,
     val fileName: String,
-)
-
-val DEFAULT_COMMANDS = listOf(
-    SettingsCommand("help", "Show available commands", true),
-    SettingsCommand("clear", "Clear current conversation", true),
-    SettingsCommand("new", "Start a new conversation", true),
-    SettingsCommand("model", "Switch the current model", true),
-    SettingsCommand("system", "Set a system message", true),
-    SettingsCommand("fork", "Fork the current conversation", true),
 )
 
 @Immutable
@@ -192,8 +177,6 @@ data class SettingsUiState(
     val forkMode: String = "targetLevel",
     val showForkSettingsDialog: Boolean = false,
     // Commands
-    val showCommandsScreen: Boolean = false,
-    val commands: List<SettingsCommand> = DEFAULT_COMMANDS,
     // Personalization
     val showPersonalizationDialog: Boolean = false,
     val personalizationEnabled: Boolean = true,

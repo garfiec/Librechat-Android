@@ -24,6 +24,7 @@ import com.garfiec.librechat.feature.chat.screen.ArtifactShortcutViewerScreen
 import com.garfiec.librechat.feature.chat.screen.ChatScreen
 import com.garfiec.librechat.feature.chat.screen.ConversationMediaScreen
 import com.garfiec.librechat.feature.chat.screen.NewChatScreen
+import com.garfiec.librechat.feature.chat.viewmodel.PromptInsertionHandoff
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
@@ -146,9 +147,15 @@ fun EntryProviderScope<NavKey>.chatEntries(
         )
     }
     entry<PromptsLibrary> {
+        // The chat entry is off-composition while the library is up, so the text is staged here and
+        // collected when the chat screen re-enters on pop.
+        val promptInsertionHandoff = koinInject<PromptInsertionHandoff>()
         PromptsLibraryScreen(
             onNavigateBack = onBack,
-            onUseInChat = { _ -> onBack() },
+            onUseInChat = { text ->
+                promptInsertionHandoff.put(text)
+                onBack()
+            },
             onNavigateToEditor = { groupId ->
                 onNavigate(PromptEditor(groupId = groupId))
             },

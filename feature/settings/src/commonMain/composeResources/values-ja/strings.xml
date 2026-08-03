@@ -78,7 +78,6 @@
     <string name="title_account">アカウント</string>
     <string name="title_api_keys">APIキー</string>
     <string name="title_chat">チャット</string>
-    <string name="title_commands">コマンド</string>
     <string name="title_data">データ</string>
     <string name="title_general">一般</string>
     <string name="title_memories">メモリ</string>
@@ -112,8 +111,6 @@
     <string name="status_enabled">有効</string>
     <string name="status_disabled">無効</string>
     <string name="fork_behavior">フォークの動作</string>
-    <string name="commands">コマンド</string>
-    <string name="commands_enabled_count">%1$d 件有効</string>
     <string name="api_keys">APIキー</string>
     <string name="api_keys_subtitle">プログラムによるアクセス用のAPIキーを管理</string>
     <string name="presets">プリセット</string>
@@ -364,9 +361,6 @@
     <string name="about_you_hint">文脈としてAIが知っておくべきあなたの情報は何ですか？</string>
     <string name="response_style_label">AIはどのように応答すべきですか？</string>
     <string name="response_style_hint">応答に好みのトーン、形式、スタイル</string>
-
-    <!-- Commands screen -->
-    <string name="no_commands_available">利用可能なコマンドがありません</string>
 
     <!-- Avatar upload dialog -->
     <string name="dialog_title_update_avatar">アバターを更新</string>

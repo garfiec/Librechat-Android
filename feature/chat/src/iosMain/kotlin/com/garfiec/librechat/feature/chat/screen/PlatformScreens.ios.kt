@@ -52,6 +52,7 @@ import com.garfiec.librechat.feature.chat.components.MessageList
 import com.garfiec.librechat.feature.chat.components.MessagesUnavailable
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
+import com.garfiec.librechat.feature.chat.prompts.components.VariableInputDialog
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.clipboardHasImage
@@ -267,6 +268,8 @@ actual fun ChatScreen(
                 onOpenTools = { optionsController.open() },
                 onQueue = { viewModel.queueMessage() },
                 canQueue = uiState.canQueueFollowUp,
+                promptSuggestions = uiState.availablePrompts,
+                onSlashCommandSelected = viewModel::handleSlashCommand,
                 enabledTools = uiState.effectiveEnabledTools,
                 pinnedToolKeys = uiState.pinnedToolChips,
                 onToggleTool = viewModel::toggleTool,
@@ -381,6 +384,17 @@ actual fun ChatScreen(
             onDeletePreset = { preset ->
                 preset.presetId?.let { viewModel.deletePreset(it) }
             },
+        )
+    }
+
+    LaunchedEffect(Unit) { viewModel.consumePendingPromptInsertion() }
+
+    uiState.pendingVariablePrompt?.let { pending ->
+        VariableInputDialog(
+            promptTemplate = pending.template,
+            variables = pending.variables,
+            onInsert = { interpolated, _ -> viewModel.confirmVariablePrompt(interpolated) },
+            onDismiss = viewModel::dismissVariablePrompt,
         )
     }
 

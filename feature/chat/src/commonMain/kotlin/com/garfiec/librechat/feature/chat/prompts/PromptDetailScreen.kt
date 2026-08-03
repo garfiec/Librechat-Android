@@ -156,8 +156,12 @@ fun PromptDetailScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Emits the prompt body, not the group's command — the command is a shorthand for
+            // finding the prompt, never the text the user wants in their message.
+            val usableText = group.productionPromptText
             Button(
-                onClick = { onUseInChat(group.command ?: group.name) },
+                onClick = { usableText?.let(onUseInChat) },
+                enabled = !usableText.isNullOrBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(Res.string.use_in_chat))

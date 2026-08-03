@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -55,6 +56,7 @@ import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
+import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_add_to_queue
 import com.garfiec.librechat.feature.chat.resources.cd_cancel_edit
@@ -106,6 +108,8 @@ data class ChatInputState(
     /** User preference (Settings → Chat) for where the context gauge is surfaced. The composer
      *  only renders it when this is [ContextBarPlacement.ABOVE_INPUT]. */
     val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
+    /** Prompt groups available to the `/` picker. Filtering happens here, off [inputText]. */
+    val promptSuggestions: List<PromptMentionDisplayData> = emptyList(),
 )
 
 /**
@@ -144,6 +148,8 @@ fun CommonChatInputCore(
     onCancelQueuedMessage: (localId: String) -> Unit = {},
     onReorderQueuedMessages: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     fontSizeMultiplier: Float = 1f,
+    /** Selection from the `/` prompt picker. */
+    onSelectPrompt: (PromptMentionDisplayData) -> Unit = {},
     leadingButtons: @Composable RowScope.() -> Unit = {},
     trailingSpacer: @Composable RowScope.() -> Unit = {},
     bottomContent: @Composable BoxScope.() -> Unit = {},
@@ -232,6 +238,16 @@ fun CommonChatInputCore(
                     ContextUsageGauge(usage = contextUsage, tokenUsage = state.tokenUsage)
                 }
             }
+
+            // Prompt picker, above the input and below the chips/gauge.
+            val slashQuery = remember(state.inputText) { parseSlashQuery(state.inputText) }
+            val promptSuggestions = remember(slashQuery, state.promptSuggestions) {
+                slashQuery?.let { filterMatchingSlashCommands(it, state.promptSuggestions) }.orEmpty()
+            }
+            PromptSuggestionList(
+                suggestions = promptSuggestions,
+                onSelect = onSelectPrompt,
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

@@ -322,26 +322,6 @@ class SettingsViewModel(
         _uiState.update { it.copy(forkMode = mode, showForkSettingsDialog = false) }
     }
 
-    // ── Commands ───────────────────────────────────────────────────
-
-    fun showCommandsScreen() {
-        _uiState.update { it.copy(showCommandsScreen = true) }
-    }
-
-    fun hideCommandsScreen() {
-        _uiState.update { it.copy(showCommandsScreen = false) }
-    }
-
-    fun toggleCommand(name: String, enabled: Boolean) {
-        _uiState.update { state ->
-            state.copy(
-                commands = state.commands.map { cmd ->
-                    if (cmd.name == name) cmd.copy(enabled = enabled) else cmd
-                },
-            )
-        }
-    }
-
     // ── Personalization ────────────────────────────────────────────
 
     fun showPersonalizationDialog() {

@@ -78,7 +78,6 @@
     <string name="title_account">계정</string>
     <string name="title_api_keys">API 키</string>
     <string name="title_chat">채팅</string>
-    <string name="title_commands">명령어</string>
     <string name="title_data">데이터</string>
     <string name="title_general">일반</string>
     <string name="title_memories">메모리</string>
@@ -112,8 +111,6 @@
     <string name="status_enabled">사용</string>
     <string name="status_disabled">사용 안 함</string>
     <string name="fork_behavior">분기 동작</string>
-    <string name="commands">명령어</string>
-    <string name="commands_enabled_count">%1$d개 사용</string>
     <string name="api_keys">API 키</string>
     <string name="api_keys_subtitle">프로그래밍 방식 접근을 위한 API 키 관리</string>
     <string name="presets">프리셋</string>
@@ -364,9 +361,6 @@
     <string name="about_you_hint">맥락을 위해 AI가 사용자에 대해 알아야 할 내용은 무엇인가요?</string>
     <string name="response_style_label">AI가 어떻게 응답해야 하나요?</string>
     <string name="response_style_hint">응답에 선호하는 어조, 형식 또는 스타일</string>
-
-    <!-- Commands screen -->
-    <string name="no_commands_available">사용 가능한 명령어가 없습니다</string>
 
     <!-- Avatar upload dialog -->
     <string name="dialog_title_update_avatar">아바타 업데이트</string>

@@ -11,6 +11,9 @@ import com.garfiec.librechat.core.model.response.PromptGroupListResponse
 
 interface PromptRepository {
     suspend fun getGroups(pageSize: Int = 10, cursor: String? = null): Result<PromptGroupListResponse>
+
+    /** Every visible prompt group in one call, for surfaces that must not truncate (the `/` picker). */
+    suspend fun getAllGroups(): Result<List<PromptGroup>>
     suspend fun getGroup(groupId: String): Result<PromptGroup>
     suspend fun create(request: CreatePromptRequest): Result<PromptGroup>
     suspend fun update(groupId: String, request: UpdatePromptGroupRequest): Result<PromptGroup>

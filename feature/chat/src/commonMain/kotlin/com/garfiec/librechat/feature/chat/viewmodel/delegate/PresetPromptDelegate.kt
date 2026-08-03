@@ -9,6 +9,10 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
+import com.garfiec.librechat.feature.chat.prompts.PromptInsertion
+import com.garfiec.librechat.feature.chat.prompts.resolvePromptInsertion
+import com.garfiec.librechat.feature.chat.prompts.resolvePromptText
+import com.garfiec.librechat.feature.chat.viewmodel.PendingVariablePrompt
 import com.garfiec.librechat.feature.chat.viewmodel.PresetPromptHandle
 import kotlinx.coroutines.launch
 
@@ -18,7 +22,7 @@ class PresetPromptDelegate(
     private val promptRepository: PromptRepository,
 ) {
 
-    // Keep domain objects for internal operations (loadPreset, handlePromptMention, etc.)
+    // Keep domain objects for internal operations (loadPreset, handleSlashCommand, etc.)
     private var cachedPresets: List<Preset> = emptyList()
     private var cachedPromptGroups: List<PromptGroup> = emptyList()
 
@@ -40,13 +44,20 @@ class PresetPromptDelegate(
         }
     }
 
+    /**
+     * Loads every visible prompt group for the composer's `/` picker.
+     *
+     * Uses the unpaginated route deliberately: the picker is a search surface, and a page limit
+     * would hide groups with no indication that anything was omitted.
+     */
     fun loadAvailablePrompts() {
         handle.scope.launch {
-            when (val result = promptRepository.getGroups(pageSize = 100)) {
+            when (val result = promptRepository.getAllGroups()) {
                 is Result.Success -> {
-                    cachedPromptGroups = result.data.promptGroups
+                    val groups = result.data.filter { it.id != null }
+                    cachedPromptGroups = groups
                     handle.update {
-                        presetPrompts = presetPrompts.copy(availablePrompts = result.data.promptGroups.map { it.toDisplayData() })
+                        presetPrompts = presetPrompts.copy(availablePrompts = groups.map { it.toDisplayData() })
                     }
                 }
                 is Result.Error -> {
@@ -164,48 +175,62 @@ class PresetPromptDelegate(
         }
     }
 
-    fun handlePromptMention(displayData: PromptMentionDisplayData) {
-        val currentInput = handle.state.inputText
-        val atIndex = currentInput.lastIndexOf('@')
-        val newText = if (atIndex >= 0) {
-            currentInput.substring(0, atIndex) + (displayData.command ?: displayData.name) + " "
-        } else {
-            currentInput + (displayData.command ?: displayData.name) + " "
+    /**
+     * Handles a pick from the `/` picker.
+     *
+     * The composer holds nothing but the `/query` at this point — the picker only opens when `/` is
+     * the first character — so replacing its whole contents is what strips the query.
+     */
+    fun handleSlashCommand(displayData: PromptMentionDisplayData) {
+        val group = cachedPromptGroups.find { it.id == displayData.id } ?: return
+        when (val insertion = resolvePromptInsertion(group)) {
+            // Nothing to insert; leave the composer alone rather than writing the group's name.
+            null -> return
+
+            is PromptInsertion.Ready -> {
+                handle.update { composer = composer.copy(inputText = insertion.text) }
+                recordUseFor(displayData.id)
+            }
+
+            is PromptInsertion.NeedsVariables -> handle.update {
+                composer = composer.copy(inputText = "")
+                presetPrompts = presetPrompts.copy(
+                    pendingVariablePrompt = PendingVariablePrompt(
+                        groupId = displayData.id,
+                        template = insertion.template,
+                        variables = insertion.variables,
+                    ),
+                )
+            }
         }
-        handle.update { composer = composer.copy(inputText = newText) }
-        recordUseFor(displayData)
     }
 
-    fun handleSlashCommand(displayData: PromptMentionDisplayData) {
-        // Look up the full domain object to access the prompts list
-        val group = cachedPromptGroups.find {
-            it.name == displayData.name && it.command == displayData.command
-        }
-        val promptText = if (group != null) {
-            val productionId = group.productionId
-            if (productionId != null) {
-                group.prompts.find { it.id == productionId }?.prompt
-            } else {
-                group.prompts.firstOrNull()?.prompt
-            }
-        } else {
-            null
-        }
+    /** Inserts the filled-in template and closes the variable dialog. */
+    fun confirmVariablePrompt(interpolated: String) {
+        val pending = handle.state.presetPrompts.pendingVariablePrompt ?: return
         handle.update {
-            composer = composer.copy(inputText = promptText ?: (displayData.command ?: displayData.name))
+            composer = composer.copy(inputText = interpolated)
+            presetPrompts = presetPrompts.copy(pendingVariablePrompt = null)
         }
-        recordUseFor(displayData)
+        // Mirrors web: the usage ping fires on confirm, so a cancelled dialog records nothing.
+        recordUseFor(pending.groupId)
+    }
+
+    fun dismissVariablePrompt() {
+        handle.update { presetPrompts = presetPrompts.copy(pendingVariablePrompt = null) }
+    }
+
+    /** Text handed over from the prompts library across the navigation boundary. */
+    fun insertPromptText(text: String) {
+        if (text.isBlank()) return
+        handle.update { composer = composer.copy(inputText = text) }
     }
 
     /**
      * Fire-and-forget telemetry ping for `POST /api/prompts/groups/:id/use` (v0.8.5+).
      * Errors are swallowed — analytics is never a user-facing failure.
      */
-    private fun recordUseFor(displayData: PromptMentionDisplayData) {
-        val group = cachedPromptGroups.find {
-            it.name == displayData.name && it.command == displayData.command
-        } ?: return
-        val groupId = group.id ?: return
+    private fun recordUseFor(groupId: String) {
         handle.scope.launch {
             when (val result = promptRepository.recordPromptGroupUse(groupId)) {
                 is Result.Error -> Logger.d(result.exception) { "recordPromptGroupUse failed (non-fatal): ${result.message}" }
@@ -268,8 +293,15 @@ internal fun Preset.toDisplayData() = PresetDisplayData(
     model = model,
 )
 
+/**
+ * Groups without an `_id` are dropped before this runs — the id is what selection looks the group
+ * up by, so a group that can't be identified can't be acted on either.
+ */
 internal fun PromptGroup.toDisplayData() = PromptMentionDisplayData(
+    id = requireNotNull(id) { "prompt group must have an id to be selectable" },
     name = name,
     command = command,
     oneliner = oneliner,
+    category = category,
+    promptText = resolvePromptText(this),
 )

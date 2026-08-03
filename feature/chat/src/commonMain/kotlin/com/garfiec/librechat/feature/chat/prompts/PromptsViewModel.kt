@@ -17,7 +17,6 @@ import com.garfiec.librechat.core.model.request.CreatePromptGroupData
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.feature.chat.prompts.components.PromptSortOrder
-import com.garfiec.librechat.feature.chat.prompts.components.extractVariables
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -302,7 +301,7 @@ class PromptsViewModel(
     // Variable dialog
 
     fun showVariableDialog(promptTemplate: String) {
-        val variables = extractVariables(promptTemplate)
+        val variables = extractPromptVariables(promptTemplate)
         if (variables.isEmpty()) return
         _uiState.value = _uiState.value.copy(
             showVariableDialog = true,
@@ -321,11 +320,7 @@ class PromptsViewModel(
 }
 
 private fun PromptGroup.toDisplayData(): PromptGroupDisplayData {
-    // List endpoint: productionPrompt comes from $lookup
-    // Detail endpoint: prompts array is populated
-    val promptText = productionPrompt?.prompt
-        ?: prompts.firstOrNull { it.id == productionId }?.prompt
-        ?: prompts.firstOrNull()?.prompt
+    val promptText = resolvePromptText(this)
     return PromptGroupDisplayData(
         id = id ?: name,
         name = name,
@@ -338,9 +333,7 @@ private fun PromptGroup.toDisplayData(): PromptGroupDisplayData {
 }
 
 private fun PromptGroup.toDetailDisplayData(): PromptGroupDetailDisplayData {
-    val promptText = productionPrompt?.prompt
-        ?: prompts.firstOrNull { it.id == productionId }?.prompt
-        ?: prompts.firstOrNull()?.prompt
+    val promptText = resolvePromptText(this)
     return PromptGroupDetailDisplayData(
         id = id ?: name,
         name = name,

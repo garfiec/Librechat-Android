@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.model.request.AddPromptToGroupRequest
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
+import com.garfiec.librechat.core.model.response.CreatePromptResponse
 import com.garfiec.librechat.core.model.response.PromptGroupListResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -44,16 +45,29 @@ class PromptsApi constructor(
             category?.let { parameter("category", it) }
         }.body()
 
+    /**
+     * Every prompt group the user can see, unpaginated — what the composer's `/` picker needs so a
+     * large library isn't silently truncated to one page.
+     *
+     * Returns a raw JSON array, not the [PromptGroupListResponse] envelope `groups` uses. Both routes
+     * share the same ACL-aware projection, so `command` is absent here too; match on name/oneliner.
+     */
+    suspend fun getAllPromptGroups(): List<PromptGroup> =
+        client.get {
+            url { path("api/prompts/all") }
+        }.body()
+
     suspend fun getPromptGroup(groupId: String): PromptGroup =
         client.get {
             url { path("api/prompts/groups/$groupId") }
         }.body()
 
+    /** Creates a prompt and its group. This route alone answers with `{ prompt, group }` — see [CreatePromptResponse]. */
     suspend fun createPrompt(prompt: CreatePromptRequest): PromptGroup =
         client.post {
             url { path("api/prompts") }
             setBody(prompt)
-        }.body()
+        }.body<CreatePromptResponse>().group
 
     suspend fun updatePromptGroup(groupId: String, update: UpdatePromptGroupRequest): PromptGroup =
         client.patch {

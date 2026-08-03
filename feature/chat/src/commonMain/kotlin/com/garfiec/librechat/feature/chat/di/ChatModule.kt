@@ -7,6 +7,7 @@ import com.garfiec.librechat.feature.chat.prompts.PromptEditorViewModel
 import com.garfiec.librechat.feature.chat.prompts.PromptsViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.ConversationMediaViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.NewChatSelectionHandoff
+import com.garfiec.librechat.feature.chat.viewmodel.PromptInsertionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
@@ -16,6 +17,7 @@ import org.koin.dsl.module
 val chatModule = module {
     includes(chatPlatformModule)
     single { NewChatSelectionHandoff() }
+    single { PromptInsertionHandoff() }
     single { ServerFileSelectionHandoff() }
     single { ArtifactViewerHandoff() }
     single { ModelShortcutBus() }

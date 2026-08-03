@@ -82,12 +82,14 @@ fun PromptsLibraryScreen(
             group = selectedGroup,
             onBack = viewModel::clearSelectedGroup,
             onDelete = { viewModel.deleteGroup(selectedGroup.id) },
-            onUseInChat = { command ->
-                val promptText = selectedGroup.productionPromptText
-                if (promptText != null && promptText.contains("{{")) {
+            onUseInChat = { promptText ->
+                // Only user-fillable variables warrant the dialog. A prompt whose only placeholders
+                // are server-substituted specials ({{current_date}} and friends) goes straight
+                // through — prompting for those would both freeze the value and show empty fields.
+                if (hasFillableVariables(promptText)) {
                     viewModel.showVariableDialog(promptText)
                 } else {
-                    onUseInChat(command)
+                    onUseInChat(promptText)
                 }
             },
             onEdit = { groupId ->
