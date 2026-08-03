@@ -393,7 +393,7 @@ actual fun ChatScreen(
         VariableInputDialog(
             promptTemplate = pending.template,
             variables = pending.variables,
-            onInsert = { interpolated, _ -> viewModel.confirmVariablePrompt(interpolated) },
+            onInsert = viewModel::confirmVariablePrompt,
             onDismiss = viewModel::dismissVariablePrompt,
         )
     }

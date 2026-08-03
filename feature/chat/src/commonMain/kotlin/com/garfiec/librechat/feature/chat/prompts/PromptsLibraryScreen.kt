@@ -106,7 +106,7 @@ fun PromptsLibraryScreen(
             VariableInputDialog(
                 promptTemplate = uiState.variablePromptTemplate,
                 variables = uiState.variableNames,
-                onInsert = { interpolated, _ ->
+                onInsert = { interpolated ->
                     viewModel.dismissVariableDialog()
                     onUseInChat(interpolated)
                 },
