@@ -7,7 +7,6 @@ package com.garfiec.librechat.core.common.result
  * connection, not a retry.
  */
 class AccessGatewayException(
-    val serverUrl: String? = null,
     cause: Throwable? = null,
 ) : Exception("Access gateway rejected the request", cause)
 
@@ -120,6 +119,12 @@ internal fun classifyFailure(throwable: Throwable): FailureKind {
 }
 
 private const val TRAVERSAL_LIMIT = 8
+
+/**
+ * The safe, user-facing text for a [FailureKind], for callers that already know the kind. Use this
+ * rather than [toSafeError] as a string lookup — that also logs at ERROR.
+ */
+fun FailureKind.message(): String = defaultMessage()
 
 /** The safe, user-facing text for a [FailureKind]. */
 internal fun FailureKind.defaultMessage(): String = when (this) {

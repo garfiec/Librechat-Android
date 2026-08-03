@@ -1,5 +1,7 @@
 package com.garfiec.librechat.core.data.repository
 
+import com.garfiec.librechat.core.common.result.AccessGatewayException
+import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.model.EndpointConfig
@@ -103,5 +105,25 @@ class ConfigRepositoryImplTest {
         assertThat(repo.startupConfig.value).isNull()
         assertThat(repo.endpointConfigs.value).isEmpty()
         assertThat(repo.availableModels.value).isEmpty()
+    }
+
+    /**
+     * The config probe is where a gateway-blocked server is met first, before login. The kind matters
+     * as much as the wording — it is what a UI layer would localize or branch on.
+     */
+    @Test
+    fun `a gateway rejection is reported as a gateway problem, not an unreachable server`() = runTest {
+        coEvery { configApi.getStartupConfig() } throws AccessGatewayException()
+        val repo = repository()
+
+        val result = repo.validateServerUrl("https://b.example.com")
+
+        val error = result as Result.Error
+        assertThat(error.kind).isEqualTo(FailureKind.AccessGateway)
+        assertThat(error.message).doesNotContain("Could not reach the server")
+        // Not the shared post-login wording: it points at Settings, which needs the sign-in the
+        // gateway is blocking.
+        assertThat(error.message).doesNotContain("Settings")
+        assertThat(error.message).contains("Advanced")
     }
 }

@@ -30,6 +30,7 @@ import com.garfiec.librechat.core.network.api.SpeechApi
 import com.garfiec.librechat.core.network.api.TagsApi
 import com.garfiec.librechat.core.network.api.UserApi
 import com.garfiec.librechat.core.network.client.AuthInterceptorPlugin
+import com.garfiec.librechat.core.network.client.GatewayDetectionPlugin
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.ServerHeadersPlugin
 import com.garfiec.librechat.core.network.client.ServerHeadersProvider
@@ -113,6 +114,9 @@ val networkModule = module {
                 this.serverHeadersProvider = serverHeadersProvider
                 this.serverUrlProvider = serverUrlProvider
             }
+            // No HttpResponseValidator here, so without this the gateway's 302→200 sign-in page
+            // reaches the SSE parser as a valid response and the chat hangs with no error.
+            install(GatewayDetectionPlugin)
             install(SwitchBarrierPlugin) {
                 this.switchGate = switchGate
             }
@@ -139,9 +143,10 @@ val networkModule = module {
             }
             // `/api/auth/refresh` is gated by the access gateway like every other route, and this
             // client has neither a SwitchBarrier snapshot nor an AuthInterceptor to hang an append on.
-            // Without this the session dies at the first refresh: the gateway's 302→200 HTML
-            // deserializes as garbage, which `performRefresh` classifies as Retryable — so it never
-            // routes to re-auth and never recovers, it just silently stops working.
+            // Without this the session dies at the first refresh: refresh is a POST, which Ktor does
+            // not redirect, so the gateway's bare 302 falls to `performRefresh`'s catch-all arm and
+            // classifies as Retryable — it never routes to re-auth and never recovers, it just
+            // silently stops working.
             //
             // ServerUrlReadyPlugin could not host this: it intercepts before HttpRequestPipeline.Before,
             // where `context.url.host` is still empty and no host-scoping is possible.
@@ -149,6 +154,9 @@ val networkModule = module {
                 this.serverHeadersProvider = serverHeadersProvider
                 this.serverUrlProvider = serverUrlProvider
             }
+            // Detection reads the challenge off that 302 directly, so it does not depend on the
+            // redirect being followed — which on a POST it is not. See RefreshAttempt.GatewayBlocked.
+            install(GatewayDetectionPlugin)
             install(HttpTimeout) {
                 requestTimeoutMillis = 15_000
                 connectTimeoutMillis = 10_000

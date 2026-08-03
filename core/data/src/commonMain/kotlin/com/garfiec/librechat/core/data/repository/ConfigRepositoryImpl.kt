@@ -3,7 +3,9 @@ package com.garfiec.librechat.core.data.repository
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.generated.BackendCommitMap
+import com.garfiec.librechat.core.common.result.AccessGatewayException
 import com.garfiec.librechat.core.common.result.ApiException
+import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
@@ -110,6 +112,17 @@ class ConfigRepositoryImpl(
             Result.Error(e, message)
         } catch (e: HttpRequestTimeoutException) {
             Result.Error(e, "Connection timed out. Check the URL and try again.")
+        } catch (e: AccessGatewayException) {
+            // Must stay above the blanket catch, which would call a reachable-and-answering gateway a
+            // connection problem. Worded here rather than via FailureKind.message(): both callers are
+            // the pre-login server screen, and the shared wording points at Settings — which needs
+            // the sign-in the gateway is blocking.
+            Result.Error(
+                exception = e,
+                message = "Your server's access gateway rejected this request. " +
+                    "Check the gateway headers under Advanced.",
+                kind = FailureKind.AccessGateway,
+            )
         } catch (e: Exception) {
             Result.Error(e, "Could not reach the server. Check the URL and your connection.")
         }

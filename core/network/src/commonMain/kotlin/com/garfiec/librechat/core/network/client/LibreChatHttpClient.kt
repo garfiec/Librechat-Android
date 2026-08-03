@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.network.client
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.result.AccessGatewayException
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.logging.redact.LogRedactor
@@ -97,9 +98,7 @@ object LibreChatHttpClient {
 
         // Must see the gateway's own 302, so it has to be inside the redirect loop — following that
         // redirect yields a 200 sign-in page, which no status-based check can catch.
-        install(GatewayDetectionPlugin) {
-            this.serverUrlProvider = serverUrlProvider
-        }
+        install(GatewayDetectionPlugin)
 
         // The SwitchBarrierPlugin (when a SwitchGate is wired) captures a consistent
         // (url, bearer, account) snapshot per request and resolves the URL against it, subsuming
@@ -220,7 +219,12 @@ internal fun HttpRequestRetryConfig.configureRetryPolicy() {
         request.method.isRetrySafe() && response.status.value in 500..599
     }
     retryOnExceptionIf(maxRetries = 2) { request, cause ->
-        request.method.isRetrySafe() && cause !is kotlinx.coroutines.CancellationException
+        request.method.isRetrySafe() &&
+            cause !is kotlinx.coroutines.CancellationException &&
+            // Deterministic until the user edits the credential, so retrying only delays the report.
+            // Excluded here rather than by install order: this plugin is installed first and so runs
+            // outermost, which it must stay for the transient failures it exists to absorb.
+            cause !is AccessGatewayException
     }
     exponentialDelay()
 }

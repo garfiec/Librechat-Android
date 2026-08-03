@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.network.sse
 
+import com.garfiec.librechat.core.network.client.AccessGatewaySignal
 import com.garfiec.librechat.core.network.sse.HttpResponseParser.ParseEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -271,5 +272,54 @@ class HttpResponseParserTest {
         assertEquals(2, bodyChunks.size)
         assertEquals("foo", bodyChunks[0].bytes.decodeToString())
         assertEquals("bar", bodyChunks[1].bytes.decodeToString())
+    }
+
+    /** Repeated field lines fold into one comma-separated value (RFC 7230 §3.2.2), not last-wins. */
+    @Test
+    fun repeatedHeaderLinesFoldIntoOneValue() {
+        val parser = HttpResponseParser()
+        val events = parser.feed(
+            (
+                "HTTP/1.1 302 Found\r\n" +
+                    "WWW-Authenticate: Bearer realm=\"api\"\r\n" +
+                    "WWW-Authenticate: Cloudflare-Access\r\n" +
+                    "\r\n"
+                ).bytes(),
+        )
+
+        val headers = events.filterIsInstance<ParseEvent.HeadersComplete>().single()
+        assertEquals("Bearer realm=\"api\", Cloudflare-Access", headers.headers["www-authenticate"])
+    }
+
+    /**
+     * Why the fold matters: the gateway check reads this header, and dropping a line makes a blocked
+     * stream indistinguishable from a healthy one — no events, no error, no cause.
+     */
+    @Test
+    fun aFoldedChallengeIsStillRecognisedWhicheverLineCarriesIt() {
+        fun challengeValue(first: String, second: String): String? {
+            val parser = HttpResponseParser()
+            val events = parser.feed(
+                (
+                    "HTTP/1.1 302 Found\r\n" +
+                        "WWW-Authenticate: $first\r\n" +
+                        "WWW-Authenticate: $second\r\n" +
+                        "\r\n"
+                    ).bytes(),
+            )
+            return events.filterIsInstance<ParseEvent.HeadersComplete>().single()
+                .headers["www-authenticate"]
+        }
+
+        assertTrue(
+            AccessGatewaySignal.isGatewayChallenge(
+                challengeValue("Bearer realm=\"api\"", "Cloudflare-Access"),
+            ),
+        )
+        assertTrue(
+            AccessGatewaySignal.isGatewayChallenge(
+                challengeValue("Cloudflare-Access", "Bearer realm=\"api\""),
+            ),
+        )
     }
 }

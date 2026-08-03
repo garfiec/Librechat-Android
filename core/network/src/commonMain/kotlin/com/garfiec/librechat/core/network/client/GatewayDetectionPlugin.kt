@@ -8,9 +8,6 @@ import io.ktor.client.plugins.plugin
 import io.ktor.http.HttpHeaders
 import io.ktor.util.AttributeKey
 
-/** The `WWW-Authenticate` scheme Cloudflare Access answers a rejected request with. */
-private const val CLOUDFLARE_ACCESS_SCHEME = "Cloudflare-Access"
-
 /**
  * Turns an access gateway's interception into a typed [AccessGatewayException] (issue #287).
  *
@@ -29,34 +26,34 @@ private const val CLOUDFLARE_ACCESS_SCHEME = "Cloudflare-Access"
  * - **Status is useless.** Following the redirect yields **200** `text/html`, so nothing
  *   status-based ever fires — which is why `HttpResponseValidator` cannot do this job.
  *
- * Installed on the main client only, so it covers config, auth, user and the chat POST. The SSE and
- * refresh clients are not covered and fail differently: a hung stream, and a silently unrecoverable
- * session.
+ * Install on **every** Ktor client — main, streaming and refresh. Each fails silently and
+ * differently without it; `GatewayDetectionInstallTest` pins the set. The iOS SSE transport is not a
+ * Ktor client and carries its own check against [AccessGatewaySignal].
  *
- * A gateway that is not Cloudflare Access (Authelia, oauth2-proxy) does not set this header; those
- * still degrade to the generic "unexpected response from the server" rather than leaking anything.
+ * The exception deliberately carries **no server identity**: the live base URL is the wrong server
+ * for a pinned multi-account refresh, and the SSE snapshot's URL is untrimmed. Add one back only
+ * from the pinned URL, alongside the thing that displays it.
  */
-class GatewayDetectionPlugin private constructor(
-    private val serverUrlProvider: ServerUrlProvider?,
-) {
-    class Config {
-        var serverUrlProvider: ServerUrlProvider? = null
-    }
+class GatewayDetectionPlugin private constructor() {
+
+    class Config
 
     companion object : HttpClientPlugin<Config, GatewayDetectionPlugin> {
         override val key = AttributeKey<GatewayDetectionPlugin>("GatewayDetection")
 
         override fun prepare(block: Config.() -> Unit): GatewayDetectionPlugin =
-            GatewayDetectionPlugin(Config().apply(block).serverUrlProvider)
+            GatewayDetectionPlugin()
 
         override fun install(plugin: GatewayDetectionPlugin, scope: HttpClient) {
             scope.plugin(HttpSend).intercept { request ->
                 val call = execute(request)
-                val wwwAuthenticate = call.response.headers[HttpHeaders.WWWAuthenticate].orEmpty()
-                if (wwwAuthenticate.contains(CLOUDFLARE_ACCESS_SCHEME, ignoreCase = true)) {
+                // Every line, not `headers[...]`: that returns only the first, and a gateway fronting
+                // a server that already answers 401 with `Bearer` puts its challenge on a second line.
+                val challenges = call.response.headers.getAll(HttpHeaders.WWWAuthenticate)
+                if (challenges?.any(AccessGatewaySignal::isGatewayChallenge) == true) {
                     // Thrown from inside the redirect loop, so it surfaces instead of the sign-in
                     // page the redirect would otherwise deliver as a perfectly valid 200.
-                    throw AccessGatewayException(serverUrl = plugin.serverUrlProvider?.getBaseUrl())
+                    throw AccessGatewayException()
                 }
                 call
             }

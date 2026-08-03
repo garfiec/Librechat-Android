@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.network.sse
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.result.AccessGatewayException
+import com.garfiec.librechat.core.network.client.AccessGatewaySignal
 import com.garfiec.librechat.core.network.client.BearerResult
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
 import com.garfiec.librechat.core.network.client.SwitchGate
@@ -272,6 +274,14 @@ actual class SseHttpTransport(
                         for (event in events) {
                             when (event) {
                                 is HttpResponseParser.ParseEvent.HeadersComplete -> {
+                                    // Must stay above the status check: a rejection is a non-2xx, so
+                                    // below it the challenge is lost and it becomes a bare 302 that
+                                    // SseClient retries five times before blaming the network.
+                                    // Parser headers are lower-cased.
+                                    if (AccessGatewaySignal.isGatewayChallenge(event.headers["www-authenticate"])) {
+                                        handleError(AccessGatewayException())
+                                        return@nw_connection_receive
+                                    }
                                     if (event.statusCode !in SUCCESS_LOW..SUCCESS_HIGH) {
                                         handleError(SseHttpStatusException(event.statusCode))
                                         return@nw_connection_receive

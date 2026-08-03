@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.datastore
 
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.extensions.trimTrailingSlash
+import com.garfiec.librechat.core.common.result.AccessGatewayException
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.response.RefreshResponse
@@ -356,6 +357,9 @@ abstract class CommonTokenDataStore(
                         // request timeout; stop. A session already confirmed dead by a prior 401 still
                         // routes to re-auth; otherwise keep the session (a later request/relaunch recovers).
                         RefreshAttempt.TransportError -> return@withLock settle()
+                        // Never `settle()`: a gateway rejection says nothing about whether the session
+                        // is alive, so it must not promote a prior 401 into a logout. See GatewayBlocked.
+                        RefreshAttempt.GatewayBlocked -> return@withLock RefreshResult.Transient
                         RefreshAttempt.AuthRejected -> {
                             sawHardRejection = true
                             retryBackoffMillis(attempt)
@@ -428,6 +432,16 @@ abstract class CommonTokenDataStore(
                     RefreshAttempt.Retryable
                 }
             }
+        } catch (e: AccessGatewayException) {
+            // This POST never reached LibreChat and no retry will change that — stop spending the
+            // budget under the flight lock.
+            Diag.w(
+                "Auth",
+                origin = LogOrigin.NETWORK,
+                throwable = e,
+                attrs = mapOf("event" to "refresh_gateway_blocked"),
+            ) { "Access gateway rejected the token refresh" }
+            RefreshAttempt.GatewayBlocked
         } catch (e: Exception) {
             if (isKeystoreException(e)) {
                 Diag.e(
@@ -576,6 +590,18 @@ abstract class CommonTokenDataStore(
 
         /** Transport failure (server unreachable). Terminal → Transient, so we don't retry under the lock. */
         data object TransportError : RefreshAttempt
+
+        /**
+         * An access gateway intercepted the refresh (issue #287). Terminal → Transient.
+         *
+         * Deliberately **not** HardExpired: the request never reached LibreChat, so it is no evidence
+         * the session is dead, and logging out over it costs a re-login on top of the header fix.
+         * Nor retryable — every attempt in the budget meets the same gateway.
+         *
+         * Accepted cost: returning directly also discards a `sawHardRejection` from an earlier
+         * attempt in the same loop, so a real 401 followed by a gateway block keeps a dead session.
+         */
+        data object GatewayBlocked : RefreshAttempt
     }
 
     companion object {

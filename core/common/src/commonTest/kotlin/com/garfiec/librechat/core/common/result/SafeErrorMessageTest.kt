@@ -52,7 +52,7 @@ class SafeErrorMessageTest {
 
     @Test
     fun `an access gateway rejection is its own actionable category`() {
-        val error = AccessGatewayException(serverUrl = "https://chat-test.example.org").toSafeError()
+        val error = AccessGatewayException().toSafeError()
 
         assertEquals(FailureKind.AccessGateway, error.kind)
         assertEquals(FailureMessages.GATEWAY, error.message)

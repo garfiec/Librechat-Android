@@ -83,6 +83,54 @@ Host-scoping for these is stricter than for the bearer (`isSameServerAuthority` 
 `isSameHostAsServer`, both in `HostScoping.kt`): scheme + host + port, and fail-closed. A gateway token
 is long-lived and never rotates, so an `http://` downgrade or an unknown base URL must not carry it.
 
+### Detecting the gateway (as opposed to sending headers to it)
+
+`GatewayDetectionPlugin` turns a rejection into a typed `AccessGatewayException`, and is installed on
+**all three** Ktor clients. `AccessGatewaySignal` holds the one predicate every transport shares.
+
+- **It must stay an `HttpSend` interceptor.** Ktor installs `HttpResponseValidator` before
+  `HttpRedirect` and reverses the `HttpSend` chain, so the validator is outermost and sees only the
+  final 200. The 302 carrying `WWW-Authenticate: Cloudflare-Access` is visible *inside* the redirect
+  loop and nowhere else. Moved to the validator, the branch is dead code no test would catch.
+- **Never read the body.** The interceptor runs for every response including streaming ones.
+- **Read every `WWW-Authenticate` line, not one of them.** It is a list, and a gateway in front of a
+  server that already challenges with `Bearer` puts its own challenge on a second line. The two
+  transports read the header from opposite ends by default — Ktor's `headers[name]` returns the
+  *first* line, a naive raw parser keeps the *last* — so either one alone detects a two-line
+  challenge only when it happens to land on the line that transport kept. Ktor scans `getAll(...)`;
+  `HttpResponseParser` folds repeats into one comma-separated value per RFC 7230 §3.2.2. A shared
+  predicate does not make the transports agree if they disagree about what to feed it.
+- **Install it on every new client.** The absence is silent and platform-specific:
+  `GatewayDetectionInstallTest` asserts the presence on all three from the real Koin graph, because a
+  per-client test installs the plugin itself and so can never observe it missing from the module.
+- **Cloudflare Access only, deliberately.** Cookie-based gateways (Authelia, oauth2-proxy) send no
+  comparable header and degrade to the generic message. The rejected alternative — inferring a gateway
+  from `text/html` served off the server's authority — has to stay correct against every legitimate
+  off-authority redirect the app makes (presigned downloads, object storage). Reconsider on a real
+  report, not pre-emptively.
+- **Terminal, never retried — and that takes three separate opt-outs, not one.** A rejection is
+  deterministic until the user edits the credential, so a backoff ladder only delays the report and
+  then names the wrong cause. `SseClient` and the refresh loop each exit on it, *and*
+  `configureRetryPolicy` excludes it from `retryOnExceptionIf`: `HttpRequestRetry` is installed
+  before `GatewayDetectionPlugin` and Ktor runs the first-installed `HttpSend` interceptor outermost,
+  so it sees the thrown exception and would re-send every retry-safe GET. Excluded in the predicate
+  rather than by install order, so the plugin stays outermost for the transient failures it exists
+  to absorb.
+- **Match the gateway error on the cause chain, not the exception type.** `SseClient` learns of it by
+  the byte channel being cancelled with it, and Ktor re-throws that wrapped in a
+  `ClosedByteChannelException` — which form arrives depends on whether the parse side or the pump job
+  loses the race to fail the scope. A type-exact `catch` therefore works most of the time, which is
+  the worst failure rate to debug: use `accessGatewayCause()`.
+- **A gateway block is not an expired session.** The refresh path maps it to
+  `RefreshAttempt.GatewayBlocked` → `Transient`, and deliberately not through `settle()`: the request
+  never reached LibreChat, so it is no evidence the session is dead, and logging out over it costs the
+  user a re-login on top of the header fix. Nothing is surfaced from there — every other request rides
+  the main client, which raises the same typed error on the screen the user is looking at.
+
+The iOS SSE transport is not a Ktor client and carries its own check against `AccessGatewaySignal`,
+placed **before** its status check: a rejection is a non-2xx, so left to the status branch it becomes a
+bare `SseHttpStatusException(302)` that `SseClient` retries five times before blaming the network.
+
 The editor UI is shared: `CustomHeadersEditor` in `:core:ui` backs both the pre-login server screen
 (`feature/auth`) and the post-login Settings → Account → Server connection dialog (`feature/settings`),
 and its strings live in `core/ui`'s `composeResources`. `:core:ui` deliberately does **not** depend on

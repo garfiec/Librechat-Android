@@ -5,6 +5,7 @@ import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
@@ -32,14 +33,8 @@ class GatewayDetectionPluginTest {
             "Cloudflare-Access resource_metadata=\"https://chat.example.com/.well-known\""
     }
 
-    private class FakeServerUrlProvider(private val baseUrl: String) : ServerUrlProvider {
-        override fun getBaseUrl(): String = baseUrl
-    }
-
     private fun clientWith(engine: MockEngine): HttpClient = HttpClient(engine) {
-        install(GatewayDetectionPlugin) {
-            serverUrlProvider = FakeServerUrlProvider(SERVER)
-        }
+        install(GatewayDetectionPlugin)
     }
 
     /**
@@ -68,7 +63,6 @@ class GatewayDetectionPluginTest {
             clientWith(engine).get("$SERVER/api/config")
         }
 
-        assertThat(failure.serverUrl).isEqualTo(SERVER)
         // The gateway's URL and JWT must not ride along on the exception the UI classifies.
         assertThat(failure.message.orEmpty()).doesNotContain("cloudflareaccess")
         assertThat(failure.message.orEmpty()).doesNotContain("meta=")
@@ -121,5 +115,54 @@ class GatewayDetectionPluginTest {
 
         assertThat(clientWith(engine).get("$SERVER/api/config").status)
             .isEqualTo(HttpStatusCode.Unauthorized)
+    }
+
+    /**
+     * Both plugins installed in the real client's order, because the ordering is the bug: Ktor runs
+     * the first-installed `HttpSend` interceptor outermost, so `HttpRequestRetry` sees the thrown
+     * exception and re-sends. A test that installs only the detection plugin passes either way.
+     */
+    @Test
+    fun `a gateway rejection is not retried by the retry plugin`() = runTest {
+        var requests = 0
+        val engine = MockEngine {
+            requests++
+            respond(
+                content = "",
+                status = HttpStatusCode.Found,
+                headers = headersOf(
+                    HttpHeaders.WWWAuthenticate to listOf(CF_CHALLENGE),
+                    HttpHeaders.Location to listOf(ACCESS_LOGIN),
+                ),
+            )
+        }
+        val client = HttpClient(engine) {
+            install(HttpRequestRetry) { configureRetryPolicy() }
+            install(GatewayDetectionPlugin)
+        }
+
+        assertFailsWith<AccessGatewayException> { client.get("$SERVER/api/config") }
+
+        assertThat(requests).isEqualTo(1)
+    }
+
+    /**
+     * Ktor's `headers[name]` hands back only the first line. `AccessGatewaySignalTest` cannot reach
+     * this: the predicate is given one already-chosen value, and choosing the wrong one is the bug.
+     */
+    @Test
+    fun `the challenge is found when it arrives on a second header line`() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = "",
+                status = HttpStatusCode.Found,
+                headers = headersOf(
+                    HttpHeaders.WWWAuthenticate to listOf("Bearer realm=\"api\"", CF_CHALLENGE),
+                    HttpHeaders.Location to listOf(ACCESS_LOGIN),
+                ),
+            )
+        }
+
+        assertFailsWith<AccessGatewayException> { clientWith(engine).get("$SERVER/api/config") }
     }
 }

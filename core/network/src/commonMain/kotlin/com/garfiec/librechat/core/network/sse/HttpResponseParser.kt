@@ -176,9 +176,11 @@ class HttpResponseParser {
         }
         val name = line.substring(0, colon).trim().lowercase()
         val value = line.substring(colon + 1).trim()
-        // Duplicate headers: last-wins is fine for what we use (Content-Length,
-        // Transfer-Encoding, Content-Type). No need to handle comma-folded duplicates.
-        headers[name] = value
+        // Repeated field lines fold into one comma-separated value (RFC 7230 §3.2.2). Not last-wins:
+        // the gateway check reads `WWW-Authenticate`, which is a list and can carry the Access
+        // challenge on any line — dropping a line makes a blocked stream look healthy.
+        val existing = headers[name]
+        headers[name] = if (existing == null) value else "$existing, $value"
         return true
     }
 
