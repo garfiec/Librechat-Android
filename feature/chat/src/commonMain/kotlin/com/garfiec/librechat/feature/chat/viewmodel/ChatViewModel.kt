@@ -23,12 +23,12 @@ import com.garfiec.librechat.core.data.repository.DraftRepository
 import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
 import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
-import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.data.repository.PresetRepository
 import com.garfiec.librechat.core.data.repository.PromptRepository
+import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
@@ -401,7 +401,7 @@ class ChatViewModel(
         // moment the run is over, so an ended run still sends immediately; a paused queue holds
         // the item for the user's own "Send queued" instead of dropping it.
         enqueueFollowUp = ::enqueueSpec,
-        // Deliberately NOT `enqueueSpec`: its self-drain is what auto-sent a parked steer on
+        // Deliberately NOT `enqueueSpec`: its self-drain would auto-send a parked steer on
         // conversation open, where the run is already over. See SteeringDelegate.reclaimParked.
         enqueueParked = queueDelegate::enqueue,
         pauseQueue = { queueDelegate.pause() },
@@ -599,10 +599,10 @@ class ChatViewModel(
 
         // The during-run preference is folded into `prefs` by the `uiState` combine below, but that
         // copy exists only on the EXPOSED state. `sendDuringRun` decides from `_uiState`, which
-        // carries `ChatPrefsState()`'s default — so without this collector the send button read
-        // QUEUE no matter what the user chose, and steering was unreachable from the composer while
-        // the very same button rendered itself as "Steer this reply" (it takes its icon from the
-        // exposed state). Behaviour must never be decided from a slice only the edge populates.
+        // carries `ChatPrefsState()`'s default — so without this collector the send reads QUEUE no
+        // matter what the user chose, while the very same button renders itself "Steer this reply"
+        // (it takes its icon from the exposed state). Behaviour must never be decided from a slice
+        // only the edge populates.
         viewModelScope.launch {
             settingsDataStore.duringRunAction.collect { action ->
                 _uiState.update { it.copy(prefs = it.prefs.copy(duringRunAction = action)) }
@@ -1009,9 +1009,9 @@ class ChatViewModel(
         val state = _uiState.value
         // A run paused on `ask_user_question` is waiting for exactly this text. The composer is
         // the input the user can see — the card carries its own field but sits at the tail of the
-        // thread — so sending here must ANSWER the pause, not queue a next turn. Queueing it was
-        // silent: the pause stayed unresolved and the message arrived as a non-sequitur once the
-        // run expired.
+        // thread — so sending here must ANSWER the pause, not queue a next turn. Queueing it fails
+        // silently: the pause stays unresolved and the message arrives as a non-sequitur once the
+        // run expires.
         when (state.duringRunSendTarget) {
             DuringRunSendTarget.ANSWER_PAUSE -> {
                 val answer = state.inputText.trim()

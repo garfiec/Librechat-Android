@@ -30,6 +30,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
@@ -51,8 +53,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.listSaver
 
 /**
  * The in-thread card for a run paused on the user (v0.8.8 HITL): a tool batch awaiting approval,
@@ -257,8 +257,16 @@ private val ToolDecisionDraftMapSaver = listSaver<SnapshotStateMap<String, ToolD
         mutableStateMapOf<String, ToolDecisionDraft>().apply {
             flat.chunked(FIELDS_PER_DRAFT)
                 .filter { it.size == FIELDS_PER_DRAFT }
-                .forEach { (callId, decision, edited, response) ->
-                    put(callId, ToolDecisionDraft(decision.takeIf { it.isNotEmpty() }, edited, response))
+                .forEach { fields ->
+                    // Positions mirror `save` above: callId, decision, editedArguments, responseText.
+                    put(
+                        fields[0],
+                        ToolDecisionDraft(
+                            decision = fields[1].takeIf { it.isNotEmpty() },
+                            editedArguments = fields[2],
+                            responseText = fields[3],
+                        ),
+                    )
                 }
         }
     },

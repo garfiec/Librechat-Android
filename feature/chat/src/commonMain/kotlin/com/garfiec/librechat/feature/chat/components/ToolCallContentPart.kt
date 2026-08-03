@@ -44,6 +44,9 @@ import org.jetbrains.compose.resources.stringResource
 
 // ─── ToolCallDispatcher ─────────────────────────────────────────────
 
+// A dispatcher: each branch emits one card and returns. Wrapping it to satisfy the rule would
+// add a layout node to every tool call in every message.
+@Suppress("MultipleEmitters")
 @Composable
 internal fun ToolCallDispatcher(
     part: MessageContentPart,

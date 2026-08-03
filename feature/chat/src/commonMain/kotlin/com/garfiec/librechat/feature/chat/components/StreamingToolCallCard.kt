@@ -38,6 +38,9 @@ import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import org.jetbrains.compose.resources.stringResource
 
+// A dispatcher: each branch emits one card and returns. Wrapping it to satisfy the rule would
+// add a layout node to every streaming tool call.
+@Suppress("MultipleEmitters")
 @Composable
 fun StreamingToolCallCard(
     toolCall: ActiveToolCall,

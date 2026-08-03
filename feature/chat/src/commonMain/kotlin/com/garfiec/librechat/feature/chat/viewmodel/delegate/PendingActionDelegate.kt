@@ -73,15 +73,15 @@ class PendingActionDelegate(
     private var pinnedTurn: PinnedTurnConfig? = null
 
     /**
-     * The action id whose resume POST is in flight, and the epoch it was issued under.
+     * The action id whose resume POST is in flight.
      *
      * The POST outlives the run: it can return after the pause it resolves is gone and a NEWER
      * run has announced its own. Writing `pendingAction = null` then would wipe the new run's
-     * live pause and strand it with no controls. Both are checked before the continuation
-     * touches shared state.
+     * live pause and strand it with no controls. This and the [epoch] the POST was issued under —
+     * captured as a local, so a second POST cannot overwrite the first one's copy — are both
+     * checked before the continuation touches shared state.
      */
     private var inFlightActionId: String? = null
-    private var inFlightEpoch: Int = 0
 
     /** Bumped whenever the pause state is invalidated ([clear]), so a stale POST can tell. */
     private var epoch: Int = 0

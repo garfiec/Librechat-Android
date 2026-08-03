@@ -205,6 +205,9 @@ internal fun AskUserQuestionRecordCard(
 }
 
 /** The answer, or why there isn't one. Clamped to one line while collapsed. */
+// Every branch below returns after emitting exactly one thing; the rule cannot see through
+// guard clauses, and giving it a single root would add a layout node per answered question.
+@Suppress("MultipleEmitters")
 @Composable
 private fun AnswerLine(
     display: AskAnswerDisplay,
