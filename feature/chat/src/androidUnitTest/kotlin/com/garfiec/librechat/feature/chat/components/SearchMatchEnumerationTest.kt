@@ -24,6 +24,44 @@ class SearchMatchEnumerationTest {
     private fun textPart(text: String) = MessageContentPart(type = ContentType.TEXT, text = text)
     private fun thinkPart(think: String) = MessageContentPart(type = ContentType.THINK, think = think)
 
+    // --- artifacts (see the render-order contract in SearchMatchEnumeration.kt) ---
+
+    // NB: these must go through a TEXT *part*. A message with no content parts renders
+    // message.text via MarkdownContent with no artifact split at all (clause 1 of the contract) —
+    // that gap is #304, tracked separately.
+
+    @Test
+    fun `complete artifact content is not counted`() {
+        // Whether a complete artifact renders inline depends on a UI preference the ViewModel
+        // cannot see, so its content is excluded from navigable occurrences.
+        val msg = message(
+            parts = listOf(
+                textPart(
+                    "before match\n\n" +
+                        ":::artifact{identifier=\"a\" type=\"text/html\" title=\"A\"}\n" +
+                        "```html\n<p>match match match</p>\n```\n:::",
+                ),
+            ),
+        )
+        assertThat(countMessageOccurrences(msg, "match")).isEqualTo(1)
+    }
+
+    @Test
+    fun `incomplete artifact content is counted`() {
+        // An incomplete artifact always renders its source (IncompleteArtifact -> CodeBlock)
+        // regardless of that preference, so its matches are on screen and must be navigable.
+        val msg = message(
+            parts = listOf(
+                textPart(
+                    "before match\n\n" +
+                        ":::artifact{identifier=\"a\" type=\"text/html\" title=\"A\"}\n" +
+                        "```html\n<p>match match</p>",
+                ),
+            ),
+        )
+        assertThat(countMessageOccurrences(msg, "match")).isEqualTo(3)
+    }
+
     // --- plain text / fallback (no parts) ---
 
     @Test

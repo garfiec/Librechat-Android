@@ -100,4 +100,32 @@ class InlineArtifactStrategyTest {
         )
         assertEquals(InlineArtifactStrategy.WebViewSlot, result)
     }
+
+    @Test
+    fun `empty content dispatches without throwing for every type`() {
+        // Leaf directives (`::artifact{…}`, no body) make empty content reachable for the first
+        // time. The ladder must stay total — in particular isCacheableMermaid("") must not throw
+        // and must not claim a cache hit.
+        val expected = ArtifactType.entries.associateWith { type ->
+            when (type) {
+                ArtifactType.MARKDOWN -> InlineArtifactStrategy.NativeMarkdown
+                ArtifactType.SVG -> InlineArtifactStrategy.IntrinsicSvg
+                else -> InlineArtifactStrategy.WebViewSlot
+            }
+        }
+        val actual = ArtifactType.entries.associateWith { type ->
+            selectInlineArtifactStrategy(type = type, content = "", cachedMermaidSvg = null)
+        }
+        assertEquals(expected, actual)
+    }
+
+    @Test
+    fun `empty mermaid content does not take the cached-svg path`() {
+        val result = selectInlineArtifactStrategy(
+            type = ArtifactType.MERMAID,
+            content = "",
+            cachedMermaidSvg = "<svg/>",
+        )
+        assertEquals(InlineArtifactStrategy.WebViewSlot, result)
+    }
 }

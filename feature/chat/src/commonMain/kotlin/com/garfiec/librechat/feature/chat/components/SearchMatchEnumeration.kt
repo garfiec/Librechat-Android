@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.components
 import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.content.MessageContentPart
+import com.garfiec.librechat.feature.chat.components.artifact.Artifact
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactSegment
 import com.garfiec.librechat.feature.chat.components.artifact.detectArtifacts
 
@@ -17,10 +18,15 @@ import com.garfiec.librechat.feature.chat.components.artifact.detectArtifacts
 //  1. Content parts in list order; only TEXT/TEXT_DELTA (part.text) and THINK (part.think)
 //     render searchable text. Messages without parts render message.text via
 //     MarkdownContent directly (no artifact split).
-//  2. TEXT parts split on artifact directives first (TextContentPart); only the plain
-//     Text segments are enumerated — inline-artifact content is highlighted but not
-//     navigable (whether it renders inline at all depends on a UI preference the
-//     ViewModel cannot see).
+//  2. TEXT parts split on artifact directives first (TextContentPart). Plain Text segments are
+//     enumerated. Artifact segments depend on Artifact.isComplete:
+//       - complete   -> contributes 0. Content is highlighted but not navigable, because whether it
+//                       renders inline at all depends on a UI preference the ViewModel cannot see.
+//       - incomplete -> contributes its content's occurrences. An incomplete artifact always renders
+//                       its source via IncompleteArtifact -> CodeBlock, regardless of that
+//                       preference, so it IS on screen and must be navigable. Counted flat (not via
+//                       parseMarkdownSegments) because CodeBlock lays the content out as one text
+//                       block — including for mermaid, which is not routed to a WebView here.
 //  3. Within a text run, parseMarkdownSegments order. LatexBlock and mermaid CodeBlocks
 //     render as native/WebView content with no text layout, so they contribute nothing.
 //     Table occurrences are counted per cell (headers left-to-right, then rows
@@ -54,6 +60,14 @@ internal fun countMarkdownOccurrences(text: String, query: String): Int {
     return parseMarkdownSegments(text).sumOf { countSegmentOccurrences(it, query) }
 }
 
+/**
+ * Occurrences contributed by one artifact segment (see contract above). Shared by both walks —
+ * the ViewModel-side enumeration here and the renderer-side offset table in `TextContentPart` — so
+ * that the two can never disagree about how many occurrences an artifact owns.
+ */
+internal fun countArtifactOccurrences(artifact: Artifact, query: String): Int =
+    if (artifact.isComplete) 0 else countOccurrences(artifact.content, query)
+
 /** Occurrences in a TEXT part's body, honoring the artifact split (see contract above). */
 internal fun countTextPartOccurrences(text: String, query: String): Int {
     // Same fast-path bail: skip detectArtifacts + parsing when the query can't be here.
@@ -61,7 +75,7 @@ internal fun countTextPartOccurrences(text: String, query: String): Int {
     return detectArtifacts(text).sumOf { segment ->
         when (segment) {
             is ArtifactSegment.Text -> countMarkdownOccurrences(segment.text, query)
-            is ArtifactSegment.ArtifactReference -> 0
+            is ArtifactSegment.ArtifactReference -> countArtifactOccurrences(segment.artifact, query)
         }
     }
 }

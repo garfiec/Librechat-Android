@@ -154,7 +154,25 @@ Two consequences worth knowing before touching that block:
 - Both dispatched from `ContentPartRenderer` — tool calls with name containing `dall` route to ImageGenCard
 
 ## Artifacts
-- `ArtifactDetector` parses remark-directive format `:::artifact{identifier="id" type="..." title="..."}` with backtick-fenced content; `groupArtifactVersions()` groups by identifier
+- `ArtifactDetector` is a **line scanner**, not a regex — ported in shape from upstream's
+  `findArtifactClose`/`getOpeningCodeFence` (`packages/api/src/artifacts/update.ts`), because the real
+  contract is "whatever micromark parses", not a pattern. It accepts backtick **and** tilde fences of
+  any length ≥3 (closing fence `{n,}`, i.e. *at least* as long), unfenced content, leaf directives
+  (`::artifact{…}`), CRLF, `[label]` between name and attributes, and quoted/unquoted/valueless
+  attributes. `groupArtifactVersions()` groups by identifier.
+- **Three divergences from the web client are deliberate** — do not "fix" them: `::: trailing` closes
+  the artifact here (web swallows the rest of the message; upstream's own two implementations
+  disagree), a tab-indented content fence renders here (web emits garbage), and attribute-less
+  `:::artifact` produces nothing (web paints no card either — `updateArtifact` early-returns on the
+  all-defaults key). A 25-case differential corpus pins all of this in `ArtifactDetectorCorpusTest`:
+  **22/25 agreement, divergent set exactly {10, 23, 25}**. Any *other* row diverging is a regression.
+- **`Artifact.isComplete`** is false when the closing `:::` never arrived — truncated mid-write, or
+  still streaming. Incomplete artifacts render their **source** via `IncompleteArtifact` → `CodeBlock`,
+  bypassing the inline prefs entirely, and they *do* count for in-conversation search. Both rules are
+  load-bearing: every inline pref defaults to off, so the normal path would collapse them to a button
+  and take partial content off screen, and half-written markup in a WebView is a blank box. An
+  unclosed directive with **no** opening fence is *not* emitted at all — that's a prose mention, and
+  emitting it would swallow the rest of the reply.
 - Supported types: `text/html`, `image/svg+xml`, `application/vnd.react`, `application/vnd.mermaid`, `text/markdown`/`text/md`, `text/plain`, `application/vnd.code-html`
 - `MermaidWebContent` renders Mermaid diagrams via CDN mermaid.js with zoom controls and dark theme
 - `MarkdownWebContent` renders Markdown via CDN marked.js + highlight.js with GFM and syntax highlighting

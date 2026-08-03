@@ -74,7 +74,8 @@ private val URL_REGEX = Regex("""https?://[^\s<>()\[\]"']+""")
 fun extractConversationLinks(messages: List<Message>): List<ConversationLink> {
     val links = mutableListOf<ConversationLink>()
     for (message in messages) {
-        val text = message.searchableText()
+        // Joining is harmless here — a URL never spans two parts, and this only feeds a regex.
+        val text = message.artifactSearchTexts().joinToString("\n")
         if (text.isBlank()) continue
         URL_REGEX.findAll(text).forEach { match ->
             val url = match.value.trimEnd('.', ',', ';', ':', '!', '?')
@@ -90,26 +91,37 @@ fun extractConversationLinks(messages: List<Message>): List<ConversationLink> {
  * identifier in first-seen order; each group is the version history sorted ascending (so the tile
  * shows the latest version + count, and tapping opens the panel with all versions). Mirrors
  * `groupArtifactVersions` but spans the whole conversation rather than one message.
+ *
+ * Detection runs **per content part**, matching how the parts actually render. Joining them first
+ * would build a string that exists nowhere on screen, and an unclosed directive in one part would
+ * swallow every following part — including THINK text — into a single bogus entry.
+ *
+ * Incomplete artifacts (truncated mid-write, so no closing `:::`) are excluded: the gallery is a
+ * list of finished artifacts, and a partial one has nothing useful to open.
  */
 fun extractConversationArtifacts(messages: List<Message>): List<List<Artifact>> {
     val all = mutableListOf<Artifact>()
     for (message in messages) {
-        val text = message.searchableText()
-        if (text.isBlank()) continue
-        detectArtifacts(text).forEach { segment ->
-            if (segment is ArtifactSegment.ArtifactReference) all += segment.artifact
+        for (text in message.artifactSearchTexts()) {
+            if (text.isBlank()) continue
+            detectArtifacts(text).forEach { segment ->
+                if (segment is ArtifactSegment.ArtifactReference && segment.artifact.isComplete) {
+                    all += segment.artifact
+                }
+            }
         }
     }
     // groupBy yields a LinkedHashMap, preserving first-seen identifier order.
     return all.groupBy { it.identifier }.map { (_, versions) -> versions.sortedBy { it.version } }
 }
 
-private fun Message.searchableText(): String {
+/** Each independently-rendered text run of a message, in render order (see the note above). */
+private fun Message.artifactSearchTexts(): List<String> {
     val parts = content
     return if (!parts.isNullOrEmpty()) {
-        parts.mapNotNull { it.text ?: it.think }.joinToString("\n")
+        parts.mapNotNull { it.text ?: it.think }
     } else {
-        text
+        listOf(text)
     }
 }
 

@@ -165,9 +165,12 @@ echo hello
     }
 
     @Test
-    fun `mismatched fence lengths do not match as an artifact`() {
-        // A 4-backtick opening fence must be closed with 4 backticks, not 3 — otherwise
-        // the embedded 3-backtick block from the previous test would close the artifact early.
+    fun `mismatched fence lengths still produce an artifact, with the stray fence as content`() {
+        // Inverted from the assertion #296 shipped. A 3-backtick line cannot close a 4-backtick
+        // fence, so the code block simply runs to the container close — upstream renders this as an
+        // artifact whose content includes the stray fence, and the differential corpus confirms it.
+        // The previous test's embedded 3-backtick block is still safe: it is inside a 4-backtick
+        // fence that closes properly, so the artifact never ends early.
         val text = """
 :::artifact{identifier="bad" type="text/markdown" title="Bad"}
 ````markdown
@@ -177,7 +180,11 @@ content
         """.trimIndent()
 
         val segments = detectArtifacts(text)
-        assertTrue(segments.none { it is ArtifactSegment.ArtifactReference })
+        assertEquals(1, segments.size)
+        val ref = segments[0] as ArtifactSegment.ArtifactReference
+        assertEquals("bad", ref.artifact.identifier)
+        assertEquals("content\n```", ref.artifact.content)
+        assertTrue(ref.artifact.isComplete)
     }
 
     @Test
@@ -307,6 +314,16 @@ Let me know if you want changes.
         val segments = detectArtifacts(text)
         assertEquals(1, segments.size)
         assertTrue(segments[0] is ArtifactSegment.Text)
+        assertEquals(text, (segments[0] as ArtifactSegment.Text).text)
+    }
+
+    @Test
+    fun `plain text keeps surrounding whitespace verbatim`() {
+        // Web hands the raw text to react-markdown, so a 4-space-indented first line is an indented
+        // code block there — trimming here would render it as a paragraph instead.
+        val text = "    indented code line\n\nA paragraph after it.\n"
+        val segments = detectArtifacts(text)
+        assertEquals(1, segments.size)
         assertEquals(text, (segments[0] as ArtifactSegment.Text).text)
     }
 

@@ -23,4 +23,10 @@ data class Artifact(
     val language: String?,
     val content: String,
     val version: Int = 1,
+    /**
+     * False when the artifact's closing `:::` never arrived — a reply truncated mid-artifact, or a
+     * live stream still in flight. Such artifacts render their **source** rather than being
+     * executed; see [IncompleteArtifact]'s KDoc for why that outranks the inline preferences.
+     */
+    val isComplete: Boolean = true,
 )

@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactButton
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactSegment
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
+import com.garfiec.librechat.feature.chat.components.artifact.IncompleteArtifact
 import com.garfiec.librechat.feature.chat.components.artifact.InlineArtifactStrategy
 import com.garfiec.librechat.feature.chat.components.artifact.InlineArtifactView
 import com.garfiec.librechat.feature.chat.components.artifact.InlineMarkdownArtifact
@@ -62,17 +63,22 @@ internal fun TextContentPart(
         val inlinePrefs = LocalInlineArtifactPrefs.current
         val openArtifact = LocalOpenArtifact.current
         val addToHomeScreen = LocalAddArtifactToHomeScreen.current
-        // Per-Text-segment occurrence base offsets (artifact content contributes none — see the
-        // SearchMatchEnumeration render-order contract). Computed once per (segments, query): the
-        // per-segment countMarkdownOccurrences re-parses markdown, so keeping it off recomposition matters.
+        // Per-segment occurrence base offsets. Complete artifacts contribute none; incomplete ones
+        // contribute their source's occurrences, since they always render it — see the
+        // SearchMatchEnumeration render-order contract, whose countArtifactOccurrences is shared
+        // with the ViewModel-side walk so the two can never disagree.
+        // Computed once per (segments, query): the per-segment countMarkdownOccurrences re-parses
+        // markdown, so keeping it off recomposition matters.
         val textOffsets = remember(segments, searchQuery) {
             IntArray(segments.size).also { offsets ->
                 if (!searchQuery.isNullOrBlank()) {
                     var acc = 0
                     segments.forEachIndexed { i, segment ->
                         offsets[i] = acc
-                        if (segment is ArtifactSegment.Text) {
-                            acc += countMarkdownOccurrences(segment.text, searchQuery)
+                        acc += when (segment) {
+                            is ArtifactSegment.Text -> countMarkdownOccurrences(segment.text, searchQuery)
+                            is ArtifactSegment.ArtifactReference ->
+                                countArtifactOccurrences(segment.artifact, searchQuery)
                         }
                     }
                 }
@@ -95,7 +101,19 @@ internal fun TextContentPart(
                     is ArtifactSegment.ArtifactReference -> {
                         val versions = versionMap[segment.artifact.identifier] ?: listOf(segment.artifact)
                         Spacer(modifier = Modifier.height(8.dp))
-                        if (inlinePrefs.shouldRenderInline(segment.artifact.type)) {
+                        if (!segment.artifact.isComplete) {
+                            // Truncated or still streaming: show source, never a collapsed button and
+                            // never a WebView. See IncompleteArtifact's KDoc for why this outranks
+                            // the inline preference.
+                            IncompleteArtifact(
+                                artifact = segment.artifact,
+                                onTap = { openArtifact?.invoke(segment.artifact, versions) },
+                                modifier = Modifier.fillMaxWidth(),
+                                searchQuery = searchQuery,
+                                searchFocusedOccurrence = searchFocusedOccurrence - textOffsets[index],
+                                onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+                            )
+                        } else if (inlinePrefs.shouldRenderInline(segment.artifact.type)) {
                             val type = ArtifactType.from(segment.artifact.type)
                             val cachedSvg = rememberCachedMermaidSvg(segment.artifact.content, type)
                             when (val strategy = selectInlineArtifactStrategy(type, segment.artifact.content, cachedSvg)) {
