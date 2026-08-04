@@ -202,10 +202,14 @@ fun CitationText(
             onDismissRequest = { activeCitation = null },
             properties = PopupProperties(focusable = true),
         ) {
-            CitationPopup(
-                citation = citation,
-                onDismiss = { activeCitation = null },
-            )
+            // Own selection scope: a popup is a separate composition owner, so its text must not
+            // join the message's registrar. See SubwindowSelectionContainer.
+            SubwindowSelectionContainer {
+                CitationPopup(
+                    citation = citation,
+                    onDismiss = { activeCitation = null },
+                )
+            }
         }
     }
 }

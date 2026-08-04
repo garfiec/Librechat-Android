@@ -402,12 +402,16 @@ private fun FullscreenTableDialog(
                     .verticalScroll(verticalScrollState)
                     .padding(16.dp),
             ) {
-                MarkdownTable(
-                    headers = headers,
-                    alignments = alignments,
-                    rows = rows,
-                    fontSizeMultiplier = fontSizeMultiplier,
-                )
+                // Own selection scope: this dialog is a separate composition owner, so its cells
+                // must not join the message's registrar. See SubwindowSelectionContainer.
+                SubwindowSelectionContainer {
+                    MarkdownTable(
+                        headers = headers,
+                        alignments = alignments,
+                        rows = rows,
+                        fontSizeMultiplier = fontSizeMultiplier,
+                    )
+                }
             }
         }
     }

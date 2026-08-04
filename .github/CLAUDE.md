@@ -37,9 +37,16 @@ File: `.github/workflows/ci.yml`
 
 #### `android` (Build Android App)
 - `./gradlew :app:assembleDebug`
+- `./gradlew :feature:chat:assembleDebugAndroidTest` — compile-only gate for the chat instrumented
+  suite, which *runs* on a local emulator (`connectedDebugAndroidTest`), never in CI. Scoped to the
+  one module deliberately: a repo-wide `assembleDebugAndroidTest` would also compile `:app`'s stale
+  `androidTest` sources.
+- Uploads the debug APK as an artifact (90-day retention) and posts its download link to the PR
 
 #### `ios` (Build iOS App)
 - Selects latest stable Xcode
+- Runs `./gradlew :shared:iosSimulatorArm64Test` (the iOS Koin graph test — the `ubuntu` `test` job
+  cannot run Kotlin/Native tests)
 - Caches `~/.konan`
 - Runs `xcodebuild` for the iOS simulator (arm64-only, no signing). The Kotlin framework is built by the Xcode "Compile Kotlin Framework" build phase (`./gradlew :shared:embedAndSignAppleFrameworkForXcode`) — no separate link step.
 
@@ -56,6 +63,7 @@ File: `.github/workflows/ci.yml`
 ### Notes
 
 - No release signing configured yet
-- No instrumented/UI tests in CI (only unit tests)
-- APK / iOS app are built but NOT uploaded as artifacts
+- Instrumented/UI tests are never *executed* in CI (no emulator) — `:feature:chat`'s suite is only
+  compiled, as a gate. Executed test coverage in CI is unit tests plus the iOS Koin graph test.
+- The debug APK is uploaded as an artifact; the iOS app is built but not uploaded
 - Detekt SARIF is uploaded to GitHub Code Scanning (requires GitHub Advanced Security for private repos)

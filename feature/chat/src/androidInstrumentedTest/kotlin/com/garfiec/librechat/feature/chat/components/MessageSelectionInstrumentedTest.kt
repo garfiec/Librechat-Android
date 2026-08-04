@@ -23,11 +23,14 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.core.ui.theme.LibreChatTheme
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import kotlinx.coroutines.awaitCancellation
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -80,12 +83,19 @@ class MessageSelectionInstrumentedTest {
      */
     class RecordingContextMenuProvider : TextContextMenuProvider {
         var shownCount = 0
+
+        /** Incremented when the machinery cancels a show — i.e. when the selection went away. */
+        var hiddenCount = 0
         var lastDataProvider: TextContextMenuDataProvider? = null
 
         override suspend fun showTextContextMenu(dataProvider: TextContextMenuDataProvider) {
             shownCount++
             lastDataProvider = dataProvider
-            awaitCancellation()
+            try {
+                awaitCancellation()
+            } finally {
+                hiddenCount++
+            }
         }
 
         /** Live lookup of a menu item by [TextContextMenuKeys] key. */
@@ -192,6 +202,7 @@ class MessageSelectionInstrumentedTest {
         composeRule.waitUntil(timeoutMillis = 5_000) { menuProvider.shownCount > 0 }
     }
 
+
     /** Invokes a toolbar item by key on the UI thread and settles. */
     private fun invokeMenuItem(key: Any, label: String) {
         val item = menuProvider.item(key)
@@ -199,6 +210,10 @@ class MessageSelectionInstrumentedTest {
         composeRule.runOnIdle { item!!.onClick(NoOpSession) }
         composeRule.waitForIdle()
     }
+
+    /** A long-press selects a word, so anything shorter means the gesture degraded. */
+    private fun isWordLike(text: String): Boolean =
+        text.length >= 3 && text.all { it.isLetterOrDigit() || it == '_' }
 
     /** Invokes the toolbar copy and returns what landed on the fake clipboard. */
     private fun copyViaMenu(): String {
@@ -217,12 +232,16 @@ class MessageSelectionInstrumentedTest {
         longPressText("beta gamma")
         awaitSelectionMenu()
 
-        val copied = copyViaMenu()
+        val copied = copyViaMenu().trim()
         assertTrue(
             "expected a word from the prose, got \"$copied\"",
-            copied.isNotBlank() && "Alpha beta gamma delta epsilon.".contains(copied.trim()),
+            "Alpha beta gamma delta epsilon.".contains(copied),
         )
+        // A long-press selects a whole word. Without this, a degraded gesture that caught a
+        // single stray character would still satisfy the substring check above.
+        assertTrue("expected a whole word, got \"$copied\"", isWordLike(copied))
     }
+
 
     @Test
     fun longPressDoesNotToggleActionRow_tapDoes() {
@@ -233,17 +252,27 @@ class MessageSelectionInstrumentedTest {
         awaitSelectionMenu()
         composeRule.onNodeWithTag("message_actions", useUnmergedTree = true).assertDoesNotExist()
 
-        // Tap on bubble chrome (the sender row) still toggles the action row.
-        composeRule.onNodeWithText(SENDER, useUnmergedTree = true).performClick()
+        // A plain tap on the prose passes through the SelectionContainer to the bubble's
+        // clickable and reveals the row. It also puts the selection away — the two are one
+        // gesture by construction: the tap itself does not clear anything on this Compose
+        // version; the action row appearing relayouts the message, and THAT drops the
+        // selection. Suppressing the toggle to "protect" the selection therefore strands it
+        // with no way to dismiss it (measured on device — see the toolbar counters below).
+        val hiddenBefore = menuProvider.hiddenCount
+        composeRule.onNodeWithText("selectable reply", substring = true, useUnmergedTree = true)
+            .performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("message_actions", useUnmergedTree = true).assertExists()
+        composeRule.waitUntil(timeoutMillis = 5_000) { menuProvider.hiddenCount > hiddenBefore }
 
-        // And a plain tap on the prose itself passes through the SelectionContainer
-        // to the same clickable, toggling it back off.
+        // The selection is gone for good: a further tap neither revives the toolbar nor is
+        // swallowed — it simply toggles the row back off.
+        val shownBefore = menuProvider.shownCount
         composeRule.onNodeWithText("selectable reply", substring = true, useUnmergedTree = true)
             .performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("message_actions", useUnmergedTree = true).assertDoesNotExist()
+        assertEquals("selection came back after being dismissed", shownBefore, menuProvider.shownCount)
     }
 
     @Test
@@ -299,12 +328,58 @@ class MessageSelectionInstrumentedTest {
         longPressText("uniqueTokenXyz")
         awaitSelectionMenu()
 
-        val copied = copyViaMenu()
+        val copied = copyViaMenu().trim()
         assertTrue(
-            "expected code text, got \"$copied\"",
-            copied.contains("uniqueTokenXyz") || "val uniqueTokenXyz = compute(1, 2)".contains(copied.trim()),
+            "expected a word from the code line, got \"$copied\"",
+            "val uniqueTokenXyz = compute(1, 2)".contains(copied) && isWordLike(copied),
         )
     }
+
+    @Test
+    fun quotedExcerptIsSelectable() {
+        // A quote is conversation text the user pulled forward, not chrome: the passage it came
+        // from may be far up the thread, so copying it back out has to work.
+        setChat(
+            userMessage("m1", "What about this?").copy(quotes = listOf("Quoted excerpt from earlier")),
+        )
+
+        longPressText("Quoted excerpt")
+        awaitSelectionMenu()
+
+        val copied = copyViaMenu().trim()
+        assertTrue(
+            "expected a word from the quote, got \"$copied\"",
+            "Quoted excerpt from earlier".contains(copied) && isWordLike(copied),
+        )
+    }
+
+    @Test
+    fun incompleteArtifactSourceIsSelectable() {
+        // A truncated artifact renders its source through CodeBlock — message text like any other
+        // fenced block (search counts it), so selection has to reach it. Only the finished
+        // artifact's tap-to-open card is chrome.
+        setChat(
+            assistantMessage("m1", "").copy(
+                content = listOf(
+                    MessageContentPart(
+                        type = ContentType.TEXT,
+                        text = "Here it is:\n\n:::artifact{identifier=demo type=text/markdown title=Demo}\n" +
+                            "```md\npartialArtifactToken lives here\n```",
+                    ),
+                ),
+            ),
+        )
+
+        longPressText("partialArtifactToken")
+        awaitSelectionMenu()
+
+        val copied = copyViaMenu().trim()
+        assertTrue(
+            "expected a word from the artifact source, got \"$copied\"",
+            "partialArtifactToken lives here".contains(copied) && isWordLike(copied),
+        )
+    }
+
 
     @Test
     fun streamingBubbleIsNotSelectable() {
@@ -315,11 +390,12 @@ class MessageSelectionInstrumentedTest {
         )
 
         longPressText("Streaming reply body")
-        assertEquals(
-            "selection toolbar must not appear on the streaming bubble",
-            0,
-            menuProvider.shownCount,
-        )
+        // Asserting the counter straight away would race the show: every positive test in this
+        // file waits seconds for the same signal. Give it a comparable window to stay at zero.
+        val toolbarAppeared = runCatching {
+            composeRule.waitUntil(timeoutMillis = 3_000) { menuProvider.shownCount > 0 }
+        }.isSuccess
+        assertFalse("selection toolbar must not appear on the streaming bubble", toolbarAppeared)
     }
 
     @Test

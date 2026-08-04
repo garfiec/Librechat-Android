@@ -300,14 +300,14 @@ internal fun MessageContentAndActions(
             Column {
                 // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
                 // text. Created on web; mobile displays them (no creation affordance yet).
+                // Selectable: a quote is conversation text the user pulled forward, not chrome,
+                // and the passage it came from may be far up the thread or on another branch.
                 val quotes = message.quotes
                 if (isUser && !quotes.isNullOrEmpty()) {
-                    DisableSelection {
-                        MessageQuotes(
-                            quotes = quotes,
-                            modifier = Modifier.padding(bottom = 6.dp),
-                        )
-                    }
+                    MessageQuotes(
+                        quotes = quotes,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
                 }
 
                 // Render attached files above message text (matches web app behavior)
