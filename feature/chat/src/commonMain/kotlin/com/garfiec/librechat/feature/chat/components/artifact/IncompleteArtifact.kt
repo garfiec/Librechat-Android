@@ -46,6 +46,7 @@ fun IncompleteArtifact(
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
+    streaming: Boolean = false,
 ) {
     ArtifactCardSurface(onTap = onTap, modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
@@ -73,6 +74,7 @@ fun IncompleteArtifact(
                 searchQuery = searchQuery,
                 searchFocusedOccurrence = searchFocusedOccurrence,
                 onFocusedMatchPosition = onFocusedOccurrencePosition,
+                streaming = streaming,
             )
         }
     }

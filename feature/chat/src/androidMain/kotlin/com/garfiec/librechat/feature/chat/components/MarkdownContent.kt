@@ -143,6 +143,7 @@ actual fun MarkdownContent(
                             searchQuery = if (isSearchActive) searchQuery else null,
                             searchFocusedOccurrence = focusedInSegment,
                             onFocusedMatchPosition = onFocusedOccurrencePosition,
+                            streaming = streaming,
                         )
                     }
                     if (index < segments.lastIndex) Spacer(modifier = Modifier.height(8.dp))

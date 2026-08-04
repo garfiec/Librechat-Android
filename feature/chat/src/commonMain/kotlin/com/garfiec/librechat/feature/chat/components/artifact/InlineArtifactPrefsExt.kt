@@ -16,3 +16,10 @@ fun InlineArtifactPrefs.shouldRenderInline(type: String): Boolean =
         ArtifactType.MARKDOWN -> markdown
         ArtifactType.PLAIN, ArtifactType.CODE -> false
     }
+
+/**
+ * [shouldRenderInline], additionally gated off while the message is still streaming — an inline
+ * preview would reload its WebView on every delta. Full rationale: feature/chat/CLAUDE.md, Artifacts.
+ */
+fun shouldRenderInlineArtifact(prefs: InlineArtifactPrefs, type: String, streaming: Boolean): Boolean =
+    !streaming && prefs.shouldRenderInline(type)

@@ -1,7 +1,9 @@
 package com.garfiec.librechat.feature.chat.components.artifact
 
+import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class InlineArtifactStrategyTest {
@@ -127,5 +129,21 @@ class InlineArtifactStrategyTest {
             cachedMermaidSvg = "<svg/>",
         )
         assertEquals(InlineArtifactStrategy.WebViewSlot, result)
+    }
+
+    @Test
+    fun `streaming gates inline rendering off for every type`() {
+        val allOn = InlineArtifactPrefs(mermaid = true, svg = true, html = true, react = true, markdown = true)
+        val types = listOf(
+            "application/vnd.mermaid",
+            "image/svg+xml",
+            "text/html",
+            "application/vnd.react",
+            "text/markdown",
+        )
+        types.forEach { type ->
+            assertTrue(shouldRenderInlineArtifact(allOn, type, streaming = false), type)
+            assertFalse(shouldRenderInlineArtifact(allOn, type, streaming = true), type)
+        }
     }
 }

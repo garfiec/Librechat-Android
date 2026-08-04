@@ -148,7 +148,9 @@ private fun ThreadStreamingBubble(
                 },
         ) {
             if (streamingContent.isNotBlank()) {
-                MarkdownContent(
+                // Routed through TextContentPart so artifact directives render as cards while the
+                // reply streams (#302) — an unclosed artifact shows its source via IncompleteArtifact.
+                TextContentPart(
                     text = streamingContent,
                     fontSizeMultiplier = fontSizeMultiplier,
                     useKatex = useKatex,
@@ -236,7 +238,9 @@ private fun TwoSidedStreamingBubble(
             )
             Spacer(modifier = Modifier.height(4.dp))
             if (streamingContent.isNotBlank()) {
-                MarkdownContent(
+                // Routed through TextContentPart so artifact directives render as cards while the
+                // reply streams (#302) — an unclosed artifact shows its source via IncompleteArtifact.
+                TextContentPart(
                     text = streamingContent,
                     fontSizeMultiplier = fontSizeMultiplier,
                     useKatex = useKatex,

@@ -27,7 +27,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +64,9 @@ fun CodeBlock(
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
     onFocusedMatchPosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
+    // While streaming, [code] grows every flush and the highlight re-runs from scratch, so it is
+    // computed off the main thread with the previous result retained.
+    streaming: Boolean = false,
 ) {
     var showCopied by remember { mutableStateOf(false) }
 
@@ -128,14 +133,10 @@ fun CodeBlock(
                 .padding(12.dp),
         ) {
             val isDarkTheme = isSystemInDarkTheme()
-            val highlightedCode = remember(code, language, searchQuery, searchFocusedOccurrence, isDarkTheme) {
-                val syntax = highlightSyntax(code, language?.lowercase())
-                if (searchQuery.isNullOrBlank()) {
-                    syntax
-                } else {
-                    addSearchSpans(syntax, searchQuery, searchFocusedOccurrence, isDarkTheme)
-                }
-            }
+            val highlightedCode = rememberHighlightedCode(
+                input = HighlightInput(code, language, searchQuery, searchFocusedOccurrence, isDarkTheme),
+                streaming = streaming,
+            )
             val focusedRange = remember(code, searchQuery, searchFocusedOccurrence) {
                 if (searchQuery.isNullOrBlank()) {
                     null
@@ -156,6 +157,51 @@ fun CodeBlock(
             )
         }
     }
+}
+
+private data class HighlightInput(
+    val code: String,
+    val language: String?,
+    val searchQuery: String?,
+    val searchFocusedOccurrence: Int,
+    val isDarkTheme: Boolean,
+)
+
+private fun highlight(input: HighlightInput): AnnotatedString {
+    val syntax = highlightSyntax(input.code, input.language?.lowercase())
+    return if (input.searchQuery.isNullOrBlank()) {
+        syntax
+    } else {
+        addSearchSpans(syntax, input.searchQuery, input.searchFocusedOccurrence, input.isDarkTheme)
+    }
+}
+
+/**
+ * Highlights [input]. While [streaming], the compute runs off the main thread with the previous
+ * result retained (and the first input highlighted synchronously) so the code never blanks.
+ */
+@Composable
+private fun rememberHighlightedCode(
+    input: HighlightInput,
+    streaming: Boolean,
+): AnnotatedString {
+    if (!streaming) {
+        return remember(input) { highlight(input) }
+    }
+
+    val latestInput by rememberUpdatedState(input)
+    val initialInput = remember { input }
+    var highlighted by remember { mutableStateOf(highlight(initialInput)) }
+
+    LaunchedEffect(Unit) {
+        collectDerived(
+            inputs = snapshotFlow { latestInput },
+            alreadyDerived = initialInput,
+            derive = ::highlight,
+        ) { highlighted = it }
+    }
+
+    return highlighted
 }
 
 // --- Syntax highlighting engine ---

@@ -51,12 +51,25 @@ internal suspend fun collectMarkdownSegments(
     parse: (String) -> List<MarkdownSegment> = ::parseMarkdownSegments,
     parseContext: CoroutineContext = Dispatchers.Default,
     onSegments: (List<MarkdownSegment>) -> Unit,
+) = collectDerived(texts, alreadyParsed, parse, parseContext, onSegments)
+
+/**
+ * Derives a value from the latest input in [inputs] on [deriveContext], skipping inputs equal to
+ * the previous one. [deriveContext] must differ from the caller's dispatcher, or a cancelled
+ * derivation publishes its result instead of being discarded.
+ */
+internal suspend fun <I, O> collectDerived(
+    inputs: Flow<I>,
+    alreadyDerived: I,
+    derive: (I) -> O,
+    deriveContext: CoroutineContext = Dispatchers.Default,
+    onResult: (O) -> Unit,
 ) {
-    var lastParsed = alreadyParsed
-    texts.conflate().collect { t ->
-        if (t == lastParsed) return@collect
-        val parsed = withContext(parseContext) { parse(t) }
-        onSegments(parsed)
-        lastParsed = t
+    var lastInput = alreadyDerived
+    inputs.conflate().collect { input ->
+        if (input == lastInput) return@collect
+        val result = withContext(deriveContext) { derive(input) }
+        onResult(result)
+        lastInput = input
     }
 }

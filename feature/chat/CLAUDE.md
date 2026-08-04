@@ -116,6 +116,14 @@ Two consequences worth knowing before touching that block:
 - `ChatViewModel.sendMessage()` calls `ChatRepository.startChat()` which returns `Flow<StreamEvent>`
 - Two-phase: POST /api/agents/chat -> streamId, then GET SSE stream
 - `streamingBuffer: StringBuilder` accumulates text deltas
+- **The live bubble renders through `TextContentPart(streaming = true)`** (#302), so artifact
+  detection runs on every flush — an unclosed artifact streams as its source via
+  `IncompleteArtifact` instead of raw `:::artifact{…}` text. The `streaming` flag must stay
+  threaded down to every `MarkdownContent` and `CodeBlock` beneath it: dropping it reintroduces
+  the per-delta Loading flash + LRU pollution documented in `CachedMarkdown`'s KDoc (the #169
+  class), and `CodeBlock`'s off-main highlight retention keys off it. The bubble passes no
+  `searchQuery` — the streaming message is outside the search enumeration, which is what keeps
+  the two search walks lockstep-free here.
 - Tool calls tracked in `activeToolCalls` list (start -> complete lifecycle)
 - **Stream termination is a chokepoint** for every *event-driven* end — clean/aborted Final, error, failed abort, watchdog, resume-found-expired — which funnel through the single private `endStream(reason)` in `StreamingManagerDelegate` (the one exception is a flow that ends with neither Final nor Error — a clean SSE EOF or a stream-GET 404 — which the caller's `onTerminated` safety net clears directly; a known gap, don't rely on `endStream` being the *only* teardown); the sealed reason (`Finalized` / `StreamError` / `AbortFallback` / `ResumeExpired`) decides job cancel, state write, queue policy, and whether a reload is allowed. A per-session Int counter latches each session to at most ONE end, and stale ends from a previous session are no-ops — do not add teardown steps at call sites; add them to the reason table. Structural invariant this encodes: **nothing reloads on an abort path** — the server emits the aborted frame BEFORE persisting, so any refetch there races the save (and the optimistic user message was never in Room, so a reload can lose it entirely). `Finalized` writes no state: the atomic finalize in `finalizeChatDisplay` owns that (the no-completion-flash invariant)
 - `stopGeneration()` POSTs `chatRepository.abortChat()` and **deliberately does not cancel the stream job.** The abort POST only acks (`{ success, aborted }`); the server ends the run by emitting an ordinary `final` frame flagged `aborted` over the same SSE stream, and *that* frame carries the partial's content parts. Cancelling the collector was the original bug — the stopped reply vanished. `handleFinal` reads `aborted` off the frame, not off local stop state, so a Stop from another client is handled identically. Stop-specific behavior: no auto-TTS, no `gen_title`, no queue drain (the hold is re-asserted). `abortRequested` guards double-taps. Works before the `created` milestone too — a null stream id makes the abort route fall back to one of the caller's active jobs (the *oldest*, and the client can't tell which, since `ChatAbortResponse` drops the returned `aborted` id — so with a second stream live server-side a null-key Stop can hit the wrong job; known gap). An acked abort arms a 15s watchdog; if the frame never lands (dead socket) or the POST fails, `endStream(AbortFallback)` stops locally with the partial preserved and NO reload
@@ -264,6 +272,10 @@ existing upload/usage path already handles them.
   and take partial content off screen, and half-written markup in a WebView is a blank box. An
   unclosed directive with **no** opening fence is *not* emitted at all — that's a prose mention, and
   emitting it would swallow the rest of the reply.
+- **While streaming, complete artifacts are gated to `ArtifactButton`** even when an inline pref is
+  on (`shouldRenderInlineArtifact`): the segment subtree recomposes per delta, and an inline preview
+  reloads its WebView on every content change (mermaid recreates its view outright). The real
+  preview mounts once, at settle, where the streaming→final swap replaces the subtree anyway.
 - Supported types: `text/html`, `image/svg+xml`, `application/vnd.react`, `application/vnd.mermaid`, `text/markdown`/`text/md`, `text/plain`, `application/vnd.code-html`
 - `MermaidWebContent` renders Mermaid diagrams via CDN mermaid.js with zoom controls and dark theme
 - `MarkdownWebContent` renders Markdown via CDN marked.js + highlight.js with GFM and syntax highlighting

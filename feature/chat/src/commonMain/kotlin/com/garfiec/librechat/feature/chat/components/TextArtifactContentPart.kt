@@ -29,7 +29,7 @@ import com.garfiec.librechat.feature.chat.components.artifact.groupArtifactVersi
 import com.garfiec.librechat.feature.chat.components.artifact.isCacheableMermaid
 import com.garfiec.librechat.feature.chat.components.artifact.mermaidCacheKey
 import com.garfiec.librechat.feature.chat.components.artifact.selectInlineArtifactStrategy
-import com.garfiec.librechat.feature.chat.components.artifact.shouldRenderInline
+import com.garfiec.librechat.feature.chat.components.artifact.shouldRenderInlineArtifact
 
 // ─── TextContentPart ────────────────────────────────────────────────
 
@@ -42,6 +42,10 @@ internal fun TextContentPart(
     searchQuery: String? = null,
     searchFocusedOccurrence: Int = -1,
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
+    // True while rendering the live reply bubble. Must reach every MarkdownContent below (or the
+    // per-delta Loading flash and LRU pollution documented in CachedMarkdown return) and gates
+    // inline artifact previews to buttons (see shouldRenderInlineArtifact).
+    streaming: Boolean = false,
 ) {
     if (text.isBlank()) return
 
@@ -57,6 +61,7 @@ internal fun TextContentPart(
             searchQuery,
             searchFocusedOccurrence,
             onFocusedOccurrencePosition,
+            streaming = streaming,
         )
     } else {
         val versionMap = remember(segments) { groupArtifactVersions(segments) }
@@ -96,6 +101,7 @@ internal fun TextContentPart(
                             searchQuery,
                             searchFocusedOccurrence - textOffsets[index],
                             onFocusedOccurrencePosition,
+                            streaming = streaming,
                         )
                     }
                     is ArtifactSegment.ArtifactReference -> {
@@ -112,8 +118,9 @@ internal fun TextContentPart(
                                 searchQuery = searchQuery,
                                 searchFocusedOccurrence = searchFocusedOccurrence - textOffsets[index],
                                 onFocusedOccurrencePosition = onFocusedOccurrencePosition,
+                                streaming = streaming,
                             )
-                        } else if (inlinePrefs.shouldRenderInline(segment.artifact.type)) {
+                        } else if (shouldRenderInlineArtifact(inlinePrefs, segment.artifact.type, streaming)) {
                             val type = ArtifactType.from(segment.artifact.type)
                             val cachedSvg = rememberCachedMermaidSvg(segment.artifact.content, type)
                             when (val strategy = selectInlineArtifactStrategy(type, segment.artifact.content, cachedSvg)) {

@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.components.artifact
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -325,6 +326,35 @@ Let me know if you want changes.
         val segments = detectArtifacts(text)
         assertEquals(1, segments.size)
         assertEquals(text, (segments[0] as ArtifactSegment.Text).text)
+    }
+
+    @Test
+    fun `streaming prefixes progress from text to incomplete to complete`() {
+        // The live bubble re-runs detection on the growing buffer every flush (#302). Phases:
+        // directive line alone is prose (the fence guard), the opening fence makes it an
+        // incomplete artifact, and only the closing ::: completes it.
+        val directive = """:::artifact{identifier="demo" type="text/html" title="Demo"}"""
+
+        val directiveOnly = detectArtifacts(directive)
+        assertEquals(1, directiveOnly.size)
+        assertTrue(directiveOnly[0] is ArtifactSegment.Text)
+
+        val fenceOpen = detectArtifacts("$directive\n```html\n<p>hi")
+        val partial = (fenceOpen.single() as ArtifactSegment.ArtifactReference).artifact
+        assertFalse(partial.isComplete)
+        assertEquals("<p>hi", partial.content)
+
+        val fenceGrown = detectArtifacts("$directive\n```html\n<p>hi</p>\n<p>more</p>")
+        val grown = (fenceGrown.single() as ArtifactSegment.ArtifactReference).artifact
+        assertFalse(grown.isComplete)
+        assertEquals("<p>hi</p>\n<p>more</p>", grown.content)
+
+        val closed = detectArtifacts("$directive\n```html\n<p>hi</p>\n<p>more</p>\n```\n:::\nAfter.")
+        assertEquals(2, closed.size)
+        val complete = (closed[0] as ArtifactSegment.ArtifactReference).artifact
+        assertTrue(complete.isComplete)
+        assertEquals("<p>hi</p>\n<p>more</p>", complete.content)
+        assertEquals("After.", (closed[1] as ArtifactSegment.Text).text)
     }
 
     @Test
