@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.common.identity.AccountState.Resolved
 import com.garfiec.librechat.core.common.identity.deriveAccountId
 import com.garfiec.librechat.core.common.identity.deriveServerId
 import com.garfiec.librechat.core.data.datastore.AccountEntry
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -122,6 +123,9 @@ class AccountSwitcherRemoveTest {
             assertThat(h.sessionCacheCleaner.fileClearCount).isEqualTo(1)
             assertThat(h.roster.snapshot().entries).isEmpty()
             assertThat(h.tokenManager.expiredEmissions).containsExactly(null)
+            // Reported as a deliberate sign-out, not an expiry: the user asked for this, so the UI
+            // must not tell them their session ran out.
+            assertThat(h.tokenManager.expiredReasons).containsExactly(SessionEndReason.SIGNED_OUT)
             coVerify(exactly = 1) { h.dataPurger.purge(accountA) }
             // The URL is deliberately retained (logout parity) so the login screen comes back prefilled.
             assertThat(h.serverDataStore.getBaseUrl()).isEqualTo(serverA)

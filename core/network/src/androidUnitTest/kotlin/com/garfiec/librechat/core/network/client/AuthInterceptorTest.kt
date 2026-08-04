@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.network.client
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -30,8 +31,8 @@ class AuthInterceptorTest {
         var refreshCallCount = 0
         var sessionExpiredCount = 0
         var lastExpiredAccountId: String? = null
-        private val _sessionExpiredFlow = MutableSharedFlow<Unit>()
-        override val sessionExpiredFlow: SharedFlow<Unit> = _sessionExpiredFlow
+        private val _sessionExpiredFlow = MutableSharedFlow<SessionEndReason>()
+        override val sessionExpiredFlow: SharedFlow<SessionEndReason> = _sessionExpiredFlow
         override val isAuthenticated: Boolean get() = accessToken != null
 
         override suspend fun getAccessToken(): String? = accessToken
@@ -70,7 +71,7 @@ class AuthInterceptorTest {
             accessToken = null
         }
 
-        override fun emitSessionExpired(expiredAccountId: String?) {
+        override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) {
             sessionExpiredCount++
             lastExpiredAccountId = expiredAccountId
         }

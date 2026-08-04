@@ -67,8 +67,18 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
         }
     }
 
-    /** Clear back stack and navigate to auth (session expiry / logout). */
+    /**
+     * Clear back stack and navigate to auth (session expiry / logout).
+     *
+     * No-ops when the user is already in the auth flow, matching the dedupe its siblings above
+     * already do. A dead session is reported by more than one caller — a cold start fans out several
+     * requests and each 401 settles independently — and without this a straggler landing after the
+     * user has moved on to Login (or Register, or 2FA) resets them all the way back to [ServerUrl],
+     * discarding whatever they had typed. There is nothing to re-route to: they are on the very
+     * screen this would send them to.
+     */
     fun navigateToAuth() {
+        if (isInAuthFlow) return
         backStack.clear()
         backStack.add(ServerUrl)
     }

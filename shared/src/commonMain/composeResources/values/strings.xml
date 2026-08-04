@@ -11,4 +11,9 @@
     <string name="version_mismatch_message">This app was built for LibreChat v%1$s, but your server is running v%2$s. Some features may not work correctly.</string>
     <string name="dismiss">Dismiss</string>
     <string name="dont_warn_again">Don't warn again</string>
+
+    <!-- Session expiry notice -->
+    <string name="session_expired_title">Signed out</string>
+    <string name="session_expired_message">Your session has expired. Sign in again to continue.</string>
+    <string name="session_expired_message_named">Your session for %1$s has expired. Sign in again to continue.</string>
 </resources>

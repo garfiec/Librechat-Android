@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.network.client
 
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -51,8 +52,8 @@ class ServerHeadersPluginTest {
     /** Enough of a [TokenManager] to drive one 401 → refresh → retry cycle. */
     private class FakeTokenManager : TokenManager {
         private var accessToken: String? = "initial-token"
-        private val _sessionExpiredFlow = MutableSharedFlow<Unit>()
-        override val sessionExpiredFlow: SharedFlow<Unit> = _sessionExpiredFlow
+        private val _sessionExpiredFlow = MutableSharedFlow<SessionEndReason>()
+        override val sessionExpiredFlow: SharedFlow<SessionEndReason> = _sessionExpiredFlow
         override val isAuthenticated: Boolean get() = accessToken != null
         override suspend fun getAccessToken(): String? = accessToken
         override suspend fun setTokens(accessToken: String, refreshToken: String) {
@@ -77,7 +78,7 @@ class ServerHeadersPluginTest {
             refreshAccessToken()
 
         override suspend fun onAccountResolved(accountId: String) = Unit
-        override fun emitSessionExpired(expiredAccountId: String?) = Unit
+        override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) = Unit
     }
 
     private fun createClient(

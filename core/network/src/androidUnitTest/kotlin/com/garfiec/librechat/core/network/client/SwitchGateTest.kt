@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.network.client
 import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.identity.AccountState.Resolved
 import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -40,8 +41,8 @@ class SwitchGateTest {
         override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult = RefreshResult.HardExpired
         override suspend fun onAccountResolved(accountId: String) = Unit
         override suspend fun onAccountCleared() = Unit
-        override fun emitSessionExpired(expiredAccountId: String?) = Unit
-        override val sessionExpiredFlow: SharedFlow<Unit> = MutableSharedFlow()
+        override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) = Unit
+        override val sessionExpiredFlow: SharedFlow<SessionEndReason> = MutableSharedFlow()
     }
 
     private class FakeServerUrlProvider(private val baseUrl: String) : ServerUrlProvider {

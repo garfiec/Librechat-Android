@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.network.client.GatewayDetectionPlugin
 import com.garfiec.librechat.core.network.client.RefreshResult
 import com.garfiec.librechat.core.network.client.ServerHeadersProvider
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
@@ -46,8 +47,8 @@ class GatewayDetectionInstallTest {
     }
 
     private class FakeTokenManager : TokenManager {
-        private val expired = MutableSharedFlow<Unit>()
-        override val sessionExpiredFlow: SharedFlow<Unit> = expired
+        private val expired = MutableSharedFlow<SessionEndReason>()
+        override val sessionExpiredFlow: SharedFlow<SessionEndReason> = expired
         override val isAuthenticated: Boolean = false
         override suspend fun getAccessToken(): String? = null
         override suspend fun setTokens(accessToken: String, refreshToken: String) = Unit
@@ -62,7 +63,7 @@ class GatewayDetectionInstallTest {
             RefreshResult.Transient
 
         override suspend fun onAccountResolved(accountId: String) = Unit
-        override fun emitSessionExpired(expiredAccountId: String?) = Unit
+        override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) = Unit
     }
 
     private fun client(qualifier: Qualifier?): HttpClient {

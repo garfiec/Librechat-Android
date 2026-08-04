@@ -141,7 +141,7 @@ object LibreChatHttpClient {
                         // the server being ADDED belongs to the add flow, mirroring the 401 path.
                         val identity = response.call.request.attributes.getOrNull(RequestIdentityKey)
                         if (identity?.isPending != true) {
-                            tokenManager.emitSessionExpired(identity?.accountId)
+                            tokenManager.emitSessionExpired(identity?.accountId, SessionEndReason.BANNED)
                         }
                     }
 

@@ -101,6 +101,15 @@ interface TokenManager {
      * account's session. The expired account keeps its rows and roster entry — re-auth restores it
      * without data loss. Null = the active/legacy session; always emits.
      */
-    fun emitSessionExpired(expiredAccountId: String? = null)
-    val sessionExpiredFlow: SharedFlow<Unit>
+    fun emitSessionExpired(
+        expiredAccountId: String? = null,
+        reason: SessionEndReason = SessionEndReason.EXPIRED,
+    )
+
+    /**
+     * Emits once per ended session. Implementations coalesce: a cold start fans out several requests
+     * and every one of them discovers the same dead session independently, and each emission replays
+     * the logout navigation.
+     */
+    val sessionExpiredFlow: SharedFlow<SessionEndReason>
 }

@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.deriveAccountId
 import com.garfiec.librechat.core.common.identity.deriveServerId
 import com.garfiec.librechat.core.network.client.RefreshResult
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
@@ -153,7 +154,7 @@ class AccountRegistryTest {
         override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult = RefreshResult.HardExpired
         override suspend fun onAccountResolved(accountId: String) {}
         override suspend fun onAccountCleared() { cleared = true }
-        override fun emitSessionExpired(expiredAccountId: String?) {}
-        override val sessionExpiredFlow: SharedFlow<Unit> = MutableSharedFlow()
+        override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) {}
+        override val sessionExpiredFlow: SharedFlow<SessionEndReason> = MutableSharedFlow()
     }
 }

@@ -9,6 +9,7 @@ import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.AccountScopedPrefsPurger
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.network.client.RefreshResult
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import io.mockk.mockk
@@ -28,6 +29,7 @@ internal class RecordingTokenManager : TokenManager {
     val selections = mutableListOf<String>()
     val removedAccounts = mutableListOf<String>()
     val expiredEmissions = mutableListOf<String?>()
+    val expiredReasons = mutableListOf<SessionEndReason>()
 
     override val isAuthenticated: Boolean = true
     override suspend fun getAccessToken(): String? = null
@@ -55,10 +57,11 @@ internal class RecordingTokenManager : TokenManager {
     override suspend fun onAccountCleared() {
         clearedActive = true
     }
-    override fun emitSessionExpired(expiredAccountId: String?) {
+    override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) {
         expiredEmissions += expiredAccountId
+        expiredReasons += reason
     }
-    override val sessionExpiredFlow: SharedFlow<Unit> = MutableSharedFlow()
+    override val sessionExpiredFlow: SharedFlow<SessionEndReason> = MutableSharedFlow()
 }
 
 internal class RecordingSwitchCacheCleaner : SwitchCacheCleaner {

@@ -73,6 +73,9 @@ import com.garfiec.librechat.feature.skills.navigation.skillsEntries
 import com.garfiec.librechat.shared.resources.Res
 import com.garfiec.librechat.shared.resources.dismiss
 import com.garfiec.librechat.shared.resources.dont_warn_again
+import com.garfiec.librechat.shared.resources.session_expired_message
+import com.garfiec.librechat.shared.resources.session_expired_message_named
+import com.garfiec.librechat.shared.resources.session_expired_title
 import com.garfiec.librechat.shared.resources.version_mismatch_message
 import com.garfiec.librechat.shared.resources.version_mismatch_title
 import kotlinx.coroutines.Dispatchers
@@ -236,7 +239,47 @@ fun LibreChatNavHost(
                 onDismissPermanently = navHostViewModel::dismissVersionWarningPermanently,
             )
         }
+
+        // Being dropped back on the server screen with no explanation is the part users report as a
+        // bug. Rendered here rather than inside the auth screens because it sits above NavDisplay and
+        // so survives the back-stack reset that put them there.
+        val sessionExpiredNotice by navHostViewModel.sessionExpiredNotice.collectAsStateWithLifecycle()
+        sessionExpiredNotice?.let { accountLabel ->
+            SessionExpiredDialog(
+                accountLabel = accountLabel,
+                onDismiss = navHostViewModel::dismissSessionExpiredNotice,
+            )
+        }
     }
+}
+
+/** Reports an unannounced sign-out. [accountLabel] is blank when the account can't be named. */
+@Composable
+private fun SessionExpiredDialog(accountLabel: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(Res.string.session_expired_title),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+        },
+        text = {
+            Text(
+                text = if (accountLabel.isBlank()) {
+                    stringResource(Res.string.session_expired_message)
+                } else {
+                    stringResource(Res.string.session_expired_message_named, accountLabel)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.dismiss))
+            }
+        },
+    )
 }
 
 @Composable

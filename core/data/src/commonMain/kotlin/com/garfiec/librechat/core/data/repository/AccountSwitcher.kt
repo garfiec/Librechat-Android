@@ -16,6 +16,7 @@ import com.garfiec.librechat.core.model.config.StartupConfig
 import com.garfiec.librechat.core.network.client.EmptyServerHeadersProvider
 import com.garfiec.librechat.core.network.client.PendingRequestIdentity
 import com.garfiec.librechat.core.network.client.ServerHeadersProvider
+import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import kotlinx.coroutines.NonCancellable
@@ -364,7 +365,7 @@ class AccountSwitcher(
             }
             // Reuse the session-expired channel to drive nav-to-auth reactively; the settings screen
             // that triggered the removal has no navigator reference of its own.
-            tokenManager.emitSessionExpired()
+            tokenManager.emitSessionExpired(reason = SessionEndReason.SIGNED_OUT)
         }
         if (removed) {
             accountDataPurger.purge(AccountId(accountId))

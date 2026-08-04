@@ -471,7 +471,10 @@ class CommonTokenDataStoreAccountKeyingTest {
         }
 
         store.emitSessionExpired("acctA")
-        store.emitSessionExpired() // unscoped (legacy/active) always emits
+        // The unscoped (legacy/active) form emits too — once a re-authentication has re-armed the
+        // one-signal-per-dead-session latch. See CommonTokenDataStoreSessionExpiryTest.
+        store.setTokens("A-access-2", "A-refresh-2")
+        store.emitSessionExpired()
 
         assertThat(emissions).isEqualTo(2)
         job.cancel()
