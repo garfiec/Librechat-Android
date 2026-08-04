@@ -363,6 +363,10 @@ abstract class CommonTokenDataStore(
                             origin = LogOrigin.CLIENT,
                             attrs = mapOf("event" to "session_expired", "reason" to "no_refresh_token"),
                         ) { "No refresh token available" }
+                        // Drop the slot here too, not just in [settle]. A torn pair (refresh gone,
+                        // access retained) would otherwise keep `isLoggedIn()` true forever, which is
+                        // the same replay this path exists to end. A no-op when the slot is empty.
+                        invalidateRefresh(accountKey, epochAtStart)
                         RefreshResult.HardExpired
                     } else {
                         RefreshResult.Transient
@@ -599,8 +603,11 @@ abstract class CommonTokenDataStore(
      * one `AccountSwitcher` reuses to route a remove-last-account teardown to auth.
      *
      * Deliberately **not** called from `onAccountResolved`: it is the re-home half of a sign-in
-     * [setTokens] already covers, and it also runs on the cold-start restore path — where re-arming
-     * mid-storm would let the same dead session report itself twice.
+     * [setTokens] already covers, and it runs *after* the account gate opens — so re-arming there
+     * would let the same dead session report itself twice mid-storm. [selectAccount] also runs on the
+     * cold-start path but re-arms safely because its cold-start call happens inside the roster seed,
+     * before the gate opens and therefore before any request can 401. Moving either call across that
+     * gate reintroduces the double-report.
      */
     private fun resetSessionExpiryLatch() {
         sessionExpiryReported = false

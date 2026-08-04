@@ -113,7 +113,8 @@ fun LibreChatNavHost(
     // Start key comes from the synchronous logged-in seed, not a fixed NewChat. Starting logged-in
     // and redirecting away composes the chat shell for real and then plays NavDisplay's transition
     // animation over it — a third of a second of "signed in" before the auth screen, on every
-    // logged-out cold start. The redirect below still runs, as the catch-up for the async re-resolve.
+    // logged-out cold start. This reads the same seed the redirect below does, which leaves that
+    // redirect a backstop for the deep-link path rather than the thing that picks the screen.
     val backStack = rememberNavBackStack(
         navigationSavedStateConfig,
         if (navHostViewModel.isLoggedIn.value) NewChat() else ServerUrl,

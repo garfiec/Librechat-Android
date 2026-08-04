@@ -3,7 +3,10 @@ package com.garfiec.librechat.navigation
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
+import com.garfiec.librechat.feature.auth.navigation.AddAccountLogin
+import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
 import com.garfiec.librechat.feature.auth.navigation.Login
+import com.garfiec.librechat.feature.auth.navigation.Register
 import com.garfiec.librechat.feature.auth.navigation.ServerUrl
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
@@ -158,6 +161,24 @@ class NavigatorTest {
     @Test
     fun `navigateToAuth is a no-op when already on ServerUrl`() {
         val navigator = createNavigator(ServerUrl)
+        navigator.navigateToAuth()
+        assertEquals(listOf(ServerUrl), navigator.backStack.toList())
+    }
+
+    @Test
+    fun `navigateToAuth still resets out of an add-account flow`() {
+        // The add flow belongs to the session that just ended, and the nav host cancels the pending
+        // add by watching these routes leave the stack — so the guard must not apply here.
+        val navigator = createNavigator(NewChat(), SettingsTabbed, AddAccountServerUrl, AddAccountLogin)
+        navigator.navigateToAuth()
+        assertEquals(listOf(ServerUrl), navigator.backStack.toList())
+    }
+
+    @Test
+    fun `navigateToAuth resets from a shared route stacked above an add-account login`() {
+        // Register/2FA/forgot-password are shared routes reached from add-mode login; they sit above
+        // an AddAccountLogin entry, so the whole stack has to be checked, not just the top.
+        val navigator = createNavigator(AddAccountServerUrl, AddAccountLogin, Register)
         navigator.navigateToAuth()
         assertEquals(listOf(ServerUrl), navigator.backStack.toList())
     }
