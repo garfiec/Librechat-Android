@@ -575,8 +575,7 @@ actual fun MermaidDiagram(
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
     ) {
-        // Header — chrome, excluded from in-message selection (mirrors the Android
-        // MermaidDiagram; the WKWebView below never participates in Compose selection).
+        // Header
         DisableSelection {
             Row(
                 modifier = Modifier

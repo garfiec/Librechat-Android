@@ -74,8 +74,7 @@ actual fun MermaidDiagram(
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
     ) {
-        // Header — chrome, excluded from in-message selection (the WebView below never
-        // participates; the "show code" CodeBlock keeps its own selectable code text).
+        // Header
         DisableSelection {
             Row(
                 modifier = Modifier

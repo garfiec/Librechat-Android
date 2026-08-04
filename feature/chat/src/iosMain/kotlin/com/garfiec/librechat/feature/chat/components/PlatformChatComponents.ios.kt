@@ -737,8 +737,6 @@ private fun IosFullscreenTableDialog(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
             ) {
-                // Own selection scope: this dialog is a separate composition owner, so its cells
-                // must not join the message's registrar. See SubwindowSelectionContainer.
                 SubwindowSelectionContainer {
                     IosMarkdownTable(
                         headers = headers,

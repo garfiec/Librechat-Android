@@ -48,7 +48,6 @@ internal fun SteerContentPart(
     if (text.isBlank()) return
 
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        // Author chrome — excluded from in-message selection; the steer text below stays in.
         DisableSelection {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AvatarImage(
@@ -110,7 +109,6 @@ internal fun SegmentAuthorHeader(
         is SegmentAuthor.Agent -> author.agentId
         SegmentAuthor.Message -> messageSender ?: stringResource(Res.string.sender_assistant)
     }
-    // Attribution chrome — excluded from in-message selection.
     DisableSelection {
         Row(
             modifier = modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),

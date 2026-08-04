@@ -80,10 +80,8 @@ internal fun ContentPartDispatcher(
                 stateKey = stateKey,
             )
         }
-        // Card/media parts are excluded from in-message selection (DisableSelection):
-        // v1 scopes selection to prose, code, tables, and think/summary bodies so a
-        // toolbar "Select all" copies the message's text, not card labels and JSON
-        // dumps. Tool-card output selection is a plausible follow-up.
+        // Card and media parts are chrome: "Select all" copies the message's text, not
+        // card labels and JSON dumps.
         ContentType.TOOL_CALL -> DisableSelection {
             ToolCallDispatcher(
                 part = part,

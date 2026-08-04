@@ -290,18 +290,16 @@ internal fun MessageContentAndActions(
         // Single Column root so this branch emits from one source (and the quote chips,
         // files, content, and office previews stack the same as before).
         //
-        // SelectionContainer scope is per-message and content-only: every BasicText-backed
-        // descendant (markdown prose, code, table cells, think bodies) becomes selectable
-        // through one registrar, while chrome (chips, cards, headers) opts out via
-        // DisableSelection so "Select all" copies message text, not UI labels. The action
-        // row below and the editing branch above stay outside — a text field must never
-        // sit inside a SelectionContainer.
+        // Selection scope is per-message and content-only: every BasicText-backed descendant
+        // (prose, code, table cells, think bodies) shares one registrar, while chrome opts out
+        // via DisableSelection so "Select all" copies message text, not UI labels. The action
+        // row below and the editing branch above stay outside — a text field must never sit
+        // inside a SelectionContainer.
         SelectionContainer {
             Column {
                 // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
                 // text. Created on web; mobile displays them (no creation affordance yet).
-                // Selectable: a quote is conversation text the user pulled forward, not chrome,
-                // and the passage it came from may be far up the thread or on another branch.
+                // Selectable: a quote is conversation text the user pulled forward, not chrome.
                 val quotes = message.quotes
                 if (isUser && !quotes.isNullOrEmpty()) {
                     MessageQuotes(

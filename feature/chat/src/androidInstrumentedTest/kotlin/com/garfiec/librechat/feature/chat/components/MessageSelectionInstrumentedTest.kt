@@ -98,7 +98,6 @@ class MessageSelectionInstrumentedTest {
             }
         }
 
-        /** Live lookup of a menu item by [TextContextMenuKeys] key. */
         fun item(key: Any): TextContextMenuItem? = lastDataProvider
             ?.data()
             ?.components
@@ -110,7 +109,6 @@ class MessageSelectionInstrumentedTest {
         override fun close() = Unit
     }
 
-    /** Records [setClipEntry] instead of touching the system clipboard. */
     class RecordingClipboard : Clipboard {
         var lastEntry: ClipEntry? = null
 
@@ -203,7 +201,6 @@ class MessageSelectionInstrumentedTest {
     }
 
 
-    /** Invokes a toolbar item by key on the UI thread and settles. */
     private fun invokeMenuItem(key: Any, label: String) {
         val item = menuProvider.item(key)
         assertNotNull("selection toolbar offered no $label action", item)
@@ -215,7 +212,6 @@ class MessageSelectionInstrumentedTest {
     private fun isWordLike(text: String): Boolean =
         text.length >= 3 && text.all { it.isLetterOrDigit() || it == '_' }
 
-    /** Invokes the toolbar copy and returns what landed on the fake clipboard. */
     private fun copyViaMenu(): String {
         invokeMenuItem(TextContextMenuKeys.CopyKey, "copy")
         val text = clipboard.lastText
@@ -247,17 +243,14 @@ class MessageSelectionInstrumentedTest {
     fun longPressDoesNotToggleActionRow_tapDoes() {
         setChat(assistantMessage("m1", "Some selectable reply text here."))
 
-        // Long-press = selection, not the bubble's tap-to-reveal.
         longPressText("selectable reply")
         awaitSelectionMenu()
         composeRule.onNodeWithTag("message_actions", useUnmergedTree = true).assertDoesNotExist()
 
-        // A plain tap on the prose passes through the SelectionContainer to the bubble's
-        // clickable and reveals the row. It also puts the selection away — the two are one
-        // gesture by construction: the tap itself does not clear anything on this Compose
-        // version; the action row appearing relayouts the message, and THAT drops the
-        // selection. Suppressing the toggle to "protect" the selection therefore strands it
-        // with no way to dismiss it (measured on device — see the toolbar counters below).
+        // A tap both reveals the action row and drops the selection, and the two are one
+        // gesture by construction: the tap clears nothing itself; the action row appearing
+        // relayouts the message, and THAT drops the selection. Suppressing the toggle to
+        // "protect" the selection strands it with no way to dismiss it.
         val hiddenBefore = menuProvider.hiddenCount
         composeRule.onNodeWithText("selectable reply", substring = true, useUnmergedTree = true)
             .performClick()
@@ -265,8 +258,6 @@ class MessageSelectionInstrumentedTest {
         composeRule.onNodeWithTag("message_actions", useUnmergedTree = true).assertExists()
         composeRule.waitUntil(timeoutMillis = 5_000) { menuProvider.hiddenCount > hiddenBefore }
 
-        // The selection is gone for good: a further tap neither revives the toolbar nor is
-        // swallowed — it simply toggles the row back off.
         val shownBefore = menuProvider.shownCount
         composeRule.onNodeWithText("selectable reply", substring = true, useUnmergedTree = true)
             .performClick()
@@ -337,8 +328,6 @@ class MessageSelectionInstrumentedTest {
 
     @Test
     fun quotedExcerptIsSelectable() {
-        // A quote is conversation text the user pulled forward, not chrome: the passage it came
-        // from may be far up the thread, so copying it back out has to work.
         setChat(
             userMessage("m1", "What about this?").copy(quotes = listOf("Quoted excerpt from earlier")),
         )
@@ -355,9 +344,8 @@ class MessageSelectionInstrumentedTest {
 
     @Test
     fun incompleteArtifactSourceIsSelectable() {
-        // A truncated artifact renders its source through CodeBlock — message text like any other
-        // fenced block (search counts it), so selection has to reach it. Only the finished
-        // artifact's tap-to-open card is chrome.
+        // A truncated artifact renders its source through CodeBlock, so the fixture below is a
+        // directive that never closes.
         setChat(
             assistantMessage("m1", "").copy(
                 content = listOf(

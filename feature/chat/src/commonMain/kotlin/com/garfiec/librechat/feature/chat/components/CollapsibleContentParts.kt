@@ -103,8 +103,6 @@ private fun CollapsibleDisclosureCard(
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        // Header title is chrome — DisableSelection keeps in-message "Select all"
-        // scoped to content text (the body stays selectable).
         Row(
             modifier = Modifier
                 .fillMaxWidth()

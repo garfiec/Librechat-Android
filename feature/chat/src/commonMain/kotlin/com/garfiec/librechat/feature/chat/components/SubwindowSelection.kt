@@ -14,8 +14,7 @@ import androidx.compose.runtime.Composable
  * second time, and resolving a position across the two owners fails outright — `localPositionOf`
  * rejects nodes that share no ancestor.
  *
- * Giving the subwindow its own container keeps its text selectable and makes it a separate
- * selection, which is also what a user expects from a window they opened deliberately.
+ * Its own container keeps the subwindow's text selectable as a separate selection.
  */
 @Composable
 internal fun SubwindowSelectionContainer(content: @Composable () -> Unit) {

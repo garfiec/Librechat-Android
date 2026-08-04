@@ -88,8 +88,7 @@ fun CodeBlock(
                 contentDescription = "$languageLabel code block"
             },
     ) {
-        // Language header with copy button. DisableSelection: in-message selection
-        // ("Select all") must sweep the code text below, not this chrome label.
+        // Language header with copy button
         Row(
             modifier = Modifier
                 .fillMaxWidth()

@@ -112,8 +112,7 @@ internal fun TextContentPart(
                             // Truncated or still streaming: show source, never a collapsed button and
                             // never a WebView. See IncompleteArtifact's KDoc for why this outranks
                             // the inline preference. That source is message text like any other
-                            // fenced block, so it stays selectable — the same reason in-conversation
-                            // search counts it.
+                            // fenced block, so it stays selectable.
                             IncompleteArtifact(
                                 artifact = segment.artifact,
                                 onTap = { openArtifact?.invoke(segment.artifact, versions) },
@@ -124,9 +123,8 @@ internal fun TextContentPart(
                                 streaming = streaming,
                             )
                         } else {
-                            // A finished artifact renders as a tap-to-open card, not message prose —
-                            // excluded from in-message selection so "Select all" copies the
-                            // surrounding text instead of the card's own labels.
+                            // A finished artifact renders as a tap-to-open card, not message prose,
+                            // so it is chrome — unlike the incomplete branch above.
                             DisableSelection {
                                 if (shouldRenderInlineArtifact(inlinePrefs, segment.artifact.type, streaming)) {
                                     val type = ArtifactType.from(segment.artifact.type)

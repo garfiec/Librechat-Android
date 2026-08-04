@@ -144,8 +144,8 @@ internal fun ActivityGroup(
                     DisableSelection { ActivityHeaderLabel(headerLabel, labelColor) }
                 }
             } else {
-                // The server's own label is message text: SearchMatchEnumeration counts it, so a
-                // user who searched for a phrase and found it here has to be able to copy it too.
+                // The server's own label is message text — SearchMatchEnumeration counts it, so a
+                // phrase found by search has to be copyable too.
                 ActivityHeaderLabel(headerLabel, labelColor, Modifier.weight(1f))
             }
             Icon(
