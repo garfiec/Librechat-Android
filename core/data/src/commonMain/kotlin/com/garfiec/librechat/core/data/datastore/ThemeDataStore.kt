@@ -78,7 +78,7 @@ class ThemeDataStore(
         prefs[KEY_THEME].toThemeMode()
     }
 
-    /** Accent seed color as an ARGB int. Defaults to the turquoise brand hue. */
+    /** Accent seed color as an ARGB int. Falls back to [DEFAULT_ACCENT_COLOR] when unset. */
     val accentColor: Flow<Int> = dataStore.data.map { prefs ->
         prefs[KEY_ACCENT_COLOR] ?: DEFAULT_ACCENT_COLOR
     }
@@ -108,9 +108,10 @@ class ThemeDataStore(
 
     companion object {
         /**
-         * Turquoise brand hue (ARGB) used when no accent has been chosen. Derived from the
-         * canonical [DEFAULT_ACCENT_SEED_ARGB] in `:core:model`, same as `DefaultAccentSeed`
-         * in `:core:ui`.
+         * Accent seed (ARGB) used when no accent has been chosen. Derived from the canonical
+         * [DEFAULT_ACCENT_SEED_ARGB] in `:core:model`, same as `DefaultAccentSeed` in `:core:ui`.
+         * Only ever a fallback for a missing preference, so changing it moves users who never
+         * picked an accent and leaves everyone else on their stored value.
          */
         val DEFAULT_ACCENT_COLOR: Int = DEFAULT_ACCENT_SEED_ARGB.toInt()
 

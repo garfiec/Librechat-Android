@@ -28,8 +28,12 @@ expect fun supportsDynamicColor(): Boolean
  * Color resolution precedence:
  * 1. [useDynamicColor] on **and** the platform supports it -> wallpaper-based scheme.
  * 2. Otherwise the full scheme is generated from [accentColor] via MaterialKolor
- *    ([rememberDynamicColorScheme], remembered/keyed on its inputs). The default
- *    [accentColor] matches the turquoise brand hue of the app icon.
+ *    ([rememberDynamicColorScheme], remembered/keyed on its inputs).
+ *
+ * [PaletteStyle.TonalSpot] keeps only the seed's hue — every role is re-derived at a fixed
+ * chroma and a fixed per-role tone, so no role in the generated scheme resolves to the seed hex.
+ * The hue feeds the neutral palette as well as the accent one, which is why it tints surfaces
+ * app-wide.
  */
 @Composable
 fun LibreChatTheme(

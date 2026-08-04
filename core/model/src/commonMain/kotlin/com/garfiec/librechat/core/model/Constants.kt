@@ -12,10 +12,13 @@ const val SAVED_TAG = "Saved"
 const val NEW_CHAT_DRAFT_KEY: String = "__new_chat__"
 
 /**
- * Default accent seed color as `0xAARRGGBB` — the turquoise brand hue of the app icon's cable,
- * sampled from the iOS 1024px icon asset. Canonical here in `:core:model` (the shared, pure-Kotlin
- * module both consumers depend on) so the Compose seed (`DefaultAccentSeed` in `:core:ui`) and the
- * persisted-preference fallback (`ThemeDataStore.DEFAULT_ACCENT_COLOR` in `:core:data`) derive from
- * one literal and can never drift.
+ * Default accent seed color as `0xAARRGGBB`. Canonical here in `:core:model` (the shared,
+ * pure-Kotlin module both consumers depend on) so the Compose seed (`DefaultAccentSeed` in
+ * `:core:ui`) and the persisted-preference fallback (`ThemeDataStore.DEFAULT_ACCENT_COLOR` in
+ * `:core:data`) derive from one literal and can never drift.
+ *
+ * Only this color's **hue** reaches the generated scheme — see `LibreChatTheme` for why. Its
+ * chroma and tone are inert there, so judge a replacement by the roles it generates, never by
+ * how the hex reads as a swatch.
  */
-const val DEFAULT_ACCENT_SEED_ARGB: Long = 0xFF00D8BB
+const val DEFAULT_ACCENT_SEED_ARGB: Long = 0xFF3B82F6
