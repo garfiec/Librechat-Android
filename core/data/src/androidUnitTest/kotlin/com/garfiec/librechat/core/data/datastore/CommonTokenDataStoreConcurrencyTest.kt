@@ -240,12 +240,9 @@ class CommonTokenDataStoreConcurrencyTest {
 
             assertThat(result).isEqualTo(RefreshResult.HardExpired)
             assertThat(requestCount).isEqualTo(3)
-            // A settled hard expiry DOES clear the stored tokens. This previously retained them on
-            // the theory that a relaunch might still recover — it can't: the retry budget above has
-            // already absorbed a transient rejection, so reaching here means the session is dead, and
-            // `isLoggedIn()` is a token-PRESENCE check. Retained, the dead pair made every subsequent
-            // cold start re-enter the logged-in graph, fan out requests, collect 401s and bounce to
-            // auth — forever. The user is routed to re-auth either way; only the replay differs.
+            // A settled hard expiry clears the stored tokens: the retry budget above has already
+            // absorbed any transient rejection, so reaching here means the session is dead. Retaining
+            // them replays it forever — `isLoggedIn()` is a token-PRESENCE check.
             assertThat(store.persistedRefresh()).isNull()
             assertThat(store.persistedAccess()).isNull()
         }

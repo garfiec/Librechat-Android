@@ -190,19 +190,16 @@ class NavHostViewModel(
             }
         }
         bannerStateHolder.fetchBanners()
-        // A dead session has to lower the flag, not just navigate. `isLoggedIn()` is a token-PRESENCE
-        // check and the 401 path produces no [AccountTransition.Ended], so without this the flag stays
-        // true for the rest of the process — every consumer of it (and the first-frame routing after
-        // an Activity recreation) keeps believing the user is signed in while they sit on auth.
+        // A dead session has to lower the flag, not just navigate: the 401 path produces no
+        // [AccountTransition.Ended], so without this the flag stays true for the rest of the process
+        // and the first-frame routing after an Activity recreation still believes the user is signed in.
         viewModelScope.launch {
             tokenManager.sessionExpiredFlow.collect { reason ->
                 val wasLoggedIn = _isLoggedIn.value
                 _isLoggedIn.value = false
                 // Only announce an expiry to someone the app believed was signed in. A logged-out cold
                 // start still fires requests (banners, the drawer); each 401s with no token to refresh
-                // and settles as expired, and reporting those would put the dialog on every launch.
-                // The account label resolves here because the expiry teardown clears only the token
-                // slot — the roster entry is still there.
+                // and settles as expired, so dropping [wasLoggedIn] puts the dialog on every launch.
                 if (reason == SessionEndReason.EXPIRED && wasLoggedIn) {
                     _sessionExpiredNotice.value = expiredAccountLabel().orEmpty()
                 }

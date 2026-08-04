@@ -140,7 +140,6 @@ abstract class CommonTokenDataStore(
     private val _sessionExpired = MutableSharedFlow<SessionEndReason>(extraBufferCapacity = 1)
     override val sessionExpiredFlow: SharedFlow<SessionEndReason> = _sessionExpired.asSharedFlow()
 
-    /** True once the current session's expiry has been reported. See [emitSessionExpired]. */
     @Volatile
     private var sessionExpiryReported = false
 
@@ -317,8 +316,7 @@ abstract class CommonTokenDataStore(
      * [Transient] so the session is kept. A transport failure (server unreachable) is terminal-Transient
      * rather than retried, so the flight lock is not held across repeated full request timeouts.
      *
-     * A settled [HardExpired] also **drops the account's token slot**. The session is provably dead at
-     * that point, and a retained dead token is replayed on every subsequent cold start — see [settle].
+     * A settled [HardExpired] also **drops the account's token slot** — see [settle].
      */
     private suspend fun performRefresh(
         accountKey: String?,
@@ -335,9 +333,8 @@ abstract class CommonTokenDataStore(
             var lastEpoch = NO_EPOCH
             suspend fun settle(): RefreshResult =
                 if (sawHardRejection) {
-                    // The server rejected this refresh token, so the session is dead — drop the slot.
-                    // Retained, it is replayed forever: `isLoggedIn()` is a token-PRESENCE check, so
-                    // every later cold start re-enters the logged-in graph and 401s its way back out.
+                    // The session is dead, so drop the slot. `isLoggedIn()` is a token-PRESENCE check:
+                    // a retained dead pair is replayed on every later cold start.
                     invalidateRefresh(accountKey, lastEpoch)
                     Diag.w(
                         "Auth",
@@ -564,9 +561,8 @@ abstract class CommonTokenDataStore(
      * Drop [accountKey]'s slot after a hard auth failure — unless a teardown already owns the slot.
      *
      * Only the account's own keys go: the roster entry, the active-account mirror and
-     * [activeAccountKey] all stay, so the account remains listed and re-loginable and the cold-start
-     * account gate still resolves the same identity. Nulling the cached bearer is what makes
-     * `isAuthenticated` (and through it `isLoggedIn()`) false.
+     * [activeAccountKey] all stay, so the account remains listed and re-loginable. Nulling the cached
+     * bearer is what makes `isAuthenticated` (and through it `isLoggedIn()`) false.
      */
     private suspend fun invalidateRefresh(accountKey: String?, epochAtStart: Int) = stateMutex.withLock {
         if (epochOf(accountKey) != epochAtStart) return@withLock
@@ -587,13 +583,11 @@ abstract class CommonTokenDataStore(
         // failure for a switched-away (retained) account is not a live-session event — its slot is
         // just stale until that account is selected again. Null = active/legacy session: always emit.
         if (expiredAccountId != null && expiredAccountId != activeAccountKey) return
-        // One signal per dead session. A cold start fans out ~a dozen requests, every one of which
-        // 401s and reaches here independently, spread far enough apart by the refresh retry/backoff
-        // that the flow's 1-slot buffer coalesces nothing — and each emission replays the logout
-        // navigation, which is what used to yank a user off Login back to the server screen.
-        // Cleared by [resetSessionExpiryLatch] on every transition that establishes or tears down a
-        // session, so the NEXT session can report its own expiry. A racing double-emit is possible
-        // (plain @Volatile, no CAS) and deliberately tolerated: the navigator's own guard absorbs it.
+        // One signal per dead session. A cold start fans out ~a dozen requests, each of which 401s and
+        // reaches here independently, spread far enough apart by the refresh retry/backoff that the
+        // flow's 1-slot buffer coalesces nothing — and every emission replays the logout navigation.
+        // A racing double-emit is possible (plain @Volatile, no CAS) and deliberately tolerated: the
+        // navigator's own guard absorbs it.
         if (sessionExpiryReported) return
         sessionExpiryReported = true
         _sessionExpired.tryEmit(reason)
@@ -604,11 +598,9 @@ abstract class CommonTokenDataStore(
      * one down — a latch left set silently swallows the NEXT session's expiry signal, including the
      * one `AccountSwitcher` reuses to route a remove-last-account teardown to auth.
      *
-     * Called from [setTokens] (every interactive sign-in: login / OAuth / 2FA), [selectAccount],
-     * [removeAccount] and [tearDownActiveSessionLocked]. Deliberately **not** from
-     * `onAccountResolved`: it is the re-home half of a sign-in [setTokens] already covered, and it
-     * also runs on the cold-start restore path — where re-arming mid-storm would let the same dead
-     * session report itself twice.
+     * Deliberately **not** called from `onAccountResolved`: it is the re-home half of a sign-in
+     * [setTokens] already covers, and it also runs on the cold-start restore path — where re-arming
+     * mid-storm would let the same dead session report itself twice.
      */
     private fun resetSessionExpiryLatch() {
         sessionExpiryReported = false

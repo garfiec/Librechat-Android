@@ -48,6 +48,7 @@ import com.garfiec.librechat.core.ui.theme.AppLocale
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.agents.navigation.agentsEntries
 import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
+import com.garfiec.librechat.feature.auth.navigation.ServerUrl
 import com.garfiec.librechat.feature.auth.navigation.authEntries
 import com.garfiec.librechat.feature.auth.navigation.isAddAccountFlowRoute
 import com.garfiec.librechat.feature.chat.navigation.Chat
@@ -109,8 +110,14 @@ fun LibreChatNavHost(
 ) {
     val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
 
-    // Stable start key — auth redirect handled via LaunchedEffect below.
-    val backStack = rememberNavBackStack(navigationSavedStateConfig, NewChat())
+    // Start key comes from the synchronous logged-in seed, not a fixed NewChat. Starting logged-in
+    // and redirecting away composes the chat shell for real and then plays NavDisplay's transition
+    // animation over it — a third of a second of "signed in" before the auth screen, on every
+    // logged-out cold start. The redirect below still runs, as the catch-up for the async re-resolve.
+    val backStack = rememberNavBackStack(
+        navigationSavedStateConfig,
+        if (navHostViewModel.isLoggedIn.value) NewChat() else ServerUrl,
+    )
     val navigator = remember(backStack) { Navigator(backStack) }
 
     // Redirect to auth if not logged in — once per saved-state lifecycle, NOT on every recreation.
@@ -240,9 +247,8 @@ fun LibreChatNavHost(
             )
         }
 
-        // Being dropped back on the server screen with no explanation is the part users report as a
-        // bug. Rendered here rather than inside the auth screens because it sits above NavDisplay and
-        // so survives the back-stack reset that put them there.
+        // Rendered here rather than inside the auth screens: it sits above NavDisplay and so survives
+        // the back-stack reset that routed the user to auth in the first place.
         val sessionExpiredNotice by navHostViewModel.sessionExpiredNotice.collectAsStateWithLifecycle()
         sessionExpiredNotice?.let { accountLabel ->
             SessionExpiredDialog(

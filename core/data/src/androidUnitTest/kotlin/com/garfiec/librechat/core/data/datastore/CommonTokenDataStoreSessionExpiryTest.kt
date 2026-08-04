@@ -21,13 +21,10 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 /**
- * What happens to local state when a session dies.
- *
- * Two properties, both of which the app depends on at cold start: a refresh the server rejects must
- * DROP the account's tokens (`isLoggedIn()` is a presence check, so a retained dead token is replayed
- * on every launch — the logged-in UI renders, fans out requests, collects 401s and bounces to auth),
- * and a dead session must report itself exactly ONCE however many requests discover it (each report
- * replays the logout navigation).
+ * What happens to local state when a session dies. Two properties the app depends on at cold start:
+ * a refresh the server rejects must DROP the account's tokens (`isLoggedIn()` is a presence check, so
+ * a retained dead token is replayed on every launch), and a dead session must report itself exactly
+ * ONCE however many requests discover it (each report replays the logout navigation).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CommonTokenDataStoreSessionExpiryTest {
@@ -86,8 +83,6 @@ class CommonTokenDataStoreSessionExpiryTest {
         ),
     )
 
-    // --- the slot is dropped on a hard rejection, kept on a recoverable one ---
-
     @Test
     fun `a rejected refresh drops the account's tokens`() = runTest {
         val store = seededStore(refreshClientAnswering(HttpStatusCode.Unauthorized))
@@ -108,8 +103,7 @@ class CommonTokenDataStoreSessionExpiryTest {
 
         store.refreshAccessTokenFor("acctA", SERVER)
 
-        // Only the tokens go: the account must stay listed and re-loginable, and the cold-start
-        // account gate must still resolve the same identity.
+        // Only the tokens go — the account must stay listed and re-loginable.
         assertThat(store.store["active_account_id"]).isEqualTo("acctA")
     }
 
@@ -152,8 +146,6 @@ class CommonTokenDataStoreSessionExpiryTest {
         assertThat(result).isEqualTo(RefreshResult.Refreshed)
         assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access-2")
     }
-
-    // --- one signal per dead session ---
 
     @Test
     fun `a dead session reports its expiry once however many requests discover it`() = runTest {

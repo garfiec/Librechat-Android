@@ -6,6 +6,8 @@
 #
 # NEVER uninstall the app: the AndroidKeyStore master key backing EncryptedSharedPreferences is
 # dropped on uninstall, which makes a restored snapshot undecryptable. Update with `adb install -r`.
+#
+# Set ANDROID_SERIAL when more than one device is attached; every adb call below honors it.
 set -euo pipefail
 
 PKG=com.garfiec.librechat

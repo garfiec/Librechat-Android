@@ -150,9 +150,6 @@ class NavigatorTest {
 
     @Test
     fun `navigateToAuth is a no-op deeper in the auth flow`() {
-        // A dead session is reported by more than one caller (a cold start fans out several requests
-        // and each 401 settles on its own). A straggler landing after the user has moved on to Login
-        // must not reset them back to ServerUrl and discard what they typed.
         val navigator = createNavigator(ServerUrl, Login)
         navigator.navigateToAuth()
         assertEquals(listOf(ServerUrl, Login), navigator.backStack.toList())
