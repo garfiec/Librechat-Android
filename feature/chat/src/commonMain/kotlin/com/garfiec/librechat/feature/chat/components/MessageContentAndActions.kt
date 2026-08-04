@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -38,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -286,134 +289,147 @@ internal fun MessageContentAndActions(
     } else {
         // Single Column root so this branch emits from one source (and the quote chips,
         // files, content, and office previews stack the same as before).
-        Column {
-            // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
-            // text. Created on web; mobile displays them (no creation affordance yet).
-            val quotes = message.quotes
-            if (isUser && !quotes.isNullOrEmpty()) {
-                MessageQuotes(
-                    quotes = quotes,
-                    modifier = Modifier.padding(bottom = 6.dp),
-                )
-            }
-
-            // Render attached files above message text (matches web app behavior)
-            val messageFiles = message.files
-            if (!messageFiles.isNullOrEmpty()) {
-                MessageFiles(
-                    files = messageFiles,
-                    baseUrl = baseUrl,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-            }
-
-            val contentParts = message.content
-            if (!contentParts.isNullOrEmpty()) {
-                // Occurrence indices are message-wide (SearchMatchEnumeration): rebase them
-                // per part so each part resolves the focused occurrence within itself. The focused
-                // message contains the query by definition, so the fast-path bail never triggers —
-                // compute each part's starting offset once (not on every recomposition, which would
-                // re-parse every part's markdown each animateScrollBy frame).
-                val partOffsets = remember(contentParts, searchQuery, isCurrentSearchMatch) {
-                    val offsets = IntArray(contentParts.size)
-                    if (isCurrentSearchMatch && !searchQuery.isNullOrBlank()) {
-                        var acc = 0
-                        contentParts.forEachIndexed { i, part ->
-                            offsets[i] = acc
-                            acc += countPartOccurrences(part, searchQuery)
-                        }
-                    }
-                    offsets
-                }
-                // Segment + group the parts ONCE, not while emitting them: a group's header has to
-                // be written before its members, which a Column cannot express without knowing the
-                // group's extent up front. Pure, so the boundaries are unit-testable.
-                val segments = remember(contentParts) { groupContentParts(contentParts) }
-
-                // A collapsed group would swallow the match the user just navigated to, so the
-                // one holding it opens. Resolved once per focus rather than per group per frame.
-                val focusedGroupKey = remember(
-                    segments, partOffsets, searchQuery, searchFocusedOccurrence, isCurrentSearchMatch,
-                ) {
-                    if (!isCurrentSearchMatch || searchQuery.isNullOrBlank() || searchFocusedOccurrence < 0) {
-                        null
-                    } else {
-                        segments.asSequence()
-                            .flatMap { it.groups.asSequence() }
-                            .filterIsInstance<ContentGroup.Activity>()
-                            .firstOrNull { group ->
-                                group.entries.any { entry ->
-                                    val start = partOffsets[entry.index]
-                                    val count = countPartOccurrences(entry.part, searchQuery)
-                                    searchFocusedOccurrence in start until (start + count)
-                                }
-                            }?.key
-                    }
-                }
-
-                @Composable
-                fun PartContent(entry: IndexedContentPart) {
-                    val part = entry.part
-                    val focusedInPart =
-                        if (isCurrentSearchMatch) searchFocusedOccurrence - partOffsets[entry.index] else -1
-                    when (part.type) {
-                        // Handled here rather than in the shared dispatcher because both need the
-                        // viewer's identity, which a single-part renderer has no business knowing.
-                        ContentType.STEER -> part.steerText()?.let { steered ->
-                            SteerContentPart(
-                                text = steered,
-                                userName = userName,
-                                userAvatarUrl = userAvatarUrl,
-                                fontSizeMultiplier = fontSizeMultiplier,
-                                useKatex = useKatex,
-                            )
-                        }
-                        ContentType.ACTIVITY_LABEL -> OrphanActivityLabel(part.activityLabelText())
-                        else -> ContentPartRenderer(
-                            part = part,
-                            baseUrl = baseUrl,
-                            fontSizeMultiplier = fontSizeMultiplier,
-                            useKatex = useKatex,
-                            attachments = message.attachments.orEmpty(),
-                            showImageDescriptions = showImageDescriptions,
-                            searchQuery = if (isSearchMatch) searchQuery else null,
-                            searchFocusedOccurrence = focusedInPart,
-                            onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
-                            stateKey = "${message.messageId}:${entry.index}",
-                            modifier = Modifier.padding(vertical = 2.dp),
+        //
+        // SelectionContainer scope is per-message and content-only: every BasicText-backed
+        // descendant (markdown prose, code, table cells, think bodies) becomes selectable
+        // through one registrar, while chrome (chips, cards, headers) opts out via
+        // DisableSelection so "Select all" copies message text, not UI labels. The action
+        // row below and the editing branch above stay outside — a text field must never
+        // sit inside a SelectionContainer.
+        SelectionContainer {
+            Column {
+                // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
+                // text. Created on web; mobile displays them (no creation affordance yet).
+                val quotes = message.quotes
+                if (isUser && !quotes.isNullOrEmpty()) {
+                    DisableSelection {
+                        MessageQuotes(
+                            quotes = quotes,
+                            modifier = Modifier.padding(bottom = 6.dp),
                         )
                     }
                 }
 
-                segments.forEach { segment ->
-                    key(segment.key) {
-                        // A traversal group so the attribution header is read immediately before
-                        // its own content instead of segments interleaving. It is not implicit:
-                        // a plain Column does not set one.
-                        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
-                            segment.author?.let { author ->
-                                SegmentAuthorHeader(
-                                    author = author,
-                                    messageSender = message.sender,
-                                    messageIconUrl = message.iconURL,
-                                    messageEndpoint = message.endpoint,
+                // Render attached files above message text (matches web app behavior)
+                val messageFiles = message.files
+                if (!messageFiles.isNullOrEmpty()) {
+                    DisableSelection {
+                        MessageFiles(
+                            files = messageFiles,
+                            baseUrl = baseUrl,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                }
+
+                val contentParts = message.content
+                if (!contentParts.isNullOrEmpty()) {
+                    // Occurrence indices are message-wide (SearchMatchEnumeration): rebase them
+                    // per part so each part resolves the focused occurrence within itself. The focused
+                    // message contains the query by definition, so the fast-path bail never triggers —
+                    // compute each part's starting offset once (not on every recomposition, which would
+                    // re-parse every part's markdown each animateScrollBy frame).
+                    val partOffsets = remember(contentParts, searchQuery, isCurrentSearchMatch) {
+                        val offsets = IntArray(contentParts.size)
+                        if (isCurrentSearchMatch && !searchQuery.isNullOrBlank()) {
+                            var acc = 0
+                            contentParts.forEachIndexed { i, part ->
+                                offsets[i] = acc
+                                acc += countPartOccurrences(part, searchQuery)
+                            }
+                        }
+                        offsets
+                    }
+                    // Segment + group the parts ONCE, not while emitting them: a group's header has to
+                    // be written before its members, which a Column cannot express without knowing the
+                    // group's extent up front. Pure, so the boundaries are unit-testable.
+                    val segments = remember(contentParts) { groupContentParts(contentParts) }
+
+                    // A collapsed group would swallow the match the user just navigated to, so the
+                    // one holding it opens. Resolved once per focus rather than per group per frame.
+                    val focusedGroupKey = remember(
+                        segments, partOffsets, searchQuery, searchFocusedOccurrence, isCurrentSearchMatch,
+                    ) {
+                        if (!isCurrentSearchMatch || searchQuery.isNullOrBlank() || searchFocusedOccurrence < 0) {
+                            null
+                        } else {
+                            segments.asSequence()
+                                .flatMap { it.groups.asSequence() }
+                                .filterIsInstance<ContentGroup.Activity>()
+                                .firstOrNull { group ->
+                                    group.entries.any { entry ->
+                                        val start = partOffsets[entry.index]
+                                        val count = countPartOccurrences(entry.part, searchQuery)
+                                        searchFocusedOccurrence in start until (start + count)
+                                    }
+                                }?.key
+                        }
+                    }
+
+                    @Composable
+                    fun PartContent(entry: IndexedContentPart) {
+                        val part = entry.part
+                        val focusedInPart =
+                            if (isCurrentSearchMatch) searchFocusedOccurrence - partOffsets[entry.index] else -1
+                        when (part.type) {
+                            // Handled here rather than in the shared dispatcher because both need the
+                            // viewer's identity, which a single-part renderer has no business knowing.
+                            ContentType.STEER -> part.steerText()?.let { steered ->
+                                SteerContentPart(
+                                    text = steered,
+                                    userName = userName,
+                                    userAvatarUrl = userAvatarUrl,
+                                    fontSizeMultiplier = fontSizeMultiplier,
+                                    useKatex = useKatex,
                                 )
                             }
-                            segment.groups.forEach { group ->
-                                // Keyed, so per-part state (an expanded thinking block) follows its
-                                // part when grouping shifts it under a wrapper instead of staying
-                                // with whatever now occupies that position.
-                                key(group.key) {
-                                    when (group) {
-                                        is ContentGroup.Single -> PartContent(group.entry)
-                                        is ContentGroup.Activity -> ActivityGroup(
-                                            group = group,
-                                            stateKey = "${message.messageId}:${group.key}",
-                                            autoExpand = group.key == focusedGroupKey,
-                                            autoExpandKey = LocalSearchFocusNonce.current,
-                                        ) {
-                                            group.entries.forEach { entry ->
-                                                key(entry.index) { PartContent(entry) }
+                            ContentType.ACTIVITY_LABEL -> OrphanActivityLabel(part.activityLabelText())
+                            else -> ContentPartRenderer(
+                                part = part,
+                                baseUrl = baseUrl,
+                                fontSizeMultiplier = fontSizeMultiplier,
+                                useKatex = useKatex,
+                                attachments = message.attachments.orEmpty(),
+                                showImageDescriptions = showImageDescriptions,
+                                searchQuery = if (isSearchMatch) searchQuery else null,
+                                searchFocusedOccurrence = focusedInPart,
+                                onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
+                                stateKey = "${message.messageId}:${entry.index}",
+                                modifier = Modifier.padding(vertical = 2.dp),
+                            )
+                        }
+                    }
+
+                    segments.forEach { segment ->
+                        key(segment.key) {
+                            // A traversal group so the attribution header is read immediately before
+                            // its own content instead of segments interleaving. It is not implicit:
+                            // a plain Column does not set one.
+                            Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+                                segment.author?.let { author ->
+                                    SegmentAuthorHeader(
+                                        author = author,
+                                        messageSender = message.sender,
+                                        messageIconUrl = message.iconURL,
+                                        messageEndpoint = message.endpoint,
+                                    )
+                                }
+                                segment.groups.forEach { group ->
+                                    // Keyed, so per-part state (an expanded thinking block) follows its
+                                    // part when grouping shifts it under a wrapper instead of staying
+                                    // with whatever now occupies that position.
+                                    key(group.key) {
+                                        when (group) {
+                                            is ContentGroup.Single -> PartContent(group.entry)
+                                            is ContentGroup.Activity -> ActivityGroup(
+                                                group = group,
+                                                stateKey = "${message.messageId}:${group.key}",
+                                                autoExpand = group.key == focusedGroupKey,
+                                                autoExpandKey = LocalSearchFocusNonce.current,
+                                            ) {
+                                                group.entries.forEach { entry ->
+                                                    key(entry.index) { PartContent(entry) }
+                                                }
                                             }
                                         }
                                     }
@@ -421,24 +437,26 @@ internal fun MessageContentAndActions(
                             }
                         }
                     }
+                } else if (message.text.isNotBlank()) {
+                    MarkdownContent(
+                        text = message.text,
+                        fontSizeMultiplier = fontSizeMultiplier,
+                        useKatex = useKatex,
+                        searchQuery = if (isSearchMatch) searchQuery else null,
+                        searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
+                        onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
+                    )
                 }
-            } else if (message.text.isNotBlank()) {
-                MarkdownContent(
-                    text = message.text,
-                    fontSizeMultiplier = fontSizeMultiplier,
-                    useKatex = useKatex,
-                    searchQuery = if (isSearchMatch) searchQuery else null,
-                    searchFocusedOccurrence = if (isCurrentSearchMatch) searchFocusedOccurrence else -1,
-                    onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
-                )
-            }
 
-            // Deferred office-doc preview attachments (v0.8.6) on a persisted message
-            // render as their own artifact card. Non-office attachments are unaffected.
-            OfficePreviewAttachments(
-                attachments = message.attachments.orEmpty(),
-                isDarkTheme = isSurfaceDark(),
-            )
+                // Deferred office-doc preview attachments (v0.8.6) on a persisted message
+                // render as their own artifact card. Non-office attachments are unaffected.
+                DisableSelection {
+                    OfficePreviewAttachments(
+                        attachments = message.attachments.orEmpty(),
+                        isDarkTheme = isSurfaceDark(),
+                    )
+                }
+            }
         }
     }
 
@@ -455,7 +473,9 @@ internal fun MessageContentAndActions(
             Column {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("message_actions"),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {

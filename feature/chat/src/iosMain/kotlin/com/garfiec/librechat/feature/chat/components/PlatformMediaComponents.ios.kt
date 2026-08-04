@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
@@ -574,39 +575,42 @@ actual fun MermaidDiagram(
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
     ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(Res.string.label_mermaid),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            TextButton(onClick = { showCode = !showCode }) {
-                Icon(
-                    imageVector = if (showCode) Icons.Default.Image else Icons.Default.Code,
-                    contentDescription = stringResource(if (showCode) Res.string.cd_show_diagram else Res.string.cd_view_code),
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
+        // Header — chrome, excluded from in-message selection (mirrors the Android
+        // MermaidDiagram; the WKWebView below never participates in Compose selection).
+        DisableSelection {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    text = stringResource(if (showCode) Res.string.label_diagram else Res.string.label_code),
+                    text = stringResource(Res.string.label_mermaid),
                     style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-            IconButton(onClick = { showFullscreen = true }) {
-                Icon(
-                    imageVector = Icons.Default.Fullscreen,
-                    contentDescription = stringResource(Res.string.cd_fullscreen),
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(onClick = { showCode = !showCode }) {
+                    Icon(
+                        imageVector = if (showCode) Icons.Default.Image else Icons.Default.Code,
+                        contentDescription = stringResource(if (showCode) Res.string.cd_show_diagram else Res.string.cd_view_code),
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(if (showCode) Res.string.label_diagram else Res.string.label_code),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                IconButton(onClick = { showFullscreen = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Fullscreen,
+                        contentDescription = stringResource(Res.string.cd_fullscreen),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 

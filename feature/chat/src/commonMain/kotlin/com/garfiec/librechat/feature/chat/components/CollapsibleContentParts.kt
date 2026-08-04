@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -101,6 +103,8 @@ private fun CollapsibleDisclosureCard(
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
+        // Header title is chrome — DisableSelection keeps in-message "Select all"
+        // scoped to content text (the body stays selectable).
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -120,12 +124,15 @@ private fun CollapsibleDisclosureCard(
                 tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
+            Box(modifier = Modifier.weight(1f)) {
+                DisableSelection {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
             Icon(
                 if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 stringResource(if (isExpanded) Res.string.cd_collapse else Res.string.cd_expand),

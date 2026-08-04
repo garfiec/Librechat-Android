@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.MaterialTheme
@@ -47,32 +48,35 @@ internal fun SteerContentPart(
     if (text.isBlank()) return
 
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AvatarImage(
-                imageUrl = userAvatarUrl,
-                fallbackText = userName ?: stringResource(Res.string.sender_you),
-                showPersonIcon = userAvatarUrl == null,
-                size = 22.dp,
-                // The label beside it already says the name; AvatarImage otherwise defaults to
-                // "<name> avatar" and TalkBack would read the author twice.
-                contentDescription = null,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                // A heading, so TalkBack's next-heading gesture steps between the author changes
-                // in a long response instead of scrubbing through every line.
-                modifier = Modifier.semantics { heading() },
-                text = userName ?: stringResource(Res.string.sender_you),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            // Says why a user message is sitting inside the response.
-            Text(
-                text = stringResource(Res.string.steer_sent_during_reply),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        // Author chrome — excluded from in-message selection; the steer text below stays in.
+        DisableSelection {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AvatarImage(
+                    imageUrl = userAvatarUrl,
+                    fallbackText = userName ?: stringResource(Res.string.sender_you),
+                    showPersonIcon = userAvatarUrl == null,
+                    size = 22.dp,
+                    // The label beside it already says the name; AvatarImage otherwise defaults to
+                    // "<name> avatar" and TalkBack would read the author twice.
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    // A heading, so TalkBack's next-heading gesture steps between the author changes
+                    // in a long response instead of scrubbing through every line.
+                    modifier = Modifier.semantics { heading() },
+                    text = userName ?: stringResource(Res.string.sender_you),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                // Says why a user message is sitting inside the response.
+                Text(
+                    text = stringResource(Res.string.steer_sent_during_reply),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(modifier = Modifier.height(4.dp))
         MarkdownContent(
@@ -106,28 +110,31 @@ internal fun SegmentAuthorHeader(
         is SegmentAuthor.Agent -> author.agentId
         SegmentAuthor.Message -> messageSender ?: stringResource(Res.string.sender_assistant)
     }
-    Row(
-        modifier = modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AvatarImage(
-            imageUrl = if (isOtherAgent) null else messageIconUrl,
-            fallbackText = label,
-            fallbackIconPainter = when {
-                isOtherAgent -> rememberVectorPainter(Icons.Default.SmartToy)
-                messageIconUrl == null -> endpointIconPainter(messageEndpoint)
-                else -> null
-            },
-            tintIcon = isOtherAgent || (messageIconUrl == null && isMonochromeEndpointIcon(messageEndpoint)),
-            size = 22.dp,
-            contentDescription = null,
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            modifier = Modifier.semantics { heading() },
-            text = label,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+    // Attribution chrome — excluded from in-message selection.
+    DisableSelection {
+        Row(
+            modifier = modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AvatarImage(
+                imageUrl = if (isOtherAgent) null else messageIconUrl,
+                fallbackText = label,
+                fallbackIconPainter = when {
+                    isOtherAgent -> rememberVectorPainter(Icons.Default.SmartToy)
+                    messageIconUrl == null -> endpointIconPainter(messageEndpoint)
+                    else -> null
+                },
+                tintIcon = isOtherAgent || (messageIconUrl == null && isMonochromeEndpointIcon(messageEndpoint)),
+                size = 22.dp,
+                contentDescription = null,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                modifier = Modifier.semantics { heading() },
+                text = label,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }

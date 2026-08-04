@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
@@ -87,7 +88,8 @@ fun CodeBlock(
                 contentDescription = "$languageLabel code block"
             },
     ) {
-        // Language header with copy button
+        // Language header with copy button. DisableSelection: in-message selection
+        // ("Select all") must sweep the code text below, not this chrome label.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -95,11 +97,13 @@ fun CodeBlock(
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = language?.lowercase() ?: "code",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            DisableSelection {
+                Text(
+                    text = language?.lowercase() ?: "code",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
                 onClick = {

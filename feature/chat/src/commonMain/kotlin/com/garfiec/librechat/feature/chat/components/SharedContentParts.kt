@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
@@ -79,7 +80,11 @@ internal fun ContentPartDispatcher(
                 stateKey = stateKey,
             )
         }
-        ContentType.TOOL_CALL -> {
+        // Card/media parts are excluded from in-message selection (DisableSelection):
+        // v1 scopes selection to prose, code, tables, and think/summary bodies so a
+        // toolbar "Select all" copies the message's text, not card labels and JSON
+        // dumps. Tool-card output selection is a plausible follow-up.
+        ContentType.TOOL_CALL -> DisableSelection {
             ToolCallDispatcher(
                 part = part,
                 modifier = mod,
@@ -90,14 +95,14 @@ internal fun ContentPartDispatcher(
                 allowSubagentCard = allowSubagentCard,
             )
         }
-        ContentType.IMAGE_FILE -> {
+        ContentType.IMAGE_FILE -> DisableSelection {
             val imageUrl = resolveImageFilePartUrl(part, baseUrl)
             ImageContentPart(imageUrl = imageUrl, modifier = mod)
         }
-        ContentType.IMAGE_URL -> {
+        ContentType.IMAGE_URL -> DisableSelection {
             ImageContentPart(imageUrl = part.imageUrl?.url, modifier = mod)
         }
-        ContentType.VIDEO_URL -> {
+        ContentType.VIDEO_URL -> DisableSelection {
             val videoUrl = part.videoUrl?.url
             if (videoUrl != null) {
                 VideoContent(url = videoUrl, modifier = mod)
@@ -118,13 +123,14 @@ internal fun ContentPartDispatcher(
                 }
             }
         }
-        ContentType.INPUT_AUDIO -> {
+        ContentType.INPUT_AUDIO -> DisableSelection {
             AudioContent(data = part.inputAudio?.data, format = part.inputAudio?.format, modifier = mod)
         }
+        // Error text stays selectable: copying an error verbatim is how it gets reported.
         ContentType.ERROR -> {
             ErrorContentPart(errorText = part.error ?: part.text.orEmpty(), modifier = mod)
         }
-        ContentType.AGENT_UPDATE -> {
+        ContentType.AGENT_UPDATE -> DisableSelection {
             val agentUpdate = part.agentUpdate
             AgentHandoffCard(
                 handoff = AgentHandoff(

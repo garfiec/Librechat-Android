@@ -102,6 +102,13 @@ jobs:
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug
 
+      # Compile-only gate for :feature:chat's instrumented tests (they execute on a
+      # local emulator via connectedDebugAndroidTest, never in CI). Scoped to the one
+      # module on purpose: a repo-wide assembleDebugAndroidTest would also compile
+      # :app's stale androidTest sources.
+      - name: Compile chat instrumented tests
+        run: ./gradlew :feature:chat:assembleDebugAndroidTest
+
       - name: Upload debug APK
         id: upload_apk
         if: always() && hashFiles('app/build/outputs/apk/debug/app-debug.apk') != ''

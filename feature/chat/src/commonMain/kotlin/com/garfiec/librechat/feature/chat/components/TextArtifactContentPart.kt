@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -104,7 +105,9 @@ internal fun TextContentPart(
                             streaming = streaming,
                         )
                     }
-                    is ArtifactSegment.ArtifactReference -> {
+                    // Artifact renders are tap-to-open cards, not message prose — excluded
+                    // from in-message selection so "Select all" copies the surrounding text.
+                    is ArtifactSegment.ArtifactReference -> DisableSelection {
                         val versions = versionMap[segment.artifact.identifier] ?: listOf(segment.artifact)
                         Spacer(modifier = Modifier.height(8.dp))
                         if (!segment.artifact.isComplete) {
