@@ -11,7 +11,7 @@
 set -euo pipefail
 
 PKG=com.garfiec.librechat
-STATE_DIR="${DEVCHECK_STATE_DIR:-$HOME/Documents/code/librechat/.device-state}"
+STATE_DIR="${DEVCHECK_STATE_DIR:-${TMPDIR:-/tmp}/switchboard-devcheck}"
 SNAPSHOT="$STATE_DIR/broken-session.tar"
 REMOTE_TAR=/data/local/tmp/devcheck-restore.tar
 
