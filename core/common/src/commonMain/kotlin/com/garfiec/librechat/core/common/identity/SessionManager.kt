@@ -18,9 +18,6 @@ import kotlinx.coroutines.sync.withLock
  * (boot sentinel) and `Resolved(null)` (logged-out) map to "no session". So a session can never form
  * under an unknown or logged-out identity, and a flip to either tears the current one down.
  *
- * Nothing consumes [current] yet: the `SessionWriter`/`AccountScopedDb` facade (the object that
- * actually launches writes in [Session.scope]) is deferred.
- *
  * **Single teardown owner:** the imperative logout path drives [endCurrentSession] (so it can
  * sequence the DELETEs after the join) while this reactive collector handles non-logout flips. The
  * collector also reacts to logout's subsequent flip-to-null, but that reconciles to "no session" as a

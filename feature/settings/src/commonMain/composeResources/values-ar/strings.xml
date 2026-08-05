@@ -68,6 +68,11 @@
     <string name="section_language">اللغة</string>
     <string name="section_layout">التخطيط</string>
     <string name="section_mcp_servers">خوادم MCP</string>
+    <string name="section_prefetch">Background prefetch</string>
+    <string name="prefetch_enabled">Prefetch conversations</string>
+    <string name="prefetch_enabled_desc">Load recent and pinned conversations in the background so they open instantly. Runs only while the app is idle.</string>
+    <string name="prefetch_on_metered">Use mobile data</string>
+    <string name="prefetch_on_metered_desc">Allow prefetching on metered connections. Off by default to avoid unexpected data usage.</string>
     <string name="section_memories">الذكريات</string>
     <string name="section_personalization">التخصيص</string>
     <string name="section_presets">الإعدادات المسبقة</string>

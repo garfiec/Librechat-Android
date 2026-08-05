@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.dao.ConversationTagDao
 import com.garfiec.librechat.core.data.db.dao.DraftDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
+import com.garfiec.librechat.core.data.db.dao.PrefetchWatermarkDao
 import com.garfiec.librechat.core.data.db.dao.PresetDao
 import com.garfiec.librechat.core.data.db.dao.ServerDao
 import com.garfiec.librechat.core.data.db.entity.AgentEntity
@@ -22,6 +23,7 @@ import com.garfiec.librechat.core.data.db.entity.ConversationEntity
 import com.garfiec.librechat.core.data.db.entity.ConversationTagEntity
 import com.garfiec.librechat.core.data.db.entity.DraftEntity
 import com.garfiec.librechat.core.data.db.entity.MessageEntity
+import com.garfiec.librechat.core.data.db.entity.PrefetchWatermarkEntity
 import com.garfiec.librechat.core.data.db.entity.PresetEntity
 import com.garfiec.librechat.core.data.db.entity.ServerEntity
 
@@ -35,8 +37,9 @@ import com.garfiec.librechat.core.data.db.entity.ServerEntity
         DraftEntity::class,
         ArtifactShortcutEntity::class,
         ServerEntity::class,
+        PrefetchWatermarkEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -52,6 +55,8 @@ import com.garfiec.librechat.core.data.db.entity.ServerEntity
         AutoMigration(from = 6, to = 7),
         // 7 -> 8 adds the device-scoped servers table (per-deployment registry; gateway headers).
         AutoMigration(from = 7, to = 8),
+        // 8 -> 9 adds the account-scoped prefetch_watermarks table (background cache warming).
+        AutoMigration(from = 8, to = 9),
     ],
 )
 @TypeConverters(Converters::class)
@@ -66,6 +71,7 @@ abstract class LibreChatDatabase : RoomDatabase() {
     abstract fun accountClaimDao(): AccountClaimDao
     abstract fun artifactShortcutDao(): ArtifactShortcutDao
     abstract fun serverDao(): ServerDao
+    abstract fun prefetchWatermarkDao(): PrefetchWatermarkDao
 }
 
 // Room KSP auto-generates the actual implementations for each platform

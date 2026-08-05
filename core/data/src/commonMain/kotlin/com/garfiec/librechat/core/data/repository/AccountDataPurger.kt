@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.dao.ConversationTagDao
 import com.garfiec.librechat.core.data.db.dao.DraftDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
+import com.garfiec.librechat.core.data.db.dao.PrefetchWatermarkDao
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -23,6 +24,7 @@ class AccountDataPurger(
     private val messageDao: MessageDao,
     private val draftDao: DraftDao,
     private val tagDao: ConversationTagDao,
+    private val prefetchWatermarkDao: PrefetchWatermarkDao,
     private val ioDispatcher: CoroutineDispatcher,
 ) {
 
@@ -32,5 +34,8 @@ class AccountDataPurger(
         draftDao.deleteAllForAccount(id)
         tagDao.deleteAllForAccount(id)
         conversationDao.deleteAllForAccount(id)
+        // Must go with the messages: a watermark outliving the rows it describes reads as "already
+        // warm", so a re-login would never re-fetch the conversations this purge just emptied.
+        prefetchWatermarkDao.deleteAllForAccount(id)
     }
 }

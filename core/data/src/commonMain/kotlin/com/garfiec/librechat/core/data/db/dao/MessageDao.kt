@@ -57,4 +57,12 @@ interface MessageDao {
     // Logout / account-remove scoped purge (the leak fix): delete only this account's rows.
     @Query("DELETE FROM messages WHERE accountId = :accountId")
     suspend fun deleteAllForAccount(accountId: String)
+
+    /**
+     * Prune: drops cached messages for conversations the prefetcher no longer keeps warm. The
+     * conversation rows themselves stay, so the list remains complete and reopening one simply
+     * re-fetches. Chunk the ids — SQLite binds at most ~999 variables per statement.
+     */
+    @Query("DELETE FROM messages WHERE accountId = :accountId AND conversationId IN (:conversationIds)")
+    suspend fun deleteForConversations(accountId: String, conversationIds: List<String>)
 }

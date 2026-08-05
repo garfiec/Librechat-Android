@@ -192,6 +192,18 @@ fun DataSettingsContent(
                 )
             }
 
+            item(key = "prefetch_header") {
+                SectionHeader(stringResource(Res.string.section_prefetch))
+            }
+            item(key = "prefetch_settings") {
+                PrefetchSettingsSection(
+                    prefetchEnabled = uiState.prefetchEnabled,
+                    prefetchOnMeteredEnabled = uiState.prefetchOnMeteredEnabled,
+                    onPrefetchEnabledChange = viewModel::setPrefetchEnabled,
+                    onPrefetchOnMeteredChange = viewModel::setPrefetchOnMeteredEnabled,
+                )
+            }
+
             // Memories section — hidden entirely when the server's MEMORIES.USE role
             // permission is denied. The user-level opt-out (`memoriesEnabled`) stays
             // independent and only hides the list inside this section.

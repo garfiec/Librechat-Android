@@ -13,6 +13,10 @@ import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
+import com.garfiec.librechat.core.data.prefetch.PrefetchController
+import com.garfiec.librechat.core.data.prefetch.PrefetchEngine
+import com.garfiec.librechat.core.data.prefetch.PrefetchGate
+import com.garfiec.librechat.core.data.prefetch.PrefetchPolicy
 import com.garfiec.librechat.core.data.repository.AccountClaimReconciler
 import com.garfiec.librechat.core.data.repository.AccountDataPurger
 import com.garfiec.librechat.core.data.repository.AccountSessionEstablisher
@@ -114,6 +118,7 @@ val dataModule = module {
     single { get<LibreChatDatabase>().accountClaimDao() }
     single { get<LibreChatDatabase>().artifactShortcutDao() }
     single { get<LibreChatDatabase>().serverDao() }
+    single { get<LibreChatDatabase>().prefetchWatermarkDao() }
 
     // --- Account identity (row-tenancy) ---
 
@@ -175,12 +180,13 @@ val dataModule = module {
             messageDao = get(),
             draftDao = get(),
             tagDao = get(),
+            prefetchWatermarkDao = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }
-    // Sole owner of account-Session transitions. Lazy (not createdAtStart): instantiated when the
-    // logout path (AuthRepositoryImpl) first resolves it, at which point its collector starts. Its
-    // `current` session flow has no consumer yet — the SessionWriter facade that would is deferred.
+    // Sole owner of account-Session transitions. Constructed eagerly in practice, because
+    // PrefetchController (createdAtStart) resolves it: `current` now has a consumer, so the
+    // collector starts at Koin start rather than when the logout path first resolves it.
     single {
         SessionManager(
             activeAccountProvider = get(),
@@ -271,6 +277,36 @@ val dataModule = module {
         SessionTaskRunner(
             tasks = getAll<SessionTask>(),
             applicationScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+        )
+    }
+
+    // --- Background prefetch (opt-in, off by default) ---
+
+    singleOf(::PrefetchPolicy)
+    singleOf(::PrefetchGate)
+    single {
+        PrefetchEngine(
+            conversationDao = get(),
+            messageDao = get(),
+            watermarkDao = get(),
+            messageRepository = get(),
+            conversationRepository = get(),
+            configRepository = get(),
+            agentRepository = get(),
+            policy = get(),
+            openConversationRegistry = get(),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
+    // Eager: its entire job is to collect SessionManager.current, so a lazy binding nobody resolves
+    // would simply never start. Not a SessionTask — those fire on login, cold start and switch, but
+    // never on a return to the foreground, which is most of when this should run.
+    single(createdAtStart = true) {
+        PrefetchController(
+            sessionManager = get(),
+            gate = get(),
+            engine = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
         )
     }
 

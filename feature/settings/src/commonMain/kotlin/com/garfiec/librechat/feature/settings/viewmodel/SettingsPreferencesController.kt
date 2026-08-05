@@ -73,6 +73,9 @@ private data class AdditionalPreferences(
     val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,
     val contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
     val duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
+    val prefetchEnabled: Boolean = false,
+    val prefetchAttachmentsEnabled: Boolean = false,
+    val prefetchOnMeteredEnabled: Boolean = false,
 )
 
 /**
@@ -219,6 +222,12 @@ class SettingsPreferencesController(
         additional.copy(sttOnDevice = sttOnDevice)
     }.combine(settingsDataStore.sttEndOfSpeech) { additional, sttEndOfSpeech ->
         additional.copy(sttEndOfSpeech = sttEndOfSpeech)
+    }.combine(settingsDataStore.prefetchEnabled) { additional, prefetch ->
+        additional.copy(prefetchEnabled = prefetch)
+    }.combine(settingsDataStore.prefetchAttachmentsEnabled) { additional, prefetchAttachments ->
+        additional.copy(prefetchAttachmentsEnabled = prefetchAttachments)
+    }.combine(settingsDataStore.prefetchOnMeteredEnabled) { additional, prefetchOnMetered ->
+        additional.copy(prefetchOnMeteredEnabled = prefetchOnMetered)
     }.stateIn(scope, SharingStarted.Eagerly, AdditionalPreferences(true, false, "", "", true))
 
     /** The single public UI state that merges DataStore preferences with imperative state. */
@@ -268,6 +277,9 @@ class SettingsPreferencesController(
             chatHeaderAlignment = additional.chatHeaderAlignment,
             contextBarPlacement = additional.contextBarPlacement,
             duringRunAction = additional.duringRunAction,
+            prefetchEnabled = additional.prefetchEnabled,
+            prefetchAttachmentsEnabled = additional.prefetchAttachmentsEnabled,
+            prefetchOnMeteredEnabled = additional.prefetchOnMeteredEnabled,
         )
     }.stateIn(scope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -303,6 +315,18 @@ class SettingsPreferencesController(
 
     fun setAutoScrollEnabled(enabled: Boolean) {
         scope.launch { settingsDataStore.setAutoScrollEnabled(enabled) }
+    }
+
+    fun setPrefetchEnabled(enabled: Boolean) {
+        scope.launch { settingsDataStore.setPrefetchEnabled(enabled) }
+    }
+
+    fun setPrefetchAttachmentsEnabled(enabled: Boolean) {
+        scope.launch { settingsDataStore.setPrefetchAttachmentsEnabled(enabled) }
+    }
+
+    fun setPrefetchOnMeteredEnabled(enabled: Boolean) {
+        scope.launch { settingsDataStore.setPrefetchOnMeteredEnabled(enabled) }
     }
 
     fun setShowThinkingBlocks(show: Boolean) {

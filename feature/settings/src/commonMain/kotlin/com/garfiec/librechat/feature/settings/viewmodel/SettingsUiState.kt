@@ -92,6 +92,9 @@ data class SettingsUiState(
     /** What the composer's send does mid-run (v0.8.8 steering): inject into the running reply,
      *  or queue for after it. Honoured only where the server supports steering. */
     val duringRunAction: DuringRunAction = DuringRunAction.QUEUE,
+    val prefetchEnabled: Boolean = false,
+    val prefetchAttachmentsEnabled: Boolean = false,
+    val prefetchOnMeteredEnabled: Boolean = false,
     val showImageDescriptions: Boolean = false,
     val dismissKeyboardOnSend: Boolean = false,
     // Data management

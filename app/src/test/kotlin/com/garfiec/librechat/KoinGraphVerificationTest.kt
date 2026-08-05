@@ -3,8 +3,13 @@ package com.garfiec.librechat
 import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.common.conversation.OpenConversationRegistry
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.lifecycle.ForegroundSignal
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
+import com.garfiec.librechat.core.common.network.NetworkConditionObserver
+import com.garfiec.librechat.core.common.network.RequestActivityTracker
+import com.garfiec.librechat.core.common.power.PowerStateObserver
 import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -117,6 +122,11 @@ class KoinGraphVerificationTest {
             CoroutineDispatcher::class,
             CoroutineScope::class,
             ConnectivityObserver::class,
+            NetworkConditionObserver::class,
+            PowerStateObserver::class,
+            ForegroundSignal::class,
+            OpenConversationRegistry::class,
+            RequestActivityTracker::class,
             ActiveAccountProvider::class,
             AppInfo::class,
             // core:logging provides

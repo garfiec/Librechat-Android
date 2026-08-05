@@ -68,6 +68,11 @@
     <string name="section_language">언어</string>
     <string name="section_layout">레이아웃</string>
     <string name="section_mcp_servers">MCP 서버</string>
+    <string name="section_prefetch">Background prefetch</string>
+    <string name="prefetch_enabled">Prefetch conversations</string>
+    <string name="prefetch_enabled_desc">Load recent and pinned conversations in the background so they open instantly. Runs only while the app is idle.</string>
+    <string name="prefetch_on_metered">Use mobile data</string>
+    <string name="prefetch_on_metered_desc">Allow prefetching on metered connections. Off by default to avoid unexpected data usage.</string>
     <string name="section_memories">메모리</string>
     <string name="section_personalization">개인화</string>
     <string name="section_presets">프리셋</string>

@@ -8,6 +8,13 @@ import com.garfiec.librechat.core.common.identity.CrossAccount
 import com.garfiec.librechat.core.data.db.entity.ConversationEntity
 import kotlinx.coroutines.flow.Flow
 
+/** The three columns the prefetcher's selection and freshness rules need. */
+data class PrefetchCandidate(
+    val conversationId: String,
+    val updatedAt: Long,
+    val pinned: Boolean,
+)
+
 @Dao
 interface ConversationDao {
 
@@ -25,6 +32,25 @@ interface ConversationDao {
 
     @Query("SELECT * FROM conversations WHERE conversationId = :id AND accountId = :accountId")
     fun observeByIdForAccount(id: String, accountId: String): Flow<ConversationEntity?>
+
+    // --- Background prefetch. Projections rather than entities: the prefetcher needs three columns
+    // and reading the entity would decode the `tags` JSON of every row for nothing. ---
+
+    @Query(
+        "SELECT conversationId, updatedAt, pinned FROM conversations " +
+            "WHERE accountId = :accountId AND isArchived = 0 ORDER BY updatedAt DESC LIMIT :limit",
+    )
+    suspend fun recentForPrefetch(accountId: String, limit: Int): List<PrefetchCandidate>
+
+    @Query(
+        "SELECT conversationId, updatedAt, pinned FROM conversations " +
+            "WHERE accountId = :accountId AND isArchived = 0 AND pinned = 1",
+    )
+    suspend fun pinnedForPrefetch(accountId: String): List<PrefetchCandidate>
+
+    /** Prune candidates. Archived rows are included: they are the least likely to be reopened. */
+    @Query("SELECT conversationId FROM conversations WHERE accountId = :accountId AND updatedAt < :cutoff")
+    suspend fun conversationIdsOlderThan(accountId: String, cutoff: Long): List<String>
 
     @Upsert
     suspend fun upsert(conversation: ConversationEntity)

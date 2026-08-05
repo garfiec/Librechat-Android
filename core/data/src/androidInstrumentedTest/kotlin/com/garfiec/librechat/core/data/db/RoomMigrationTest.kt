@@ -264,6 +264,51 @@ class RoomMigrationTest {
     }
 
     /**
+     * v8→v9 adds `prefetch_watermarks`. A new-table migration cannot lose data on its own, so what
+     * this actually pins is that the auto-migration matches the committed 9.json schema and that an
+     * upgrade from a populated v8 install still opens — the failure mode being a crash on launch for
+     * every existing user, not a subtle one.
+     */
+    @Test
+    fun migrateV8ToV9_addsPrefetchWatermarksAndKeepsExistingRows() {
+        val db = helper.createDatabase(testDbName, 8)
+        db.insert(
+            "conversations",
+            SQLiteDatabase.CONFLICT_REPLACE,
+            ContentValues().apply {
+                put("conversationId", "conv-v8")
+                put("title", "Existing Chat")
+                put("user", "user-001")
+                put("isArchived", 0)
+                put("tags", "[]")
+                put("createdAt", 1700000000000L)
+                put("updatedAt", 1700000000000L)
+                put("lastSyncedAt", 0L)
+                put("accountId", "srv:user-a")
+            },
+        )
+        db.close()
+
+        val migrated = helper.runMigrationsAndValidate(testDbName, 9, true)
+
+        migrated.query("SELECT title FROM conversations WHERE conversationId = 'conv-v8'").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getString(0)).isEqualTo("Existing Chat")
+        }
+        // Writable, not merely present: a table the migration created but whose columns disagree with
+        // the entity would still pass a bare existence check.
+        migrated.execSQL(
+            "INSERT INTO prefetch_watermarks " +
+                "(accountId, conversationId, warmedConversationUpdatedAt, warmedAt) " +
+                "VALUES ('srv:user-a', 'conv-v8', 1700000000000, 1700000001000)",
+        )
+        migrated.query("SELECT warmedConversationUpdatedAt FROM prefetch_watermarks").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getLong(0)).isEqualTo(1700000000000L)
+        }
+    }
+
+    /**
      * Pre-#67 builds wrote Conversation.endpoint and endpointType as the
      * Kotlin enum `.name`. The v3→v4 migration rewrites those rows to the
      * wire-format SerialName so ConversationMapper can drop its read-side shim.

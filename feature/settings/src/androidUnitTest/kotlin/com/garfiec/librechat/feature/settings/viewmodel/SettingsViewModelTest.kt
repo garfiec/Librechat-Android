@@ -110,6 +110,11 @@ class SettingsViewModelTest {
         every { settingsDataStore.sttLanguage } returns MutableStateFlow("")
         every { settingsDataStore.sttOnDevice } returns MutableStateFlow(true)
         every { settingsDataStore.sttEndOfSpeech } returns MutableStateFlow(false)
+        // The preferences state is one combine chain, so a source that never emits stalls all of it —
+        // an unstubbed flow here shows up as an unrelated setting silently keeping its default.
+        every { settingsDataStore.prefetchEnabled } returns MutableStateFlow(false)
+        every { settingsDataStore.prefetchAttachmentsEnabled } returns MutableStateFlow(false)
+        every { settingsDataStore.prefetchOnMeteredEnabled } returns MutableStateFlow(false)
         every { settingsDataStore.chatLayoutStyle } returns MutableStateFlow(ChatLayoutConstants.THREAD)
         every { settingsDataStore.showAvatars } returns MutableStateFlow(true)
         every { settingsDataStore.showBubbles } returns MutableStateFlow(false)

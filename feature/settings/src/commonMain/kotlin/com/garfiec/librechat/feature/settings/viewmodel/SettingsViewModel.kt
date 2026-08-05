@@ -232,6 +232,18 @@ class SettingsViewModel(
         prefsController.setAutoScrollEnabled(enabled)
     }
 
+    fun setPrefetchEnabled(enabled: Boolean) {
+        prefsController.setPrefetchEnabled(enabled)
+    }
+
+    fun setPrefetchAttachmentsEnabled(enabled: Boolean) {
+        prefsController.setPrefetchAttachmentsEnabled(enabled)
+    }
+
+    fun setPrefetchOnMeteredEnabled(enabled: Boolean) {
+        prefsController.setPrefetchOnMeteredEnabled(enabled)
+    }
+
     fun setShowThinkingBlocks(show: Boolean) {
         prefsController.setShowThinkingBlocks(show)
     }

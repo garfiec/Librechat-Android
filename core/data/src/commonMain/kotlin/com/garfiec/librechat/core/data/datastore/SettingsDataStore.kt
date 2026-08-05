@@ -101,6 +101,24 @@ class SettingsDataStore(
         prefs[KEY_AUTO_SCROLL_ENABLED] ?: true
     }
 
+    // Background prefetch. Deliberately global, not account-scoped — these are preferences about
+    // the device's bandwidth and battery. All default off: this spends the user's data on requests
+    // they did not make, which has to be asked for.
+
+    val prefetchEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PREFETCH_ENABLED] ?: false
+    }
+
+    /** Nested under [prefetchEnabled]; far heavier than the text it accompanies. */
+    val prefetchAttachmentsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PREFETCH_ATTACHMENTS] ?: false
+    }
+
+    /** Overrides the unmetered-only default, for users who are mostly on cellular. */
+    val prefetchOnMeteredEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PREFETCH_ON_METERED] ?: false
+    }
+
     val showThinkingBlocks: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_SHOW_THINKING_BLOCKS] ?: true
     }
@@ -342,6 +360,24 @@ class SettingsDataStore(
     suspend fun setAutoScrollEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_AUTO_SCROLL_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setPrefetchEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PREFETCH_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setPrefetchAttachmentsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PREFETCH_ATTACHMENTS] = enabled
+        }
+    }
+
+    suspend fun setPrefetchOnMeteredEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PREFETCH_ON_METERED] = enabled
         }
     }
 
@@ -677,6 +713,9 @@ class SettingsDataStore(
         private val KEY_CHAT_HEADER_CONTENT = stringPreferencesKey("chat_header_content")
         private val KEY_CHAT_HEADER_ALIGNMENT = stringPreferencesKey("chat_header_alignment")
         private val KEY_AUTO_SCROLL_ENABLED = booleanPreferencesKey("auto_scroll_enabled")
+        private val KEY_PREFETCH_ENABLED = booleanPreferencesKey("prefetch_enabled")
+        private val KEY_PREFETCH_ATTACHMENTS = booleanPreferencesKey("prefetch_attachments")
+        private val KEY_PREFETCH_ON_METERED = booleanPreferencesKey("prefetch_on_metered")
         private val KEY_SHOW_THINKING_BLOCKS = booleanPreferencesKey("show_thinking_blocks")
         private val KEY_CONTEXT_BAR_PLACEMENT = stringPreferencesKey("context_bar_placement")
         private val KEY_DURING_RUN_ACTION = stringPreferencesKey("during_run_action")
