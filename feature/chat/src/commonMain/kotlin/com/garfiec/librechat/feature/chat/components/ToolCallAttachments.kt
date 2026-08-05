@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.Attachment
+import com.garfiec.librechat.core.model.media.resolveAttachmentUrl
 import com.garfiec.librechat.core.ui.media.rememberShareFile
 import com.garfiec.librechat.feature.chat.components.artifact.Artifact
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactButton
@@ -39,7 +40,6 @@ import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.attachment_fallback
 import com.garfiec.librechat.feature.chat.resources.cd_open_pdf
 import com.garfiec.librechat.feature.chat.resources.pdf_document
-import com.garfiec.librechat.feature.chat.util.resolveAttachmentUrl
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 

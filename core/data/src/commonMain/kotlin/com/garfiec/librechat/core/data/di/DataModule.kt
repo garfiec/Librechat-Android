@@ -184,9 +184,9 @@ val dataModule = module {
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }
-    // Sole owner of account-Session transitions. Constructed eagerly in practice, because
-    // PrefetchController (createdAtStart) resolves it: `current` now has a consumer, so the
-    // collector starts at Koin start rather than when the logout path first resolves it.
+    // Sole owner of account-Session transitions. Lazy, but constructed at Koin start in practice
+    // because PrefetchController (createdAtStart) resolves it — so its collector is running before
+    // the logout path ever asks for it.
     single {
         SessionManager(
             activeAccountProvider = get(),
@@ -295,6 +295,9 @@ val dataModule = module {
             agentRepository = get(),
             policy = get(),
             openConversationRegistry = get(),
+            attachmentWarmer = get(),
+            settingsDataStore = get(),
+            serverUrlProvider = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }

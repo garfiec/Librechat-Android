@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
+import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
 import com.garfiec.librechat.core.data.repository.ApiKeyRepository
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
@@ -58,6 +59,7 @@ class SettingsModuleVerificationTest {
                 ServerRepository::class,
                 SettingsDataStore::class,
                 ContentReader::class,
+                AttachmentWarmer::class,
                 PlatformCacheCleaner::class,
                 SpeechSettingsFactory::class,
                 DiagnosticLogRepository::class,

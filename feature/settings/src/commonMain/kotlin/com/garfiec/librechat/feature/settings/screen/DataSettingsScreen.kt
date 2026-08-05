@@ -187,6 +187,7 @@ fun DataSettingsContent(
                     onArtifactShortcutsClick = onNavigateToArtifactShortcuts,
                     onClearCacheClick = { showClearCacheDialog = true },
                     isCacheClearing = uiState.isCacheClearing,
+                    cacheSizeBytes = uiState.cacheSizeBytes,
                     onRevokeKeysClick = { showRevokeKeysDialog = true },
                     isKeyRevoking = uiState.isKeyRevoking,
                 )
@@ -199,8 +200,11 @@ fun DataSettingsContent(
                 PrefetchSettingsSection(
                     prefetchEnabled = uiState.prefetchEnabled,
                     prefetchOnMeteredEnabled = uiState.prefetchOnMeteredEnabled,
+                    prefetchAttachmentsEnabled = uiState.prefetchAttachmentsEnabled,
+                    prefetchAttachmentsSupported = uiState.prefetchAttachmentsSupported,
                     onPrefetchEnabledChange = viewModel::setPrefetchEnabled,
                     onPrefetchOnMeteredChange = viewModel::setPrefetchOnMeteredEnabled,
+                    onPrefetchAttachmentsChange = viewModel::setPrefetchAttachmentsEnabled,
                 )
             }
 
@@ -333,6 +337,7 @@ private fun DataExtraActions(
     onArtifactShortcutsClick: () -> Unit,
     onClearCacheClick: () -> Unit,
     isCacheClearing: Boolean,
+    cacheSizeBytes: Long?,
     onRevokeKeysClick: () -> Unit,
     isKeyRevoking: Boolean,
 ) {
@@ -381,13 +386,23 @@ private fun DataExtraActions(
                 }
             }
 
-            // Clear cache
+            // Clear cache. The size is only shown once read and non-zero — a "(0 B)" on a cache that
+            // simply hasn't been measured yet reads as a broken feature rather than an empty one.
             OutlinedButton(
                 onClick = onClearCacheClick,
                 enabled = !isCacheClearing,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(if (isCacheClearing) Res.string.clearing else Res.string.clear_cache))
+                Text(
+                    when {
+                        isCacheClearing -> stringResource(Res.string.clearing)
+                        cacheSizeBytes != null && cacheSizeBytes > 0 -> stringResource(
+                            Res.string.clear_cache_with_size,
+                            formatBytes(cacheSizeBytes),
+                        )
+                        else -> stringResource(Res.string.clear_cache)
+                    },
+                )
             }
 
             // Revoke API keys

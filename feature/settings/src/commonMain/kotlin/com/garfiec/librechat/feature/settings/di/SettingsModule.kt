@@ -44,6 +44,7 @@ val settingsModule = module {
             configRepository = get(),
             diagnosticLogRepository = get(),
             appInfo = get(),
+            attachmentWarmer = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }

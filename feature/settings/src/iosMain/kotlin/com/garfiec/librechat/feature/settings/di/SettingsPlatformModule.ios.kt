@@ -17,6 +17,8 @@ import org.koin.dsl.module
 import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSFileSize
+import platform.Foundation.NSNumber
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
@@ -76,6 +78,30 @@ actual val settingsPlatformModule: Module = module {
                     } catch (e: Exception) {
                         Logger.w(e) { "Failed to clear caches" }
                     }
+                }
+            }
+
+            override suspend fun cacheSizeBytes(): Long = withContext(Dispatchers.Default) {
+                try {
+                    val cachePath = NSSearchPathForDirectoriesInDomains(
+                        NSCachesDirectory,
+                        NSUserDomainMask,
+                        true,
+                    ).firstOrNull() as? String ?: return@withContext 0L
+                    val fm = NSFileManager.defaultManager
+                    // One level deep, matching what clearCache() removes: the readout and the button
+                    // must describe the same bytes, or clearing appears not to work.
+                    val contents = fm.contentsOfDirectoryAtPath(cachePath, null) as? List<*>
+                    contents.orEmpty().sumOf { item ->
+                        val name = item as? String ?: return@sumOf 0L
+                        val attrs = fm.attributesOfItemAtPath("$cachePath/$name", null)
+                        (attrs?.get(NSFileSize) as? NSNumber)?.longLongValue ?: 0L
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logger.w(e) { "Failed to size caches" }
+                    0L
                 }
             }
         }

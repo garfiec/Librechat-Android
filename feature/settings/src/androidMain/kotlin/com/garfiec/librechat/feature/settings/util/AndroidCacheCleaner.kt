@@ -10,4 +10,12 @@ class AndroidCacheCleaner(private val context: Context) : PlatformCacheCleaner {
             context.cacheDir.deleteRecursively()
         }
     }
+
+    override suspend fun cacheSizeBytes(): Long = withContext(Dispatchers.IO) {
+        // Walks the same directory clearCache() empties, so the figure drops to roughly zero when the
+        // user taps Clear — which is the only behaviour that makes a size readout worth showing.
+        runCatching {
+            context.cacheDir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+        }.getOrDefault(0L)
+    }
 }

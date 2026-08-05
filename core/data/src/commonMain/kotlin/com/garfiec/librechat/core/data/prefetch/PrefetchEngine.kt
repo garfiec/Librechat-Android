@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.network.PrefetchMarker
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.db.dao.PrefetchCandidate
@@ -15,9 +16,15 @@ import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.media.resolveAttachmentUrl
+import com.garfiec.librechat.core.model.media.resolveFileReferenceUrl
+import com.garfiec.librechat.core.model.media.resolveImageFilePartUrl
+import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -30,19 +37,15 @@ import kotlin.time.TimeSource
  * Warms the cache for the conversations the user is likeliest to open next, one request at a time,
  * only while [PrefetchGate] is open.
  *
- * Everything here is shaped by one rule: this work is optional, so it yields to anything that isn't.
- * The gate cancels it rather than it polling for permission; it never runs two requests at once; and
- * it paces itself against the server's own observed latency rather than a fixed interval, so a slow
- * or loaded server automatically gets asked less often.
- *
- * A pass runs in three stages, and the order is load-bearing:
+ * A pass runs in four stages, and the order is load-bearing:
  *
  * 1. **Refresh the conversation list.** Freshness is decided by comparing each conversation's
  *    `updatedAt` against the watermark from its last warm — and that `updatedAt` is read from Room.
  *    Without syncing the list first the engine compares watermarks against the same stale timestamps
  *    it wrote them from, concludes nothing has changed, and never warms anything again.
  * 2. **Warm messages** for whatever that reveals as stale.
- * 3. **Prune** message rows for conversations that have aged out of the warm set.
+ * 3. **Warm ancillary reference data** — endpoints, models, agents — once per account per process.
+ * 4. **Prune** message rows for conversations that have aged out of the warm set.
  */
 class PrefetchEngine(
     private val conversationDao: ConversationDao,
@@ -54,20 +57,21 @@ class PrefetchEngine(
     private val agentRepository: AgentRepository,
     private val policy: PrefetchPolicy,
     private val openConversationRegistry: OpenConversationRegistry,
+    private val attachmentWarmer: AttachmentWarmer,
+    private val settingsDataStore: SettingsDataStore,
+    private val serverUrlProvider: ServerUrlProvider,
     private val ioDispatcher: CoroutineDispatcher,
-    // Defaulted rather than injected: both are test seams, and a bare function type is not something
-    // Koin can resolve — supplying them from the module would need `Function0` whitelisted in the
-    // graph verification, which would then stop catching genuinely unresolvable dependencies.
+    // Test seams; keep them defaulted rather than injected. Supplying them from the module would
+    // need `Function0` whitelisted in the graph verification, which would then stop catching
+    // genuinely unresolvable dependencies.
     private val timeSource: TimeSource = TimeSource.Monotonic,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
 
     /**
-     * The account whose pass gave up, if any.
-     *
-     * Keyed by account rather than a plain flag because this engine is a singleton that outlives any
-     * one session: keyed, a switch or re-login starts clean, while repeated gate flips within one
-     * session do not keep retrying a server that has already failed three times in a row.
+     * The account whose pass gave up, if any. Must stay keyed by account, not a flag: this engine is
+     * a singleton outliving any one session, so a flag would either survive a switch or reset on
+     * every gate flip and keep retrying a dead server.
      */
     private var trippedForAccountId: String? = null
 
@@ -161,6 +165,7 @@ class PrefetchEngine(
                     is StepOutcome.Ok -> {
                         consecutiveFailures = 0
                         recordWatermark(candidate)
+                        warmAttachments((result as Result.Success).data)
                     }
                     // Rate limiting means "slower", not "broken", so it deliberately does not count
                     // toward the breaker — the server is answering, it is just asking us to wait.
@@ -220,6 +225,30 @@ class PrefetchEngine(
             Diag.d("Prefetch", attrs = mapOf("pruned" to prunable.size.toString())) { "pruned stale message cache" }
         }
 
+        /**
+         * Pulls a thread's images into the image cache, behind its own opt-in. Each image is a
+         * request and stays paced like every other one — images are megabytes where the text is
+         * kilobytes, so a burst here is what would flood the connection.
+         */
+        private suspend fun warmAttachments(messages: List<Message>) {
+            if (!attachmentWarmer.isSupported) return
+            if (!settingsDataStore.prefetchAttachmentsEnabled.first()) return
+
+            val baseUrl = serverUrlProvider.getBaseUrl()
+            if (baseUrl.isBlank()) return
+
+            messages.asSequence()
+                .flatMap { imageUrlsOf(it, baseUrl) }
+                .distinct()
+                .take(MAX_ATTACHMENTS_PER_CONVERSATION)
+                .toList()
+                .forEach { url ->
+                    val start = timeSource.markNow()
+                    attachmentWarmer.warm(url)
+                    delay(paceAfter(start.elapsedNow()))
+                }
+        }
+
         private suspend fun recordWatermark(candidate: PrefetchCandidate) {
             // Watermark the value fetched against, not "now": the question this answers is "has the
             // server changed since?", which a wall-clock time cannot.
@@ -235,7 +264,6 @@ class PrefetchEngine(
             }
         }
 
-        /** Runs a paced, breaker-counted step whose result is not otherwise used. */
         private suspend fun runStep(block: suspend () -> Result<*>) {
             val start = timeSource.markNow()
             val result = block()
@@ -259,6 +287,19 @@ class PrefetchEngine(
             return true
         }
     }
+
+    /**
+     * Every image URL a message would render, resolved exactly the way the UI resolves them — via
+     * the shared resolver in `:core:model`, so a warmed entry is a cache hit for the composable that
+     * later asks for it rather than a near-miss under a slightly different URL.
+     */
+    private fun imageUrlsOf(message: Message, baseUrl: String): Sequence<String> = sequence {
+        message.files?.forEach { file -> resolveFileReferenceUrl(file, baseUrl)?.let { yield(it) } }
+        message.attachments?.forEach { attachment ->
+            resolveAttachmentUrl(attachment, baseUrl)?.let { yield(it) }
+        }
+        message.content?.forEach { part -> resolveImageFilePartUrl(part, baseUrl)?.let { yield(it) } }
+    }.filterNot { it.startsWith(DATA_URI_PREFIX) } // Already inline; there is nothing to fetch.
 
     private fun outcomeOf(result: Result<*>): StepOutcome = when (result) {
         is Result.Success -> StepOutcome.Ok
@@ -299,6 +340,10 @@ class PrefetchEngine(
 
         private const val HTTP_TOO_MANY_REQUESTS = 429
         private const val PRUNE_CHUNK = 400
+
+        /** Ceiling per conversation. A single thread of screenshots must not become the whole pass. */
+        private const val MAX_ATTACHMENTS_PER_CONVERSATION = 20
+        private const val DATA_URI_PREFIX = "data:"
         private val MIN_PACE = 250.milliseconds
         private val MAX_PACE = 30.seconds
         private val DEFAULT_RATE_LIMIT_BACKOFF = 60.seconds

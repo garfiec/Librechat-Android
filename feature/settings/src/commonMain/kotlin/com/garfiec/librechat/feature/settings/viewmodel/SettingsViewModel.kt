@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -72,12 +73,18 @@ class SettingsViewModel(
     private val configRepository: ConfigRepository,
     diagnosticLogRepository: DiagnosticLogRepository,
     appInfo: AppInfo,
+    attachmentWarmer: AttachmentWarmer,
     ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     /** Raw state for everything not driven by DataStore flows. */
     private val _uiState = MutableStateFlow(
-        SettingsUiState(appVersion = appInfo.versionName, gitSha = appInfo.gitSha),
+        SettingsUiState(
+            appVersion = appInfo.versionName,
+            gitSha = appInfo.gitSha,
+            // Constant per platform, so it is seeded rather than observed.
+            prefetchAttachmentsSupported = attachmentWarmer.isSupported,
+        ),
     )
 
     private val stateHandle = SettingsStateHandle(_uiState, viewModelScope)
@@ -121,6 +128,7 @@ class SettingsViewModel(
         observePermissionFlags()
         observeAccountDeletionPolicy()
         dataDelegate.loadLogsBufferSize()
+        dataDelegate.loadCacheSize()
     }
 
     /**

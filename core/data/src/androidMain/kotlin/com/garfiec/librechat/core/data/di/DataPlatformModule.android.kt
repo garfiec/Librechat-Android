@@ -10,6 +10,8 @@ import com.garfiec.librechat.core.data.datastore.TokenDataStore
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_3_4
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_4_5
+import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
+import com.garfiec.librechat.core.data.prefetch.CoilAttachmentWarmer
 import com.garfiec.librechat.core.data.repository.AndroidSwitchCacheCleaner
 import com.garfiec.librechat.core.data.repository.CommonSessionCacheCleaner
 import com.garfiec.librechat.core.data.repository.SessionCacheCleaner
@@ -28,6 +30,10 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 )
 
 actual val dataPlatformModule: Module = module {
+
+    // Bound per platform rather than defaulted in dataModule: Koin starts with allowOverride(false),
+    // so a common default plus a platform override would throw at launch.
+    single<AttachmentWarmer> { CoilAttachmentWarmer(androidContext()) }
 
     // --- Database ---
     single {

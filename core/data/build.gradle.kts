@@ -32,6 +32,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.koin.android)
             implementation(libs.security.crypto)
+            // Prefetching attachments warms the singleton image loader's disk cache, which only the
+            // Android side configures. iOS binds a no-op and needs no image dependency at all.
+            implementation(libs.coil3.core)
         }
         named("androidUnitTest").dependencies {
             implementation(libs.koin.test)

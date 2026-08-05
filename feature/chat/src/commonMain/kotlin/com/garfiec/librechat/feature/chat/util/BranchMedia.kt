@@ -3,6 +3,8 @@ package com.garfiec.librechat.feature.chat.util
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.media.resolveFileReferenceUrl
+import com.garfiec.librechat.core.model.media.resolveImageFilePartUrl
 import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.feature.chat.components.isImageGenToolCall
 import com.garfiec.librechat.feature.chat.components.parseImageGenResult

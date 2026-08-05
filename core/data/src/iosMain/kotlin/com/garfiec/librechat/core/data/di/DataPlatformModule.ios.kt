@@ -11,6 +11,8 @@ import com.garfiec.librechat.core.data.datastore.ServerUrlKeychainFallback
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_3_4
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_4_5
+import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
+import com.garfiec.librechat.core.data.prefetch.NoopAttachmentWarmer
 import com.garfiec.librechat.core.data.repository.CommonSessionCacheCleaner
 import com.garfiec.librechat.core.data.repository.IosSwitchCacheCleaner
 import com.garfiec.librechat.core.data.repository.SessionCacheCleaner
@@ -37,6 +39,8 @@ private fun ensureDirectoryExists(path: String) {
 }
 
 actual val dataPlatformModule: Module = module {
+
+    single<AttachmentWarmer> { NoopAttachmentWarmer() }
 
     // --- Database ---
     single {

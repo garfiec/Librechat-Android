@@ -95,6 +95,11 @@ data class SettingsUiState(
     val prefetchEnabled: Boolean = false,
     val prefetchAttachmentsEnabled: Boolean = false,
     val prefetchOnMeteredEnabled: Boolean = false,
+    /** Whether this platform has an image cache worth warming; false hides the toggle. */
+    val prefetchAttachmentsSupported: Boolean = false,
+    /** Cached images and files, in bytes; null until read. Excludes the database — see
+     *  [com.garfiec.librechat.feature.settings.util.PlatformCacheCleaner.cacheSizeBytes]. */
+    val cacheSizeBytes: Long? = null,
     val showImageDescriptions: Boolean = false,
     val dismissKeyboardOnSend: Boolean = false,
     // Data management

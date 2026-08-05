@@ -212,12 +212,28 @@ class DataManagementDelegate(
         }
     }
 
+    fun loadCacheSize() {
+        stateHandle.scope.launch {
+            try {
+                val bytes = cacheCleaner.cacheSizeBytes()
+                stateHandle.update { copy(cacheSizeBytes = bytes) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logger.d(e) { "Failed to read cache size" }
+            }
+        }
+    }
+
     fun clearCache() {
         stateHandle.scope.launch {
             stateHandle.update { copy(isCacheClearing = true) }
             try {
                 cacheCleaner.clearCache()
-                stateHandle.update { copy(isCacheClearing = false) }
+                // Re-read rather than assume zero: the directory is shared, and something may have
+                // written to it between the walk and the delete.
+                val bytes = cacheCleaner.cacheSizeBytes()
+                stateHandle.update { copy(isCacheClearing = false, cacheSizeBytes = bytes) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

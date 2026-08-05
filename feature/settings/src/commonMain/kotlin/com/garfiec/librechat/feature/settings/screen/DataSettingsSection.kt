@@ -216,7 +216,7 @@ internal fun DataSettingsSection(
  * Compact human-readable byte size (e.g. `123 KB`, `1.2 MB`) for the export-logs button label.
  * Uses binary (1024) units; one decimal place above KB.
  */
-private fun formatBytes(bytes: Long): String {
+internal fun formatBytes(bytes: Long): String {
     if (bytes < 1024) return "$bytes B"
     val kb = bytes / 1024.0
     if (kb < 1024) return "${kb.toInt()} KB"

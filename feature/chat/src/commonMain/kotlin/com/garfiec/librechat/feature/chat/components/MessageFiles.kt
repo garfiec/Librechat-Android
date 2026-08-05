@@ -43,9 +43,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.garfiec.librechat.core.model.FileReference
+import com.garfiec.librechat.core.model.media.resolveFileReferenceUrl
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
-import com.garfiec.librechat.feature.chat.util.resolveFileReferenceUrl
 import org.jetbrains.compose.resources.stringResource
 
 /**

@@ -73,6 +73,8 @@
     <string name="prefetch_enabled_desc">Load recent and pinned conversations in the background so they open instantly. Runs only while the app is idle.</string>
     <string name="prefetch_on_metered">Use mobile data</string>
     <string name="prefetch_on_metered_desc">Allow prefetching on metered connections. Off by default to avoid unexpected data usage.</string>
+    <string name="prefetch_attachments">Prefetch images</string>
+    <string name="prefetch_attachments_desc">Also download images and attachments. Uses considerably more data.</string>
     <string name="section_memories">Память</string>
     <string name="section_personalization">Персонализация</string>
     <string name="section_presets">Пресеты</string>
@@ -247,6 +249,7 @@
     <string name="archived_conversations">Архивированные беседы</string>
     <string name="export_all_data">Экспортировать все данные</string>
     <string name="shared_links">Общие ссылки</string>
+    <string name="clear_cache_with_size">Clear Cache (%1$s)</string>
     <string name="clear_cache">Очистить кэш</string>
     <string name="revoke_all_api_keys">Отозвать все API-ключи</string>
     <string name="revoking">Отзыв…</string>

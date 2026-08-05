@@ -9,6 +9,7 @@ import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -166,6 +167,10 @@ class SettingsViewModelTest {
             override val versionName = "0.1.0"
             override val versionCode = 1L
             override val gitSha = "testsha0"
+        },
+        attachmentWarmer = object : AttachmentWarmer {
+            override val isSupported = true
+            override suspend fun warm(url: String) = Unit
         },
         ioDispatcher = testDispatcher,
     )

@@ -1,4 +1,4 @@
-package com.garfiec.librechat.feature.chat.util
+package com.garfiec.librechat.core.model.media
 
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.FileReference
@@ -7,14 +7,13 @@ import com.garfiec.librechat.core.model.content.MessageContentPart
 /**
  * Single source of truth for turning a message's image reference into a loadable URL.
  *
- * Every image surface — the inline renderers (`MessageFiles`, `SharedContentParts`), the
- * image-gen tool-call parser (`ToolCallParsing`), and the full-screen media collector
- * ([extractBranchMedia]) — calls these, so the viewer always resolves the exact URL the message
- * rendered. Changing how images resolve here changes every place at once; no per-call-site copy.
+ * Every image surface must route through these rather than keep a per-call-site copy: the renderers
+ * and the background prefetcher have to agree on the exact URL, or a warmed cache entry is a
+ * near-miss under a slightly different one rather than a hit.
  */
 
 /** Resolves a full URL for an attached [FileReference], handling relative paths. */
-internal fun resolveFileReferenceUrl(file: FileReference, baseUrl: String): String? =
+fun resolveFileReferenceUrl(file: FileReference, baseUrl: String): String? =
     resolveImageUrl(file.filepath, file.fileId, baseUrl, includeBareSlash = true)
 
 /**
@@ -24,7 +23,7 @@ internal fun resolveFileReferenceUrl(file: FileReference, baseUrl: String): Stri
  * `/foo/x.png`, not `/images/...`) through `/api/files/`, matching how `ContentPartRenderer` has
  * always rendered these. A [FileReference] instead serves it directly off `baseUrl`.
  */
-internal fun resolveImageFilePartUrl(part: MessageContentPart, baseUrl: String): String? =
+fun resolveImageFilePartUrl(part: MessageContentPart, baseUrl: String): String? =
     resolveImageUrl(part.imageFile?.filepath, part.imageFile?.fileId, baseUrl, includeBareSlash = false)
 
 /**
@@ -34,7 +33,7 @@ internal fun resolveImageFilePartUrl(part: MessageContentPart, baseUrl: String):
  * served directly off `baseUrl` ([relativePathPrefix] = `/`), not through `/api/files/`, matching
  * how `parseImageGenResult` has always built generated-image URLs.
  */
-internal fun resolveAttachmentUrl(attachment: Attachment?, baseUrl: String): String? {
+fun resolveAttachmentUrl(attachment: Attachment?, baseUrl: String): String? {
     if (attachment == null) return null
     return resolveImageUrl(
         attachment.filepath,

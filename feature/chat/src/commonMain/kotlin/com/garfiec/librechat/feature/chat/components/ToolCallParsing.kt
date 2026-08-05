@@ -6,7 +6,7 @@ import com.garfiec.librechat.core.model.AskUserQuestionOption
 import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.content.AgentToolCall
-import com.garfiec.librechat.feature.chat.util.resolveAttachmentUrl
+import com.garfiec.librechat.core.model.media.resolveAttachmentUrl
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

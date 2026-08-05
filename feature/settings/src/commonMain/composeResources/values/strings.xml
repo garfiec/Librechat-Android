@@ -74,6 +74,8 @@
     <string name="prefetch_enabled_desc">Load recent and pinned conversations in the background so they open instantly. Runs only while the app is idle.</string>
     <string name="prefetch_on_metered">Use mobile data</string>
     <string name="prefetch_on_metered_desc">Allow prefetching on metered connections. Off by default to avoid unexpected data usage.</string>
+    <string name="prefetch_attachments">Prefetch images</string>
+    <string name="prefetch_attachments_desc">Also download images and attachments. Uses considerably more data.</string>
     <string name="section_memories">Memories</string>
     <string name="section_personalization">Personalization</string>
     <string name="section_presets">Presets</string>
@@ -279,6 +281,7 @@
     <string name="archived_conversations">Archived Conversations</string>
     <string name="export_all_data">Export All Data</string>
     <string name="shared_links">Shared Links</string>
+    <string name="clear_cache_with_size">Clear Cache (%1$s)</string>
     <string name="clear_cache">Clear Cache</string>
     <string name="revoke_all_api_keys">Revoke All API Keys</string>
     <string name="revoking">Revoking…</string>

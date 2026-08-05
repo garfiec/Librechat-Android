@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.identity.AccountId
 import com.garfiec.librechat.core.common.network.isPrefetch
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.db.dao.PrefetchCandidate
@@ -15,13 +16,16 @@ import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.currentTime
@@ -50,6 +54,11 @@ class PrefetchEngineTest {
     private val configRepository = mockk<ConfigRepository>(relaxed = true)
     private val agentRepository = mockk<AgentRepository>(relaxed = true)
     private val openConversationRegistry = OpenConversationRegistry()
+    private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+    private val attachmentWarmer = mockk<AttachmentWarmer>(relaxed = true)
+    private val serverUrlProvider = object : ServerUrlProvider {
+        override fun getBaseUrl(): String = "https://chat.example.com"
+    }
 
     @Before
     fun setup() {
@@ -61,6 +70,8 @@ class PrefetchEngineTest {
         coEvery { watermarkDao.allForAccount(any()) } returns emptyList()
         coEvery { conversationDao.pinnedForPrefetch(any()) } returns emptyList()
         coEvery { conversationDao.conversationIdsOlderThan(any(), any()) } returns emptyList()
+        every { settingsDataStore.prefetchAttachmentsEnabled } returns flowOf(false)
+        every { attachmentWarmer.isSupported } returns false
     }
 
     private fun TestScope.engine() = PrefetchEngine(
@@ -73,6 +84,9 @@ class PrefetchEngineTest {
         agentRepository = agentRepository,
         policy = PrefetchPolicy(),
         openConversationRegistry = openConversationRegistry,
+        attachmentWarmer = attachmentWarmer,
+        settingsDataStore = settingsDataStore,
+        serverUrlProvider = serverUrlProvider,
         ioDispatcher = UnconfinedTestDispatcher(testScheduler),
         // The scheduler's own time source, so elapsedNow() follows virtual time.
         timeSource = testScheduler.timeSource,
@@ -132,6 +146,9 @@ class PrefetchEngineTest {
             agentRepository = agentRepository,
             policy = PrefetchPolicy(),
             openConversationRegistry = openConversationRegistry,
+            attachmentWarmer = attachmentWarmer,
+            settingsDataStore = settingsDataStore,
+            serverUrlProvider = serverUrlProvider,
             ioDispatcher = UnconfinedTestDispatcher(testScheduler),
             timeSource = testScheduler.timeSource,
             nowMillis = { currentTime },
