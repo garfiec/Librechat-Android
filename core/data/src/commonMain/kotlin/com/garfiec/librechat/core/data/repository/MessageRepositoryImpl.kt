@@ -18,10 +18,12 @@ import com.garfiec.librechat.core.model.request.BranchMessageRequest
 import com.garfiec.librechat.core.model.request.UpdateMessageRequest
 import com.garfiec.librechat.core.network.api.MessagesApi
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 class MessageRepositoryImpl(
     private val messagesApi: MessagesApi,
@@ -74,13 +76,39 @@ class MessageRepositoryImpl(
         messageDao.upsertAll(messages.entitiesFor(accountId))
     }
 
-    override suspend fun refreshMessages(conversationId: String): Result<List<Message>> {
+    override suspend fun refreshMessages(
+        conversationId: String,
+        originAccount: AccountId?,
+    ): Result<List<Message>> {
+        // Origin-capture: a deferred caller may reach here after a switch. The GET rides the LIVE
+        // snapshot, so firing it once the origin is no longer active would carry this conversation id
+        // to another account's server under its bearer. Serve the cache instead — a routine skip.
+        if (!originTransportAllowed(originAccount, activeAccountProvider)) {
+            val account = resolveWriteAccountId(originAccount, activeAccountProvider, roster)
+            val cached = account
+                ?.let { messageDao.observeMessagesForAccount(conversationId, it).first() }
+                ?: emptyList()
+            return if (cached.isNotEmpty()) {
+                Result.Success(cached.toModels())
+            } else {
+                Result.Error(IllegalStateException("Skipped message refresh for a non-active account"))
+            }
+        }
         return safeApiCall {
-            val accountId = activeAccountProvider.currentAccountId()?.value
+            val accountId = resolveWriteAccountId(originAccount, activeAccountProvider, roster)
             val messages = messagesApi.getMessages(conversationId)
             if (accountId != null) {
-                // Full replace: delete stale cache then insert fresh server data (delete leg scoped to account)
-                messageDao.replaceAllForConversation(conversationId, accountId, messages.entitiesFor(accountId))
+                // Full replace: delete stale cache then insert fresh server data (delete leg scoped
+                // to account). NonCancellable so a cancelled caller cannot abandon the thread between
+                // the delete and the insert legs — the transaction would roll back, but this keeps the
+                // "one whole thread per transaction" contract true rather than merely usually true.
+                withContext(NonCancellable) {
+                    messageDao.replaceAllForConversation(
+                        conversationId,
+                        accountId,
+                        messages.entitiesFor(accountId),
+                    )
+                }
             }
             messages
         }

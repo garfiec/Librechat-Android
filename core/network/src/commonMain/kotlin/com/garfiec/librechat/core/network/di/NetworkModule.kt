@@ -96,6 +96,7 @@ val networkModule = module {
             accountReadyGate = getOrNull(),
             switchGate = get(),
             serverHeadersProvider = get(),
+            requestActivityTracker = get(),
         )
     }
 
@@ -174,7 +175,14 @@ val networkModule = module {
     // SSE — SseHttpTransport is provided by networkPlatformModule because its
     // constructor signature differs between Android (takes the Ktor streaming
     // HttpClient) and iOS (takes NWConnection dependencies in Phase 2).
-    single { SseClient(json = get(), transport = get(), activeAccountProvider = get()) }
+    single {
+        SseClient(
+            json = get(),
+            transport = get(),
+            activeAccountProvider = get(),
+            requestActivityTracker = get(),
+        )
+    }
 
     // API services
     singleOf(::AgentsApi)

@@ -1548,7 +1548,9 @@ class ChatViewModel(
         if (_uiState.value.isRefreshingMessages) return
         _uiState.update { it.copy(content = it.content.copy(isRefreshingMessages = true)) }
         viewModelScope.launch {
-            messageRepository.refreshMessages(conversationId)
+            // Foreground pull-to-refresh: the user is looking at this conversation now, so entry is
+            // land time and the live account is the right one to attribute to.
+            messageRepository.refreshMessages(conversationId, originAccount = null)
             loadConversation(conversationId)
             _uiState.update { it.copy(content = it.content.copy(isRefreshingMessages = false)) }
         }

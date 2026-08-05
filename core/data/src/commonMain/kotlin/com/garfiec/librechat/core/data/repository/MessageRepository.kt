@@ -21,7 +21,19 @@ interface MessageRepository {
      * active account. See `resolveWriteAccountId`.
      */
     suspend fun cacheMessages(messages: List<Message>, originAccount: AccountId?)
-    suspend fun refreshMessages(conversationId: String): Result<List<Message>>
+
+    /**
+     * Re-reads a conversation's messages from the server and **replaces** its cached rows, so
+     * server-side deletions disappear locally where [getMessages]' upsert would leave them behind.
+     *
+     * [originAccount] carries the same origin-capture contract as [cacheMessages], and here it gates
+     * the network leg too: a deferred caller whose origin is no longer the live account is skipped
+     * rather than sending that account's conversation id to a different server under a different
+     * bearer. Deliberately no default — a silent one would let new deferred callers compile with
+     * land-time attribution, which is the mis-attribution this parameter exists to prevent. Pass null
+     * from foreground callers, where entry *is* land time.
+     */
+    suspend fun refreshMessages(conversationId: String, originAccount: AccountId?): Result<List<Message>>
     suspend fun updateFeedback(conversationId: String, messageId: String, feedback: MinimalFeedback?): Result<Unit>
     suspend fun updateMessageText(conversationId: String, messageId: String, text: String): Result<Unit>
     suspend fun branchMessage(conversationId: String, messageId: String, agentId: String? = null): Result<Message>

@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
@@ -41,7 +45,9 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
+import com.garfiec.librechat.core.common.conversation.OpenConversationRegistry
 import com.garfiec.librechat.core.common.identity.AccountState
+import com.garfiec.librechat.core.common.lifecycle.ForegroundSignal
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.ui.components.BannerDisplay
 import com.garfiec.librechat.core.ui.theme.AppLocale
@@ -110,6 +116,27 @@ fun LibreChatNavHost(
 ) {
     val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
 
+    // Publish foreground state for deferred background work. onDispose reports background because a
+    // host leaving composition is the app going away as far as any consumer is concerned.
+    val foregroundSignal = koinInject<ForegroundSignal>()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, foregroundSignal) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> foregroundSignal.set(true)
+                Lifecycle.Event.ON_STOP -> foregroundSignal.set(false)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            foregroundSignal.set(false)
+        }
+    }
+
+    val openConversationRegistry = koinInject<OpenConversationRegistry>()
+
     // Start key comes from the synchronous logged-in seed, not a fixed NewChat. Starting logged-in
     // and redirecting away composes the chat shell for real and then plays NavDisplay's transition
     // animation over it — a third of a second of "signed in" before the auth screen, on every
@@ -153,6 +180,9 @@ fun LibreChatNavHost(
     LaunchedEffect(navigator.currentRoute) {
         val conversationId = (navigator.currentRoute as? Chat)?.conversationId
         drawerViewModel.setActiveConversation(conversationId)
+        // Same answer, different audience: the drawer highlights this conversation, background cache
+        // work has to leave it alone. A non-chat route clears it — nothing open, nothing protected.
+        openConversationRegistry.set(conversationId)
 
         // Navigation breadcrumb: route type name only — low cardinality, content-free.
         val screen = navigator.currentRoute?.let { it::class.simpleName } ?: "none"

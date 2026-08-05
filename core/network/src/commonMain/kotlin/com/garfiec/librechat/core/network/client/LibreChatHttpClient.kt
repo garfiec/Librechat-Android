@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.network.client
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.network.RequestActivityTracker
 import com.garfiec.librechat.core.common.result.AccessGatewayException
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
@@ -40,6 +41,7 @@ object LibreChatHttpClient {
         accountReadyGate: AccountReadyGate? = null,
         switchGate: SwitchGate? = null,
         serverHeadersProvider: ServerHeadersProvider = EmptyServerHeadersProvider,
+        requestActivityTracker: RequestActivityTracker? = null,
         debug: Boolean = false,
     ): HttpClient = HttpClient(engineFactory) {
         install(ContentNegotiation) {
@@ -75,6 +77,14 @@ object LibreChatHttpClient {
             requestTimeoutMillis = 30_000
             connectTimeoutMillis = 10_000
             socketTimeoutMillis = 120_000
+        }
+
+        // First HttpSend interceptor installed, so it is the outermost one: a call that retries,
+        // redirects or replays after a token refresh counts once, not once per wire send.
+        if (requestActivityTracker != null) {
+            install(RequestActivityPlugin) {
+                this.tracker = requestActivityTracker
+            }
         }
 
         install(HttpRequestRetry) {
@@ -151,6 +161,9 @@ object LibreChatHttpClient {
                         isBanned = isBanned,
                         body = bodyText.ifBlank { null },
                         serverAuthored = extracted.serverAuthored,
+                        retryAfterSeconds = response.headers[HttpHeaders.RetryAfter]
+                            ?.trim()
+                            ?.toLongOrNull(),
                     )
                 }
             }

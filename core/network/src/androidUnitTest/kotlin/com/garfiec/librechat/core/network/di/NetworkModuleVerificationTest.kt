@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.network.di
 import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.common.network.RequestActivityTracker
 import com.garfiec.librechat.core.network.client.AccountReadyGate
 import com.garfiec.librechat.core.network.client.ServerHeadersProvider
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
@@ -29,6 +30,9 @@ class NetworkModuleVerificationTest {
                 AccountReadyGate::class,
                 // Gateway headers (issue #287) are stored in :core:data, same as the URL and tokens.
                 ServerHeadersProvider::class,
+                // The idle signal is bound in :core:common; both the main client and SseClient
+                // report to it.
+                RequestActivityTracker::class,
             ),
         )
     }

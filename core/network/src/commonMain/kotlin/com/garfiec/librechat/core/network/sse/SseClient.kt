@@ -3,6 +3,7 @@ package com.garfiec.librechat.core.network.sse
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
+import com.garfiec.librechat.core.common.network.RequestActivityTracker
 import com.garfiec.librechat.core.common.result.AccessGatewayException
 import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.message
@@ -18,6 +19,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlin.math.min
@@ -26,6 +29,7 @@ class SseClient(
     private val json: Json,
     private val transport: SseHttpTransport,
     private val activeAccountProvider: ActiveAccountProvider? = null,
+    private val requestActivityTracker: RequestActivityTracker? = null,
 ) {
     private val mapper = SseEventMapper(json)
     private val lineParser = SseLineParser()
@@ -209,6 +213,13 @@ class SseClient(
             emit(StreamEvent.Error(message = "Unexpected error: ${e.message}"))
         }
     }
+        // A stream counts as in-flight for its whole duration, not just its GET. Reported here
+        // rather than from RequestActivityPlugin because iOS streams over a custom NWConnection
+        // transport no Ktor plugin can observe. Must stay tied to collection, and the release must
+        // stay on onCompletion — it covers cancellation too, and a stranded count leaves the app
+        // looking permanently busy so background work never runs again this process.
+        .onStart { requestActivityTracker?.begin() }
+        .onCompletion { requestActivityTracker?.end() }
 }
 
 /**
