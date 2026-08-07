@@ -10,7 +10,11 @@
 # Set ANDROID_SERIAL when more than one device is attached; every adb call below honors it.
 set -euo pipefail
 
-PKG=com.garfiec.librechat
+# run-as only works on a debuggable build, so these checks target the .debug install.
+PKG="${DEVCHECK_PKG:-com.garfiec.librechat.debug}"
+# Spelled out in full: the applicationId is suffixed but the code namespace is not, so a relative
+# `$PKG/.MainActivity` resolves to a class that does not exist.
+ACTIVITY=com.garfiec.librechat.MainActivity
 STATE_DIR="${DEVCHECK_STATE_DIR:-${TMPDIR:-/tmp}/switchboard-devcheck}"
 SNAPSHOT="$STATE_DIR/broken-session.tar"
 REMOTE_TAR=/data/local/tmp/devcheck-restore.tar
@@ -50,7 +54,7 @@ launch() {
   # Always force-stop first: `am start` onto a live task just resumes it, so nothing re-composes and
   # no cold-start work runs — a "clean" capture that only proves the app was already open.
   adb shell am force-stop "$PKG"
-  adb shell am start -W -n "$PKG/.MainActivity" >/dev/null 2>&1
+  adb shell am start -W -n "$PKG/$ACTIVITY" >/dev/null 2>&1
 }
 
 capture() {
