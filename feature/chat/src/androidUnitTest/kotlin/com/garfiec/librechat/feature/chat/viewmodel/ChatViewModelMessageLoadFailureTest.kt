@@ -113,6 +113,8 @@ class ChatViewModelMessageLoadFailureTest {
         every { settingsDataStore.enabledTools } returns flowOf(emptySet())
         every { serverFileSelectionHandoff.selectionsFor(any()) } returns emptyFlow()
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
+        // StateFlow.collect returns Nothing, so a relaxed mock throws in the delegate's collector.
+        every { agentRepository.revision } returns MutableStateFlow(0L)
         every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()
 
         // `uiState` is combine(_uiState, these pref flows).stateIn(Eagerly, ChatUiState()): until

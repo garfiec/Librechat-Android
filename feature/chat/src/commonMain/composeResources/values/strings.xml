@@ -162,6 +162,20 @@
     <!-- Attachments -->
     <string name="cd_attach_file">Attach file</string>
     <string name="files_count">Files (%1$d)</string>
+    <string name="files_count_with_text">Files (%1$d) · %2$d as text</string>
+    <string name="cd_files_attached">%1$d files attached, tap to preview</string>
+    <string name="cd_files_attached_with_text">%1$d files attached, %2$d sent as text, tap to preview</string>
+    <string name="upload_routing_sheet_title">How should these be sent?</string>
+    <string name="upload_routing_sheet_title_single">How should this be sent?</string>
+    <string name="upload_routing_option_provider">To the model</string>
+    <string name="upload_routing_option_text">As text</string>
+    <string name="upload_routing_why_provider">The model reads the file itself.</string>
+    <string name="upload_routing_why_text">The server reads the file and sends its text.</string>
+    <string name="upload_routing_why_provider_only">This model can only take this file directly.</string>
+    <string name="upload_routing_why_text_only">This model can\'t read this file, so its text is sent instead.</string>
+    <string name="upload_routing_apply_all">Use for all</string>
+    <string name="upload_routing_attach">Attach</string>
+    <string name="cd_upload_route_text">Sent as extracted text</string>
     <string name="cd_attached_file">Attached file: %1$s</string>
     <string name="cd_preview_file">Preview of %1$s</string>
     <string name="cd_remove_file">Remove %1$s</string>

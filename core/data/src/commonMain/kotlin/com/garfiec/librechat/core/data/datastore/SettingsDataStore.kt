@@ -151,6 +151,14 @@ class SettingsDataStore(
         DuringRunAction.fromString(prefs[KEY_DURING_RUN_ACTION])
     }
 
+    /**
+     * Whether composer attachments are routed to the provider / to text extraction automatically,
+     * or with a prompt. Default [UploadRoutingMode.AUTO].
+     */
+    val uploadRoutingMode: Flow<UploadRoutingMode> = dataStore.data.map { prefs ->
+        UploadRoutingMode.fromString(prefs[KEY_UPLOAD_ROUTING_MODE])
+    }
+
     val autoReadEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_AUTO_READ_ENABLED] ?: false
     }
@@ -412,6 +420,12 @@ class SettingsDataStore(
     suspend fun setDuringRunAction(action: DuringRunAction) {
         dataStore.edit { prefs ->
             prefs[KEY_DURING_RUN_ACTION] = action.toStorageString()
+        }
+    }
+
+    suspend fun setUploadRoutingMode(mode: UploadRoutingMode) {
+        dataStore.edit { prefs ->
+            prefs[KEY_UPLOAD_ROUTING_MODE] = mode.toStorageString()
         }
     }
 
@@ -793,6 +807,7 @@ class SettingsDataStore(
         private val KEY_SHOW_THINKING_BLOCKS = booleanPreferencesKey("show_thinking_blocks")
         private val KEY_CONTEXT_BAR_PLACEMENT = stringPreferencesKey("context_bar_placement")
         private val KEY_DURING_RUN_ACTION = stringPreferencesKey("during_run_action")
+        private val KEY_UPLOAD_ROUTING_MODE = stringPreferencesKey("upload_routing_mode")
         private val KEY_CONTEXT_GAUGE_EXPANDED = booleanPreferencesKey("context_gauge_expanded")
         private val KEY_AUTO_READ_ENABLED = booleanPreferencesKey("auto_read_enabled")
         private val KEY_SHOW_IMAGE_DESCRIPTIONS = booleanPreferencesKey("show_image_descriptions")

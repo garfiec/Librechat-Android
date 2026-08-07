@@ -16,6 +16,11 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.response.FileUploadConfig
+import com.garfiec.librechat.core.model.response.UploadRoute
+import com.garfiec.librechat.core.model.response.isProviderCapable
+import com.garfiec.librechat.core.model.response.isProviderUnknown
+import com.garfiec.librechat.core.model.response.isTextExtractable
+import com.garfiec.librechat.core.model.response.resolveUploadRoute
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
 import com.garfiec.librechat.core.ui.components.ModelParameters
@@ -24,6 +29,12 @@ import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.MessageNode
+
+/**
+ * The agents endpoint capability that enables server-side text extraction (`tool_resource=context`).
+ * Not in [ToolConstants]: it is a file-delivery capability, not a tool the composer can toggle.
+ */
+private const val FILE_CONTEXT_CAPABILITY = "context"
 
 @Immutable
 data class ChatUiState(
@@ -82,6 +93,7 @@ data class ChatUiState(
     val endpointKeyStates: Map<String, KeyState> get() = selection.endpointKeyStates
     val availableModels: Map<String, List<String>> get() = selection.availableModels
     val agents: List<Agent> get() = selection.agents
+    val selectedAgentProvider: String? get() = selection.selectedAgentProvider
     val modelParameters: ModelParameters get() = selection.modelParameters
     val showModelSheet: Boolean get() = selection.showModelSheet
     val enabledTools: Set<String> get() = selection.enabledTools
@@ -92,6 +104,17 @@ data class ChatUiState(
     val sendBlockReason: SendBlockReason? get() = composer.sendBlockReason
     val editingQueuedItem: QueuedEditSession? get() = composer.editingQueuedItem
     val isAwaitingUploadSend: Boolean get() = composer.isAwaitingUploadSend
+
+    /**
+     * True while picked files exist but are not yet in the attachment tray — mid-intake, or staged
+     * awaiting a manual routing decision.
+     *
+     * Every send path refuses while it holds, because the files are in neither `attachedFiles` nor
+     * `hasPendingUploads()` and an ungated send would go out without them. The composer reads it
+     * too: a control that will refuse the tap must not render as though it will act on it.
+     */
+    val arePicksUnsettled: Boolean
+        get() = composer.pendingUploadRouting != null || composer.isResolvingPickedFiles
     val presets: List<PresetDisplayData> get() = presetPrompts.presets
     val availablePrompts: List<PromptMentionDisplayData> get() = presetPrompts.availablePrompts
     val pendingVariablePrompt: PendingVariablePrompt? get() = presetPrompts.pendingVariablePrompt
@@ -366,6 +389,80 @@ data class ChatUiState(
             // the actual capabilities list is authoritative.
             return agentsConfig?.capabilities?.contains(ToolConstants.EXECUTE_CODE) ?: true
         }
+
+    /**
+     * Whether the server can extract an attachment's text (the `context` capability), which is
+     * what [UploadRoute.TEXT] needs.
+     *
+     * Fails OPEN on a config that hasn't arrived, unlike [isMemoryToolAvailable]: upstream's own
+     * default is `capabilities ?? defaultAgentCapabilities`, which includes `context`.
+     *
+     * An **empty** list counts as "not stated" too, not as "none" — `EndpointConfig.capabilities`
+     * defaults to `emptyList()`, so a server that simply doesn't send the field is indistinguishable
+     * from one that sends `[]`, and no real deployment has zero agent capabilities. Reading `[]` as
+     * a denial would ship the whole feature dead against exactly those servers. A non-empty list
+     * that omits `context` is a genuine denial and is honoured.
+     */
+    val isFileContextAvailable: Boolean
+        get() {
+            // `capabilities` is the AGENTS endpoint's own policy and binds only there. `POST
+            // /api/files` hands every non-assistants upload to the same handler, whose `context`
+            // branch runs NO capability check (only `execute_code` and `file_search` do) — so
+            // applying the agents list to an openAI/anthropic/custom selection would refuse an
+            // extraction the server performs happily, and one admin narrowing agent capabilities
+            // would switch the feature off app-wide.
+            if (selectedEndpoint != EndpointConstants.AGENTS) return true
+            val capabilities = endpointConfigs[EndpointConstants.AGENTS]?.capabilities ?: return true
+            return capabilities.isEmpty() || FILE_CONTEXT_CAPABILITY in capabilities
+        }
+
+    /**
+     * The delivery mode [mimeType] would get on the current selection, resolved against the
+     * provider actually behind it — the agent's own provider on the agents endpoint, the
+     * endpoint's `type` for a custom endpoint whose name is just an admin's label.
+     */
+    fun uploadRouteFor(mimeType: String?): UploadRoute {
+        if (!isFileContextAvailable) return UploadRoute.PROVIDER
+        return resolveUploadRoute(
+            mimeType = mimeType,
+            endpoint = selectedEndpoint,
+            endpointType = endpointConfigs[selectedEndpoint]?.type,
+            agentProvider = routingAgentProvider,
+        )
+    }
+
+    /**
+     * The agent provider a routing decision may be made against.
+     *
+     * [ModelSelectionState.selectedAgentProvider] is documented as null on every non-agents
+     * endpoint, but the collector enforcing that resumes on a *later* Main dispatch than the write
+     * that moved the endpoint. A pick issued in that gap would otherwise route against the provider
+     * of an agent the selection has already left — sending a PDF to text on an endpoint that would
+     * have taken it natively.
+     */
+    private val routingAgentProvider: String?
+        get() = selectedAgentProvider.takeIf { selectedEndpoint == EndpointConstants.AGENTS }
+
+    /** Whether both delivery modes are genuinely open for [mimeType] — the manual prompt's gate. */
+    fun uploadRouteIsAmbiguous(mimeType: String?): Boolean {
+        if (!isFileContextAvailable) return false
+        // A type the server cannot extract has exactly one usable mode however capable the
+        // provider is: there is no second option to offer.
+        if (!isTextExtractable(mimeType)) return false
+        val endpointType = endpointConfigs[selectedEndpoint]?.type
+        // An unresolved provider is not a *provider-only* file. Auto still routes it to PROVIDER —
+        // guessing is what this feature refuses to do — but a user who asked to be asked every time
+        // must still be asked, and the sheet must not claim "this model can only take it directly"
+        // about a model we could not identify. Without this the whole batch reads as unchoosable
+        // and the sheet never opens at all.
+        if (isProviderUnknown(selectedEndpoint, endpointType, routingAgentProvider)) return true
+        return isProviderCapable(
+            mimeType = mimeType,
+            endpoint = selectedEndpoint,
+            endpointType = endpointType,
+            agentProvider = routingAgentProvider,
+        )
+    }
 
     /**
      * True when firing `chatRepository.startChat(...)` is unlikely to race against

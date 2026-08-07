@@ -9,6 +9,7 @@ import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
 import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.core.data.repository.AuthRepository
@@ -64,6 +65,7 @@ class SettingsViewModelTest {
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
     private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
     private val selectedLanguageFlow = MutableStateFlow(SettingsDataStore.DEFAULT_LANGUAGE)
+    private val uploadRoutingModeFlow = MutableStateFlow(UploadRoutingMode.AUTO)
     private val mcpRepository = mockk<McpRepository>(relaxed = true)
     private val memoryRepository = mockk<MemoryRepository>(relaxed = true)
     private val speechRepository = mockk<SpeechRepository>(relaxed = true)
@@ -123,6 +125,8 @@ class SettingsViewModelTest {
         every { settingsDataStore.showBubbles } returns MutableStateFlow(false)
         every { settingsDataStore.latexRenderer } returns MutableStateFlow(LatexRenderer.KATEX)
         every { settingsDataStore.selectedLanguage } returns selectedLanguageFlow
+        every { settingsDataStore.uploadRoutingMode } returns uploadRoutingModeFlow
+        coEvery { settingsDataStore.setUploadRoutingMode(any()) } answers { uploadRoutingModeFlow.value = firstArg() }
         coEvery { settingsDataStore.setSelectedLanguage(any()) } answers { selectedLanguageFlow.value = firstArg() }
 
         // Setup default API responses
@@ -456,5 +460,18 @@ class SettingsViewModelTest {
         assertThat(payload?.content).isEqualTo(buffer)
         assertThat(payload?.fileName).endsWith(".jsonl")
         assertThat(viewModel.uiState.value.isLogsExporting).isFalse()
+    }
+
+    @Test
+    fun `setUploadRoutingMode persists and surfaces the new mode`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.uploadRoutingMode).isEqualTo(UploadRoutingMode.AUTO)
+
+        viewModel.setUploadRoutingMode(UploadRoutingMode.MANUAL)
+        advanceUntilIdle()
+
+        coVerify { settingsDataStore.setUploadRoutingMode(UploadRoutingMode.MANUAL) }
+        assertThat(viewModel.uiState.value.uploadRoutingMode).isEqualTo(UploadRoutingMode.MANUAL)
     }
 }

@@ -17,10 +17,10 @@ class AndroidFileHandler(
         get() = delegate.pendingUploadSendJob
         set(value) { delegate.pendingUploadSendJob = value }
 
-    @Suppress("UNCHECKED_CAST")
-    override fun onFilesSelected(platformRefs: List<Any>) {
-        delegate.onFilesSelected(platformRefs as List<Uri>)
-    }
+    override fun describe(platformRefs: List<Any>): List<PickedFile> =
+        delegate.describe(platformRefs.filterIsInstance<Uri>())
+
+    override fun onFilesSelected(files: List<RoutedFile>) = delegate.onFilesSelected(files)
 
     override fun removeFile(file: AttachedFile) = delegate.removeFile(file)
     override fun retryUpload(file: AttachedFile) = delegate.retryUpload(file)

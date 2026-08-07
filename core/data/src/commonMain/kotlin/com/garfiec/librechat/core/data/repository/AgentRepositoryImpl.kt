@@ -13,6 +13,9 @@ import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 import com.garfiec.librechat.core.network.api.AgentsApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
@@ -23,6 +26,9 @@ class AgentRepositoryImpl(
 
     // Account-keyed in-memory cache: the only isolation tier for agents (no Room/accountId scoping).
     private val cache = AccountKeyedCache<List<Agent>>(activeAccountProvider)
+
+    private val _revision = MutableStateFlow(0L)
+    override val revision: StateFlow<Long> = _revision.asStateFlow()
 
     // --- Agent CRUD ---
 
@@ -62,6 +68,11 @@ class AgentRepositoryImpl(
                 ?.let { return@safeApiCall it }
             agentsApi.getAgent(id)
         }
+    }
+
+    override suspend fun getAgentProvider(id: String): Result<String?> {
+        // No cache read: the warm one holds list-projection agents, whose provider is always null.
+        return safeApiCall { agentsApi.getAgent(id).provider }
     }
 
     override suspend fun getAgentForEditing(id: String): Result<Agent> {
@@ -182,5 +193,10 @@ class AgentRepositoryImpl(
         }
     }
 
-    private suspend fun invalidateCache() = cache.invalidate()
+    private suspend fun invalidateCache() {
+        cache.invalidate()
+        // Announce it as well as clearing: consumers outside this module memoize per-agent fields
+        // (upload routing reads `provider`) and cannot see the cache drop any other way.
+        _revision.value += 1
+    }
 }

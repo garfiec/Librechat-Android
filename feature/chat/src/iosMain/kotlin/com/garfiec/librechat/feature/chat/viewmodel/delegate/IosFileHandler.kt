@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.FileRepository
+import com.garfiec.librechat.core.model.response.UploadRoute
+import com.garfiec.librechat.core.model.response.toolResource
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.util.IosFileData
 import com.garfiec.librechat.feature.chat.util.IosImageData
@@ -32,11 +34,22 @@ class IosFileHandler(
     override val attachedFiles: StateFlow<List<AttachedFile>> = _attachedFiles.asStateFlow()
     override var pendingUploadSendJob: Job? = null
 
-    override fun onFilesSelected(platformRefs: List<Any>) {
-        platformRefs.forEach { ref ->
-            when (ref) {
+    override fun describe(platformRefs: List<Any>): List<PickedFile> = platformRefs.mapNotNull { ref ->
+        when (ref) {
+            is IosImageData -> PickedFile(ref = ref, name = ref.filename, mimeType = ref.mimeType)
+            is IosFileData -> PickedFile(ref = ref, name = ref.filename, mimeType = ref.mimeType)
+            else -> null
+        }
+    }
+
+    override fun onFilesSelected(files: List<RoutedFile>) {
+        files.forEach { file ->
+            when (val ref = file.file.ref) {
+                // Images have no text route: extraction would need OCR, and the server's
+                // attachment pass drops a text-sourced record before it ever reaches its image
+                // branch. The router never asks for one; ignoring `route` here says so.
                 is IosImageData -> uploadImage(ref)
-                is IosFileData -> uploadFile(ref)
+                is IosFileData -> uploadFile(ref, file.route)
             }
         }
     }
@@ -51,6 +64,7 @@ class IosFileHandler(
             isImage = true,
             uploadProgress = null,
             type = imageData.mimeType,
+            route = UploadRoute.PROVIDER,
         )
         _attachedFiles.update { it + pendingFile }
 
@@ -125,7 +139,7 @@ class IosFileHandler(
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private fun uploadFile(fileData: IosFileData) {
+    private fun uploadFile(fileData: IosFileData, route: UploadRoute) {
         val uniqueId = Uuid.random().toString()
 
         val pendingFile = AttachedFile(
@@ -134,6 +148,7 @@ class IosFileHandler(
             isImage = false,
             uploadProgress = null,
             type = fileData.mimeType,
+            route = route,
         )
         _attachedFiles.update { it + pendingFile }
 
@@ -151,6 +166,7 @@ class IosFileHandler(
                     endpoint = state.selectedEndpoint,
                     model = if (!isAgent) state.selectedModel else null,
                     agentId = if (isAgent) state.selectedModel else null,
+                    toolResource = route.toolResource(),
                     messageFile = true,
                     onProgress = { pct ->
                         _attachedFiles.update { list ->

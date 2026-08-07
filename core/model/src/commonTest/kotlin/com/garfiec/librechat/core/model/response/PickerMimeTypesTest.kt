@@ -3,9 +3,13 @@ package com.garfiec.librechat.core.model.response
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PickerMimeTypesTest {
+
+    private val DOCX =
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     private fun config(vararg patterns: String, endpoint: String? = null) =
         if (endpoint == null) {
@@ -81,6 +85,26 @@ class PickerMimeTypesTest {
         )
         assertEquals(listOf("application/pdf"), config.pickerMimeTypes("agents"))
         assertEquals(listOf("image/png"), config.pickerMimeTypes("openAI"))
+    }
+
+    @Test
+    fun aNarrowedAllowlistStillAdmitsWhatTheTextRouteCanExtract() {
+        // An upload routed to text is validated against `fileConfig.text`, not against this
+        // allowlist. Without the union an admin who narrows the endpoint to images + PDF makes the
+        // text route unreachable: the system picker never shows a .docx for the user to pick, so
+        // no routing decision downstream can ever be made about one.
+        val narrowed = config("^image/.*$", "^application/pdf$")
+        assertFalse(DOCX in narrowed.pickerMimeTypes())
+        assertContains(narrowed.pickerMimeTypes(includeTextRoute = true), DOCX)
+        assertContains(narrowed.pickerMimeTypes(includeTextRoute = true), "text/plain")
+        // Still narrowed, not blown open: a zip is extractable by nobody and stays out.
+        assertFalse("application/zip" in narrowed.pickerMimeTypes(includeTextRoute = true))
+    }
+
+    @Test
+    fun anUnrestrictedAllowlistStaysUnrestrictedWithTheTextRoute() {
+        // Empty means "no restriction" — appending to it would turn no filter into a narrow one.
+        assertEquals(emptyList(), FileUploadConfig().pickerMimeTypes(includeTextRoute = true))
     }
 
     @Test

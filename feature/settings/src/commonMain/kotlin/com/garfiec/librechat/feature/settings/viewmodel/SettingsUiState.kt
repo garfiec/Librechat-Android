@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.core.model.Memory
 import com.garfiec.librechat.core.model.User
@@ -102,6 +103,7 @@ data class SettingsUiState(
     /** Cached images and files, in bytes; null until read. Excludes the database — see
      *  [com.garfiec.librechat.feature.settings.util.PlatformCacheCleaner.cacheSizeBytes]. */
     val cacheSizeBytes: Long? = null,
+    val uploadRoutingMode: UploadRoutingMode = UploadRoutingMode.AUTO,
     val showImageDescriptions: Boolean = false,
     val dismissKeyboardOnSend: Boolean = false,
     // Data management

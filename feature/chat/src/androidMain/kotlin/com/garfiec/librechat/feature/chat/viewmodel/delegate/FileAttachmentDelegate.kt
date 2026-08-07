@@ -7,7 +7,9 @@ import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.extensions.formatByteSize
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.FileRepository
+import com.garfiec.librechat.core.model.response.UploadRoute
 import com.garfiec.librechat.core.model.response.effectiveFileSizeLimit
+import com.garfiec.librechat.core.model.response.toolResource
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.util.detectMimeTypeFromBytes
 import com.garfiec.librechat.feature.chat.util.fixFilenameExtension
@@ -39,21 +41,38 @@ class FileAttachmentDelegate(
     var pendingUploadSendJob: Job? = null
 
     /**
+     * Resolves each picked URI's display name and MIME type from provider metadata alone.
+     *
+     * The type here is provisional — [uploadFile] re-derives it from the file's magic bytes once
+     * they're read — but it's the only type available before an upload commits, which is when the
+     * route has to be chosen.
+     */
+    fun describe(uris: List<Uri>): List<PickedFile> = uris.map { uri ->
+        val filename = resolveFileName(appContext, uri) ?: fallbackFilename()
+        PickedFile(
+            ref = uri,
+            name = filename,
+            mimeType = appContext.contentResolver.getType(uri) ?: guessMimeType(filename),
+        )
+    }
+
+    /**
      * Called when the user selects files from Camera, Photos, or Files picker.
      * Immediately starts uploading each file to the server and tracks progress.
      */
-    fun onFilesSelected(uris: List<Uri>) {
-        uris.forEach { uri -> uploadFile(uri) }
+    fun onFilesSelected(files: List<RoutedFile>) {
+        files.forEach { file -> uploadFile(file.file, file.route) }
     }
 
-    private fun uploadFile(uri: Uri) {
+    private fun fallbackFilename() = "file_${System.currentTimeMillis()}"
+
+    private fun uploadFile(picked: PickedFile, route: UploadRoute) {
         val context = appContext
         val contentResolver = context.contentResolver
+        val uri = picked.ref as Uri
 
-        // Resolve filename and initial MIME type from URI metadata.
-        // This is a preliminary type -- after reading bytes we'll verify it via magic bytes.
-        val filename = resolveFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
-        val preliminaryMimeType = contentResolver.getType(uri) ?: guessMimeType(filename)
+        val filename = picked.name
+        val preliminaryMimeType = picked.mimeType ?: guessMimeType(filename)
         val isImage = preliminaryMimeType.startsWith("image/")
 
         Logger.d { "uploadFile: uri=$uri, filename=$filename, preliminaryMimeType=$preliminaryMimeType, isImage=$isImage" }
@@ -65,6 +84,7 @@ class FileAttachmentDelegate(
             isImage = isImage,
             uploadProgress = null,
             type = preliminaryMimeType,
+            route = route,
         )
 
         _attachedFiles.update { currentList -> currentList + pendingFile }
@@ -148,10 +168,15 @@ class FileAttachmentDelegate(
                     Logger.d { "uploadFile: renamed file from '$filename' to '$uploadFilename' to match MIME type '$mimeType'" }
                 }
 
-                // Update the attached file's type and name if detection/re-encoding changed them.
+                // The route was chosen from the picker's provisional MIME type. If reading the
+                // bytes revealed an image, force the provider path: the text path stamps
+                // `source: text`, and the server's attachment pass short-circuits on that BEFORE
+                // its image branch, so the model would receive no image at all.
+                val effectiveRoute = if (actualIsImage) UploadRoute.PROVIDER else route
+
                 val needsTypeUpdate = mimeType != preliminaryMimeType
                 val needsNameUpdate = uploadFilename != filename
-                if (needsTypeUpdate || needsNameUpdate) {
+                if (needsTypeUpdate || needsNameUpdate || effectiveRoute != route) {
                     val isImageType = mimeType.startsWith("image/")
                     _attachedFiles.update { currentList ->
                         currentList.map { f ->
@@ -160,6 +185,7 @@ class FileAttachmentDelegate(
                                     type = mimeType,
                                     isImage = isImageType,
                                     name = uploadFilename,
+                                    route = effectiveRoute,
                                 )
                             } else {
                                 f
@@ -178,7 +204,13 @@ class FileAttachmentDelegate(
                 // Upload to server with context about current endpoint/model, using the same
                 // snapshot the file was sized against above (see the comment there).
                 val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
-                Logger.d { "uploadFile: sending to server -- fileId=$fileId, endpoint=${state.selectedEndpoint}, model=${state.selectedModel}, isAgent=$isAgent, mimeType=$mimeType, filename=$uploadFilename" }
+                Logger.d {
+                    "uploadFile: sending to server -- fileId=$fileId, endpoint=${state.selectedEndpoint}, " +
+                        "model=${state.selectedModel}, isAgent=$isAgent, mimeType=$mimeType, " +
+                        "filename=$uploadFilename, route=$effectiveRoute (requested=$route), " +
+                        "agentProvider=${state.selectedAgentProvider}, " +
+                        "endpointType=${state.endpointConfigs[state.selectedEndpoint]?.type}"
+                }
                 val result = fileRepository.uploadFile(
                     bytes = uploadBytes,
                     filename = uploadFilename,
@@ -187,6 +219,7 @@ class FileAttachmentDelegate(
                     endpoint = state.selectedEndpoint,
                     model = if (!isAgent) state.selectedModel else null,
                     agentId = if (isAgent) state.selectedModel else null,
+                    toolResource = effectiveRoute.toolResource(),
                     messageFile = true,
                     width = imageWidth,
                     height = imageHeight,
@@ -267,7 +300,13 @@ class FileAttachmentDelegate(
 
     fun retryUpload(file: AttachedFile) {
         _attachedFiles.update { currentList -> currentList.filter { it.uri != file.uri } }
-        uploadFile(file.uri as Uri)
+        // Re-resolve the route rather than replaying `file.route`: a retry is a fresh upload
+        // against whatever is selected NOW, and the user may well have switched models precisely
+        // because the first attempt failed. Replaying it would send a route decided under the old
+        // provider — e.g. a PDF chosen as native under Bedrock, retried against a provider that
+        // cannot read PDFs, silently ignored.
+        val route = handle.state.uploadRouteFor(file.type)
+        uploadFile(PickedFile(ref = file.uri, name = file.name, mimeType = file.type), route)
     }
 
     /**

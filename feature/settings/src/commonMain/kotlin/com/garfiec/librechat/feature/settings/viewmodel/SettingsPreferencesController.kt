@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.core.ui.theme.supportsDynamicColor
 import kotlinx.coroutines.CoroutineScope
@@ -78,6 +79,7 @@ private data class AdditionalPreferences(
     val prefetchAttachmentsEnabled: Boolean = false,
     val prefetchOnMeteredEnabled: Boolean = false,
     val prefetchDepth: Int = PrefetchDepth.DEFAULT,
+    val uploadRoutingMode: UploadRoutingMode = UploadRoutingMode.AUTO,
 )
 
 /**
@@ -186,6 +188,9 @@ class SettingsPreferencesController(
     private val duringRunActionPref: StateFlow<DuringRunAction> = settingsDataStore.duringRunAction
         .stateIn(scope, SharingStarted.Eagerly, DuringRunAction.QUEUE)
 
+    private val uploadRoutingModePref: StateFlow<UploadRoutingMode> = settingsDataStore.uploadRoutingMode
+        .stateIn(scope, SharingStarted.Eagerly, UploadRoutingMode.AUTO)
+
     private val baseAdditionalPreferences = combine(
         tabletSidebarGestureEnabled,
         settingsDataStore.autoSendAfterStt,
@@ -220,6 +225,8 @@ class SettingsPreferencesController(
         additional.copy(contextBarPlacement = contextBarPlacement)
     }.combine(duringRunActionPref) { additional, duringRunAction ->
         additional.copy(duringRunAction = duringRunAction)
+    }.combine(uploadRoutingModePref) { additional, uploadRoutingMode ->
+        additional.copy(uploadRoutingMode = uploadRoutingMode)
     }.combine(settingsDataStore.sttOnDevice) { additional, sttOnDevice ->
         additional.copy(sttOnDevice = sttOnDevice)
     }.combine(settingsDataStore.sttEndOfSpeech) { additional, sttEndOfSpeech ->
@@ -285,6 +292,7 @@ class SettingsPreferencesController(
             prefetchAttachmentsEnabled = additional.prefetchAttachmentsEnabled,
             prefetchOnMeteredEnabled = additional.prefetchOnMeteredEnabled,
             prefetchDepth = additional.prefetchDepth,
+            uploadRoutingMode = additional.uploadRoutingMode,
         )
     }.stateIn(scope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -348,6 +356,10 @@ class SettingsPreferencesController(
 
     fun setDuringRunAction(action: DuringRunAction) {
         scope.launch { settingsDataStore.setDuringRunAction(action) }
+    }
+
+    fun setUploadRoutingMode(mode: UploadRoutingMode) {
+        scope.launch { settingsDataStore.setUploadRoutingMode(mode) }
     }
 
     fun setShowImageDescriptions(show: Boolean) {

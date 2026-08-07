@@ -130,6 +130,8 @@ class ChatViewModelContextProjectionInitTest {
         // so a relaxed mock throws KotlinNothingValueException. Feed real never-emitting flows.
         // (All unrelated to the gauge path under test.)
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
+        // StateFlow.collect returns Nothing, so a relaxed mock throws in the delegate's collector.
+        every { agentRepository.revision } returns MutableStateFlow(0L)
         every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()
 
         // On the agents branch `resolveProjectionModel` falls through the (empty) `resolvedAgentModels`

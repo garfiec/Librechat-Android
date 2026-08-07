@@ -590,6 +590,12 @@
     <string name="during_run_action_queue_desc">Send it as the next message once the reply finishes.</string>
     <string name="during_run_action_steer">Steer the reply</string>
     <string name="during_run_action_steer_desc">Push it into the reply being written so the assistant changes course. Needs a server that supports steering; otherwise it queues.</string>
+    <string name="upload_routing_title">Attachments</string>
+    <string name="upload_routing_desc">Files can be sent to the model as-is, or read on the server and sent as text. Not every model accepts every file type.</string>
+    <string name="upload_routing_auto">Choose for me</string>
+    <string name="upload_routing_auto_desc">Send the file to the model when it can read that type, otherwise send the text inside it.</string>
+    <string name="upload_routing_manual">Ask each time</string>
+    <string name="upload_routing_manual_desc">Ask before attaching, whenever both are possible. Images are always sent to the model.</string>
 
     <!-- MCP OAuth consent (v0.8.8) -->
     <string name="mcp_oauth_title">Sign in to %1$s</string>

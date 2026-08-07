@@ -48,6 +48,7 @@ import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsViewModel
@@ -119,6 +120,7 @@ fun ChatSettingsContent(
                     showThinkingBlocks = uiState.showThinkingBlocks,
                     contextBarPlacement = uiState.contextBarPlacement,
                     duringRunAction = uiState.duringRunAction,
+                    uploadRoutingMode = uiState.uploadRoutingMode,
                     showImageDescriptions = uiState.showImageDescriptions,
                     dismissKeyboardOnSend = uiState.dismissKeyboardOnSend,
                     chatLayoutStyle = uiState.chatLayoutStyle,
@@ -281,6 +283,24 @@ fun ChatSettingsContent(
                     when (it) {
                         DuringRunAction.QUEUE -> stringResource(Res.string.during_run_action_queue_desc)
                         DuringRunAction.STEER -> stringResource(Res.string.during_run_action_steer_desc)
+                    }
+                },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.UPLOAD_ROUTING) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.upload_routing_title),
+                description = stringResource(Res.string.upload_routing_desc),
+                options = UploadRoutingMode.entries,
+                selected = uiState.uploadRoutingMode,
+                onSave = saveAndClose(viewModel::setUploadRoutingMode),
+                onDismiss = dismissDialog,
+                optionLabel = { uploadRoutingModeLabel(it) },
+                optionDescription = {
+                    when (it) {
+                        UploadRoutingMode.AUTO -> stringResource(Res.string.upload_routing_auto_desc)
+                        UploadRoutingMode.MANUAL -> stringResource(Res.string.upload_routing_manual_desc)
                     }
                 },
             )

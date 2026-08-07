@@ -119,6 +119,10 @@ data class ChatInputState(
     /** True while a tapped send is parked waiting for its attachment(s) to finish uploading: the
      *  send button becomes a spinner the user can tap to cancel the deferred send. */
     val isAwaitingUploadSend: Boolean = false,
+    /** True while just-picked files are still being resolved or are staged awaiting a routing
+     *  choice ([ChatUiState.arePicksUnsettled]). Every send path refuses in that window, so the
+     *  send/update control is disabled rather than left looking live over a tap that does nothing. */
+    val arePicksUnsettled: Boolean = false,
     /** Latest context-window usage snapshot; drives the context bar above the composer. */
     val contextUsage: ContextUsage? = null,
     /** Latest per-call token usage, for the breakdown sheet's Input/Output rows. */
@@ -298,7 +302,11 @@ fun CommonChatInputCore(
                 leadingButtons()
                 textFieldContent()
                 trailingSpacer()
-                val hasComposerContent = state.inputText.isNotBlank() || state.attachedFiles.isNotEmpty()
+                val hasComposerContent = composerCanSend(
+                    inputText = state.inputText,
+                    hasAttachments = state.attachedFiles.isNotEmpty(),
+                    arePicksUnsettled = state.arePicksUnsettled,
+                )
                 // Mid-stream + typed content + queueing allowed → morph Stop into a during-run send.
                 val duringRunSend = state.canQueue && hasComposerContent && onQueue != null &&
                     !state.isEditingQueued
@@ -337,6 +345,25 @@ fun CommonChatInputCore(
 
 /** Visual mode of the trailing composer button. */
 internal enum class SendButtonMode { SEND, STOP, QUEUE, STEER, ANSWER, UPDATE, AWAITING }
+
+/**
+ * Whether the composer holds something the trailing control can act on. Drives both that control's
+ * enabled state and whether a mid-stream tap morphs Stop into a during-run send.
+ *
+ * Files that have been picked but not settled deliberately do NOT count, even though the user can
+ * see them coming: every send path refuses while a pick is in flight or staged for the routing
+ * sheet, so counting them would leave Send, Steer, Queue and Update looking live over a tap that
+ * silently does nothing for as long as the provider takes to resolve.
+ *
+ * Pulled out of the composable for the same reason as [sendButtonModeFor]: this module has no
+ * Compose test harness, and an affordance that disagrees with the action behind it is exactly the
+ * defect no behavioural test catches.
+ */
+internal fun composerCanSend(
+    inputText: String,
+    hasAttachments: Boolean,
+    arePicksUnsettled: Boolean,
+): Boolean = !arePicksUnsettled && (inputText.isNotBlank() || hasAttachments)
 
 /**
  * Which face the composer's trailing button shows. Pulled out of the composable so the mapping

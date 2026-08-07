@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
@@ -55,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.garfiec.librechat.core.common.ToolConstants
+import com.garfiec.librechat.core.model.response.UploadRoute
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -194,11 +197,24 @@ private fun FilesChip(
     files: List<AttachedFile>,
     onClick: () -> Unit,
 ) {
+    // How many are going as extracted text. Named on the chip because it is the only place the
+    // change is visible at a glance — the per-file tiles sit in a row that is collapsed by default.
+    val textCount = files.count { it.route == UploadRoute.TEXT }
+    val label = if (textCount > 0) {
+        stringResource(Res.string.files_count_with_text, files.size, textCount)
+    } else {
+        stringResource(Res.string.files_count, files.size)
+    }
+    val chipCd = if (textCount > 0) {
+        stringResource(Res.string.cd_files_attached_with_text, files.size, textCount)
+    } else {
+        stringResource(Res.string.cd_files_attached, files.size)
+    }
     AssistChip(
         onClick = onClick,
         label = {
             Text(
-                text = stringResource(Res.string.files_count, files.size),
+                text = label,
                 style = MaterialTheme.typography.labelMedium,
             )
         },
@@ -215,7 +231,7 @@ private fun FilesChip(
             leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
         modifier = Modifier.semantics {
-            contentDescription = "${files.size} files attached, tap to preview"
+            contentDescription = chipCd
             role = Role.Button
         },
     )
@@ -384,6 +400,36 @@ private fun FilePreviewItem(
                     contentDescription = null,
                     modifier = Modifier.size(28.dp),
                     tint = MaterialTheme.colorScheme.onError,
+                )
+            }
+        }
+
+        // Text-route badge, bottom-start so it can't collide with the remove X at top-end. Only
+        // the text route is marked: the provider route is what every attachment has always done,
+        // so labelling it would be noise on every file.
+        //
+        // A corner glyph rather than the word, sized to match that X: this tile is 56dp and its
+        // non-image face already fills it with a centred icon + filename, so anything wider runs
+        // straight through the name.
+        //
+        // Only ever reached on a non-image tile: images always resolve to the provider, and a
+        // file whose bytes turn out to be an image has its route forced back there before upload.
+        if (file.route == UploadRoute.TEXT) {
+            val textRouteCd = stringResource(Res.string.cd_upload_route_text)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary)
+                    .semantics { contentDescription = textRouteCd },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Notes,
+                    contentDescription = null,
+                    modifier = Modifier.size(10.dp),
+                    tint = MaterialTheme.colorScheme.onTertiary,
                 )
             }
         }

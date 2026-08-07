@@ -28,6 +28,16 @@ data class ModelSelectionState(
     val endpointKeyStates: Map<String, KeyState> = emptyMap(),
     val availableModels: Map<String, List<String>> = emptyMap(),
     val agents: List<Agent> = emptyList(),
+    /**
+     * The selected agent's LLM provider, resolved by [ModelSelectionDelegate] from
+     * `GET /api/agents/:id` whenever the agent selection changes. Null on every non-agents
+     * endpoint, and null while the fetch is in flight or after it fails.
+     *
+     * It cannot be read off [agents]: the list projection omits `provider`. Anything routing on
+     * it must treat null as "unknown" and fall back to whatever it did before agents had a
+     * provider — never to a behaviour that only makes sense for a *known* provider.
+     */
+    val selectedAgentProvider: String? = null,
     val modelParameters: ModelParameters = ModelParameters.DEFAULT,
     /** Single source of truth for whether the *standalone* model-selector sheet is open — the
      *  top-bar chip, the comparison dual-pane, and send-block auto-opens. Preflight failures and

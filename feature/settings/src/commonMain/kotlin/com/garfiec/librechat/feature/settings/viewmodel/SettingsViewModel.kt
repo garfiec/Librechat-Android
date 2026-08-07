@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
@@ -268,6 +269,10 @@ class SettingsViewModel(
 
     fun setDuringRunAction(action: DuringRunAction) {
         prefsController.setDuringRunAction(action)
+    }
+
+    fun setUploadRoutingMode(mode: UploadRoutingMode) {
+        prefsController.setUploadRoutingMode(mode)
     }
 
     fun setShowImageDescriptions(show: Boolean) {

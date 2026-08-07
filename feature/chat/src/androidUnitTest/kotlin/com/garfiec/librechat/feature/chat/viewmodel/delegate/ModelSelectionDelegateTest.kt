@@ -24,6 +24,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -63,7 +64,12 @@ class ModelSelectionDelegateTest {
         every { it.availableModels } returns availableModels
         every { it.endpointConfigs } returns endpointConfigs
     }
-    private val agentRepository = mockk<AgentRepository>(relaxed = true)
+    private val agentRevision = MutableStateFlow(0L)
+    private val agentRepository = mockk<AgentRepository>(relaxed = true).also {
+        // StateFlow.collect returns Nothing, so a relaxed mock throws inside the delegate's
+        // invalidation collector rather than returning a no-op flow.
+        every { it.revision } returns agentRevision
+    }
     private val mcpRepository = mockk<McpRepository>(relaxed = true)
     private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true).also {
         every { it.lastUsedEndpoint } returns lastUsedEndpoint
@@ -1107,5 +1113,157 @@ class ModelSelectionDelegateTest {
 
         assertThat(handle.state.selectedEndpoint).isEqualTo(EndpointConstants.AGENTS)
         assertThat(handle.state.selectedModel).isEqualTo("agent_1")
+    }
+
+    // ── Group D: agent provider resolution ───────────────────────────────────
+    // Upload routing decides against the agent's LLM provider, which the agent LIST
+    // response omits — so it has to be fetched per agent. Everything downstream reads
+    // null as "unknown", which is the pre-routing behaviour, so these tests are about
+    // not *stranding* a wrong or stale value on the selection.
+
+    @Test
+    fun selectingAnAgentResolvesItsProvider() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedModel = "agent_1"))
+        val delegate = newDelegate(handle)
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Success("anthropic")
+
+        delegate.observeSelectedAgentProvider()
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedAgentProvider).isEqualTo("anthropic")
+    }
+
+    @Test
+    fun switchingAgentsClearsTheOldProviderBeforeTheFetchLands() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedModel = "agent_1"))
+        val delegate = newDelegate(handle)
+        val secondFetch = CompletableDeferred<Result<String?>>()
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Success("anthropic")
+        coEvery { agentRepository.getAgentProvider("agent_2") } coAnswers { secondFetch.await() }
+
+        delegate.observeSelectedAgentProvider()
+        advanceUntilIdle()
+        assertThat(handle.state.selectedAgentProvider).isEqualTo("anthropic")
+
+        handle.update { copy(selection = selection.copy(selectedModel = "agent_2")) }
+        advanceUntilIdle()
+
+        // The previous agent's provider must not linger over the new selection: routing an
+        // attachment against it for a network round-trip is exactly the wrong-answer window.
+        assertThat(handle.state.selectedAgentProvider).isNull()
+
+        secondFetch.complete(Result.Success("ollama"))
+        advanceUntilIdle()
+        assertThat(handle.state.selectedAgentProvider).isEqualTo("ollama")
+    }
+
+    @Test
+    fun aProviderIsFetchedOncePerAgent() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedModel = "agent_1"))
+        val delegate = newDelegate(handle)
+        coEvery { agentRepository.getAgentProvider(any()) } returns Result.Success("anthropic")
+
+        delegate.observeSelectedAgentProvider()
+        advanceUntilIdle()
+        handle.update { copy(selection = selection.copy(selectedModel = "agent_2")) }
+        advanceUntilIdle()
+        handle.update { copy(selection = selection.copy(selectedModel = "agent_1")) }
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedAgentProvider).isEqualTo("anthropic")
+        coVerify(exactly = 1) { agentRepository.getAgentProvider("agent_1") }
+    }
+
+    @Test
+    fun leavingTheAgentsEndpointDropsTheProvider() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedModel = "agent_1"))
+        val delegate = newDelegate(handle)
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Success("anthropic")
+
+        delegate.observeSelectedAgentProvider()
+        advanceUntilIdle()
+
+        handle.update {
+            copy(selection = selection.copy(selectedEndpoint = "openAI", selectedModel = "gpt-4o"))
+        }
+        advanceUntilIdle()
+
+        // On a non-agents endpoint the endpoint name IS the provider; a stale agent provider
+        // here would silently outrank it.
+        assertThat(handle.state.selectedAgentProvider).isNull()
+        coVerify(exactly = 0) { agentRepository.getAgentProvider("gpt-4o") }
+    }
+
+    @Test
+    fun aFailedProviderFetchLeavesTheProviderUnknown() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedModel = "agent_1"))
+        val delegate = newDelegate(handle)
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Error(message = "boom")
+
+        delegate.observeSelectedAgentProvider()
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedAgentProvider).isNull()
+    }
+
+    @Test
+    fun aFailedProviderFetchIsRetriedRatherThanRememberedAsUnknown() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedModel = "agent_1"))
+        val delegate = newDelegate(handle)
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Error(message = "boom")
+
+        delegate.observeSelectedAgentProvider()
+        advanceUntilIdle()
+        assertThat(handle.state.selectedAgentProvider).isNull()
+
+        // The observer is driven by `distinctUntilChanged` on the agent id, so a still-selected
+        // agent never re-triggers it. Without a retry at the point of use, one transient error
+        // routes every attachment to the provider for the rest of the ViewModel's life.
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Success("ollama")
+        val resolved = scope.async { delegate.awaitSelectedAgentProvider() }
+        advanceUntilIdle()
+
+        assertThat(resolved.await()).isEqualTo("ollama")
+        assertThat(handle.state.selectedAgentProvider).isEqualTo("ollama")
+    }
+
+    @Test
+    fun anAgentMutationInvalidatesTheMemoizedProvider() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedModel = "agent_1"))
+        val delegate = newDelegate(handle)
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Success("bedrock")
+
+        delegate.observeSelectedAgentProvider()
+        advanceUntilIdle()
+        assertThat(handle.state.selectedAgentProvider).isEqualTo("bedrock")
+
+        // Editing an agent doesn't change its id, so the memo would otherwise serve the pre-edit
+        // provider for as long as the chat screen lives — and Bedrock vs openAI is precisely the
+        // difference between a .docx going natively and going as text.
+        coEvery { agentRepository.getAgentProvider("agent_1") } returns Result.Success("openAI")
+        agentRevision.value += 1
+        advanceUntilIdle()
+
+        assertThat(handle.state.selectedAgentProvider).isEqualTo("openAI")
+    }
+
+    @Test
+    fun awaitingAProviderOnANonAgentSelectionResolvesToNullWithoutAFetch() = runTest {
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val handle = newHandle(scope, uiState(selectedEndpoint = "openAI", selectedModel = "gpt-4o"))
+        val delegate = newDelegate(handle)
+
+        val resolved = scope.async { delegate.awaitSelectedAgentProvider() }
+        advanceUntilIdle()
+
+        assertThat(resolved.await()).isNull()
+        coVerify(exactly = 0) { agentRepository.getAgentProvider(any()) }
     }
 }

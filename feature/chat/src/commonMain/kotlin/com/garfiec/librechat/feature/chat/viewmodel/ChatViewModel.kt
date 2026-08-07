@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -49,6 +50,7 @@ import com.garfiec.librechat.core.model.permissions.UserRolePermissions
 import com.garfiec.librechat.core.model.permissions.canCreateSharedLinks
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
+import com.garfiec.librechat.core.model.response.UploadRoute
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
@@ -76,8 +78,10 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.MessageTreeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ModelSelectionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.OfficePreviewDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PendingActionDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PresetPromptDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.RoutedFile
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendCompletionDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ShareData
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SteeringDelegate
@@ -562,6 +566,11 @@ class ChatViewModel(
         // owns those). See ModelSelectionDelegate.seedInitialSelection.
         modelDelegate.seedInitialSelection(isNewConversation)
 
+        // Resolves the selected agent's provider, which upload routing needs and which the agent
+        // list can't supply (its projection omits the field). Continuous — the selection moves
+        // well after startup.
+        modelDelegate.observeSelectedAgentProvider()
+
         viewModelScope.launch {
             configRepository.endpointConfigs.collect { configs ->
                 _uiState.update { it.copy(selection = it.selection.copy(endpointConfigs = configs)) }
@@ -968,7 +977,16 @@ class ChatViewModel(
         }
 
         if (shareData.fileRefs.isNotEmpty()) {
-            fileDelegate.onFilesSelected(shareData.fileRefs)
+            // Always auto-routed, never prompted: this fires on cold start, before the endpoint
+            // configs and the agent's provider have resolved, so a prompt here would both
+            // interrupt and decide against context that isn't there yet.
+            //
+            // It must still go through the same intake, though. This flow also delivers shares
+            // that arrive while the screen is already up, and routing without waiting on the
+            // agent's provider sends every shared document down the provider path — the silent
+            // drop this feature exists to fix, and a disagreement with the same file picked from
+            // the "+" menu a second later.
+            intakePickedFiles(shareData.fileRefs, prompt = false)
         }
     }
 
@@ -1007,6 +1025,12 @@ class ChatViewModel(
      */
     fun sendDuringRun() {
         val state = _uiState.value
+        // Both branches below can reach `clearComposer()` without passing `withUploadGate`, and
+        // that would drop an unsettled pick on the floor — nothing uploaded, no error, sheet gone.
+        if (hasUnsettledPicks()) {
+            Logger.d { "sendDuringRun: refusing — picked files are not settled yet" }
+            return
+        }
         // A run paused on `ask_user_question` is waiting for exactly this text. The composer is
         // the input the user can see — the card carries its own field but sits at the tail of the
         // thread — so sending here must ANSWER the pause, not queue a next turn. Queueing it fails
@@ -1037,6 +1061,13 @@ class ChatViewModel(
         val state = _uiState.value
         if (!state.isStreaming || !state.canSteerNow) return
         val conversationId = state.conversationId ?: return
+        // Reachable directly from `DuringRunSendMenu`, not only via `sendDuringRun`, so the guard
+        // has to sit here too. An unsettled pick is not yet in `attachedFiles`, so the check below
+        // would wave it through and `clearComposer()` would destroy it.
+        if (hasUnsettledPicks()) {
+            Logger.d { "steerMessage: refusing — picked files are not settled yet" }
+            return
+        }
         if (attachedFiles.value.isNotEmpty()) {
             queueMessage()
             return
@@ -1064,6 +1095,10 @@ class ChatViewModel(
      */
     private fun withUploadGate(text: String, action: (String) -> Unit) {
         if (fileDelegate.pendingUploadSendJob?.isActive == true) return
+        if (hasUnsettledPicks()) {
+            Logger.d { "withUploadGate: refusing send — picked files are not settled yet" }
+            return
+        }
         if (fileDelegate.hasPendingUploads()) {
             Logger.d { "withUploadGate: waiting for pending upload(s) to complete" }
             // Park the send behind the upload and flip the composer's Send button to a cancellable
@@ -1136,6 +1171,14 @@ class ChatViewModel(
      */
     fun editQueued(localId: String) {
         if (_uiState.value.isEditingQueued) return
+        // A pick that has not settled yet belongs to the new-message draft. Swapping the composer
+        // out from under it re-homes it onto the queued item instead — attaching it to a message
+        // the user did not pick it for, and losing it from the one they did, since `captureComposer`
+        // cannot stash a file that is not in the tray yet.
+        if (hasUnsettledPicks()) {
+            Logger.d { "editQueued: refusing — picked files are not settled yet" }
+            return
+        }
         val taken = queueDelegate.takeForEdit(localId) ?: return
         val stashed = captureComposer()
         applyComposer(taken.value.toComposerSnapshot())
@@ -1224,7 +1267,9 @@ class ChatViewModel(
         fileDelegate.restoreAttachedFiles(snapshot.attachments)
         _uiState.update {
             it.copy(
-                composer = it.composer.copy(inputText = snapshot.text),
+                // The snapshot replaces the whole tray, so an undecided batch from before the edit
+                // no longer belongs to anything on screen.
+                composer = it.composer.copy(inputText = snapshot.text, pendingUploadRouting = null),
                 selection = it.selection.copy(
                     selectedEndpoint = snapshot.endpoint,
                     selectedModel = snapshot.model,
@@ -1302,7 +1347,11 @@ class ChatViewModel(
     /** Clears the input, its persisted draft, and any attached files. */
     private fun clearComposer() {
         val draftKey = _uiState.value.conversationId ?: NEW_CHAT_DRAFT_KEY
-        _uiState.update { it.copy(composer = it.composer.copy(inputText = "")) }
+        // Drop any staged batch too: it belongs to the message just sent, and surviving here would
+        // attach it to the next one.
+        _uiState.update {
+            it.copy(composer = it.composer.copy(inputText = "", pendingUploadRouting = null))
+        }
         viewModelScope.launch { draftRepository.deleteDraft(draftKey) }
         fileDelegate.clearAttachedFiles()
     }
@@ -1905,9 +1954,209 @@ class ChatViewModel(
     fun onDeviceSpeechResult(transcribedText: String) = voiceDelegate.onDeviceSpeechResult(transcribedText)
 
     // File attachments
-    fun onFilesSelected(platformRefs: List<Any>) = fileDelegate.onFilesSelected(platformRefs)
+    /**
+     * The single composer intake for freshly picked files. Resolves each pick's name and MIME
+     * type, chooses a delivery route for it, then hands the routed list to the platform handler.
+     *
+     * In Manual mode this may instead stage the batch for the routing sheet — which is why it
+     * launches: the preference is read with `.first()` at the decision point rather than folded
+     * into the `uiState` combine, where a behaviour flag reads its default forever (see
+     * `ChatPrefsState`).
+     */
+    fun onFilesSelected(platformRefs: List<Any>) = intakePickedFiles(platformRefs, prompt = true)
+
+    /**
+     * The one asynchronous intake every pick passes through, whether it came from the picker or
+     * from a share. [prompt] is false for a share, which never opens the routing sheet — but still
+     * has to resolve the provider before it can route.
+     */
+    private fun intakePickedFiles(platformRefs: List<Any>, prompt: Boolean) {
+        // The composer these files were picked for. A queued-edit session is a *different* draft
+        // sharing one composer, and it can end while we resolve.
+        val pickedFor = _uiState.value.composer.editingQueuedItem
+        // Incremented BEFORE the launch, synchronously on the caller's dispatch: everything below
+        // suspends at least once, and until this lands the picked files are in no list a send
+        // gate reads.
+        changeResolvingPicks(+1)
+        viewModelScope.launch {
+            try {
+                // Short-circuits on the share path, so it never touches the preference at all.
+                val manual = prompt &&
+                    settingsDataStore.uploadRoutingMode.first() == UploadRoutingMode.MANUAL
+                // Resolve the agent's provider first — routing without it silently takes the
+                // provider path for everything, which is the failure this feature exists to fix.
+                modelDelegate.awaitSelectedAgentProvider()
+                // Cancelling a queued edit restores the stashed new-message draft over the whole
+                // tray, so landing these files now would attach them to a draft they were not
+                // picked for while the queued item goes back without them. Cancel means "discard
+                // composer changes", and a file picked during the edit is one of those changes —
+                // so drop it here rather than re-home it onto whatever is on screen now.
+                if (_uiState.value.composer.editingQueuedItem != pickedFor) {
+                    Logger.w { "intakePickedFiles: dropping ${platformRefs.size} pick(s) — the composer they were picked for is gone" }
+                    return@launch
+                }
+                if (manual) {
+                    stageForManualRouting(platformRefs)
+                } else {
+                    attachWithAutoRouting(platformRefs)
+                }
+            } finally {
+                changeResolvingPicks(-1)
+            }
+        }
+    }
+
+    private fun changeResolvingPicks(delta: Int) {
+        _uiState.update {
+            it.copy(
+                composer = it.composer.copy(
+                    resolvingPickCount = (it.composer.resolvingPickCount + delta).coerceAtLeast(0),
+                ),
+            )
+        }
+    }
+
+    /** See [ChatUiState.arePicksUnsettled]; every send path must refuse while it holds. */
+    private fun hasUnsettledPicks(): Boolean = _uiState.value.arePicksUnsettled
+
+    /**
+     * Stages a picked batch for the routing sheet, or attaches it straight away when there is
+     * nothing worth asking about — a sheet whose every control is disabled is friction, not
+     * choice.
+     */
+    private fun stageForManualRouting(platformRefs: List<Any>) {
+        val state = _uiState.value
+        val picked = fileDelegate.describe(platformRefs)
+        if (picked.isEmpty()) return
+
+        val staged = picked.map { file ->
+            PendingUploadFile(
+                file = file,
+                route = state.uploadRouteFor(file.mimeType),
+                choosable = state.uploadRouteIsAmbiguous(file.mimeType),
+            )
+        }
+        if (staged.none { it.choosable }) {
+            fileDelegate.onFilesSelected(staged.map { RoutedFile(it.file, it.route) })
+            return
+        }
+        _uiState.update {
+            val existing = it.composer.pendingUploadRouting
+            it.copy(
+                composer = it.composer.copy(
+                    // Append to a batch already staged rather than replacing it. Intake is
+                    // asynchronous and nothing disables the attach affordance while it runs, so a
+                    // second pick can land before the sheet for the first one is even on screen —
+                    // and an assignment there would discard files the user picked, with no upload
+                    // and no error. Keep the original context: confirm re-checks it against the
+                    // live selection anyway, and the older one is the conservative side of that.
+                    pendingUploadRouting = existing?.copy(files = existing.files + staged)
+                        ?: PendingUploadRouting(files = staged, context = state.uploadRoutingContext()),
+                ),
+            )
+        }
+    }
+
+    /** The selection a routing decision is being made against; re-checked at confirm. */
+    private fun ChatUiState.uploadRoutingContext() = UploadRoutingContext(
+        endpoint = selectedEndpoint,
+        endpointType = endpointConfigs[selectedEndpoint]?.type,
+        agentProvider = selectedAgentProvider,
+    )
+
+    /**
+     * Flips the route of the staged file at [index] — the sheet's own row position. No-op for a
+     * file with only one usable mode.
+     *
+     * Addressed by position rather than by value: batches append, so the same file picked twice
+     * before the sheet paints is two equal [PickedFile]s, and matching on equality would flip both
+     * rows at once with no way to tell which one the tap reached.
+     */
+    fun setPendingUploadRoute(index: Int, route: UploadRoute) {
+        updatePendingRouting { pending ->
+            pending.copy(
+                files = pending.files.mapIndexed { i, staged ->
+                    if (i == index && staged.choosable) staged.copy(route = route) else staged
+                },
+            )
+        }
+    }
+
+    /** Applies [route] to every staged file that has a choice — the sheet's "apply to all". */
+    fun setAllPendingUploadRoutes(route: UploadRoute) {
+        updatePendingRouting { pending ->
+            pending.copy(files = pending.files.map { if (it.choosable) it.copy(route = route) else it })
+        }
+    }
+
+    /** Commits the staged batch: uploads every file with the route now shown against it. */
+    fun confirmPendingUploadRouting() {
+        val pending = _uiState.value.composer.pendingUploadRouting ?: return
+        clearPendingUploadRouting()
+        val state = _uiState.value
+        val now = state.uploadRoutingContext()
+        val routed = if (now == pending.context) {
+            pending.files.map { RoutedFile(it.file, it.route) }
+        } else {
+            // The sheet is a window in which the selection can move under the user — a models/
+            // config refresh corrects an invalidated selection, a conversation load re-seeds it,
+            // and the scrim blocks neither. Honour each choice only where it is still one of two
+            // real options; otherwise take what auto would pick against the selection that will
+            // actually receive the upload.
+            Logger.d { "confirmPendingUploadRouting: selection moved from ${pending.context} to $now" }
+            pending.files.map { staged ->
+                val route = if (state.uploadRouteIsAmbiguous(staged.file.mimeType)) {
+                    staged.route
+                } else {
+                    state.uploadRouteFor(staged.file.mimeType)
+                }
+                RoutedFile(staged.file, route)
+            }
+        }
+        fileDelegate.onFilesSelected(routed)
+    }
+
+    /**
+     * Abandons the staged batch. Nothing was uploaded, so there is no server record to clean up —
+     * that is the whole reason the decision happens before the upload rather than after it.
+     */
+    fun cancelPendingUploadRouting() = clearPendingUploadRouting()
+
+    private fun clearPendingUploadRouting() {
+        _uiState.update { it.copy(composer = it.composer.copy(pendingUploadRouting = null)) }
+    }
+
+    private fun updatePendingRouting(block: (PendingUploadRouting) -> PendingUploadRouting) {
+        _uiState.update {
+            val pending = it.composer.pendingUploadRouting ?: return@update it
+            it.copy(composer = it.composer.copy(pendingUploadRouting = block(pending)))
+        }
+    }
+
+    private fun attachWithAutoRouting(platformRefs: List<Any>) {
+        // Read the live selection slice, not the exposed `uiState`: behaviour must not be decided
+        // from a projection built for rendering (see ChatPrefsState's post-mortem).
+        val state = _uiState.value
+        val routed = fileDelegate.describe(platformRefs).map { picked ->
+            RoutedFile(file = picked, route = state.uploadRouteFor(picked.mimeType))
+        }
+        if (routed.isNotEmpty()) fileDelegate.onFilesSelected(routed)
+    }
     fun removeFile(file: AttachedFile) = fileDelegate.removeFile(file)
-    fun retryUpload(file: AttachedFile) = fileDelegate.retryUpload(file)
+
+    /**
+     * Re-uploads a failed attachment. Resolves the agent's provider first, exactly as the intake
+     * path does: the delegate re-derives the route from the live selection, and a retry is the one
+     * action a user takes *after* a failure — the same outage that failed the upload will often
+     * have failed the provider fetch, and routing against an unresolved provider silently sends
+     * every document down the provider path.
+     */
+    fun retryUpload(file: AttachedFile) {
+        viewModelScope.launch {
+            modelDelegate.awaitSelectedAgentProvider()
+            fileDelegate.retryUpload(file)
+        }
+    }
 
     /**
      * Attaches already-uploaded server files (from the "From server" picker) to the composer by

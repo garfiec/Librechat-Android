@@ -52,6 +52,7 @@ import com.garfiec.librechat.feature.chat.components.MessageList
 import com.garfiec.librechat.feature.chat.components.MessagesUnavailable
 import com.garfiec.librechat.feature.chat.components.PresetPicker
 import com.garfiec.librechat.feature.chat.components.SavePresetDialog
+import com.garfiec.librechat.feature.chat.components.UploadRoutingSheet
 import com.garfiec.librechat.feature.chat.prompts.components.VariableInputDialog
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -314,6 +315,7 @@ actual fun ChatScreen(
                 onCommitEdit = viewModel::commitQueuedEdit,
                 onCancelEdit = viewModel::cancelQueuedEdit,
                 isAwaitingUploadSend = uiState.isAwaitingUploadSend,
+                arePicksUnsettled = uiState.arePicksUnsettled,
                 onCancelPendingSend = viewModel::cancelPendingUploadSend,
                 onSendQueuedMessages = viewModel::sendQueuedNow,
                 queuedMessages = uiState.messageQueue,
@@ -357,6 +359,17 @@ actual fun ChatScreen(
         onNavigateToProviderKeys = onNavigateToProviderKeys,
         onShowSavePresetDialog = { showSavePresetDialog = true },
     )
+
+    // Manual attachment routing. iOS has no pull-up surface to retract, so this is the whole wiring.
+    uiState.composer.pendingUploadRouting?.let { pendingRouting ->
+        UploadRoutingSheet(
+            files = pendingRouting.files,
+            onRouteChange = viewModel::setPendingUploadRoute,
+            onApplyToAll = viewModel::setAllPendingUploadRoutes,
+            onConfirm = viewModel::confirmPendingUploadRouting,
+            onDismiss = viewModel::cancelPendingUploadRouting,
+        )
+    }
 
     // Model selector bottom sheet
     if (uiState.showModelSheet) {

@@ -25,11 +25,21 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Failure banner published by [ModelSelectionDelegate.loadAgents]; cleared by a later success. */
 private const val AGENTS_LOAD_ERROR = "Could not load available agents"
+
+/**
+ * How long an attach will wait for the selected agent's provider before routing without it.
+ * Attaching must stay responsive on a dead network; overshooting the wait only costs the file
+ * the routing this feature adds, which is what happens today anyway.
+ */
+private const val AGENT_PROVIDER_RESOLVE_TIMEOUT_MS = 3_000L
 
 class ModelSelectionDelegate(
     private val handle: ModelSelectionHandle,
@@ -187,6 +197,141 @@ class ModelSelectionDelegate(
      * confirmed present in a non-empty list.
      */
     private var holdAgentForPopulate = false
+
+    /**
+     * Providers already resolved this session, keyed by agent id — including agents whose fetch
+     * came back with no provider at all, so switching back and forth doesn't re-hit the network
+     * for an answer we already have. Confined to the handle's Main-dispatched scope, like
+     * [cachedLastUsedEndpoint].
+     */
+    private val agentProviders = mutableMapOf<String, String?>()
+
+    /** The in-flight provider fetch, cancelled when the selection moves on before it lands. */
+    private var agentProviderJob: Job? = null
+
+    /**
+     * Keeps [ModelSelectionState.selectedAgentProvider] in step with the selected agent.
+     *
+     * The provider is only reachable through the single-agent read — the list projection omits it
+     * — so it has to be fetched once per agent rather than derived from state. Continuous, because
+     * the selection changes long after this is started: seeding, a conversation load, and the
+     * model selector all move it.
+     */
+    fun observeSelectedAgentProvider() {
+        handle.scope.launch {
+            handle.stateFlow
+                .map { state ->
+                    state.selectedModel?.takeIf { state.selectedEndpoint == EndpointConstants.AGENTS }
+                }
+                .distinctUntilChanged()
+                .collect { agentId -> resolveAgentProvider(agentId) }
+        }
+        // An agent edited in the agent editor keeps its old provider otherwise: the memo is keyed
+        // by id, and the id doesn't change when the agent does. `drop(1)` skips the seed value.
+        handle.scope.launch {
+            agentRepository.revision.drop(1).collect {
+                agentProviders.clear()
+                resolveAgentProvider(currentAgentId())
+            }
+        }
+    }
+
+    /** The selected agent's id, or null when the selection isn't an agent at all. */
+    private fun currentAgentId(): String? =
+        handle.state.selectedModel?.takeIf { handle.state.selectedEndpoint == EndpointConstants.AGENTS }
+
+    private fun resolveAgentProvider(agentId: String?) {
+        agentProviderJob?.cancel()
+        if (agentId == null) {
+            publishAgentProvider(null)
+            return
+        }
+        if (agentProviders.containsKey(agentId)) {
+            publishAgentProvider(agentProviders[agentId])
+            return
+        }
+        // Clear first: the previous agent's provider must not linger over the new selection while
+        // the fetch runs, or an attachment routes against the wrong provider for a network RTT.
+        publishAgentProvider(null)
+        agentProviderJob = handle.scope.launch { fetchAgentProvider(agentId) }
+    }
+
+    /**
+     * Resolves the selected agent's provider, waiting for the fetch if it hasn't happened or
+     * hasn't landed yet. Returns null when there is nothing to resolve or the fetch fails — which
+     * callers must read as "unknown", i.e. route exactly as mobile did before this existed.
+     *
+     * Attachment routing calls this at the decision point rather than trusting whatever the
+     * background observer left in state. Three ordinary situations leave that value null: the
+     * fetch is still in flight (attaching within an RTT of picking the agent), it failed once (the
+     * observer is driven by `distinctUntilChanged` on the agent id, so a still-selected agent
+     * never re-triggers it), or the screen opened straight onto an agent and the user attached
+     * immediately. In all three the file would silently take the provider path — the exact silent
+     * drop this feature exists to stop.
+     */
+    suspend fun awaitSelectedAgentProvider(): String? {
+        // Bounded rather than open-ended, and bounding the WHOLE resolution rather than the fetch
+        // alone: an unreachable server, or an account still seeding its selection, must cost the
+        // attach a moment — not hang the picker, and not two timeouts back to back. A timeout
+        // lands on the pre-feature behaviour, not on a wrong route.
+        val provider = withTimeoutOrNull(AGENT_PROVIDER_RESOLVE_TIMEOUT_MS) {
+            val agentId = awaitCurrentAgentId() ?: return@withTimeoutOrNull null
+            fetchAgentProvider(agentId)
+        }
+        if (provider == null) {
+            Logger.d { "awaitSelectedAgentProvider: unresolved; routing as unknown" }
+        }
+        return provider
+    }
+
+    /**
+     * The selected agent's id, waiting for the selection to seed if it hasn't yet.
+     *
+     * `agents` is the *default* endpoint — the value state holds before anything has chosen it —
+     * so on cold start the pair (endpoint=agents, model=null) means "not seeded yet", not "no
+     * agent". A share that launched the app is drained before seeding runs, and reading the id
+     * straight would answer null there and route every shared document as unknown: the silent drop
+     * this feature exists to stop, reached by the one entry point that cannot re-pick the file.
+     *
+     * Returns null without waiting on any other endpoint, and stops waiting if the selection moves
+     * off the agents endpoint — which is what an account with no agents at all does.
+     */
+    private suspend fun awaitCurrentAgentId(): String? {
+        currentAgentId()?.let { return it }
+        if (handle.state.selectedEndpoint != EndpointConstants.AGENTS) return null
+        handle.stateFlow.first {
+            it.selectedModel != null || it.selectedEndpoint != EndpointConstants.AGENTS
+        }
+        return currentAgentId()
+    }
+
+    /**
+     * Serves the memo or fetches, publishing to state on success. A failure is deliberately NOT
+     * memoized so the next attach retries it.
+     */
+    private suspend fun fetchAgentProvider(agentId: String): String? {
+        if (agentProviders.containsKey(agentId)) return agentProviders[agentId]
+        return when (val result = agentRepository.getAgentProvider(agentId)) {
+            is Result.Success -> {
+                agentProviders[agentId] = result.data
+                // The selection may have moved while the fetch was in flight.
+                if (currentAgentId() == agentId) publishAgentProvider(result.data)
+                result.data
+            }
+
+            is Result.Error -> {
+                Logger.d(result.exception) { "Failed to resolve agent provider" }
+                null
+            }
+
+            is Result.Loading -> null
+        }
+    }
+
+    private fun publishAgentProvider(provider: String?) {
+        if (handle.state.selectedAgentProvider == provider) return
+        handle.update { selection = selection.copy(selectedAgentProvider = provider) }
+    }
 
     /**
      * Re-filters availableModels into UI state and, for EXISTING conversations,

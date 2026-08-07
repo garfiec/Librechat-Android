@@ -10,9 +10,20 @@ import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonElement
 
 interface AgentRepository {
+
+    /**
+     * Bumped every time the agent cache is invalidated — i.e. after any agent mutation made through
+     * this repository.
+     *
+     * Consumers that memoize per-agent data must re-read on a change. Without it an agent edited in
+     * the agent editor keeps serving its pre-edit values to a chat screen that is still alive, and
+     * nothing anywhere reports the staleness.
+     */
+    val revision: StateFlow<Long>
 
     // Agent CRUD
     suspend fun getAgents(category: String? = null): Result<List<Agent>>
@@ -23,6 +34,16 @@ interface AgentRepository {
         category: String? = null,
     ): Result<PaginatedAgents>
     suspend fun getAgent(id: String): Result<Agent>
+
+    /**
+     * The agent's LLM `provider`, straight from `GET /api/agents/:id` (returned at VIEW permission).
+     *
+     * Deliberately not expressed as `getAgent(id).provider`: the agent *list* projection omits
+     * `provider` entirely (`getListAgentsByAccess` upstream), and [getAgent] serves from that list's
+     * cache whenever it's warm — so it answers `null` for an agent whose provider the server knows
+     * perfectly well. Callers that route on the provider need the single-agent read, uncached.
+     */
+    suspend fun getAgentProvider(id: String): Result<String?>
 
     /**
      * Fetches complete agent data for editing via the /expanded endpoint.

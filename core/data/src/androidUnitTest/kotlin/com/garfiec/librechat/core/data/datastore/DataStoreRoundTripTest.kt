@@ -142,6 +142,7 @@ class DataStoreRoundTripTest {
         assertThat(store.selectedLanguage.first()).isEqualTo("system")
         assertThat(store.sttOnDevice.first()).isTrue()
         assertThat(store.sttEndOfSpeech.first()).isFalse()
+        assertThat(store.uploadRoutingMode.first()).isEqualTo(UploadRoutingMode.AUTO)
     }
 
     @Test
@@ -179,6 +180,27 @@ class DataStoreRoundTripTest {
 
         store.setChatFontSize(ChatFontSize.SMALL)
         assertThat(store.chatFontSize.first()).isEqualTo(ChatFontSize.SMALL)
+    }
+
+    @Test
+    fun uploadRoutingMode_roundTripsAndDefaultsToAuto() {
+        assertThat(UploadRoutingMode.fromString(null)).isEqualTo(UploadRoutingMode.AUTO)
+        assertThat(UploadRoutingMode.fromString("garbage")).isEqualTo(UploadRoutingMode.AUTO)
+        for (mode in UploadRoutingMode.entries) {
+            assertThat(UploadRoutingMode.fromString(mode.toStorageString())).isEqualTo(mode)
+        }
+    }
+
+    @Test
+    fun settingsDataStore_roundTrip_uploadRoutingMode() = runTest(testDispatcher) {
+        val ds = createDataStore("settings-upload-routing")
+        val store = settingsStore(ds)
+
+        store.setUploadRoutingMode(UploadRoutingMode.MANUAL)
+        assertThat(store.uploadRoutingMode.first()).isEqualTo(UploadRoutingMode.MANUAL)
+
+        store.setUploadRoutingMode(UploadRoutingMode.AUTO)
+        assertThat(store.uploadRoutingMode.first()).isEqualTo(UploadRoutingMode.AUTO)
     }
 
     @Test

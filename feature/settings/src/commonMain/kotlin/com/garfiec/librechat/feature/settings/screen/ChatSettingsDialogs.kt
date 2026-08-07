@@ -38,6 +38,7 @@ import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -48,6 +49,7 @@ internal enum class ChatSettingDialog {
     LATEX_RENDERER,
     CONTEXT_BAR,
     DURING_RUN_ACTION,
+    UPLOAD_ROUTING,
     STARRED_MODELS,
     CHAT_HEADER,
     ARTIFACT_VIEWER,
@@ -88,6 +90,12 @@ internal fun contextBarPlacementLabel(placement: ContextBarPlacement): String = 
 internal fun duringRunActionLabel(action: DuringRunAction): String = when (action) {
     DuringRunAction.QUEUE -> stringResource(Res.string.during_run_action_queue)
     DuringRunAction.STEER -> stringResource(Res.string.during_run_action_steer)
+}
+
+@Composable
+internal fun uploadRoutingModeLabel(mode: UploadRoutingMode): String = when (mode) {
+    UploadRoutingMode.AUTO -> stringResource(Res.string.upload_routing_auto)
+    UploadRoutingMode.MANUAL -> stringResource(Res.string.upload_routing_manual)
 }
 
 @Composable

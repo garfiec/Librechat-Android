@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.runtime.Immutable
+import com.garfiec.librechat.core.model.response.UploadRoute
 
 @Immutable
 data class AttachedFile(
@@ -20,4 +21,13 @@ data class AttachedFile(
     val height: Int? = null,
     /** Whether the upload has failed. */
     val uploadFailed: Boolean = false,
+    /**
+     * How this file was delivered — set once the upload commits to a mode, which is after the
+     * magic-byte re-detection may have overridden the route chosen from the picker's MIME type.
+     *
+     * Null means "not decided here": a file attached by reference from the server library, or one
+     * still being described. The server resolves the mode from its own record either way, so this
+     * is a display value, not part of the send.
+     */
+    val route: UploadRoute? = null,
 )

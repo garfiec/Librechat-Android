@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -40,12 +41,14 @@ import com.garfiec.librechat.core.model.request.SteerRequest
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.model.response.SteerResponse
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformFileHandler
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -167,6 +170,8 @@ class ChatViewModelDuringRunSendTest {
         every { serverFileSelectionHandoff.selectionsFor(any()) } returns emptyFlow()
         // `SharedFlow.collect` returns Nothing, so a relaxed mock throws on these init collectors.
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
+        // StateFlow.collect returns Nothing, so a relaxed mock throws in the delegate's collector.
+        every { agentRepository.revision } returns MutableStateFlow(0L)
         every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()
 
         // buildSendSpec reads the attachment list; the relaxed factory would hand back an
@@ -213,6 +218,104 @@ class ChatViewModelDuringRunSendTest {
             coVerify(exactly = 1) { chatRepository.steerChat(SteerRequest(CONVERSATION_ID, TEXT)) }
             assertThat(vm.uiState.value.messageQueue).isEmpty()
         }
+
+    @Test
+    fun `a steer does not destroy a staged attachment routing batch`() =
+        duringRunTest(DuringRunAction.STEER) { vm ->
+            assertThat(vm.uiState.value.isStreaming).isTrue()
+            every { settingsDataStore.uploadRoutingMode } returns flowOf(UploadRoutingMode.MANUAL)
+            val picked = listOf(
+                PickedFile(ref = "report.pdf", name = "report.pdf", mimeType = "application/pdf"),
+            )
+            every { fileHandler.describe(any()) } returns picked
+            vm.onFilesSelected(picked.map { it.ref })
+            runCurrent()
+            assertThat(vm.uiState.value.composer.pendingUploadRouting).isNotNull()
+
+            vm.onInputChanged(TEXT)
+            vm.steerMessage()
+            runCurrent()
+
+            // A staged batch is deliberately not in `attachedFiles` — nothing is uploaded until the
+            // user answers — so `steerMessage`'s attachment check waves it through, and the
+            // `clearComposer()` that follows would wipe the batch with no upload and no error.
+            // `withUploadGate` guards the other two send paths but this one bypasses it entirely.
+            coVerify(exactly = 0) { chatRepository.steerChat(any()) }
+            assertThat(vm.uiState.value.composer.pendingUploadRouting).isNotNull()
+            assertThat(vm.uiState.value.inputText).isEqualTo(TEXT)
+        }
+
+    @Test
+    fun `cancelling a queued edit discards a pick made during it rather than re-homing it`() {
+        val preference = MutableSharedFlow<UploadRoutingMode>()
+        return duringRunTest(
+            preference = DuringRunAction.QUEUE,
+            arrange = { every { settingsDataStore.uploadRoutingMode } returns preference },
+        ) { vm ->
+            vm.onInputChanged("the next turn")
+            vm.queueMessage()
+            runCurrent()
+            val queued = vm.uiState.value.messageQueue.single()
+
+            vm.editQueued(queued.localId)
+            runCurrent()
+            assertThat(vm.uiState.value.isEditingQueued).isTrue()
+
+            val picked = listOf(
+                PickedFile(ref = "report.pdf", name = "report.pdf", mimeType = "application/pdf"),
+            )
+            every { fileHandler.describe(any()) } returns picked
+            vm.onFilesSelected(picked.map { it.ref })
+            runCurrent()
+
+            // Cancel restores the stashed new-message draft over the whole tray. The queued item
+            // goes back unchanged — correctly, since cancel discards composer changes and a file
+            // picked during the edit is one of them.
+            vm.cancelQueuedEdit()
+            runCurrent()
+
+            preference.emit(UploadRoutingMode.AUTO)
+            runCurrent()
+
+            // Landing it now would attach it to a draft it was not picked for, while the message
+            // it WAS picked for is already back in the queue without it.
+            verify(exactly = 0) { fileHandler.onFilesSelected(any()) }
+            assertThat(vm.uiState.value.messageQueue.map { it.localId }).containsExactly(queued.localId)
+        }
+    }
+
+    @Test
+    fun `a queued edit does not steal a pick that has not settled yet`() {
+        // Held open on the preference read, standing in for the whole asynchronous intake window.
+        val preference = MutableSharedFlow<UploadRoutingMode>()
+        return duringRunTest(
+            preference = DuringRunAction.QUEUE,
+            arrange = { every { settingsDataStore.uploadRoutingMode } returns preference },
+        ) { vm ->
+            vm.onInputChanged("the next turn")
+            vm.queueMessage()
+            runCurrent()
+            val queued = vm.uiState.value.messageQueue.single()
+
+            val picked = listOf(
+                PickedFile(ref = "report.pdf", name = "report.pdf", mimeType = "application/pdf"),
+            )
+            every { fileHandler.describe(any()) } returns picked
+            vm.onFilesSelected(picked.map { it.ref })
+            runCurrent()
+
+            vm.editQueued(queued.localId)
+            runCurrent()
+
+            // The ghost bubble stays tappable through the intake window — there is no sheet or
+            // scrim yet. `editQueued` swaps the whole composer, and `captureComposer` cannot stash
+            // a file that has not reached the tray, so the pick would land on the queued item
+            // instead: attached to a message the user did not pick it for, and gone from the one
+            // they did as soon as the stashed draft came back.
+            assertThat(vm.uiState.value.isEditingQueued).isFalse()
+            assertThat(vm.uiState.value.messageQueue.map { it.localId }).containsExactly(queued.localId)
+        }
+    }
 
     @Test
     fun `send during a run queues when the preference is queue`() =

@@ -75,6 +75,7 @@ import com.garfiec.librechat.feature.chat.components.ChatInput
 import com.garfiec.librechat.feature.chat.components.ChatRoot
 import com.garfiec.librechat.feature.chat.components.ChatOptionsPage
 import com.garfiec.librechat.feature.chat.components.ChatToolsSheetContent
+import com.garfiec.librechat.feature.chat.components.UploadRoutingSheet
 import com.garfiec.librechat.feature.chat.components.rememberChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.rememberChatAttachmentActions
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
@@ -195,8 +196,18 @@ actual fun ChatScreen(
     // Narrow the file picker to what this endpoint's `supportedMimeTypes` allows (web parity:
     // useUploadOptions). Recomputed only when the config or endpoint changes — the translation
     // compiles the server's regexes.
-    val filePickerMimeTypes = remember(uiState.fileUploadConfig, uiState.selectedEndpoint) {
-        uiState.fileUploadConfig?.pickerMimeTypes(uiState.selectedEndpoint).orEmpty()
+    // The text route is validated against `fileConfig.text`, not against this allowlist, so the
+    // picker has to admit what it can extract too — otherwise a narrowed endpoint allowlist makes
+    // routing-to-text unreachable, with no file even pickable to route.
+    val filePickerMimeTypes = remember(
+        uiState.fileUploadConfig,
+        uiState.selectedEndpoint,
+        uiState.isFileContextAvailable,
+    ) {
+        uiState.fileUploadConfig?.pickerMimeTypes(
+            endpoint = uiState.selectedEndpoint,
+            includeTextRoute = uiState.isFileContextAvailable,
+        ).orEmpty()
     }
     val attachmentActions = rememberChatAttachmentActions(
         onFilesSelected = viewModel::onFilesSelected,
@@ -534,6 +545,7 @@ actual fun ChatScreen(
                 onCommitEdit = viewModel::commitQueuedEdit,
                 onCancelEdit = viewModel::cancelQueuedEdit,
                 isAwaitingUploadSend = uiState.isAwaitingUploadSend,
+                arePicksUnsettled = uiState.arePicksUnsettled,
                 onCancelPendingSend = viewModel::cancelPendingUploadSend,
                 queuedMessages = uiState.messageQueue,
                 onEditQueuedMessage = viewModel::editQueued,
@@ -684,6 +696,23 @@ actual fun ChatScreen(
                         onMcpExpandedChange = { pullUpMcpExpanded = it },
                     )
                 }
+            }
+
+            // Manual attachment routing. The pick can come from the pull-up surface, which stays
+            // revealed and drag-responsive underneath — retract it before the sheet shows, or the
+            // two surfaces fight for the same gestures.
+            val pendingRouting = uiState.composer.pendingUploadRouting
+            LaunchedEffect(pendingRouting != null) {
+                if (pendingRouting != null) pullUpState.animateTo(PullUpAnchor.Hidden)
+            }
+            if (pendingRouting != null) {
+                UploadRoutingSheet(
+                    files = pendingRouting.files,
+                    onRouteChange = viewModel::setPendingUploadRoute,
+                    onApplyToAll = viewModel::setAllPendingUploadRoutes,
+                    onConfirm = viewModel::confirmPendingUploadRouting,
+                    onDismiss = viewModel::cancelPendingUploadRouting,
+                )
             }
         }
     }

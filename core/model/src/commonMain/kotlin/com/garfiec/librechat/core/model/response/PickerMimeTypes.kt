@@ -131,7 +131,10 @@ fun FileUploadConfig.effectiveSupportedMimeTypes(endpoint: String?): List<String
  * Filtering is a UX convenience, never an enforcement point: an over-permissive picker only costs
  * the user a rejected upload, whereas an over-narrow one makes a legitimate file unpickable.
  */
-fun FileUploadConfig.pickerMimeTypes(endpoint: String? = null): List<String> {
+fun FileUploadConfig.pickerMimeTypes(
+    endpoint: String? = null,
+    includeTextRoute: Boolean = false,
+): List<String> {
     val patterns = effectiveSupportedMimeTypes(endpoint)
     if (patterns.isEmpty()) return emptyList()
 
@@ -143,5 +146,22 @@ fun FileUploadConfig.pickerMimeTypes(endpoint: String? = null): List<String> {
         if (hits.isEmpty() || hits.size == KNOWN_MIME_TYPES.size) return emptyList()
         matched += hits
     }
+    if (includeTextRoute) matched += TEXT_ROUTE_MIME_TYPES
     return matched.toList()
 }
+
+/**
+ * The known types the server-side text route can extract.
+ *
+ * `supportedMimeTypes` is the allowlist for a *provider* upload. An upload routed to text is
+ * validated against `fileConfig.text` instead — upstream's `validateFiles` swaps the list outright
+ * when the tool resource is `context`, and its "upload as text" menu item applies no picker filter
+ * at all. Without this union an admin who narrows the endpoint allowlist to images and PDF makes
+ * the whole text route unreachable: the system picker will not show a `.docx` for the user to pick,
+ * so no routing decision downstream can ever be made about one.
+ *
+ * Widening the picker is the safe direction — mobile never rejects on the strength of this list and
+ * the server re-validates every upload, so the worst case is a rejected upload rather than a file
+ * the user cannot select.
+ */
+private val TEXT_ROUTE_MIME_TYPES: List<String> = KNOWN_MIME_TYPES.filter { isTextExtractable(it) }

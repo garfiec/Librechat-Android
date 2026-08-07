@@ -85,4 +85,40 @@ class SendButtonModeTest {
     fun `an idle composer sends`() {
         assertThat(mode(isStreaming = false)).isEqualTo(SendButtonMode.SEND)
     }
+
+    // ── A control that will refuse the tap must not look live ────────────
+
+    @Test
+    fun `unsettled picks disable the control even with text typed`() {
+        // Every send path refuses while a pick is mid-intake or staged for the routing sheet. The
+        // window is as long as the agent-provider resolve takes, and an enabled-looking Send that
+        // silently does nothing for it reads as the app being broken.
+        assertThat(
+            composerCanSend(inputText = "look at this", hasAttachments = false, arePicksUnsettled = true),
+        ).isFalse()
+    }
+
+    @Test
+    fun `unsettled picks disable the control even with a file already in the tray`() {
+        assertThat(
+            composerCanSend(inputText = "", hasAttachments = true, arePicksUnsettled = true),
+        ).isFalse()
+    }
+
+    @Test
+    fun `settled content sends`() {
+        assertThat(
+            composerCanSend(inputText = "hello", hasAttachments = false, arePicksUnsettled = false),
+        ).isTrue()
+        assertThat(
+            composerCanSend(inputText = "  ", hasAttachments = true, arePicksUnsettled = false),
+        ).isTrue()
+    }
+
+    @Test
+    fun `an empty composer still cannot send`() {
+        assertThat(
+            composerCanSend(inputText = "   ", hasAttachments = false, arePicksUnsettled = false),
+        ).isFalse()
+    }
 }

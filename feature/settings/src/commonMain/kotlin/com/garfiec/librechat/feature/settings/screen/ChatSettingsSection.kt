@@ -29,6 +29,7 @@ import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
+import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import org.jetbrains.compose.resources.stringResource
@@ -40,6 +41,7 @@ internal fun ChatSettingsSection(
     showThinkingBlocks: Boolean,
     contextBarPlacement: ContextBarPlacement,
     duringRunAction: DuringRunAction,
+    uploadRoutingMode: UploadRoutingMode,
     showImageDescriptions: Boolean,
     dismissKeyboardOnSend: Boolean,
     chatLayoutStyle: String,
@@ -156,6 +158,12 @@ internal fun ChatSettingsSection(
                     title = stringResource(Res.string.during_run_action_title),
                     value = duringRunActionLabel(duringRunAction),
                     onClick = { onOpenDialog(ChatSettingDialog.DURING_RUN_ACTION) },
+                )
+
+                SelectorRow(
+                    title = stringResource(Res.string.upload_routing_title),
+                    value = uploadRoutingModeLabel(uploadRoutingMode),
+                    onClick = { onOpenDialog(ChatSettingDialog.UPLOAD_ROUTING) },
                 )
 
                 SelectorRow(
