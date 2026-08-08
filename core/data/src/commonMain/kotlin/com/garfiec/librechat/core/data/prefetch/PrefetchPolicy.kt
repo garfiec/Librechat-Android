@@ -10,8 +10,8 @@ import com.garfiec.librechat.core.data.db.dao.PrefetchCandidate
 class PrefetchPolicy {
 
     /**
-     * The conversations worth keeping warm: the [RECENT_LIMIT] most recently updated, plus every
-     * pinned one however old.
+     * The conversations worth keeping warm: the most recently updated, as many as the user's
+     * configured depth, plus every pinned one however old.
      *
      * Pinning is the user saying "this one matters" in the only way the app offers, so a pinned
      * conversation stays warm after it has fallen out of the recent window. Archived rows are
@@ -66,7 +66,23 @@ class PrefetchPolicy {
         openConversationId?.let { add(it) }
     }
 
+    /**
+     * How many pages of the conversation list to refresh to make [depth] reachable.
+     *
+     * Selection reads the local `conversations` table, which holds only what the list refresh has
+     * pulled — so a depth the refresh cannot reach silently warms nothing extra. [MIN_LIST_PAGES] is
+     * a floor, not a starting point: dropping below it would narrow the list refresh for users who
+     * never touch the setting.
+     */
+    fun listPagesFor(depth: Int): Int {
+        val needed = (depth + LIST_PAGE_SIZE - 1) / LIST_PAGE_SIZE
+        return maxOf(needed, MIN_LIST_PAGES)
+    }
+
     companion object {
-        const val RECENT_LIMIT = 20
+        /** Mirrors `ConversationsApi.getConversations`'s default, which the prefetcher never overrides. */
+        const val LIST_PAGE_SIZE = 25
+
+        const val MIN_LIST_PAGES = 3
     }
 }

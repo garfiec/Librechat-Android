@@ -72,6 +72,7 @@ class PrefetchEngineTest {
         coEvery { conversationDao.pinnedForPrefetch(any()) } returns emptyList()
         coEvery { conversationDao.conversationIdsOlderThan(any(), any()) } returns emptyList()
         every { settingsDataStore.prefetchAttachmentsEnabled } returns flowOf(false)
+        every { settingsDataStore.prefetchDepth } returns flowOf(PrefetchDepth.DEFAULT)
         every { attachmentWarmer.isSupported } returns false
     }
 
@@ -344,6 +345,42 @@ class PrefetchEngineTest {
             PrefetchRunState.WarmingMessages(completed = 1, total = 2),
         ).inOrder()
         assertThat(engine.runState.value.state).isEqualTo(PrefetchRunState.Idle)
+    }
+
+    @Test
+    fun `the configured depth bounds the conversations selected`() = runTest {
+        every { settingsDataStore.prefetchDepth } returns flowOf(50)
+        coEvery { conversationDao.recentForPrefetch(any(), any()) } returns emptyList()
+
+        engine().run(account)
+
+        coVerify { conversationDao.recentForPrefetch(account.value, 50) }
+    }
+
+    @Test
+    fun `a deeper setting pages the conversation list further`() = runTest {
+        every { settingsDataStore.prefetchDepth } returns flowOf(PrefetchDepth.MAX)
+        coEvery { conversationDao.recentForPrefetch(any(), any()) } returns emptyList()
+        coEvery { conversationRepository.loadNextPage(any(), any(), any(), any(), any(), any()) } returns
+            Result.Success("next-cursor")
+
+        engine().run(account)
+
+        coVerify(exactly = PrefetchPolicy().listPagesFor(PrefetchDepth.MAX)) {
+            conversationRepository.loadNextPage(any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `paging stops when the server runs out of conversations`() = runTest {
+        every { settingsDataStore.prefetchDepth } returns flowOf(PrefetchDepth.MAX)
+        coEvery { conversationDao.recentForPrefetch(any(), any()) } returns emptyList()
+
+        engine().run(account)
+
+        coVerify(exactly = 1) {
+            conversationRepository.loadNextPage(any(), any(), any(), any(), any(), any())
+        }
     }
 
     /**

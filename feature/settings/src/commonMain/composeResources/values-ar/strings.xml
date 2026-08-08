@@ -73,6 +73,9 @@
     <string name="prefetch_enabled_desc">Load recent and pinned conversations in the background so they open instantly. Runs only while the app is idle.</string>
     <string name="prefetch_on_metered">Use mobile data</string>
     <string name="prefetch_on_metered_desc">Allow prefetching on metered connections. Off by default to avoid unexpected data usage.</string>
+    <string name="prefetch_depth">Depth</string>
+    <string name="prefetch_depth_value">%1$d conversations</string>
+    <string name="prefetch_depth_desc">How many recent conversations to keep cached. Pinned conversations are always included, however old.</string>
     <string name="prefetch_attachments">Prefetch images</string>
     <string name="prefetch_attachments_desc">Also download images and attachments. Uses considerably more data.</string>
     <string name="prefetch_activity">Activity</string>

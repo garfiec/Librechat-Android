@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.core.ui.theme.supportsDynamicColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -76,6 +77,7 @@ private data class AdditionalPreferences(
     val prefetchEnabled: Boolean = false,
     val prefetchAttachmentsEnabled: Boolean = false,
     val prefetchOnMeteredEnabled: Boolean = false,
+    val prefetchDepth: Int = PrefetchDepth.DEFAULT,
 )
 
 /**
@@ -228,6 +230,8 @@ class SettingsPreferencesController(
         additional.copy(prefetchAttachmentsEnabled = prefetchAttachments)
     }.combine(settingsDataStore.prefetchOnMeteredEnabled) { additional, prefetchOnMetered ->
         additional.copy(prefetchOnMeteredEnabled = prefetchOnMetered)
+    }.combine(settingsDataStore.prefetchDepth) { additional, depth ->
+        additional.copy(prefetchDepth = depth)
     }.stateIn(scope, SharingStarted.Eagerly, AdditionalPreferences(true, false, "", "", true))
 
     /** The single public UI state that merges DataStore preferences with imperative state. */
@@ -280,6 +284,7 @@ class SettingsPreferencesController(
             prefetchEnabled = additional.prefetchEnabled,
             prefetchAttachmentsEnabled = additional.prefetchAttachmentsEnabled,
             prefetchOnMeteredEnabled = additional.prefetchOnMeteredEnabled,
+            prefetchDepth = additional.prefetchDepth,
         )
     }.stateIn(scope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -323,6 +328,10 @@ class SettingsPreferencesController(
 
     fun setPrefetchAttachmentsEnabled(enabled: Boolean) {
         scope.launch { settingsDataStore.setPrefetchAttachmentsEnabled(enabled) }
+    }
+
+    fun setPrefetchDepth(depth: Int) {
+        scope.launch { settingsDataStore.setPrefetchDepth(depth) }
     }
 
     fun setPrefetchOnMeteredEnabled(enabled: Boolean) {

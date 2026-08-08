@@ -212,6 +212,8 @@ fun DataSettingsContent(
                     onPrefetchEnabledChange = viewModel::setPrefetchEnabled,
                     onPrefetchOnMeteredChange = viewModel::setPrefetchOnMeteredEnabled,
                     onPrefetchAttachmentsChange = viewModel::setPrefetchAttachmentsEnabled,
+                    prefetchDepth = uiState.prefetchDepth,
+                    onPrefetchDepthChange = viewModel::setPrefetchDepth,
                     status = prefetchState.status,
                     warmedCount = prefetchState.warmedCount,
                     eligibleCount = prefetchState.eligibleCount,

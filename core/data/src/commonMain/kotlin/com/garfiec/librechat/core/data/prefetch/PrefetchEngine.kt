@@ -103,10 +103,12 @@ class PrefetchEngine(
             // it the engine's own first request closes the gate that permits it and the pass
             // deadlocks — silently, since a closed gate is indistinguishable from a busy user.
             withContext(PrefetchMarker) {
+                // Read once: a depth re-read mid-pass would select rows the list refresh never fetched.
+                val depth = settingsDataStore.prefetchDepth.first()
                 val pass = Pass(accountId)
 
-                if (!pass.warmConversationList()) return@withContext
-                val eligible = pass.eligible()
+                if (!pass.warmConversationList(depth)) return@withContext
+                val eligible = pass.eligible(depth)
                 if (!pass.warmMessages(eligible)) return@withContext
                 pass.warmAncillary()
                 pass.prune(eligible)
@@ -153,8 +155,9 @@ class PrefetchEngine(
         private var consecutiveFailures = 0
 
         /** Returns false when the pass should stop because the breaker tripped. */
-        suspend fun warmConversationList(): Boolean {
+        suspend fun warmConversationList(depth: Int): Boolean {
             publish(accountId, PrefetchRunState.RefreshingList)
+            val pages = policy.listPagesFor(depth)
             var cursor: String? = null
             var page = 0
             do {
@@ -179,13 +182,13 @@ class PrefetchEngine(
                 }
                 page++
                 delay(paceAfter(elapsed))
-            } while (cursor != null && page <= EXTRA_LIST_PAGES)
+            } while (cursor != null && page < pages)
             return true
         }
 
-        suspend fun eligible(): List<PrefetchCandidate> = withContext(ioDispatcher) {
+        suspend fun eligible(depth: Int): List<PrefetchCandidate> = withContext(ioDispatcher) {
             policy.eligible(
-                recent = conversationDao.recentForPrefetch(accountId.value, PrefetchPolicy.RECENT_LIMIT),
+                recent = conversationDao.recentForPrefetch(accountId.value, depth),
                 pinned = conversationDao.pinnedForPrefetch(accountId.value),
             )
         }
@@ -419,9 +422,6 @@ class PrefetchEngine(
     companion object {
         const val PACE_FACTOR = 5
         const val MAX_CONSECUTIVE_FAILURES = 3
-
-        /** Pages of the conversation list to warm beyond the first. */
-        const val EXTRA_LIST_PAGES = 2
 
         private const val HTTP_TOO_MANY_REQUESTS = 429
         private const val PRUNE_CHUNK = 400

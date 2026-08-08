@@ -332,6 +332,7 @@ val dataModule = module {
             watermarkDao = get(),
             openConversationRegistry = get(),
             activeAccountProvider = get(),
+            settingsDataStore = get(),
         )
     }
 

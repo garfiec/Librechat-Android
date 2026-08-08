@@ -5,10 +5,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
+import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.core.model.ModelRef
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -117,6 +119,11 @@ class SettingsDataStore(
     /** Overrides the unmetered-only default, for users who are mostly on cellular. */
     val prefetchOnMeteredEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_PREFETCH_ON_METERED] ?: false
+    }
+
+    /** Clamped on read, not trusted: this value is the request count for every pass. */
+    val prefetchDepth: Flow<Int> = dataStore.data.map { prefs ->
+        (prefs[KEY_PREFETCH_DEPTH] ?: PrefetchDepth.DEFAULT).coerceIn(PrefetchDepth.RANGE)
     }
 
     val showThinkingBlocks: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -372,6 +379,12 @@ class SettingsDataStore(
     suspend fun setPrefetchAttachmentsEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_PREFETCH_ATTACHMENTS] = enabled
+        }
+    }
+
+    suspend fun setPrefetchDepth(depth: Int) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PREFETCH_DEPTH] = depth.coerceIn(PrefetchDepth.RANGE)
         }
     }
 
@@ -716,6 +729,7 @@ class SettingsDataStore(
         private val KEY_PREFETCH_ENABLED = booleanPreferencesKey("prefetch_enabled")
         private val KEY_PREFETCH_ATTACHMENTS = booleanPreferencesKey("prefetch_attachments")
         private val KEY_PREFETCH_ON_METERED = booleanPreferencesKey("prefetch_on_metered")
+        private val KEY_PREFETCH_DEPTH = intPreferencesKey("prefetch_depth")
         private val KEY_SHOW_THINKING_BLOCKS = booleanPreferencesKey("show_thinking_blocks")
         private val KEY_CONTEXT_BAR_PLACEMENT = stringPreferencesKey("context_bar_placement")
         private val KEY_DURING_RUN_ACTION = stringPreferencesKey("during_run_action")

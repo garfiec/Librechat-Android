@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.core.model.Memory
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.config.BuildInfo
@@ -95,6 +96,7 @@ data class SettingsUiState(
     val prefetchEnabled: Boolean = false,
     val prefetchAttachmentsEnabled: Boolean = false,
     val prefetchOnMeteredEnabled: Boolean = false,
+    val prefetchDepth: Int = PrefetchDepth.DEFAULT,
     /** Whether this platform has an image cache worth warming; false hides the toggle. */
     val prefetchAttachmentsSupported: Boolean = false,
     /** Cached images and files, in bytes; null until read. Excludes the database — see

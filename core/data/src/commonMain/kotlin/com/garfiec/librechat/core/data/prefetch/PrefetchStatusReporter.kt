@@ -5,13 +5,16 @@ import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.identity.flatMapAccountOrEmpty
+import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.db.dao.ConversationDao
 import com.garfiec.librechat.core.data.db.dao.MessageDao
 import com.garfiec.librechat.core.data.db.dao.PrefetchCandidateDetail
 import com.garfiec.librechat.core.data.db.dao.PrefetchWatermarkDao
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 
 /** One conversation's place in the warm set, as the settings readout presents it. */
 data class PrefetchConversationStatus(
@@ -81,6 +84,7 @@ class PrefetchStatusReporter(
     private val watermarkDao: PrefetchWatermarkDao,
     private val openConversationRegistry: OpenConversationRegistry,
     private val activeAccountProvider: ActiveAccountProvider,
+    private val settingsDataStore: SettingsDataStore,
 ) {
 
     fun status(): Flow<PrefetchStatus> = combine(
@@ -115,59 +119,64 @@ class PrefetchStatusReporter(
      * placeholders that [status] replaces, since those come from the gate and the engine rather than
      * the database.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun warmSet(): Flow<PrefetchStatus> =
         activeAccountProvider.flatMapAccountOrEmpty(PrefetchStatus.Empty) { accountId ->
-            combine(
-                conversationDao.observeRecentForPrefetch(accountId.value, PrefetchPolicy.RECENT_LIMIT),
-                conversationDao.observePinnedForPrefetch(accountId.value),
-                watermarkDao.observeForAccount(accountId.value),
-                openConversationRegistry.openConversationId,
-            ) { recent, pinned, watermarks, openConversationId ->
-                // The titles the readout needs are dropped by PrefetchPolicy, which works in ids —
-                // so run the real selection and map the result back through the detail rows.
-                val byId = (recent + pinned).associateBy { it.conversationId }
-                val eligible = policy.eligible(
-                    recent = recent.map(PrefetchCandidateDetail::toCandidate),
-                    pinned = pinned.map(PrefetchCandidateDetail::toCandidate),
-                )
-                val warmedAtById = watermarks.associate { it.conversationId to it.warmedAt }
-                // Order matters and is preserved: selectWork returns the work in the order the
-                // engine will actually fetch it — pinned first, then most recent. A pass routinely
-                // ends early when the gate closes, so a list sorted any other way shows the rows
-                // that get dropped above the ones that get warmed.
-                val work = policy.selectWork(
-                    eligible = eligible,
-                    watermarks = watermarks.associate { it.conversationId to it.warmedConversationUpdatedAt },
-                    openConversationId = openConversationId,
-                )
-                val staleIds = work.mapTo(mutableSetOf()) { it.conversationId }
+            // Depth parameterises the recent query rather than filtering its result, so a change has
+            // to re-subscribe — hence flatMapLatest rather than another argument to the combine.
+            settingsDataStore.prefetchDepth.distinctUntilChanged().flatMapLatest { depth ->
+                combine(
+                    conversationDao.observeRecentForPrefetch(accountId.value, depth),
+                    conversationDao.observePinnedForPrefetch(accountId.value),
+                    watermarkDao.observeForAccount(accountId.value),
+                    openConversationRegistry.openConversationId,
+                ) { recent, pinned, watermarks, openConversationId ->
+                    // The titles the readout needs are dropped by PrefetchPolicy, which works in ids —
+                    // so run the real selection and map the result back through the detail rows.
+                    val byId = (recent + pinned).associateBy { it.conversationId }
+                    val eligible = policy.eligible(
+                        recent = recent.map(PrefetchCandidateDetail::toCandidate),
+                        pinned = pinned.map(PrefetchCandidateDetail::toCandidate),
+                    )
+                    val warmedAtById = watermarks.associate { it.conversationId to it.warmedAt }
+                    // Order matters and is preserved: selectWork returns the work in the order the
+                    // engine will actually fetch it — pinned first, then most recent. A pass routinely
+                    // ends early when the gate closes, so a list sorted any other way shows the rows
+                    // that get dropped above the ones that get warmed.
+                    val work = policy.selectWork(
+                        eligible = eligible,
+                        watermarks = watermarks.associate { it.conversationId to it.warmedConversationUpdatedAt },
+                        openConversationId = openConversationId,
+                    )
+                    val staleIds = work.mapTo(mutableSetOf()) { it.conversationId }
 
-                fun rowFor(conversationId: String): PrefetchConversationStatus? {
-                    val detail = byId[conversationId] ?: return null
-                    return PrefetchConversationStatus(
-                        conversationId = detail.conversationId,
-                        title = detail.title,
-                        pinned = detail.pinned,
-                        warmedAt = warmedAtById[detail.conversationId],
-                        isCurrent = detail.conversationId !in staleIds,
+                    fun rowFor(conversationId: String): PrefetchConversationStatus? {
+                        val detail = byId[conversationId] ?: return null
+                        return PrefetchConversationStatus(
+                            conversationId = detail.conversationId,
+                            title = detail.title,
+                            pinned = detail.pinned,
+                            warmedAt = warmedAtById[detail.conversationId],
+                            isCurrent = detail.conversationId !in staleIds,
+                        )
+                    }
+
+                    val current = eligible.mapNotNull { candidate ->
+                        rowFor(candidate.conversationId)?.takeIf { it.isCurrent }
+                    }
+                    val stale = work.mapNotNull { rowFor(it.conversationId) }
+
+                    PrefetchStatus.Empty.copy(
+                        warmedCount = current.size,
+                        eligibleCount = current.size + stale.size,
+                        // Across the whole table, not just the eligible set: this answers "when did this
+                        // last do anything", and a conversation that has since aged out of the warm set
+                        // was still the last thing warmed.
+                        lastWarmedAt = watermarks.maxOfOrNull { it.warmedAt },
+                        warmed = current.sortedByDescending { it.warmedAt ?: 0L },
+                        pending = stale,
                     )
                 }
-
-                val current = eligible.mapNotNull { candidate ->
-                    rowFor(candidate.conversationId)?.takeIf { it.isCurrent }
-                }
-                val stale = work.mapNotNull { rowFor(it.conversationId) }
-
-                PrefetchStatus.Empty.copy(
-                    warmedCount = current.size,
-                    eligibleCount = current.size + stale.size,
-                    // Across the whole table, not just the eligible set: this answers "when did this
-                    // last do anything", and a conversation that has since aged out of the warm set
-                    // was still the last thing warmed.
-                    lastWarmedAt = watermarks.maxOfOrNull { it.warmedAt },
-                    warmed = current.sortedByDescending { it.warmedAt ?: 0L },
-                    pending = stale,
-                )
             }
         }
 }

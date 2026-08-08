@@ -52,7 +52,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@Suppress("LongParameterList")
+// TooManyFunctions: the members are one-line forwarders to controllers, one per setting, so the
+// count tracks how many settings exist rather than how much this class does.
+@Suppress("LongParameterList", "TooManyFunctions")
 class SettingsViewModel(
     contentReader: ContentReader,
     cacheCleaner: PlatformCacheCleaner,
@@ -246,6 +248,10 @@ class SettingsViewModel(
 
     fun setPrefetchAttachmentsEnabled(enabled: Boolean) {
         prefsController.setPrefetchAttachmentsEnabled(enabled)
+    }
+
+    fun setPrefetchDepth(depth: Int) {
+        prefsController.setPrefetchDepth(depth)
     }
 
     fun setPrefetchOnMeteredEnabled(enabled: Boolean) {

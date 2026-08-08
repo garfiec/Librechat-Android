@@ -27,11 +27,26 @@ class PrefetchPolicyTest {
     @Test
     fun `a pinned conversation stays eligible however old it is`() {
         val eligible = policy.eligible(
-            recent = List(PrefetchPolicy.RECENT_LIMIT) { candidate("recent-$it", 1000L + it) },
+            recent = List(PrefetchDepth.DEFAULT) { candidate("recent-$it", 1000L + it) },
             pinned = listOf(candidate("ancient", 1, pinned = true)),
         )
 
         assertTrue(eligible.any { it.conversationId == "ancient" })
+    }
+
+    @Test
+    fun `list paging covers the configured depth`() {
+        val pageSize = PrefetchPolicy.LIST_PAGE_SIZE
+
+        assertTrue(policy.listPagesFor(PrefetchDepth.MAX) * pageSize >= PrefetchDepth.MAX)
+        assertEquals(8, policy.listPagesFor(PrefetchDepth.MAX))
+        assertEquals(4, policy.listPagesFor(100))
+    }
+
+    @Test
+    fun `a shallow depth still refreshes as much of the list as before`() {
+        assertEquals(PrefetchPolicy.MIN_LIST_PAGES, policy.listPagesFor(PrefetchDepth.DEFAULT))
+        assertEquals(PrefetchPolicy.MIN_LIST_PAGES, policy.listPagesFor(PrefetchDepth.MIN))
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
+import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -116,6 +117,7 @@ class SettingsViewModelTest {
         every { settingsDataStore.prefetchEnabled } returns MutableStateFlow(false)
         every { settingsDataStore.prefetchAttachmentsEnabled } returns MutableStateFlow(false)
         every { settingsDataStore.prefetchOnMeteredEnabled } returns MutableStateFlow(false)
+        every { settingsDataStore.prefetchDepth } returns MutableStateFlow(PrefetchDepth.DEFAULT)
         every { settingsDataStore.chatLayoutStyle } returns MutableStateFlow(ChatLayoutConstants.THREAD)
         every { settingsDataStore.showAvatars } returns MutableStateFlow(true)
         every { settingsDataStore.showBubbles } returns MutableStateFlow(false)

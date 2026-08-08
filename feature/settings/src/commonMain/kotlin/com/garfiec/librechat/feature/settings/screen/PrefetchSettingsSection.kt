@@ -12,16 +12,26 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.data.prefetch.PrefetchDepth
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.resources.prefetch_activity
 import com.garfiec.librechat.feature.settings.resources.prefetch_attachments
 import com.garfiec.librechat.feature.settings.resources.prefetch_attachments_desc
+import com.garfiec.librechat.feature.settings.resources.prefetch_depth
+import com.garfiec.librechat.feature.settings.resources.prefetch_depth_desc
+import com.garfiec.librechat.feature.settings.resources.prefetch_depth_value
 import com.garfiec.librechat.feature.settings.resources.prefetch_enabled
 import com.garfiec.librechat.feature.settings.resources.prefetch_enabled_desc
 import com.garfiec.librechat.feature.settings.resources.prefetch_on_metered
@@ -33,6 +43,7 @@ import com.garfiec.librechat.feature.settings.resources.prefetch_summary_warmed
 import com.garfiec.librechat.feature.settings.resources.prefetch_summary_warmed_value
 import com.garfiec.librechat.feature.settings.state.PrefetchDisplayStatus
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 
 /**
  * Background prefetch controls, with a compact status summary underneath.
@@ -47,6 +58,7 @@ fun PrefetchSettingsSection(
     prefetchOnMeteredEnabled: Boolean,
     prefetchAttachmentsEnabled: Boolean,
     prefetchAttachmentsSupported: Boolean,
+    prefetchDepth: Int,
     status: PrefetchDisplayStatus,
     warmedCount: Int,
     eligibleCount: Int,
@@ -54,6 +66,7 @@ fun PrefetchSettingsSection(
     onPrefetchEnabledChange: (Boolean) -> Unit,
     onPrefetchOnMeteredChange: (Boolean) -> Unit,
     onPrefetchAttachmentsChange: (Boolean) -> Unit,
+    onPrefetchDepthChange: (Int) -> Unit,
     onActivityClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -85,6 +98,12 @@ fun PrefetchSettingsSection(
             description = stringResource(Res.string.prefetch_on_metered_desc),
             checked = prefetchOnMeteredEnabled,
             onChange = onPrefetchOnMeteredChange,
+            enabled = prefetchEnabled,
+        )
+
+        DepthSlider(
+            depth = prefetchDepth,
+            onChange = onPrefetchDepthChange,
             enabled = prefetchEnabled,
         )
 
@@ -124,6 +143,61 @@ fun PrefetchSettingsSection(
                 )
             }
         }
+    }
+}
+
+/**
+ * How many recent conversations to keep warm.
+ *
+ * The position is held locally during the gesture and committed on release: writing on every value
+ * change puts dozens of writes per drag through the preference store, and the status readout
+ * re-subscribes its queries on each one.
+ */
+@Composable
+private fun DepthSlider(depth: Int, onChange: (Int) -> Unit, enabled: Boolean) {
+    var pending by remember { mutableStateOf<Int?>(null) }
+    val shown = pending ?: depth
+    val alpha = if (enabled) 1f else DISABLED_ALPHA
+
+    // Keyed on `pending` as well as `depth`: a commit equal to the stored depth writes an identical
+    // value that the flow conflates, so `depth` never changes and waiting on it alone would strand
+    // the local position with nothing able to clear it.
+    LaunchedEffect(depth, pending) {
+        if (pending == depth) pending = null
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(Res.string.prefetch_depth),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+            )
+            Text(
+                text = stringResource(Res.string.prefetch_depth_value, shown),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+            )
+        }
+        Text(
+            text = stringResource(Res.string.prefetch_depth_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+        )
+        Slider(
+            value = shown.toFloat(),
+            onValueChange = { pending = PrefetchDepth.snap(it.roundToInt()) },
+            // Reads the state, not a composition-captured copy: Material3 can end a gesture in the
+            // same input batch as its last value change, so a captured value is one step stale.
+            onValueChangeFinished = { pending?.let(onChange) },
+            valueRange = PrefetchDepth.MIN.toFloat()..PrefetchDepth.MAX.toFloat(),
+            steps = PrefetchDepth.STEPS_BETWEEN_ENDS,
+            enabled = enabled,
+        )
     }
 }
 

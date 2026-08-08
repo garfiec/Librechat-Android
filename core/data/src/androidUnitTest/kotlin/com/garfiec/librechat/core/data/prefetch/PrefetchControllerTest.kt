@@ -66,6 +66,7 @@ class PrefetchControllerTest {
         coEvery { configRepository.fetchModels() } returns Result.Success(emptyMap())
         coEvery { agentRepository.getAgents(any()) } returns Result.Success(emptyList())
         every { settingsDataStore.prefetchAttachmentsEnabled } returns flowOf(false)
+        every { settingsDataStore.prefetchDepth } returns flowOf(PrefetchDepth.DEFAULT)
         every { attachmentWarmer.isSupported } returns false
 
         var firstCall = true
