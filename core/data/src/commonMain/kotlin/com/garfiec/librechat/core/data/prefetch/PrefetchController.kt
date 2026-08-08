@@ -3,7 +3,12 @@ package com.garfiec.librechat.core.data.prefetch
 import com.garfiec.librechat.core.common.identity.SessionManager
 import com.garfiec.librechat.core.logging.Diag
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 
 /**
@@ -21,6 +26,19 @@ class PrefetchController(
     appScope: CoroutineScope,
 ) {
 
+    /**
+     * Manual run requests from settings.
+     *
+     * No replay, and a single slot that drops the older request rather than suspending. Two
+     * consequences, both wanted: a request made while the gate is shut has no subscriber at all and
+     * is discarded on the spot rather than firing at whatever unrelated moment the gate next opens,
+     * and repeated taps during a pass coalesce into one queued run instead of stacking up.
+     */
+    private val manualRuns = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
     init {
         appScope.launch {
             sessionManager.current.collectLatest { session ->
@@ -31,10 +49,35 @@ class PrefetchController(
                     gate.isOpen().collectLatest { open ->
                         if (!open) return@collectLatest
                         Diag.d("Prefetch") { "gate opened" }
-                        engine.run(session.accountId)
+
+                        // The rising-edge pass and every manual one run through a single collector,
+                        // subscribed before the first pass starts. Subscribing first is what makes a
+                        // tap during a long or rate-limited pass land in the buffer instead of being
+                        // dropped for want of a collector — which is exactly when someone reaches
+                        // for the button. Running them in one coroutine keeps them serialized
+                        // against an engine that has no locking of its own, and inside collectLatest
+                        // so the gate closing cancels a manual pass as it cancels an automatic one.
+                        merge(flowOf(false), manualRuns.map { true }).collect { manual ->
+                            if (manual) {
+                                Diag.d("Prefetch") { "manual run requested" }
+                                engine.resetForManualRun(session.accountId)
+                            }
+                            engine.run(session.accountId)
+                        }
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Asks for a pass now, clearing the breaker first.
+     *
+     * Honoured only while the gate is open — a request made on mobile data, in battery saver, or
+     * with prefetching switched off is dropped rather than overriding the conditions the user set.
+     * Callers disable the control instead of relying on that, so the drop is a backstop.
+     */
+    fun requestRun() {
+        manualRuns.tryEmit(Unit)
     }
 }

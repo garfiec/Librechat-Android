@@ -17,6 +17,7 @@ import com.garfiec.librechat.core.data.prefetch.PrefetchController
 import com.garfiec.librechat.core.data.prefetch.PrefetchEngine
 import com.garfiec.librechat.core.data.prefetch.PrefetchGate
 import com.garfiec.librechat.core.data.prefetch.PrefetchPolicy
+import com.garfiec.librechat.core.data.prefetch.PrefetchStatusReporter
 import com.garfiec.librechat.core.data.repository.AccountClaimReconciler
 import com.garfiec.librechat.core.data.repository.AccountDataPurger
 import com.garfiec.librechat.core.data.repository.AccountSessionEstablisher
@@ -283,7 +284,16 @@ val dataModule = module {
     // --- Background prefetch (opt-in, off by default) ---
 
     singleOf(::PrefetchPolicy)
-    singleOf(::PrefetchGate)
+    single {
+        PrefetchGate(
+            foregroundSignal = get(),
+            settingsDataStore = get(),
+            networkConditionObserver = get(),
+            connectivityObserver = get(),
+            powerStateObserver = get(),
+            requestActivityTracker = get(),
+        )
+    }
     single {
         PrefetchEngine(
             conversationDao = get(),
@@ -310,6 +320,18 @@ val dataModule = module {
             gate = get(),
             engine = get(),
             appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+        )
+    }
+    single {
+        PrefetchStatusReporter(
+            gate = get(),
+            engine = get(),
+            policy = get(),
+            conversationDao = get(),
+            messageDao = get(),
+            watermarkDao = get(),
+            openConversationRegistry = get(),
+            activeAccountProvider = get(),
         )
     }
 

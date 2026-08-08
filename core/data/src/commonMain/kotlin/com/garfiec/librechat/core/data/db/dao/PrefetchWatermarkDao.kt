@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.garfiec.librechat.core.data.db.entity.PrefetchWatermarkEntity
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Every query is account-scoped. `prefetch_watermarks` is not one of the tables the tenancy detekt
@@ -15,6 +16,13 @@ interface PrefetchWatermarkDao {
 
     @Query("SELECT * FROM prefetch_watermarks WHERE accountId = :accountId")
     suspend fun allForAccount(accountId: String): List<PrefetchWatermarkEntity>
+
+    /**
+     * The same rows, observed, for the settings readout. This table is the only durable record that
+     * prefetching ever ran, so every historical figure the readout shows is derived from here.
+     */
+    @Query("SELECT * FROM prefetch_watermarks WHERE accountId = :accountId")
+    fun observeForAccount(accountId: String): Flow<List<PrefetchWatermarkEntity>>
 
     @Upsert
     suspend fun upsert(watermark: PrefetchWatermarkEntity)

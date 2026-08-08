@@ -5,6 +5,7 @@ import com.garfiec.librechat.feature.settings.viewmodel.ApiKeysViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.FavoritesViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.McpViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.MemoriesViewModel
+import com.garfiec.librechat.feature.settings.viewmodel.PrefetchActivityViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PresetManagerViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.RoleSkillsAdminViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.ServerHeadersViewModel
@@ -53,6 +54,16 @@ val settingsModule = module {
     viewModelOf(::MemoriesViewModel)
     viewModelOf(::McpViewModel)
     viewModelOf(::PresetManagerViewModel)
+    // Explicit block for the same reason as SettingsViewModel: the IO dispatcher is resolved by
+    // qualifier, which the constructor DSL cannot express.
+    viewModel {
+        PrefetchActivityViewModel(
+            reporter = get(),
+            controller = get(),
+            cacheCleaner = get(),
+            ioDispatcher = get(KoinQualifiers.IO),
+        )
+    }
     viewModelOf(::ProviderKeysViewModel)
     viewModelOf(::RoleSkillsAdminViewModel)
     viewModelOf(::ServerHeadersViewModel)

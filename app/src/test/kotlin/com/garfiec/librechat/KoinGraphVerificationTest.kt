@@ -16,6 +16,8 @@ import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
+import com.garfiec.librechat.core.data.prefetch.PrefetchController
+import com.garfiec.librechat.core.data.prefetch.PrefetchStatusReporter
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.AgentToolsRepository
@@ -206,6 +208,8 @@ class KoinGraphVerificationTest {
             PermissionGate::class,
             SessionTask::class,
             AttachmentWarmer::class,
+            PrefetchStatusReporter::class,
+            PrefetchController::class,
             SessionTaskRunner::class,
             // feature:auth platform provides
             OAuthLauncher::class,

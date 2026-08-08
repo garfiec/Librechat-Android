@@ -24,6 +24,9 @@ import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
@@ -78,21 +81,66 @@ class PrefetchEngine(
     /** Accounts whose slow-moving reference data has been warmed once this process. */
     private val ancillaryWarmed = mutableSetOf<String>()
 
+    private val _runState = MutableStateFlow(
+        PrefetchAccountRunState(accountId = null, state = PrefetchRunState.Idle),
+    )
+
+    /** What this engine is doing right now, for the settings readout. See [PrefetchRunState]. */
+    val runState: StateFlow<PrefetchAccountRunState> = _runState.asStateFlow()
+
+    private fun publish(accountId: AccountId, state: PrefetchRunState) {
+        _runState.value = PrefetchAccountRunState(accountId.value, state)
+    }
+
     suspend fun run(accountId: AccountId) {
-        if (trippedForAccountId == accountId.value) return
-
-        // Everything below is marked, so none of these requests count as user activity. Without it
-        // the engine's own first request closes the gate that permits it and the pass deadlocks —
-        // silently, since a closed gate is indistinguishable from a busy user.
-        withContext(PrefetchMarker) {
-            val pass = Pass(accountId)
-
-            if (!pass.warmConversationList()) return@withContext
-            val eligible = pass.eligible()
-            if (!pass.warmMessages(eligible)) return@withContext
-            pass.warmAncillary()
-            pass.prune(eligible)
+        if (trippedForAccountId == accountId.value) {
+            publish(accountId, PrefetchRunState.Stopped)
+            return
         }
+
+        try {
+            // Everything below is marked, so none of these requests count as user activity. Without
+            // it the engine's own first request closes the gate that permits it and the pass
+            // deadlocks — silently, since a closed gate is indistinguishable from a busy user.
+            withContext(PrefetchMarker) {
+                val pass = Pass(accountId)
+
+                if (!pass.warmConversationList()) return@withContext
+                val eligible = pass.eligible()
+                if (!pass.warmMessages(eligible)) return@withContext
+                pass.warmAncillary()
+                pass.prune(eligible)
+            }
+        } finally {
+            // Runs on cancellation too — the gate closing mid-pass is the ordinary way a pass ends,
+            // and leaving the last in-progress state published would report work that has stopped.
+            publish(
+                accountId,
+                if (trippedForAccountId == accountId.value) {
+                    PrefetchRunState.Stopped
+                } else {
+                    PrefetchRunState.Idle
+                },
+            )
+        }
+    }
+
+    /**
+     * Clears everything that would make the next pass a no-op, so a manual run is a genuine retry.
+     *
+     * Two pieces of state survive a pass and both are otherwise permanent for the life of the
+     * process: the breaker, which makes a briefly-unreachable server indistinguishable from one that
+     * is down for good, and the once-per-process reference-data mark. Clearing only the first leaves
+     * "Warm now" unable to recover the very thing it advertises. Reached only from the manual run, so
+     * a retry is always a deliberate user action rather than an automatic loop against a failing
+     * server.
+     */
+    fun resetForManualRun(accountId: AccountId) {
+        if (trippedForAccountId == accountId.value) {
+            trippedForAccountId = null
+            publish(accountId, PrefetchRunState.Idle)
+        }
+        ancillaryWarmed.remove(accountId.value)
     }
 
     /**
@@ -106,6 +154,7 @@ class PrefetchEngine(
 
         /** Returns false when the pass should stop because the breaker tripped. */
         suspend fun warmConversationList(): Boolean {
+            publish(accountId, PrefetchRunState.RefreshingList)
             var cursor: String? = null
             var page = 0
             do {
@@ -119,6 +168,10 @@ class PrefetchEngine(
                         (result as Result.Success).data
                     }
                     is StepOutcome.RateLimited -> {
+                        publish(
+                            accountId,
+                            PrefetchRunState.RateLimited(outcome.backoff.inWholeMilliseconds),
+                        )
                         delay(outcome.backoff)
                         return true // Stop paging; messages will still be warmed on stale data.
                     }
@@ -153,7 +206,11 @@ class PrefetchEngine(
                 attrs = mapOf("eligible" to eligible.size.toString(), "stale" to work.size.toString()),
             ) { "warming messages" }
 
-            for (candidate in work) {
+            work.forEachIndexed { index, candidate ->
+                publish(
+                    accountId,
+                    PrefetchRunState.WarmingMessages(completed = index, total = work.size),
+                )
                 val start = timeSource.markNow()
                 val result = messageRepository.refreshMessages(
                     candidate.conversationId,
@@ -174,8 +231,13 @@ class PrefetchEngine(
                             "Prefetch",
                             attrs = mapOf("backoffMs" to outcome.backoff.inWholeMilliseconds.toString()),
                         ) { "rate limited" }
+                        publish(
+                            accountId,
+                            PrefetchRunState.RateLimited(outcome.backoff.inWholeMilliseconds),
+                        )
                         delay(outcome.backoff)
-                        continue
+                        // This candidate was not warmed; the next pass will find it stale again.
+                        return@forEachIndexed
                     }
                     StepOutcome.Failed -> if (tripBreaker()) return false
                 }
@@ -191,10 +253,20 @@ class PrefetchEngine(
          * those would be most of the prefetcher's traffic.
          */
         suspend fun warmAncillary() {
-            if (!ancillaryWarmed.add(accountId.value)) return
-            runStep { configRepository.fetchEndpoints() }
-            runStep { configRepository.fetchModels() }
-            runStep { agentRepository.getAgents() }
+            if (accountId.value in ancillaryWarmed) return
+            publish(accountId, PrefetchRunState.WarmingReferenceData)
+
+            // Marked only once all three have actually landed. Marking up front makes "warmed once
+            // per process" mean "attempted once per process": a pass cancelled here — which is the
+            // ordinary way a pass ends — or any failed request would retire the stage for the life
+            // of the process, leaving the model picker and agent list permanently cold on a device
+            // whose readout says everything is up to date.
+            val outcomes = listOf(
+                runStep { configRepository.fetchEndpoints() },
+                runStep { configRepository.fetchModels() },
+                runStep { agentRepository.getAgents() },
+            )
+            if (outcomes.all { it }) ancillaryWarmed.add(accountId.value)
         }
 
         /**
@@ -211,6 +283,7 @@ class PrefetchEngine(
             )
             val prunable = stale.filterNot { it in protectedIds }
             if (prunable.isEmpty()) return@withContext
+            publish(accountId, PrefetchRunState.Pruning)
 
             // Chunked because SQLite binds at most ~999 variables per statement, and the first prune
             // on a long-lived install is exactly where that limit is met.
@@ -264,16 +337,28 @@ class PrefetchEngine(
             }
         }
 
-        private suspend fun runStep(block: suspend () -> Result<*>) {
+        /** Returns whether the step landed, so the caller can decide what to record. */
+        private suspend fun runStep(block: suspend () -> Result<*>): Boolean {
             val start = timeSource.markNow()
             val result = block()
             val elapsed = start.elapsedNow()
-            when (val outcome = outcomeOf(result)) {
-                is StepOutcome.Ok -> consecutiveFailures = 0
-                is StepOutcome.RateLimited -> delay(outcome.backoff)
-                StepOutcome.Failed -> tripBreaker()
+            val ok = when (val outcome = outcomeOf(result)) {
+                is StepOutcome.Ok -> {
+                    consecutiveFailures = 0
+                    true
+                }
+                is StepOutcome.RateLimited -> {
+                    publish(accountId, PrefetchRunState.RateLimited(outcome.backoff.inWholeMilliseconds))
+                    delay(outcome.backoff)
+                    false
+                }
+                StepOutcome.Failed -> {
+                    tripBreaker()
+                    false
+                }
             }
             delay(paceAfter(elapsed))
+            return ok
         }
 
         /** Counts a failure; returns true once the pass should stop. */

@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.feature.settings.platform.LogFileSaver
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
+import com.garfiec.librechat.feature.settings.viewmodel.PrefetchActivityViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.SettingsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -53,6 +54,7 @@ fun DataSettingsScreen(
     onNavigateToArchive: () -> Unit,
     onNavigateToSharedLinks: () -> Unit,
     onNavigateToArtifactShortcuts: () -> Unit,
+    onNavigateToPrefetchActivity: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -78,6 +80,7 @@ fun DataSettingsScreen(
             onNavigateToArchive = onNavigateToArchive,
             onNavigateToSharedLinks = onNavigateToSharedLinks,
             onNavigateToArtifactShortcuts = onNavigateToArtifactShortcuts,
+            onNavigateToPrefetchActivity = onNavigateToPrefetchActivity,
             snackbarHostState = snackbarHostState,
             modifier = Modifier
                 .fillMaxSize()
@@ -95,11 +98,15 @@ fun DataSettingsContent(
     onNavigateToArchive: () -> Unit,
     onNavigateToSharedLinks: () -> Unit,
     onNavigateToArtifactShortcuts: () -> Unit,
+    onNavigateToPrefetchActivity: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: SettingsViewModel = koinViewModel(),
+    prefetchViewModel: PrefetchActivityViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val prefetchState by prefetchViewModel.uiState.collectAsStateWithLifecycle()
+    val timeReference = rememberTickingTimeReference()
 
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showRevokeKeysDialog by remember { mutableStateOf(false) }
@@ -205,6 +212,11 @@ fun DataSettingsContent(
                     onPrefetchEnabledChange = viewModel::setPrefetchEnabled,
                     onPrefetchOnMeteredChange = viewModel::setPrefetchOnMeteredEnabled,
                     onPrefetchAttachmentsChange = viewModel::setPrefetchAttachmentsEnabled,
+                    status = prefetchState.status,
+                    warmedCount = prefetchState.warmedCount,
+                    eligibleCount = prefetchState.eligibleCount,
+                    lastRunLabel = prefetchState.lastWarmedAt?.relativeLabel(timeReference),
+                    onActivityClick = onNavigateToPrefetchActivity,
                 )
             }
 

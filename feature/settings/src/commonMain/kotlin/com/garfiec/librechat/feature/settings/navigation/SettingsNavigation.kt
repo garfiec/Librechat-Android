@@ -66,6 +66,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             onNavigateToArchive = onNavigateToArchive,
             onNavigateToSharedLinks = { onNavigate(SharedLinks) },
             onNavigateToArtifactShortcuts = { onNavigate(ArtifactShortcuts) },
+            onNavigateToPrefetchActivity = { onNavigate(PrefetchActivity) },
             onNavigateToPresets = { onNavigate(PresetManager) },
             onNavigateToApiKeys = { onNavigate(ApiKeys) },
             onNavigateToFavorites = { onNavigate(Favorites) },
@@ -100,6 +101,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             onNavigateToArchive = onNavigateToArchive,
             onNavigateToSharedLinks = { onNavigate(SharedLinks) },
             onNavigateToArtifactShortcuts = { onNavigate(ArtifactShortcuts) },
+            onNavigateToPrefetchActivity = { onNavigate(PrefetchActivity) },
         )
     }
     entry<SharedLinks> {
@@ -140,6 +142,7 @@ fun EntryProviderScope<NavKey>.settingsEntries(
     favoritesEntry(onBack = onBack)
     roleSkillsAdminEntry(onBack = onBack)
     artifactShortcutsEntry(onBack = onBack)
+    prefetchActivityEntry(onBack = onBack)
 }
 
 val settingsSerializersModule = SerializersModule {
@@ -158,5 +161,6 @@ val settingsSerializersModule = SerializersModule {
         subclass(Favorites::class, Favorites.serializer())
         subclass(RoleSkillsAdmin::class, RoleSkillsAdmin.serializer())
         subclass(ArtifactShortcuts::class, ArtifactShortcuts.serializer())
+        subclass(PrefetchActivity::class, PrefetchActivity.serializer())
     }
 }

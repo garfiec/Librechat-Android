@@ -26,6 +26,7 @@ import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.currentTime
@@ -118,7 +119,6 @@ class PrefetchEngineTest {
 
         engine().run(account)
 
-        // request time + 5x request time before the next one starts.
         assertThat(callTimes).hasSize(2)
         assertThat(callTimes[1] - callTimes[0])
             .isEqualTo(REQUEST_MILLIS + REQUEST_MILLIS * PrefetchEngine.PACE_FACTOR)
@@ -323,6 +323,170 @@ class PrefetchEngineTest {
         engine().run(account)
 
         coVerify(exactly = 1) { messageDao.deleteForConversations(account.value, listOf("genuinely-stale")) }
+    }
+
+    // --- Run state, which is what the settings readout reports ---
+
+    @Test
+    fun `run state reports progress through the warm set and settles back to idle`() = runTest {
+        stubRecent("a", "b")
+        val observed = mutableListOf<PrefetchRunState>()
+        val engine = engine()
+        coEvery { messageRepository.refreshMessages(any(), any()) } coAnswers {
+            observed += engine.runState.value.state
+            Result.Success(emptyList())
+        }
+
+        engine.run(account)
+
+        assertThat(observed).containsExactly(
+            PrefetchRunState.WarmingMessages(completed = 0, total = 2),
+            PrefetchRunState.WarmingMessages(completed = 1, total = 2),
+        ).inOrder()
+        assertThat(engine.runState.value.state).isEqualTo(PrefetchRunState.Idle)
+    }
+
+    /**
+     * A pass with nothing stale must be reported as idle, not as working. The two are the states the
+     * readout exists to tell apart, and the list refresh runs either way.
+     */
+    @Test
+    fun `a pass with nothing stale ends idle`() = runTest {
+        coEvery { conversationDao.recentForPrefetch(any(), any()) } returns emptyList()
+        val engine = engine()
+
+        engine.run(account)
+
+        assertThat(engine.runState.value.state).isEqualTo(PrefetchRunState.Idle)
+    }
+
+    @Test
+    fun `the breaker tripping is published and outlives the pass`() = runTest {
+        stubRecent("a", "b", "c", "d")
+        coEvery { messageRepository.refreshMessages(any(), any()) } returns
+            Result.Error(exception = ApiException(statusCode = 500, message = "boom"))
+        val engine = engine()
+
+        engine.run(account)
+        assertThat(engine.runState.value.state).isEqualTo(PrefetchRunState.Stopped)
+
+        // Still stopped on the next attempt: the breaker is what makes this state worth surfacing,
+        // since nothing clears it on its own.
+        engine.run(account)
+        assertThat(engine.runState.value.state).isEqualTo(PrefetchRunState.Stopped)
+    }
+
+    @Test
+    fun `a manual reset lets a later pass run again`() = runTest {
+        stubRecent("a", "b", "c")
+        coEvery { messageRepository.refreshMessages(any(), any()) } returns
+            Result.Error(exception = ApiException(statusCode = 500, message = "boom"))
+        val engine = engine()
+        engine.run(account)
+
+        engine.resetForManualRun(account)
+        assertThat(engine.runState.value.state).isEqualTo(PrefetchRunState.Idle)
+
+        coEvery { messageRepository.refreshMessages(any(), any()) } returns Result.Success(emptyList())
+        engine.run(account)
+
+        coVerify(atLeast = 1) { watermarkDao.upsert(any()) }
+    }
+
+    /** Resetting another account's state must not revive this one. */
+    @Test
+    fun `a manual reset is scoped to one account`() = runTest {
+        stubRecent("a", "b", "c")
+        coEvery { messageRepository.refreshMessages(any(), any()) } returns
+            Result.Error(exception = ApiException(statusCode = 500, message = "boom"))
+        val engine = engine()
+        engine.run(account)
+
+        engine.resetForManualRun(AccountId("srv:someone-else"))
+
+        assertThat(engine.runState.value.state).isEqualTo(PrefetchRunState.Stopped)
+    }
+
+    /**
+     * The run state is read by a settings screen that outlives any one session, so it has to say
+     * whose state it is. Without the tag, an account whose server failed hands its verdict to
+     * whichever account is active next.
+     */
+    @Test
+    fun `run state is tagged with the account it describes`() = runTest {
+        stubRecent("a", "b", "c", "d")
+        coEvery { messageRepository.refreshMessages(any(), any()) } returns
+            Result.Error(exception = ApiException(statusCode = 500, message = "boom"))
+        val engine = engine()
+
+        engine.run(account)
+
+        assertThat(engine.runState.value.accountId).isEqualTo(account.value)
+        assertThat(engine.runState.value.stateFor(account.value)).isEqualTo(PrefetchRunState.Stopped)
+        // Anyone else sees Idle, not a failure report about an account that never failed.
+        assertThat(engine.runState.value.stateFor("srv:someone-else")).isEqualTo(PrefetchRunState.Idle)
+    }
+
+    /**
+     * Marking the stage warmed before its requests land turns "once per process" into "attempted
+     * once per process": the gate closing mid-stage is the ordinary way a pass ends, and it would
+     * retire reference data for the life of the process.
+     */
+    @Test
+    fun `reference data is only marked warmed once its requests land`() = runTest {
+        stubRecent()
+        coEvery { configRepository.fetchEndpoints() } returns
+            Result.Error(exception = ApiException(statusCode = 500, message = "boom"))
+        val engine = engine()
+
+        engine.run(account)
+        coEvery { configRepository.fetchEndpoints() } returns Result.Success(emptyMap())
+        engine.run(account)
+
+        // Twice: the failed attempt did not retire the stage.
+        coVerify(exactly = 2) { configRepository.fetchEndpoints() }
+    }
+
+    @Test
+    fun `reference data is warmed once per account when it succeeds`() = runTest {
+        stubRecent()
+        val engine = engine()
+
+        engine.run(account)
+        engine.run(account)
+
+        coVerify(exactly = 1) { configRepository.fetchEndpoints() }
+    }
+
+    /** "Warm now" advertises a retry, so it has to clear the once-per-process mark too. */
+    @Test
+    fun `a manual reset re-arms the reference data warm`() = runTest {
+        stubRecent()
+        val engine = engine()
+        engine.run(account)
+
+        engine.resetForManualRun(account)
+        engine.run(account)
+
+        coVerify(exactly = 2) { configRepository.fetchEndpoints() }
+    }
+
+    /** The list refresh publishes its own rate limit; unpublished, the pass would read as "Working". */
+    @Test
+    fun `a rate limit during the list refresh is published`() = runTest {
+        val observed = mutableListOf<PrefetchRunState>()
+        coEvery { conversationRepository.loadNextPage(any(), any(), any(), any(), any(), any()) } coAnswers {
+            rateLimited(retryAfterSeconds = 5)
+        }
+        val engine = engine()
+        val job = launch {
+            engine.runState.collect { observed += it.state }
+        }
+
+        engine.run(account)
+        job.cancel()
+
+        assertThat(observed).contains(PrefetchRunState.RateLimited(backoffMillis = 5_000))
     }
 
     private companion object {
