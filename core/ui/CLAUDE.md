@@ -22,7 +22,8 @@ Material 3 theme and shared Compose components used across all feature modules. 
 - `SearchBar` - Reusable search input field.
 - `BottomSheetScaffold` - Wrapper for modal bottom sheets.
 - `PullToRefresh` - Pull-to-refresh wrapper.
-- `BannerDisplay` - Dismissible server banner cards (info/warning/error types).
+- `BannerDisplay` - The server banner. The server sends at most one and only ever types it
+  `banner`, so there is a single visual treatment; a `persistable` banner hides the dismiss control.
 
 ### Markdown
 - core/ui does NOT provide a shared markdown renderer. Features render markdown

@@ -2,6 +2,8 @@
 <resources>
     <!-- Accessibility label for the bottom-sheet drag handle -->
     <string name="cd_drag_handle">Drag handle</string>
+    <!-- Accessibility label for the close button on a server banner -->
+    <string name="banner_dismiss">Dismiss banner</string>
     <!-- Inline indicator for a PDF page that failed to render -->
     <string name="pdf_page_failed">Couldn't render this page</string>
     <!-- Custom per-server request headers (issue #287); shared by the pre-login

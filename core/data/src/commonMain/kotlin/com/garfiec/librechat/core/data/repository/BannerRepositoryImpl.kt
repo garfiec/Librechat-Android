@@ -9,6 +9,6 @@ class BannerRepositoryImpl(
     private val bannerApi: BannerApi,
 ) : BannerRepository {
 
-    override suspend fun getBanners(): Result<List<Banner>> =
-        safeApiCall { bannerApi.getBanners() }
+    override suspend fun getBanner(): Result<Banner?> =
+        safeApiCall { bannerApi.getBanner() }
 }

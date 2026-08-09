@@ -63,7 +63,8 @@ class NavHostViewModel(
     private val accountSwitcher: AccountSwitcher,
 ) : ViewModel() {
 
-    private val bannerStateHolder = BannerStateHolder(bannerRepository, viewModelScope)
+    private val bannerStateHolder =
+        BannerStateHolder(bannerRepository, serverUrlProvider, viewModelScope)
     private val versionCheckStateHolder =
         VersionCheckStateHolder(configRepository, settingsDataStore, serverUrlProvider, viewModelScope)
 
@@ -80,8 +81,7 @@ class NavHostViewModel(
 
     val versionMismatch: StateFlow<VersionMismatchState?> = versionCheckStateHolder.versionMismatch
 
-    val banners: StateFlow<List<Banner>> = bannerStateHolder.banners
-    val dismissedBannerIds: StateFlow<Set<String>> = bannerStateHolder.dismissedBannerIds
+    val banner: StateFlow<Banner?> = bannerStateHolder.banner
 
     val sessionExpired: SharedFlow<SessionEndReason> = tokenManager.sessionExpiredFlow
 
@@ -189,7 +189,7 @@ class NavHostViewModel(
                 Logger.w(e) { "Failed to check auth state on init" }
             }
         }
-        bannerStateHolder.fetchBanners()
+        bannerStateHolder.fetchBanner()
         // A dead session has to lower the flag, not just navigate: the 401 path produces no
         // [AccountTransition.Ended], so without this the flag stays true for the rest of the process
         // and the first-frame routing after an Activity recreation still believes the user is signed in.
@@ -230,7 +230,10 @@ class NavHostViewModel(
                     // The switch path never runs the login-side session machinery
                     // (AuthRepositoryImpl fires these on sign-in; logout/re-auth via onAuthComplete)
                     // so the incoming account's session state is fetched here.
-                    bannerStateHolder.fetchBanners()
+                    // Drop the outgoing account's banner before fetching: until this request
+                    // lands, the previous server's banner would render over the new one.
+                    bannerStateHolder.clearForAccountChange()
+                    bannerStateHolder.fetchBanner()
                     versionCheckStateHolder.checkBackendVersion()
                     sessionTaskRunner.runAll()
                 } else if (transition is AccountTransition.Ended) {
@@ -238,6 +241,9 @@ class NavHostViewModel(
                     // first-frame routing is correct. Nav-to-auth itself rides the session-expired
                     // signal emitted by the teardown.
                     _isLoggedIn.value = false
+                    // The banner belongs to the server just signed out of; the auth screens only
+                    // hide it, so without this it reappears the moment the next login navigates.
+                    bannerStateHolder.clearForAccountChange()
                 }
             }
         }
@@ -314,7 +320,7 @@ class NavHostViewModel(
         // login-from-logged-out, so that crossing is wired explicitly there. Session tasks
         // (role fetch, tag refresh, favorites sync) already fired from AuthRepositoryImpl on the
         // preceding login/OAuth/2FA success, so we don't re-run them here.
-        bannerStateHolder.fetchBanners()
+        bannerStateHolder.fetchBanner()
         versionCheckStateHolder.checkBackendVersion()
     }
 

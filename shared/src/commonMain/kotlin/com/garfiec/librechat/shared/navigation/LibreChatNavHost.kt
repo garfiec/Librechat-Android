@@ -13,7 +13,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +32,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -363,8 +361,7 @@ fun PhoneLayout(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
-    val banners by navHostViewModel.banners.collectAsStateWithLifecycle()
-    val dismissedBannerIds by navHostViewModel.dismissedBannerIds.collectAsStateWithLifecycle()
+    val banner by navHostViewModel.banner.collectAsStateWithLifecycle()
 
     // Reset sidebar mode to Conversations when the drawer closes
     LaunchedEffect(drawerState.isClosed) {
@@ -433,12 +430,10 @@ fun PhoneLayout(
         },
     ) {
         Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            if (!navigator.isInAuthFlow && banners.isNotEmpty()) {
+            if (!navigator.isInAuthFlow) {
                 BannerDisplay(
-                    banners = banners,
-                    dismissedIds = dismissedBannerIds,
+                    banner = banner,
                     onDismiss = navHostViewModel::dismissBanner,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
             MainNavDisplay(
