@@ -24,8 +24,11 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import kotlin.time.AbstractLongTimeSource
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 
 /**
  * The runner's whole job is to wait on someone else's pass without starting a second one, and every
@@ -51,7 +54,7 @@ class PrefetchBackgroundRunnerTest {
         support = BackgroundWorkSupport.SUPPORTED,
     )
 
-    private fun TestScope.runner(): PrefetchBackgroundRunner {
+    private fun TestScope.runner(hasSession: Boolean = true): PrefetchBackgroundRunner {
         every { controller.passInProgress } returns passInProgress
         // A relaxed mock hands back an Object for this, which blows up on the Int read.
         every { controller.completedPasses } returns completedPasses
@@ -63,7 +66,7 @@ class PrefetchBackgroundRunnerTest {
         val session = mockk<Session>()
         every { session.accountId } returns account
         val sessionManager = mockk<SessionManager>()
-        every { sessionManager.current } returns MutableStateFlow(session)
+        every { sessionManager.current } returns MutableStateFlow(session.takeIf { hasSession })
 
         return PrefetchBackgroundRunner(
             sessionManager = sessionManager,
@@ -72,10 +75,19 @@ class PrefetchBackgroundRunnerTest {
             deferredWorkWindow = window,
             settingsDataStore = settingsDataStore,
             nowMillis = { currentTimeMillis() },
+            // Must read the same clock the timeouts do. Left on the default monotonic source the
+            // budget is measured in wall time while every wait is measured in virtual time, so the
+            // deadline never appears to advance and no budget assertion here means anything.
+            timeSource = virtualTimeSource(),
         )
     }
 
     private fun TestScope.currentTimeMillis(): Long = testScheduler.currentTime
+
+    private fun TestScope.virtualTimeSource(): TimeSource =
+        object : AbstractLongTimeSource(DurationUnit.MILLISECONDS) {
+            override fun read(): Long = testScheduler.currentTime
+        }
 
     @Test
     fun `prefetching switched off is reported without touching the controller`() = runTest {
@@ -173,8 +185,45 @@ class PrefetchBackgroundRunnerTest {
         assertThat(window.isOpen.first()).isFalse()
     }
 
+    /**
+     * The handshake is spent inside the caller's budget, not before it.
+     *
+     * An iOS refresh task gets roughly 30 seconds in total, and the start graces alone are 10 of
+     * them — a budget armed only once a pass begins would let this run more than three times as long
+     * as the caller allowed, and overrunning there is a kill rather than a truncation.
+     */
+    @Test
+    fun `a budget shorter than the start handshake still bounds the run`() = runTest {
+        val runner = runner()
+        val startedAt = testScheduler.currentTime
+
+        val result = async { runner.runOnce(SHORT_BUDGET) }
+        advanceUntilIdle()
+
+        assertThat(result.await()).isEqualTo(PrefetchRunOutcome.CONSTRAINTS_UNMET)
+        assertThat(testScheduler.currentTime - startedAt)
+            .isAtMost(SHORT_BUDGET.inWholeMilliseconds)
+    }
+
+    /** Same rule for the session wait, which is the longer of the two and runs first. */
+    @Test
+    fun `waiting for a session cannot outlast the budget`() = runTest {
+        val runner = runner(hasSession = false)
+        val startedAt = testScheduler.currentTime
+
+        val result = async { runner.runOnce(SHORT_BUDGET) }
+        advanceUntilIdle()
+
+        assertThat(result.await()).isEqualTo(PrefetchRunOutcome.NO_SESSION)
+        assertThat(testScheduler.currentTime - startedAt)
+            .isAtMost(SHORT_BUDGET.inWholeMilliseconds)
+    }
+
     private companion object {
         val BUDGET = 2.minutes
+
+        /** Shorter than SESSION_WAIT and than either start grace, so both have to be clamped. */
+        val SHORT_BUDGET = 3.seconds
     }
 
     /**
