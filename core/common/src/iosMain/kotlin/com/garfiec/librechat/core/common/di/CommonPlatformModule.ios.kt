@@ -18,17 +18,11 @@ actual val commonPlatformModule: Module = module {
     single<NetworkConditionObserver> { IosNetworkConditionObserver() }
     single<PowerStateObserver> { IosPowerStateObserver() }
     single<AppInfo> { IosAppInfo() }
-    // Deliberately still UNSUPPORTED even though iOS now runs background passes, because what this
-    // flag really selects is whether the window may open with *nothing holding the process up*.
-    // Latching it here would leave no bound on when a pass could start: the app could be minutes into
-    // being backgrounded, begin a pass off the back of a gate that reopened on its own, and be
-    // suspended mid-request with no assertion ever taken — the single sample on the backgrounding
-    // edge cannot cover a pass that had not started yet.
-    //
-    // So on iOS every off-screen pass runs inside an explicit background run instead, and both
-    // openers pair one with something keeping the process alive: the scheduler's runner with its
-    // BGTask, and PrefetchBackgroundTasks.swift with a UIApplication assertion. Releasing either
-    // closes the window, which is what cancels the pass rather than leaving it to be frozen.
+    // UNSUPPORTED even though iOS runs background passes: latching the window here puts no bound on
+    // when a pass may start, so one could begin minutes into backgrounding off a gate that reopened
+    // on its own and be suspended mid-request with nothing holding the process up. Every off-screen
+    // pass instead runs inside an explicit background run paired with something keeping the process
+    // alive — the scheduler's BGTask, or the assertion in PrefetchBackgroundTasks.swift.
     single { BackgroundWorkSupport.UNSUPPORTED }
     single { DeferredWorkWindow(foregroundSignal = get(), support = get()) }
 }

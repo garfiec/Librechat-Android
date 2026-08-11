@@ -90,11 +90,9 @@ class PrefetchBackgroundRunner(
     private suspend fun runPass(budget: Duration): PrefetchRunOutcome {
         if (!settingsDataStore.prefetchEnabled.first()) return PrefetchRunOutcome.DISABLED
 
-        // One deadline for the whole call, armed before any waiting at all. Not one per attempt —
-        // the retry below would otherwise re-arm the full budget — and deliberately covering the
-        // handshake, which can spend SESSION_WAIT plus two PASS_START_GRACEs before a pass even
-        // begins. On a budget measured in minutes that hardly shows; on the ~20 seconds an iOS
-        // refresh task gets, it is the whole allowance, and overrunning there is not a soft failure.
+        // One deadline for the whole call, armed before any waiting: not one per attempt (the retry
+        // below would re-arm the full budget), and covering the handshake, which can spend
+        // SESSION_WAIT plus two PASS_START_GRACEs — the whole allowance of an iOS refresh task.
         val deadline = timeSource.markNow() + budget
         deferredWorkWindow.beginBackgroundRun()
         try {
@@ -142,9 +140,8 @@ class PrefetchBackgroundRunner(
     }
 
     /**
-     * How long is left, never more than [cap] and never negative — a negative timeout would make
-     * `withTimeoutOrNull` report failure instantly and, worse, do so indistinguishably from the
-     * condition it was waiting on genuinely not being met.
+     * How long is left, never more than [cap] and never negative — a negative timeout makes
+     * `withTimeoutOrNull` fail instantly, indistinguishably from the condition genuinely not being met.
      */
     private fun TimeMark.remainingCappedTo(cap: Duration): Duration =
         minOf(cap, -elapsedNow()).coerceAtLeast(Duration.ZERO)

@@ -65,10 +65,9 @@ object IosKoinAccessor {
     }
 
     /**
-     * Serializes background runs. iOS may launch both task types into the same process, and two
-     * runners would interleave badly: the second's start handshake latches onto the pass the first is
-     * already waiting on, waits it out, and records that result as its own — overwriting the first's
-     * entry in the one figure on the readout that is recorded rather than derived.
+     * Serializes background runs. iOS may launch both task types into the same process, and the
+     * second's start handshake would latch onto the pass the first is waiting on, wait it out, and
+     * record that result as its own — overwriting the first's entry in the readout.
      */
     private val backgroundRunLock = Mutex()
 
@@ -77,9 +76,8 @@ object IosKoinAccessor {
      * it reached a verdict — which is what the handler reports to `setTaskCompleted`.
      *
      * iOS drops a task request once it launches the task, so something has to queue the next one or
-     * the feature fires exactly once. The coordinator cannot be that something on its own: it acts
-     * only when its decision *changes*, so in a process that was already running with prefetching on
-     * it stays silent.
+     * the feature fires exactly once — and the coordinator cannot: it acts only when its decision
+     * *changes*, so in a process already running with prefetching on it stays silent.
      */
     @Throws(Exception::class)
     suspend fun runBackgroundPrefetch(budgetSeconds: Double): Boolean {
@@ -92,10 +90,9 @@ object IosKoinAccessor {
                 outcome = koin.get<PrefetchBackgroundRunner>().runOnce(budgetSeconds.seconds)
                 return outcome != PrefetchRunOutcome.INTERRUPTED
             } finally {
-                // On the way out however we leave, and uncancellable. Expiration cancels this
-                // coroutine, and by then iOS has already consumed the request that launched us:
-                // skipping the re-queue on that path is what would take the feature off the air for
-                // good rather than merely ending this run early.
+                // On the way out however we leave, and uncancellable: expiration cancels this
+                // coroutine, and by then iOS has already consumed the request that launched us —
+                // skipping the re-queue there takes the feature off the air for good.
                 withContext(NonCancellable) { rescheduleAfter(outcome) }
             }
         } finally {
@@ -105,13 +102,9 @@ object IosKoinAccessor {
 
     /**
      * Queues the next occurrence, unless this run found the conditions the coordinator schedules on
-     * to be unmet.
-     *
-     * Deferring to the runner's own verdict rather than re-reading the settings keeps one rule
-     * instead of a second copy that can drift from [PrefetchScheduleCoordinator]'s. Re-queueing on
-     * either verdict would resurrect work the coordinator has just cancelled — and because
-     * `prefetchEnabled` is global rather than account-scoped, nothing would ever cancel it again, so
-     * a signed-out device would keep waking every few hours indefinitely.
+     * to be unmet. Re-queueing on either verdict resurrects work the coordinator has just cancelled —
+     * and `prefetchEnabled` is global rather than account-scoped, so nothing would ever cancel it
+     * again and a signed-out device would keep waking every few hours indefinitely.
      */
     private suspend fun rescheduleAfter(outcome: PrefetchRunOutcome) {
         if (outcome == PrefetchRunOutcome.DISABLED || outcome == PrefetchRunOutcome.NO_SESSION) return
@@ -121,9 +114,7 @@ object IosKoinAccessor {
 
     /**
      * Whether a pass is running right now. Read as the app backgrounds, to decide whether taking a
-     * background task assertion is worth it — taken unconditionally it would hold the whole app alive
-     * for half a minute on every backgrounding, including for users with prefetching switched off,
-     * and would keep an in-flight SSE stream on the `NWConnection` transport alive with it.
+     * background task assertion is worth it — see `PrefetchBackgroundTasks.holdIfPassRunning`.
      */
     @Throws(Exception::class)
     fun isPrefetchPassInProgress(): Boolean = koin.get<PrefetchController>().passInProgress.value
@@ -131,10 +122,9 @@ object IosKoinAccessor {
     /**
      * Returns once no pass is running, so the caller can release its background task assertion.
      *
-     * The settle delay is load-bearing. [PrefetchController] runs queued triggers through a single
-     * collector, so the in-progress flag drops to false *between* two passes — a caller that released
-     * on the first false would drop its assertion in that gap and let iOS suspend the app a second
-     * into the run the user had just asked for.
+     * The settle delay is load-bearing: [PrefetchController] runs queued triggers through a single
+     * collector, so the in-progress flag drops to false *between* two passes, and releasing on the
+     * first false drops the assertion in that gap and lets iOS suspend the app mid-run.
      */
     @Throws(Exception::class)
     suspend fun awaitPrefetchPassEnd() {

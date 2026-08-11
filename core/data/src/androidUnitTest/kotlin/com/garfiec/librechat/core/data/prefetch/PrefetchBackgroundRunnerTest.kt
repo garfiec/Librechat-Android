@@ -75,9 +75,8 @@ class PrefetchBackgroundRunnerTest {
             deferredWorkWindow = window,
             settingsDataStore = settingsDataStore,
             nowMillis = { currentTimeMillis() },
-            // Must read the same clock the timeouts do. Left on the default monotonic source the
-            // budget is measured in wall time while every wait is measured in virtual time, so the
-            // deadline never appears to advance and no budget assertion here means anything.
+            // Must read the same clock the timeouts do: on the default monotonic source the budget
+            // runs on wall time while every wait runs on virtual time, so no budget assertion holds.
             timeSource = virtualTimeSource(),
         )
     }
@@ -186,11 +185,8 @@ class PrefetchBackgroundRunnerTest {
     }
 
     /**
-     * The handshake is spent inside the caller's budget, not before it.
-     *
-     * An iOS refresh task gets roughly 30 seconds in total, and the start graces alone are 10 of
-     * them — a budget armed only once a pass begins would let this run more than three times as long
-     * as the caller allowed, and overrunning there is a kill rather than a truncation.
+     * An iOS refresh task's whole allowance is ~30 seconds and the start graces alone are 10 of them,
+     * so a budget armed only once a pass begins overruns by 3x — a kill, not a truncation.
      */
     @Test
     fun `a budget shorter than the start handshake still bounds the run`() = runTest {
@@ -205,7 +201,6 @@ class PrefetchBackgroundRunnerTest {
             .isAtMost(SHORT_BUDGET.inWholeMilliseconds)
     }
 
-    /** Same rule for the session wait, which is the longer of the two and runs first. */
     @Test
     fun `waiting for a session cannot outlast the budget`() = runTest {
         val runner = runner(hasSession = false)

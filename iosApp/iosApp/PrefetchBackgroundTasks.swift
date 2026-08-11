@@ -13,9 +13,8 @@ enum PrefetchBackgroundTasks {
     /// Installs a launch handler per identifier.
     ///
     /// Must be called from `application(_:didFinishLaunchingWithOptions:)` — iOS refuses a
-    /// registration made after launch completes. It touches only Kotlin constants, never Koin, so it
-    /// does not care whether the graph has been started yet; each handler resolves Koin when it fires,
-    /// by which point it certainly has.
+    /// registration made after launch completes. Touches only Kotlin constants, never Koin; each
+    /// handler resolves Koin when it fires.
     static func register() {
         register(
             identifier: IosPrefetchTasks.shared.REFRESH_ID,
@@ -35,29 +34,24 @@ enum PrefetchBackgroundTasks {
             run(task, budgetSeconds: budgetSeconds)
         }
         guard !registered else { return }
-        // The one leg of the identifier contract that can be checked from here. iOS refuses an
-        // identifier missing from BGTaskSchedulerPermittedIdentifiers and refuses it quietly: the
-        // handler is simply never called, and nothing else in the app would ever look wrong.
         assertionFailure("BGTaskScheduler refused \(identifier) — is it in BGTaskSchedulerPermittedIdentifiers?")
         NSLog("[W/Prefetch] BGTaskScheduler refused registration for \(identifier)")
     }
 
     private static func run(_ task: BGTask, budgetSeconds: Double) {
-        // The holder is installed before the work starts so an expiration arriving immediately still
-        // finds something to cancel. SKIE wraps bridged suspend calls in `withTaskCancellationHandler`,
-        // so cancelling the Swift task does reach the Kotlin coroutine — but only through a retained
-        // handle, and discarding it would quietly make expiration a no-op.
+        // Installed before the work starts so an immediate expiration still finds something to cancel.
+        // SKIE wraps bridged suspend calls in `withTaskCancellationHandler`, so cancelling the Swift
+        // task does reach the Kotlin coroutine — but only through a retained handle.
         let holder = CancellableWork()
         task.expirationHandler = { holder.cancel() }
-        // On the main actor for two reasons: a launch handler registered with a nil queue runs on a
-        // background queue, and startIosKoin's idempotence guard is not thread-safe; and it serializes
-        // this against the app's own init(), which is the other caller.
+        // Main actor: a handler registered with a nil queue runs on a background queue, startIosKoin's
+        // idempotence guard is not thread-safe, and this serializes against the app's own init().
         holder.work = Task { @MainActor in
             // A background-task launch connects no scene, so init() cannot be assumed to have run —
-            // and if Koin were not up, every call below would throw into `try?` and report nothing.
+            // and with Koin down every call below would throw into `try?` and report nothing.
             IosKoinHelperKt.startIosKoin()
-            // `.boolValue` because a bridged suspend function returns its primitive boxed, and a
-            // failure to reach Kotlin at all reads as "did not finish", which is the honest report.
+            // `.boolValue`: a bridged suspend function returns its primitive boxed. Failing to reach
+            // Kotlin at all reads as "did not finish".
             let reachedVerdict = (try? await IosKoinAccessor.shared
                 .runBackgroundPrefetch(budgetSeconds: budgetSeconds))?.boolValue ?? false
             // Non-negotiable: iOS terminates the app for a task that never reports completion.
@@ -67,16 +61,14 @@ enum PrefetchBackgroundTasks {
 
     /// Keeps the process alive for a pass that is still running as the app leaves the screen.
     ///
-    /// Conditional on a pass actually being in flight. Taken on every backgrounding it would hold the
+    /// Conditional on a pass actually being in flight: taken on every backgrounding it would hold the
     /// whole app up for around half a minute for every user, including those with prefetching off, and
     /// keep an in-flight SSE stream alive with it.
     ///
-    /// The Kotlin-side background run is opened and closed with the assertion, never independently.
-    /// That pairing is the invariant: the deferred-work window is open only while something is holding
-    /// the process up, so releasing here cancels the pass instead of leaving it to be frozen
-    /// mid-request. Checking for a pass *before* opening the run matters too — opening it first would
-    /// reopen a window that had already closed, and the gate's rising edge would start a fresh pass at
-    /// the worst possible moment.
+    /// The Kotlin-side background run is opened and closed with the assertion, never independently, so
+    /// releasing here cancels the pass instead of leaving it frozen mid-request. Check for a pass
+    /// *before* opening the run: opening it first reopens a window that had already closed, and the
+    /// gate's rising edge would start a fresh pass at the worst possible moment.
     @MainActor
     static func holdIfPassRunning() {
         guard !assertion.isHeld,
@@ -85,15 +77,14 @@ enum PrefetchBackgroundTasks {
         try? IosKoinAccessor.shared.beginPrefetchBackgroundRun()
         let held = assertion.begin {
             // iOS reclaims the assertion after roughly 30 seconds and calls this synchronously on the
-            // main thread so the app can get in ahead of that. Releasing inline rather than through a
-            // Task is the point: an enqueued release can sit behind the very pass this is holding up,
-            // and arriving late means termination for overrunning rather than a tidy stop.
+            // main thread. Release inline rather than through a Task: an enqueued release can sit
+            // behind the very pass this is holding up, and arriving late means termination.
             releaseHold()
         }
         guard held else {
-            // iOS refused the assertion, so nothing would be keeping the process up. Unpin
-            // immediately — every later release goes through `assertion.end()`, which would report
-            // nothing to do and leave the window open for the life of the process.
+            // iOS refused, so nothing is keeping the process up. Unpin now — every later release goes
+            // through `assertion.end()`, which would find nothing to do and leave the window open for
+            // the life of the process.
             try? IosKoinAccessor.shared.endPrefetchBackgroundRun()
             return
         }

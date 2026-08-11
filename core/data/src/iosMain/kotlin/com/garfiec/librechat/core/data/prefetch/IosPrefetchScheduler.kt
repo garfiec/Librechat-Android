@@ -24,15 +24,13 @@ import platform.Foundation.timeIntervalSince1970
  * These are a four-way contract: this object submits them, `PrefetchBackgroundTasks.swift` registers
  * a handler for each, `Info.plist` permits them under `BGTaskSchedulerPermittedIdentifiers`, and iOS
  * matches all three by string. A mismatch is not a build error — the handler simply never runs, and
- * `BGTaskScheduler` reports nothing wrong. Registration has to live in Swift because handlers must be
- * installed before launch finishes, which is a moment no Kotlin object can be sure of reaching.
+ * `BGTaskScheduler` reports nothing wrong.
  */
 object IosPrefetchTasks {
 
     /**
-     * Opportunistic top-up. iOS decides when, on its own model of when the app gets used; there is no
-     * way to require power or a network on a refresh task, so the prefetch gate is the only thing
-     * holding one back.
+     * Opportunistic top-up, scheduled at iOS's discretion. A refresh task cannot require power or a
+     * network, so the prefetch gate is the only thing holding one back.
      */
     const val REFRESH_ID: String = "com.garfiec.librechat.prefetch.refresh"
 
@@ -40,15 +38,13 @@ object IosPrefetchTasks {
     const val PROCESSING_ID: String = "com.garfiec.librechat.prefetch.processing"
 
     /**
-     * Refresh tasks are held to roughly 30 seconds of wall clock, and this is the *whole* run, not
-     * just the warming: [PrefetchBackgroundRunner] arms its deadline before waiting on the session or
-     * on a pass to start, so the handshake is spent inside this figure rather than before it. The
-     * remainder is headroom for the pass to unwind and record its outcome, because overrunning is not
-     * a soft failure — iOS kills the app for missing `setTaskCompleted`.
+     * Under the ~30 seconds iOS allows a refresh task, covering the *whole* run including
+     * [PrefetchBackgroundRunner]'s start handshake, with headroom left to unwind and record the
+     * outcome — iOS kills the app for missing `setTaskCompleted`.
      */
     const val REFRESH_BUDGET_SECONDS: Double = 22.0
 
-    /** Processing tasks get minutes. Sized like the Android worker's budget, for the same reasons. */
+    /** Processing tasks get minutes, for the same reasons the Android worker's budget is minutes. */
     const val PROCESSING_BUDGET_SECONDS: Double = 300.0
 
     /** Earliest the system may consider each task. A floor, never a cadence — see [IosPrefetchScheduler]. */
@@ -60,8 +56,8 @@ object IosPrefetchTasks {
  * Asks `BGTaskScheduler` to wake the app for a prefetch pass.
  *
  * Submission and cancellation live here rather than in Swift so that [PrefetchScheduleCoordinator]
- * drives both platforms — same decisions, same tests, and cancel-on-logout for free. Only the launch
- * handlers are Swift's, because only the app target can install them in time.
+ * drives both platforms. Only the launch handlers are Swift's, because only the app target can
+ * install them before launch finishes.
  */
 class IosPrefetchScheduler : PrefetchScheduler {
 
@@ -71,10 +67,9 @@ class IosPrefetchScheduler : PrefetchScheduler {
     /**
      * Whether iOS has last told us it will run background work at all.
      *
-     * Starts optimistic and is cleared only on a refusal that says otherwise, because the readout
-     * hides the scheduled-run row when this is false and a row absent for a recoverable reason is
-     * worse than one that is briefly wrong. A plain field: a stale read costs one status emission,
-     * and every writer is a submission that just happened.
+     * Optimistic until a refusal says otherwise: the readout hides the scheduled-run row when this is
+     * false, and a row missing for a recoverable reason is worse than one briefly wrong. A plain
+     * field — a stale read costs one status emission.
      */
     private var schedulingAvailable = true
 
@@ -84,10 +79,8 @@ class IosPrefetchScheduler : PrefetchScheduler {
      * The metered setting is deliberately ignored here.
      *
      * `BGProcessingTaskRequest.requiresNetworkConnectivity` can only say "wait for *a* network" — iOS
-     * exposes no Wi-Fi-versus-cellular constraint the way `NetworkType.UNMETERED` does. So on this
-     * platform the choice is enforced where it can be: the gate re-checks it when the task fires and
-     * declines the pass. That is also why this needs no re-registration when the setting changes,
-     * unlike its Android counterpart, where the constraint is baked into the job at enqueue time.
+     * exposes no Wi-Fi-versus-cellular constraint the way `NetworkType.UNMETERED` does, so the choice
+     * is enforced by the gate re-checking it when the task fires and declining the pass.
      */
     override fun ensureScheduled(allowMetered: Boolean) {
         submitDue(IosPrefetchTasks.REFRESH_ID, IosPrefetchTasks.REFRESH_EARLIEST_SECONDS) {
@@ -95,9 +88,11 @@ class IosPrefetchScheduler : PrefetchScheduler {
         }
         submitDue(IosPrefetchTasks.PROCESSING_ID, IosPrefetchTasks.PROCESSING_EARLIEST_SECONDS) {
             BGProcessingTaskRequest(it).apply {
-                // Both default to false. Left alone, iOS would launch this off-charger with no
-                // network, the gate would never open, and the budget would burn reporting nothing —
-                // the settled charging-plus-network decision has to be stated.
+                // Both default to false. Without the network requirement iOS launches this with no
+                // connection, the gate never opens, and the budget burns reporting nothing. Power is
+                // politeness rather than gate alignment: this platform's power observer reads low
+                // power mode only, so being off-charger does not close the gate the way it does on
+                // Android.
                 requiresExternalPower = true
                 requiresNetworkConnectivity = true
             }
@@ -116,15 +111,11 @@ class IosPrefetchScheduler : PrefetchScheduler {
     /**
      * Submits [identifier] for its stored due date, choosing a new one only once the old has passed.
      *
-     * The stored date is what makes this idempotent, and it has to be persisted because the thing it
-     * defends against spans process death. Recomputing `now + interval` on every call would push the
-     * date back out at each process start, and since this runs at every launch, a user who opens the
-     * app daily would keep resetting the clock and neither task would ever mature — the same trap the
-     * Android side avoids with `KEEP`.
-     *
-     * Doing it this way rather than by querying `getPendingTaskRequests` is deliberate: that call is
-     * asynchronous, which would leave the submission racing both `cancel()` and, at the end of a
-     * background run, the app's own suspension.
+     * The date has to be persisted because what it defends against spans process death: this runs at
+     * every process start, so recomputing `now + interval` would push the date back out each time and
+     * a user who opens the app daily would keep resetting the clock, maturing neither task — the same
+     * trap the Android side avoids with `KEEP`. Kept synchronous rather than checked against
+     * `getPendingTaskRequests`, which is async and would race `cancel()` and the app's own suspension.
      */
     private fun submitDue(identifier: String, interval: Double, build: (String) -> BGTaskRequest) {
         val now = NSDate().timeIntervalSince1970
@@ -148,12 +139,10 @@ class IosPrefetchScheduler : PrefetchScheduler {
 
         val code = error.value?.code
         if (code == BGTaskSchedulerErrorCodeUnavailable) {
-            // Background App Refresh is switched off for this app, so nothing will ever run. Say so,
-            // rather than leaving the settings screen showing a scheduled-run row that reads "Never"
-            // forever beside an all-green conditions checklist naming no cause.
+            // Background App Refresh is switched off for this app, so nothing will ever run — the
+            // readout hides its scheduled-run row rather than showing "Never" beside no cause.
             schedulingAvailable = false
         }
-        // Worth a log line either way: a refusal is otherwise completely silent.
         Diag.w(
             "Prefetch",
             attrs = mapOf(

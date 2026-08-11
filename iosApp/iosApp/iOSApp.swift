@@ -25,7 +25,6 @@ struct iOSApp: App {
                 // Refresh the most-used-model quick actions as the app leaves the foreground, so a
                 // long-press on the app icon reflects the latest usage.
                 ModelQuickActions.refresh()
-                // And let a prefetch pass that is mid-flight finish rather than freezing partway.
                 PrefetchBackgroundTasks.holdIfPassRunning()
             }
         }
@@ -38,10 +37,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        // Background task handlers have to be registered before launch finishes, and this is the last
-        // moment that is true. It also has to be here rather than in the scene delegate: a launch
-        // triggered by a background task connects no scene at all, so `willConnectTo` never fires and
-        // the feature would run once and then have nothing left to re-register it.
+        // Here rather than in the scene delegate: a launch triggered by a background task connects no
+        // scene at all, so `willConnectTo` never fires and the feature would run once and then have
+        // nothing left to re-register it.
         PrefetchBackgroundTasks.register()
         return true
     }
