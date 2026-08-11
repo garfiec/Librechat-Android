@@ -1,0 +1,162 @@
+{
+  "$comment": [
+    "Registry of upstream constants and logic this client mirrors by hand.",
+    "",
+    "An entry belongs here when BOTH are true:",
+    "  1. The value drives a client-side DECISION (what to send, what to show, what to allow).",
+    "  2. The server never serves it, so drift cannot be detected at runtime.",
+    "",
+    "Type-shape mirrors (data classes tracking upstream response types) do NOT belong here:",
+    "they are self-correcting, because a wire change surfaces as a decode failure or a null",
+    "field. The entries here fail SILENTLY -- the app keeps running and quietly makes worse",
+    "decisions as it ages.",
+    "",
+    "Read by scripts/check-mirrors.py, which diffs each watched region between two upstream",
+    "revisions during a /sync-upstream pass. Adding a mirror to the codebase means adding it",
+    "here in the same PR.",
+    "",
+    "mode: 'block' watches one anchored declaration; 'file' watches a whole upstream file,",
+    "for mirrors that are spread across it rather than living in a single table."
+  ],
+  "version": 1,
+  "entries": [
+    {
+      "id": "full-mime-types-list",
+      "upstream": {
+        "file": "packages/data-provider/src/file-config.ts",
+        "symbol": "fullMimeTypesList",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/response/PickerMimeTypes.kt",
+        "symbol": "UPSTREAM_MIME_TYPES"
+      },
+      "why": "The concrete MIME types the native file picker filters on. Transcribed verbatim, in upstream order, so the two lists stay diffable.",
+      "failure_mode": "A type upstream added is absent from the picker, so the user cannot select a file the server would have accepted. No error -- the file simply isn't offered."
+    },
+    {
+      "id": "excel-mime-types",
+      "upstream": {
+        "file": "packages/data-provider/src/file-config.ts",
+        "symbol": "excelMimeTypes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/response/PickerMimeTypes.kt",
+        "symbol": "UPSTREAM_MIME_TYPES (spread inlined)"
+      },
+      "why": "Upstream spreads this into fullMimeTypesList; the Kotlin transcription inlines it, so a change here does not show up as a change to fullMimeTypesList.",
+      "failure_mode": "Same as full-mime-types-list, and easier to miss because the upstream diff touches a different symbol than the one the Kotlin file names."
+    },
+    {
+      "id": "document-supported-providers",
+      "upstream": {
+        "file": "packages/data-provider/src/schemas.ts",
+        "symbol": "documentSupportedProviders",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/response/UploadRouting.kt",
+        "symbol": "DOCUMENT_SUPPORTED_PROVIDERS"
+      },
+      "why": "Which providers can take a document natively. The router sends a file to server-side text extraction only when the provider is absent from this set, so membership decides the delivery mode. Note the commented-out azureOpenAI entry is load-bearing -- it records a deliberate exclusion, so a comment-only change here is still a real change.",
+      "failure_mode": "A provider upstream ADDED keeps having its documents extracted to text instead of sent natively -- worse quality, no citations, no error. A provider upstream REMOVED gets documents sent natively that it cannot read, which is the silent drop this feature exists to fix. This set changed four times in the 4.6 months after it was introduced, at gaps of 8, 4, 6 and 3 weeks."
+    },
+    {
+      "id": "bedrock-document-mime-types",
+      "upstream": {
+        "file": "packages/data-provider/src/file-config.ts",
+        "symbol": "bedrockDocumentFormats",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/response/UploadRouting.kt",
+        "symbol": "BEDROCK_DOCUMENT_MIME_TYPES"
+      },
+      "why": "Bedrock's own document allowlist, which is broader than the image+PDF set every other document-capable provider gets. Keyed by MIME type; upstream's values are extensions used only for Converse's format field.",
+      "failure_mode": "A Bedrock-supported type is routed to text extraction rather than sent natively, or an unsupported one is sent natively and rejected at send."
+    },
+    {
+      "id": "mime-type-aliases",
+      "upstream": {
+        "file": "packages/data-provider/src/file-config.ts",
+        "symbol": "mimeTypeAliases",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/response/UploadRouting.kt",
+        "symbol": "MIME_TYPE_ALIASES"
+      },
+      "why": "The server normalises these on receipt, but the router runs first, so the client must apply the same aliasing before any table lookup.",
+      "failure_mode": "An un-aliased type misses every lookup and falls through to the provider path. Concretely: without the text/x-markdown alias a .md file mis-routes on Bedrock."
+    },
+    {
+      "id": "document-parser-mime-types",
+      "upstream": {
+        "file": "packages/data-provider/src/file-config.ts",
+        "symbol": "documentParserMimeTypes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/response/UploadRouting.kt",
+        "symbol": "DOCUMENT_PARSER_MIME_TYPES"
+      },
+      "why": "The types the built-in document parser can extract without an OCR service configured. This is the half of the routing rule that says the server can demonstrably read the file; whether OCR is configured is server-side only and not exposed on any config endpoint, which is why the whitelist is the gate.",
+      "failure_mode": "A type upstream added to the parser is never routed to text, so it stays on a provider that cannot read it. A type upstream removed is routed to text and returns a generic 500."
+    },
+    {
+      "id": "feedback-tags",
+      "upstream": {
+        "file": "packages/data-provider/src/feedback.ts",
+        "symbol": "FEEDBACK_TAGS",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/FeedbackTag.kt",
+        "symbol": "FeedbackTag"
+      },
+      "why": "The reason keys the feedback route accepts, and the rating each one belongs to. The route re-checks the pairing and rejects a mismatch with 400.",
+      "failure_mode": "A removed or re-directed key is still offered in the picker; submitting it 400s. A newly added reason is silently unavailable."
+    },
+    {
+      "id": "artifact-modes",
+      "upstream": {
+        "file": "packages/data-provider/src/artifacts.ts",
+        "symbol": "ArtifactModes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/ArtifactsMode.kt",
+        "symbol": "ArtifactsMode"
+      },
+      "why": "The artifact mode values sent to the server as a generation parameter.",
+      "failure_mode": "An unknown mode is sent, or a newly supported one is unreachable from the client."
+    },
+    {
+      "id": "parameter-settings",
+      "upstream": {
+        "file": "packages/data-provider/src/parameterSettings.ts",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/ui/src/commonMain/kotlin/com/garfiec/librechat/core/ui/components/EndpointParameterRegistry.kt",
+        "symbol": "(whole file -- per-endpoint/provider/variant parameter builders)"
+      },
+      "why": "Which generation parameters each endpoint, provider and Bedrock variant exposes, along with their ranges and defaults. Mirrored across the whole Kotlin registry rather than as one table, so the watch is file-level.",
+      "failure_mode": "A parameter is offered with a stale range or default, or a newly supported one is missing. Values outside the server's accepted range are rejected at send time."
+    },
+    {
+      "id": "artifact-detection",
+      "upstream": {
+        "file": "packages/api/src/artifacts/update.ts",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/artifact/ArtifactDetector.kt",
+        "symbol": "ArtifactDetector"
+      },
+      "why": "Ported in shape from findArtifactClose/getOpeningCodeFence. The real contract is 'whatever micromark parses', so this is a behavioural port, not a table. Three divergences are deliberate and pinned by ArtifactDetectorCorpusTest.",
+      "failure_mode": "An artifact renders as raw source, or swallows the rest of the reply. The corpus test pins current agreement at 22/25 with a known-divergent set, so a genuine drift shows up there -- but only if someone re-runs the corpus against the new upstream."
+    }
+  ]
+}

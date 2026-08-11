@@ -89,6 +89,18 @@ Fail LOUD on any ambiguity below — never guess a baseline or target for the us
    If sync mode and no newer tags AND branch heads == base → tell the user "already up to date" and
    offer an audit instead of stopping.
 7. **Artifacts dir.** `mkdir -p .claude/sync-upstream/artifacts`.
+8. **Mirrored constants.** `scripts/check-mirrors.py --from {base_commit} --to {target_commit} --diff`
+   Some upstream values are never served over the API, so the client hardcodes a copy — which
+   providers take documents natively, which MIME types the parser extracts, which feedback reasons
+   the write route accepts. These drift **silently**: nothing fails to decode, nothing errors, the
+   app just makes worse decisions as it ages, so the ordinary diff sweep reads them as inert
+   constant edits and defers them. **Exit 1** means at least one moved; the output names the Kotlin
+   file to reconcile. **Exit 2 is not drift** — it is a fatal (empty submodule, unresolvable
+   revision, bad registry); fix the setup and re-run rather than reporting it as a finding.
+   Carry every DRIFT and `??` row into the Phase 2 interview as its own item — a `??` means upstream
+   renamed or deleted the symbol, so the registry entry is wrong either way.
+   Registry: `scripts/mirrors.json`. Adding a mirror to the codebase means adding an entry there in
+   the same PR.
 
 If a prior run's artifacts exist (`ls .claude/sync-upstream/artifacts/`), offer to resume from them.
 
@@ -124,6 +136,9 @@ This is the single human gate. Present the converged report, then use `AskUserQu
 - **Which items** to implement now vs defer (Breaking + Security cannot be deferred — say so).
 - **Direction** on UI items that don't map cleanly to Compose (surface the 2-3 options per item).
 - **Audit**: which surfaced misses to fix now.
+- **Drifted mirrors** (Phase 0 step 8): each one is a hand-maintained copy that upstream has moved
+  underneath. They are cheap to reconcile and invisible if skipped — present them explicitly rather
+  than folding them into the general findings list.
 - Items marked `backend-blocked` are shown as knowingly-skipped, never built.
 
 Persist the approved, scoped list to `artifacts/approved-{target}.md`. If the user cancels, archive the
@@ -202,7 +217,7 @@ syncs). Device testing is the human's; you facilitate and route blockers back in
 `${CLAUDE_SKILL_DIR}/reference/`: `upstream-paths.md` (diff surface), `api-mapping.md`,
 `model-mapping.md`, `ui-mapping.md`, `upstream-backend-gaps.md` (client-only vapor features — do not
 build), `android-architecture.md` (implementer patterns). Root: `DISCOVERY.md`, `VERSION_GATES.md`,
-`BackendVersion.kt`.
+`BackendVersion.kt`, `scripts/mirrors.json` (hand-mirrored upstream constants — see Phase 0 step 8).
 
 ## Error recovery
 

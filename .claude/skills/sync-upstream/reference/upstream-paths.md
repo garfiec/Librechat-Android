@@ -99,6 +99,24 @@ For detailed diffs, run each path separately to keep output manageable:
 cd upstream && git diff {base_commit}..{target_commit} -- packages/data-provider/src/api-endpoints.ts
 ```
 
+## Hand-mirrored constants (checked separately, not by reading these diffs)
+
+Some paths below contain values the client copies verbatim because the server never serves them:
+`documentSupportedProviders` (`schemas.ts`), `documentParserMimeTypes` / `mimeTypeAliases` /
+`fullMimeTypesList` / `excelMimeTypes` / `bedrockDocumentFormats` (`file-config.ts`),
+`FEEDBACK_TAGS` (`feedback.ts`), `ArtifactModes` (`artifacts.ts`), plus the whole of
+`parameterSettings.ts` and `packages/api/src/artifacts/update.ts`.
+
+`excelMimeTypes` is tracked separately because upstream spreads it into `fullMimeTypesList` while
+the Kotlin transcription inlines it — so it moves without `fullMimeTypesList` appearing to change.
+
+Do **not** rely on spotting these in the diff sweep. They read as inert constant edits — no route
+changed, no response shape changed — so they get categorized as low-impact and deferred, while the
+Kotlin copy quietly goes stale. `scripts/check-mirrors.py` diffs each watched region between the two
+revisions and names the Kotlin file to reconcile; the registry with the reasoning for each entry is
+`scripts/mirrors.json`. Adding a hardcoded mirror means adding a registry entry in the same PR — an
+unregistered mirror is one nobody will notice going stale.
+
 ## Commit-message scan (complements the diff)
 
 ```bash
