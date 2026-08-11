@@ -2,7 +2,9 @@ package com.garfiec.librechat.shared
 
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.common.lifecycle.DeferredWorkWindow
 import com.garfiec.librechat.core.data.prefetch.PrefetchBackgroundRunner
+import com.garfiec.librechat.core.data.prefetch.PrefetchController
 import com.garfiec.librechat.core.data.prefetch.PrefetchRunOutcome
 import com.garfiec.librechat.core.data.prefetch.PrefetchScheduler
 import com.garfiec.librechat.core.data.repository.AuthRepository
@@ -11,10 +13,12 @@ import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.ModelRef
 import com.garfiec.librechat.feature.chat.navigation.ModelShortcutBus
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import org.koin.core.Koin
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -114,4 +118,49 @@ object IosKoinAccessor {
         koin.get<PrefetchScheduler>()
             .ensureScheduled(koin.get<SettingsDataStore>().prefetchOnMeteredEnabled.first())
     }
+
+    /**
+     * Whether a pass is running right now. Read as the app backgrounds, to decide whether taking a
+     * background task assertion is worth it — taken unconditionally it would hold the whole app alive
+     * for half a minute on every backgrounding, including for users with prefetching switched off,
+     * and would keep an in-flight SSE stream on the `NWConnection` transport alive with it.
+     */
+    @Throws(Exception::class)
+    fun isPrefetchPassInProgress(): Boolean = koin.get<PrefetchController>().passInProgress.value
+
+    /**
+     * Returns once no pass is running, so the caller can release its background task assertion.
+     *
+     * The settle delay is load-bearing. [PrefetchController] runs queued triggers through a single
+     * collector, so the in-progress flag drops to false *between* two passes — a caller that released
+     * on the first false would drop its assertion in that gap and let iOS suspend the app a second
+     * into the run the user had just asked for.
+     */
+    @Throws(Exception::class)
+    suspend fun awaitPrefetchPassEnd() {
+        val controller = koin.get<PrefetchController>()
+        while (true) {
+            controller.passInProgress.first { !it }
+            delay(PASS_SETTLE)
+            if (!controller.passInProgress.value) return
+        }
+    }
+
+    /**
+     * Pins the deferred-work window open for exactly as long as the caller holds an OS background
+     * assertion, so a pass can never outlive the thing keeping the process alive. Must be balanced by
+     * [endPrefetchBackgroundRun].
+     */
+    @Throws(Exception::class)
+    fun beginPrefetchBackgroundRun() {
+        koin.get<DeferredWorkWindow>().beginBackgroundRun()
+    }
+
+    /** Releases the pin. Closing the window is what cancels a pass that is still going. */
+    @Throws(Exception::class)
+    fun endPrefetchBackgroundRun() {
+        koin.get<DeferredWorkWindow>().endBackgroundRun()
+    }
+
+    private val PASS_SETTLE = 250.milliseconds
 }

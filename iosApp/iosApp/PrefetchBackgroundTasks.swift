@@ -4,8 +4,9 @@ import Shared
 
 /// Bridges iOS background execution to the shared prefetcher.
 ///
-/// Only what iOS will not let Kotlin do lives here: installing the launch handlers, which must happen
-/// before launch finishes. Deciding *when* to schedule, submitting the requests, and running the pass
+/// Only the two things iOS will not let Kotlin do live here: installing the launch handlers, which
+/// must happen before launch finishes, and taking a `UIApplication` background task assertion, which
+/// needs the app object. Deciding *when* to schedule, submitting the requests, and running the pass
 /// all stay on the Kotlin side so both platforms share one implementation.
 enum PrefetchBackgroundTasks {
 
@@ -62,6 +63,97 @@ enum PrefetchBackgroundTasks {
             // Non-negotiable: iOS terminates the app for a task that never reports completion.
             task.setTaskCompleted(success: reachedVerdict)
         }
+    }
+
+    /// Keeps the process alive for a pass that is still running as the app leaves the screen.
+    ///
+    /// Conditional on a pass actually being in flight. Taken on every backgrounding it would hold the
+    /// whole app up for around half a minute for every user, including those with prefetching off, and
+    /// keep an in-flight SSE stream alive with it.
+    ///
+    /// The Kotlin-side background run is opened and closed with the assertion, never independently.
+    /// That pairing is the invariant: the deferred-work window is open only while something is holding
+    /// the process up, so releasing here cancels the pass instead of leaving it to be frozen
+    /// mid-request. Checking for a pass *before* opening the run matters too — opening it first would
+    /// reopen a window that had already closed, and the gate's rising edge would start a fresh pass at
+    /// the worst possible moment.
+    @MainActor
+    static func holdIfPassRunning() {
+        guard !assertion.isHeld,
+              (try? IosKoinAccessor.shared.isPrefetchPassInProgress()) == true else { return }
+
+        try? IosKoinAccessor.shared.beginPrefetchBackgroundRun()
+        let held = assertion.begin {
+            // iOS reclaims the assertion after roughly 30 seconds and calls this synchronously on the
+            // main thread so the app can get in ahead of that. Releasing inline rather than through a
+            // Task is the point: an enqueued release can sit behind the very pass this is holding up,
+            // and arriving late means termination for overrunning rather than a tidy stop.
+            releaseHold()
+        }
+        guard held else {
+            // iOS refused the assertion, so nothing would be keeping the process up. Unpin
+            // immediately — every later release goes through `assertion.end()`, which would report
+            // nothing to do and leave the window open for the life of the process.
+            try? IosKoinAccessor.shared.endPrefetchBackgroundRun()
+            return
+        }
+        Task { @MainActor in
+            try? await IosKoinAccessor.shared.awaitPrefetchPassEnd()
+            releaseHold()
+        }
+    }
+
+    private static let assertion = BackgroundAssertion()
+
+    /// Ends the assertion and the background run together. Safe to call twice — whichever of the
+    /// expiration handler and the pass-finished path arrives second does nothing.
+    private static func releaseHold() {
+        guard assertion.end() else { return }
+        try? IosKoinAccessor.shared.endPrefetchBackgroundRun()
+    }
+}
+
+/// A `UIApplication` background task assertion that can be released from any thread.
+///
+/// Guarded rather than main-actor-isolated so the expiration handler can end it inline: hopping to
+/// an actor to release would reintroduce the delay the handler exists to avoid.
+private final class BackgroundAssertion: @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var id: UIBackgroundTaskIdentifier = .invalid
+
+    var isHeld: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return id != .invalid
+    }
+
+    /// Returns false when iOS declined to grant one, which the caller has to treat as "nothing is
+    /// holding this process up" rather than as a held assertion.
+    func begin(onExpire: @escaping () -> Void) -> Bool {
+        let taskId = UIApplication.shared.beginBackgroundTask(
+            withName: "prefetch-tail",
+            expirationHandler: onExpire
+        )
+        guard taskId != .invalid else { return false }
+        lock.lock()
+        defer { lock.unlock() }
+        id = taskId
+        return true
+    }
+
+    /// Ends the assertion, returning true only for the caller that actually ended it — so two
+    /// racing releases cannot both unwind the Kotlin-side background run and drive its counter
+    /// negative.
+    func end() -> Bool {
+        lock.lock()
+        let taskId = id
+        id = .invalid
+        lock.unlock()
+
+        guard taskId != .invalid else { return false }
+        UIApplication.shared.endBackgroundTask(taskId)
+        return true
     }
 }
 

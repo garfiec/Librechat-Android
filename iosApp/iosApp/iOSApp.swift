@@ -21,10 +21,12 @@ struct iOSApp: App {
                 .ignoresSafeArea()
         }
         .onChange(of: scenePhase) { phase in
-            // Refresh the most-used-model quick actions as the app leaves the foreground, so a
-            // long-press on the app icon reflects the latest usage.
             if phase == .background {
+                // Refresh the most-used-model quick actions as the app leaves the foreground, so a
+                // long-press on the app icon reflects the latest usage.
                 ModelQuickActions.refresh()
+                // And let a prefetch pass that is mid-flight finish rather than freezing partway.
+                PrefetchBackgroundTasks.holdIfPassRunning()
             }
         }
     }
