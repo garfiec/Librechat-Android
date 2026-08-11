@@ -34,6 +34,18 @@ struct iOSApp: App {
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
         _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        // Background task handlers have to be registered before launch finishes, and this is the last
+        // moment that is true. It also has to be here rather than in the scene delegate: a launch
+        // triggered by a background task connects no scene at all, so `willConnectTo` never fires and
+        // the feature would run once and then have nothing left to re-register it.
+        PrefetchBackgroundTasks.register()
+        return true
+    }
+
+    func application(
+        _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {

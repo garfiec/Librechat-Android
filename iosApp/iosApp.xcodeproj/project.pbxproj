@@ -11,6 +11,7 @@
 		AAA00005 /* KoinHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB00005; };
 		AAA00007 /* SharedFrameworkTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB00007; };
 		AAA0000B /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB0000B; };
+		AAA00013 /* PrefetchBackgroundTasks.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB00013; };
 		AAA0000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BBB0000C; };
 		AAA00010 /* Shared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BBB00010; };
 /* End PBXBuildFile section */
@@ -81,6 +82,7 @@
 		BBB00007 /* SharedFrameworkTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedFrameworkTest.swift; sourceTree = "<group>"; };
 		BBB00008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BBB0000B /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
+		BBB00013 /* PrefetchBackgroundTasks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrefetchBackgroundTasks.swift; sourceTree = "<group>"; };
 		BBB0000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BBB00010 /* Shared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Shared.framework; path = "../shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework"; sourceTree = "<group>"; };
 		DDD00001 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -114,6 +116,7 @@
 				BBB00005 /* KoinHelper.swift */,
 				BBB00007 /* SharedFrameworkTest.swift */,
 				BBB0000B /* ComposeView.swift */,
+				BBB00013 /* PrefetchBackgroundTasks.swift */,
 				BBB0000C /* Assets.xcassets */,
 				BBB00008 /* Info.plist */,
 			);
@@ -196,6 +199,7 @@
 				AAA00005 /* KoinHelper.swift in Sources */,
 				AAA00007 /* SharedFrameworkTest.swift in Sources */,
 				AAA0000B /* ComposeView.swift in Sources */,
+				AAA00013 /* PrefetchBackgroundTasks.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

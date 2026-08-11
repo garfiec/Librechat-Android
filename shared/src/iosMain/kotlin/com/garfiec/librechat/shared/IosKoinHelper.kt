@@ -24,11 +24,21 @@ private class IosNSLogWriter : LogWriter() {
     }
 }
 
+private var koinStarted = false
+
 /**
  * Entry point for iOS to initialize Koin DI.
  * Call from Swift: IosKoinHelperKt.startIosKoin()
+ *
+ * Idempotent, because there are now two callers and no guaranteed order between them: the app's
+ * `init()`, and a background task handler that has to work on a launch where no scene ever connects
+ * and so cannot assume `init()` ran. A second `startKoin` would throw, and the handler swallows
+ * errors, so the whole feature would fail without a symptom. **Main thread only** — the guard is a
+ * plain flag, and both callers hop there before calling.
  */
 fun startIosKoin() {
+    if (koinStarted) return
+    koinStarted = true
     // Route Kermit logs through NSLog for OS log visibility. The persistent file writer is added
     // after Koin starts (below), once its dependencies are resolvable.
     Logger.setLogWriters(IosNSLogWriter())
