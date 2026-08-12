@@ -69,6 +69,10 @@ expect fun ContentPartRenderer(
     // wrong part once grouping wraps parts, and is dropped outright when the lazy item scrolls
     // out of the viewport.
     stateKey: String = "",
+    // True while rendering inside an activity group, whose tool calls' files are hoisted out and
+    // rendered below the collapsible instead. Without it a generated image would render twice
+    // when the block is open and vanish when it folds.
+    hideAttachments: Boolean = false,
 )
 
 /** Platform-specific markdown content rendering. */

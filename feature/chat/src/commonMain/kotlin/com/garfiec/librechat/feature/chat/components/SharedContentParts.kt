@@ -54,6 +54,8 @@ internal fun ContentPartDispatcher(
     // When false, a `subagent` tool_call renders flat instead of as a trace card.
     // Set false while rendering a subagent's own nested parts (depth-1 guard).
     allowSubagentCard: Boolean = true,
+    // True while rendering inside an activity group, which hoists its tool calls' files out.
+    hideAttachments: Boolean = false,
 ) {
     val mod = modifier.fillMaxWidth()
     when (part.type) {
@@ -91,6 +93,7 @@ internal fun ContentPartDispatcher(
                 showImageDescriptions = showImageDescriptions,
                 stateKey = stateKey,
                 allowSubagentCard = allowSubagentCard,
+                hideAttachments = hideAttachments,
             )
         }
         ContentType.IMAGE_FILE -> DisableSelection {

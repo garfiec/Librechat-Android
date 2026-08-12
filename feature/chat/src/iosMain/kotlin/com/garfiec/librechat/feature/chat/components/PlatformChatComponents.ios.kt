@@ -459,6 +459,7 @@ actual fun ContentPartRenderer(
     showImageDescriptions: Boolean, searchQuery: String?, searchFocusedOccurrence: Int,
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     stateKey: String,
+    hideAttachments: Boolean,
 ) {
     ContentPartDispatcher(
         part = part,
@@ -472,6 +473,7 @@ actual fun ContentPartRenderer(
         searchFocusedOccurrence = searchFocusedOccurrence,
         onFocusedOccurrencePosition = onFocusedOccurrencePosition,
         stateKey = stateKey,
+        hideAttachments = hideAttachments,
     )
 }
 

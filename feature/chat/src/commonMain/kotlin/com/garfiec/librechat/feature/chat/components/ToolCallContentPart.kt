@@ -58,6 +58,9 @@ internal fun ToolCallDispatcher(
     // then keeps its state across a reorder — falling back to the caller's per-part key.
     stateKey: String = "",
     allowSubagentCard: Boolean = true,
+    // True while this call renders inside an activity group, whose collapsible would otherwise
+    // swallow the files it generated — they are hoisted out and rendered below it instead.
+    hideAttachments: Boolean = false,
 ) {
     val toolCall = part.toolCall
     val cardKey = toolCall?.id?.takeIf { it.isNotEmpty() } ?: stateKey
@@ -70,6 +73,10 @@ internal fun ToolCallDispatcher(
     // `subagentContent` (reload) takes precedence inside the card. Depth-1:
     // nested parts pass allowSubagentCard=false so this never recurses. Nested parts
     // render their own attachments, so this branch keeps its pass-through return.
+    //
+    // hideAttachments is deliberately NOT forwarded. A group hoists the files of its OWN parts,
+    // whose ids are the only ones it collects; a subagent's nested calls carry different ids, so
+    // nothing of theirs is ever hoisted and suppressing them here would render them nowhere.
     if (allowSubagentCard && toolNameLower == ToolConstants.SUBAGENT) {
         val toolCallId = toolCall?.id
         val liveTrace = toolCallId?.let { LocalSubagentProgress.current[it] }
@@ -171,7 +178,12 @@ internal fun ToolCallDispatcher(
                 val imageResult = remember(toolCall, baseUrl, attachments) {
                     parseImageGenResult(toolCall, baseUrl, attachments)
                 }
-                ImageGenCard(result = imageResult, showDescription = showImageDescriptions, modifier = cardModifier)
+                ImageGenCard(
+                    result = imageResult,
+                    showDescription = showImageDescriptions,
+                    hideImages = hideAttachments,
+                    modifier = cardModifier,
+                )
             }
             toolNameLower.contains("log") -> {
                 val logContent = remember(toolCall) { parseLogContent(toolCall) }
@@ -182,7 +194,7 @@ internal fun ToolCallDispatcher(
             }
         }
 
-        if (!isImageGen) {
+        if (!isImageGen && !hideAttachments) {
             ToolCallAttachments(
                 attachments = attachments,
                 toolCallId = toolCall?.id,
