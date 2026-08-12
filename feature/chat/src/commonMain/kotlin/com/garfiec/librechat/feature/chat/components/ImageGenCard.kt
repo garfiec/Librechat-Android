@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,7 +49,16 @@ import kotlin.math.pow
 import kotlin.random.Random
 
 data class ImageGenResult(
-    val imageUrl: String? = null,
+    /**
+     * Every image the call produced, in attachment arrival order.
+     *
+     * Deliberately a list where upstream renders only `attachments?.[0]` (`OpenAIImageGen.tsx`):
+     * one image-gen call routinely returns several images, and dropping all but the first is the
+     * same class of defect as burying them in a collapsed block. There is intentionally no
+     * single-image convenience accessor — a shadow `imageUrl` is exactly how a caller keeps
+     * silently showing one of N.
+     */
+    val imageUrls: List<String> = emptyList(),
     val prompt: String? = null,
     val isGenerating: Boolean = false,
     /** Image-gen quality ("low" | "medium" | "high"). Tunes the faux-progress
@@ -55,12 +66,21 @@ data class ImageGenResult(
     val quality: String? = null,
 )
 
-/** Renders a DALL-E / image generation result card. [ImageGenResult.isGenerating] drives spinner vs image display. */
+/**
+ * Renders a DALL-E / image generation result card. [ImageGenResult.isGenerating] drives spinner vs
+ * image display.
+ *
+ * [hideImages] suppresses the media block only — the header, progress and prompt still render, so a
+ * card inside an activity group whose images were hoisted out still reads as "an image was
+ * generated, here is what it was". Web gates the same way (`isAgentStyle && !hideAttachments`
+ * wraps the image block while the icon and progress text sit outside it).
+ */
 @Composable
 fun ImageGenCard(
     result: ImageGenResult,
     modifier: Modifier = Modifier,
     showDescription: Boolean = true,
+    hideImages: Boolean = false,
 ) {
     val openMedia = LocalChatMediaViewer.current
 
@@ -131,74 +151,45 @@ fun ImageGenCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (!hideImages) {
+                Spacer(modifier = Modifier.height(8.dp))
 
-            val imageUrl = result.imageUrl
-            if (imageUrl != null) {
-                SubcomposeAsyncImage(
-                    model = imageUrl,
-                    contentDescription = result.prompt ?: stringResource(Res.string.cd_generated_image),
-                    contentScale = ContentScale.FillWidth,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { openMedia(imageUrl) }
-                        .semantics { role = Role.Image },
-                    loading = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    RoundedCornerShape(8.dp),
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                val imageDescription = result.prompt ?: stringResource(Res.string.cd_generated_image)
+                if (result.imageUrls.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        result.imageUrls.forEach { url ->
+                            key(url) {
+                                GeneratedImage(
+                                    url = url,
+                                    contentDescription = imageDescription,
+                                    onClick = { openMedia(url) },
+                                )
+                            }
                         }
-                    },
-                    error = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    RoundedCornerShape(8.dp),
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.BrokenImage,
-                                contentDescription = stringResource(Res.string.cd_failed_to_load_generated_image),
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                )
-            } else if (result.isGenerating) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                ) {
-                    PixelRevealCard(
-                        progress = fauxProgress,
-                        modifier = Modifier.fillMaxSize(),
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                        ),
-                    )
+                    }
+                } else if (result.isGenerating) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    ) {
+                        PixelRevealCard(
+                            progress = fauxProgress,
+                            modifier = Modifier.fillMaxSize(),
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                            ),
+                        )
+                    }
                 }
             }
 
+            // Kept even under hideImages: it is the card's own text, not an attachment, and it is
+            // what tells a reader of a collapsed group what was generated.
             val prompt = result.prompt
             if (showDescription && !prompt.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -210,4 +201,52 @@ fun ImageGenCard(
             }
         }
     }
+}
+
+@Composable
+private fun GeneratedImage(url: String, contentDescription: String, onClick: () -> Unit) {
+    SubcomposeAsyncImage(
+        model = url,
+        contentDescription = contentDescription,
+        contentScale = ContentScale.FillWidth,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 300.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .semantics { role = Role.Image },
+        loading = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceContainerHighest,
+                        RoundedCornerShape(8.dp),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            }
+        },
+        error = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceContainerHighest,
+                        RoundedCornerShape(8.dp),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BrokenImage,
+                    contentDescription = stringResource(Res.string.cd_failed_to_load_generated_image),
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
 }

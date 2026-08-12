@@ -20,7 +20,7 @@ class StreamingImageGenParsingTest {
         val result = parseStreamingImageGenResult(toolCall, baseUrl, emptyList())
 
         assertThat(result.isGenerating).isTrue()
-        assertThat(result.imageUrl).isNull()
+        assertThat(result.imageUrls).isEmpty()
         assertThat(result.prompt).isEqualTo("a red fox")
         assertThat(result.quality).isEqualTo("high")
     }
@@ -39,7 +39,7 @@ class StreamingImageGenParsingTest {
         val result = parseStreamingImageGenResult(toolCall, baseUrl, attachments)
 
         assertThat(result.isGenerating).isFalse()
-        assertThat(result.imageUrl).isEqualTo("https://chat.example.com/api/files/f1/fox.png")
+        assertThat(result.imageUrls).containsExactly("https://chat.example.com/api/files/f1/fox.png")
         assertThat(result.prompt).isEqualTo("a red fox")
     }
 
@@ -53,7 +53,7 @@ class StreamingImageGenParsingTest {
         val result = parseStreamingImageGenResult(toolCall, baseUrl, attachments)
 
         assertThat(result.isGenerating).isTrue()
-        assertThat(result.imageUrl).isNull()
+        assertThat(result.imageUrls).isEmpty()
     }
 
     @Test
@@ -65,7 +65,36 @@ class StreamingImageGenParsingTest {
 
         val result = parseStreamingImageGenResult(toolCall, baseUrl, attachments)
 
-        assertThat(result.imageUrl).isEqualTo("https://cdn.example.com/img.png")
+        assertThat(result.imageUrls).containsExactly("https://cdn.example.com/img.png")
+    }
+
+    @Test
+    fun `every streamed attachment for the call becomes an image url in order`() {
+        val toolCall = ActiveToolCall(id = "call_1", name = "image_gen_oai", input = "{}")
+        val attachments = listOf(
+            Attachment(fileId = "f1", filepath = "/api/files/f1/one.png", toolCallId = "call_1"),
+            Attachment(fileId = "f2", filepath = "/api/files/f2/two.png", toolCallId = "call_1"),
+            Attachment(fileId = "f3", filepath = "/api/files/f3/three.png", toolCallId = "call_other"),
+        )
+
+        val result = parseStreamingImageGenResult(toolCall, baseUrl, attachments)
+
+        assertThat(result.imageUrls).containsExactly(
+            "https://chat.example.com/api/files/f1/one.png",
+            "https://chat.example.com/api/files/f2/two.png",
+        ).inOrder()
+        assertThat(result.isGenerating).isFalse()
+    }
+
+    @Test
+    fun `duplicate attachment urls collapse`() {
+        val toolCall = ActiveToolCall(id = "call_1", name = "image_gen_oai", input = "{}")
+        val attachments = listOf(
+            Attachment(fileId = "f1", filepath = "/api/files/f1/one.png", toolCallId = "call_1"),
+            Attachment(fileId = "f1", filepath = "/api/files/f1/one.png", toolCallId = "call_1"),
+        )
+
+        assertThat(parseStreamingImageGenResult(toolCall, baseUrl, attachments).imageUrls).hasSize(1)
     }
 
     @Test
