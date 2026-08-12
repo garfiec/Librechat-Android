@@ -121,11 +121,9 @@ sealed interface ContentGroup {
  * The ids of the tool calls inside this block, in render order; blank ids and non-tool entries
  * drop out.
  *
- * Lives here rather than on [ContentGroup] itself so [groupContentParts] stays a pure
- * parts-only transform: the attachment join happens at the render site, mirroring upstream, where
- * `groupSequentialToolCalls` never sees attachments and `ContentParts.tsx` does the join. Folding
- * it in would widen the grouping memo's key to include attachments and re-run the whole
- * segmentation pass on every mid-stream `attachment` event.
+ * Keep the attachment join at the render site rather than folding it into [ContentGroup]: that
+ * would widen the grouping memo's key to include attachments and re-run the whole segmentation
+ * pass on every mid-stream `attachment` event.
  */
 fun ContentGroup.Activity.groupedToolCallIds(): List<String> =
     entries.mapNotNull { it.part.toolCall?.id?.takeIf(String::isNotEmpty) }

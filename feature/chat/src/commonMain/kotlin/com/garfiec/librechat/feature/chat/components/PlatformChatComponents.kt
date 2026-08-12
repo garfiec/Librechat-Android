@@ -70,8 +70,8 @@ expect fun ContentPartRenderer(
     // out of the viewport.
     stateKey: String = "",
     // True while rendering inside an activity group, whose tool calls' files are hoisted out and
-    // rendered below the collapsible instead. Without it a generated image would render twice
-    // when the block is open and vanish when it folds.
+    // rendered below the collapsible instead. Without it they render twice while the block is
+    // open, and vanish with it when it folds.
     hideAttachments: Boolean = false,
 )
 

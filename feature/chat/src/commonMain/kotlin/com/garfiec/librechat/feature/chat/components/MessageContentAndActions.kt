@@ -422,8 +422,6 @@ internal fun MessageContentAndActions(
                                         when (group) {
                                             is ContentGroup.Single -> PartContent(group.entry)
                                             is ContentGroup.Activity -> {
-                                                // The block's own output, lifted out so folding the
-                                                // process does not fold the result away with it.
                                                 val hoisted = remember(message.attachments, group) {
                                                     collectGroupAttachments(
                                                         message.attachments.orEmpty(),
@@ -436,11 +434,10 @@ internal fun MessageContentAndActions(
                                                     autoExpand = group.key == focusedGroupKey,
                                                     autoExpandKey = LocalSearchFocusNonce.current,
                                                     hoistedAttachments = {
-                                                        // Chrome, like the office-preview block
-                                                        // below: the inline path gets this from the
-                                                        // dispatcher, the hoisted one sits outside
-                                                        // it and would leak filenames into
-                                                        // "Select all".
+                                                        // Required: the inline path gets this from
+                                                        // the dispatcher, the hoisted one sits
+                                                        // outside it and would otherwise leak
+                                                        // filenames into "Select all".
                                                         DisableSelection {
                                                             ToolAttachmentBuckets(
                                                                 buckets = hoisted,

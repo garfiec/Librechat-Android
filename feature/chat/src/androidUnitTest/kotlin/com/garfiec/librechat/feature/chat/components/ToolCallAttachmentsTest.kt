@@ -250,10 +250,8 @@ class ToolCallAttachmentsTest {
         assertThat(result.single()).isInstanceOf(ToolAttachment.File::class.java)
     }
 
-    // svg is deliberately absent from the ported upstream extension list, so a type-less .svg keeps
-    // classifying on `attachmentToArtifact` alone exactly as before. It has no artifact branch
-    // either, so it lands as a chip — the point is that widening the list to be "complete" would
-    // silently reroute it into an image preview instead.
+    // Guards the deliberate `svg` exclusion from IMAGE_EXTENSIONS: widening that list to be
+    // "complete" reroutes a type-less .svg out of the artifact path and into an image preview.
     @Test
     fun `type-less svg is unaffected by the filename image test`() {
         val result = partitionToolCallAttachments(
@@ -337,8 +335,6 @@ class ToolCallAttachmentsTest {
         assertThat((buckets.single() as ToolAttachmentBucket.Images).items).hasSize(1)
     }
 
-    // The regression the fileId-only cross-call dedupe key exists to prevent: two calls each
-    // producing their own chart.png are two different files, not one reported twice.
     @Test
     fun `group attachments keep same named files from different calls when file id is absent`() {
         val attachments = listOf(

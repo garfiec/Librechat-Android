@@ -10,9 +10,9 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * The gallery's contract is that it resolves the exact same URLs the message renderers show. That
- * is why these read through the same `parseImageGenResult` / `parseStreamingImageGenResult` the
- * cards use: resolving independently is how tapping image #2 of 3 ends up opening image #1.
+ * The gallery must resolve the exact same URLs the message renderers show, so it reads through the
+ * same `parseImageGenResult` / `parseStreamingImageGenResult` the cards use — resolving
+ * independently is how tapping image #2 of 3 ends up opening image #1.
  */
 class BranchMediaTest {
 

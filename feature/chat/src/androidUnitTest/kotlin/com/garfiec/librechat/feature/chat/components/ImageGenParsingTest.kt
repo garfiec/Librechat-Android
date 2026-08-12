@@ -6,10 +6,9 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * The settled (persisted) image-gen parse. Its streaming sibling is covered by
- * [StreamingImageGenParsingTest]; both had to move off "first attachment wins" together, since
- * `BranchMedia` resolves the gallery's URLs through them and a divergence there opens the wrong
- * image full-screen.
+ * The settled (persisted) image-gen parse; its streaming sibling is [StreamingImageGenParsingTest].
+ * The two must agree, because `BranchMedia` resolves the gallery's URLs through them and a
+ * divergence opens the wrong image full-screen.
  */
 class ImageGenParsingTest {
 

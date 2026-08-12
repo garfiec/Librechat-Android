@@ -297,10 +297,9 @@ class ContentSegmentsTest {
         assertTrue(group.failed)
     }
 
-    // Upstream groups image-gen calls like any other tool — there is no image special-case in
-    // `groupToolCalls.ts`. The generated images stay visible because the render layer hoists them
-    // out of the collapsible, NOT because the grouping skips them. Excluding image tools here
-    // would diverge from upstream and re-break the parity this grouping exists to provide.
+    // Image-gen calls group like any other tool, matching `groupToolCalls.ts`. Generated images
+    // stay visible because the render layer hoists them out of the collapsible, NOT because the
+    // grouping skips them — do not add an image special-case here.
     @Test
     fun imageGenCallsStillGroupIntoOneActivityBlock() {
         val groups = onlySegment(

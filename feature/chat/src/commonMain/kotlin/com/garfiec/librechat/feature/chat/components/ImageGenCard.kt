@@ -50,13 +50,11 @@ import kotlin.random.Random
 
 data class ImageGenResult(
     /**
-     * Every image the call produced, in attachment arrival order.
+     * Every image the call produced, in attachment arrival order — one call routinely returns
+     * several. A list where upstream renders only `attachments?.[0]` (`OpenAIImageGen.tsx`).
      *
-     * Deliberately a list where upstream renders only `attachments?.[0]` (`OpenAIImageGen.tsx`):
-     * one image-gen call routinely returns several images, and dropping all but the first is the
-     * same class of defect as burying them in a collapsed block. There is intentionally no
-     * single-image convenience accessor — a shadow `imageUrl` is exactly how a caller keeps
-     * silently showing one of N.
+     * Deliberately has no single-image convenience accessor: a shadow `imageUrl` is how a caller
+     * ends up silently showing one of N.
      */
     val imageUrls: List<String> = emptyList(),
     val prompt: String? = null,
@@ -72,8 +70,7 @@ data class ImageGenResult(
  *
  * [hideImages] suppresses the media block only — the header, progress and prompt still render, so a
  * card inside an activity group whose images were hoisted out still reads as "an image was
- * generated, here is what it was". Web gates the same way (`isAgentStyle && !hideAttachments`
- * wraps the image block while the icon and progress text sit outside it).
+ * generated, here is what it was". Web gates the same way in `OpenAIImageGen.tsx`.
  */
 @Composable
 fun ImageGenCard(
@@ -188,7 +185,7 @@ fun ImageGenCard(
                 }
             }
 
-            // Kept even under hideImages: it is the card's own text, not an attachment, and it is
+            // Outside the hideImages gate on purpose: the prompt is the card's own text, and it is
             // what tells a reader of a collapsed group what was generated.
             val prompt = result.prompt
             if (showDescription && !prompt.isNullOrBlank()) {

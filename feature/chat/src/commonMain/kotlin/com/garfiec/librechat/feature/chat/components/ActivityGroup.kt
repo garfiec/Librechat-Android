@@ -77,11 +77,9 @@ internal fun ActivityGroup(
      * The files this block's tool calls produced.
      *
      * **Load-bearing: rendered as a SIBLING AFTER the collapsible, never inside it.** The block
-     * exists to fold away the *process*; a generated image is the *result*, and folding the result
-     * with it is how multiple generated images disappeared into a "Used 2 tools" header. Upstream
-     * pins the same structure — `ToolCallGroup.tsx` places `<AttachmentGroup>` after the
-     * collapsible div, asserted by `__tests__/ToolCallGroup.test.tsx`. This module has no Compose
-     * test harness, so that assertion has no mobile counterpart and this comment is the contract.
+     * folds away the *process*; a generated image is the *result*, and moving this inside folds
+     * the result away with it. Upstream pins the same structure in `ToolCallGroup.tsx`
+     * (`__tests__/ToolCallGroup.test.tsx`); this module has no Compose harness to assert it.
      *
      * Unindented on purpose: the body carries the group's indent, the hoisted output reads at the
      * message's own level. The slot supplies its own top padding so an empty one costs nothing.

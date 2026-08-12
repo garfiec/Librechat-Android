@@ -86,13 +86,9 @@ private val SANDBOX_PLACEHOLDER = Regex("""^_\.(?:dirkeep|gitkeep)-[0-9a-f]{6}$"
  *  Upstream `SANITIZED_DOTFILE_PATTERN`. */
 private val SANITIZED_DOTFILE = Regex("""^_\.(.+?)-[0-9a-f]{6}(\.[^.]+)?$""", RegexOption.IGNORE_CASE)
 
-/**
- * Upstream `imageExtRegex` (`packages/data-provider/src/file-config.ts`), copied verbatim.
- *
- * Deliberately excludes `svg`, `bmp` and `avif` even though they are images: an `.svg` the server
- * extracted text for renders far better as an artifact, and widening this list to be "complete"
- * would silently move it out of [ToolAttachment.ArtifactContent].
- */
+/** Upstream `imageExtRegex` (`packages/data-provider/src/file-config.ts`), verbatim. Excluding
+ *  `svg`/`bmp`/`avif` is deliberate: an `.svg` the server extracted text for belongs in
+ *  [ToolAttachment.ArtifactContent], and "completing" this list silently moves it out. */
 private val IMAGE_EXTENSIONS = Regex("""\.(?:jpg|jpeg|png|gif|webp|heic|heif)$""", RegexOption.IGNORE_CASE)
 
 /** Extensions rendered as syntax-highlighted code (fenced markdown) in the artifacts panel. */
@@ -142,13 +138,9 @@ internal fun partitionToolCallAttachments(
  * hoisted counterpart of [partitionToolCallAttachments]. Mirrors upstream's per-group
  * `groupAttachments` (`ContentParts.tsx`) fed into `AttachmentGroup` (`Attachment.tsx`).
  *
- * Built by running the single-call partition per id rather than by a bulk filter, so the hoisted
- * and inline paths can never disagree about *what* is renderable.
- *
- * Cross-call dedupe is by `fileId` **only**. Two different calls may legitimately each emit a
- * `chart.png` carrying no fileId, and collapsing those on filename would drop real output — the
- * per-call filename dedupe inside [partitionToolCallAttachments] still applies within one call.
- * Pure — unit-tested.
+ * Cross-call dedupe is by `fileId` **only**: two calls may each legitimately emit a `chart.png`
+ * carrying no fileId, and collapsing those on filename drops real output. The per-call filename
+ * dedupe inside [partitionToolCallAttachments] still applies within one call. Pure — unit-tested.
  */
 internal fun collectGroupAttachments(
     attachments: List<Attachment>,
@@ -163,13 +155,7 @@ internal fun collectGroupAttachments(
             },
     )
 
-/**
- * One run of same-kind attachments, emitted in final render order; empty runs are omitted.
- *
- * The render order is the *return* order of [bucketToolAttachments] rather than the declaration
- * order of a composable, which is the only way it can be pinned — this module has no Compose test
- * harness.
- */
+/** One run of same-kind attachments, emitted in final render order; empty runs are omitted. */
 internal sealed interface ToolAttachmentBucket {
     val items: List<ToolAttachment>
 
@@ -181,17 +167,11 @@ internal sealed interface ToolAttachmentBucket {
 
 /**
  * Buckets [items] into upstream `AttachmentGroup`'s render order: files → artifacts → previews →
- * **images last** (`Attachment.tsx`). Mobile's order was images-first; the swap is what keeps a
- * long generated image from pushing the files that describe it off screen.
+ * **images last** (`Attachment.tsx`), each bucket stable-sorted by [attachmentSalience].
  *
- * Two deliberate mapping choices, because the buckets do not line up 1:1. Upstream's separate
- * mermaid and inline-text buckets fold into [ToolAttachment.ArtifactContent] — `.mmd` already maps
- * to `application/vnd.mermaid` there and all three render as the same button, so their position
- * relative to files and images is preserved. [ToolAttachment.Pdf] has no upstream counterpart (a
- * PDF falls to web's generic file row) and sits with the artifacts: like them it is a card that
- * opens a preview, not a download chip.
- *
- * Each bucket is stable-sorted by [attachmentSalience]. Pure — unit-tested.
+ * The buckets do not line up 1:1 with upstream's: [ToolAttachment.ArtifactContent] covers its
+ * separate mermaid and inline-text buckets, and [ToolAttachment.Pdf] (no upstream counterpart)
+ * sits with the artifacts. Pure — unit-tested.
  */
 internal fun bucketToolAttachments(items: List<ToolAttachment>): List<ToolAttachmentBucket> {
     fun <T : ToolAttachment> List<T>.bySalience(): List<T> = sortedBy { attachmentSalience(it.attachment) }
@@ -207,22 +187,16 @@ internal fun bucketToolAttachments(items: List<ToolAttachment>): List<ToolAttach
     )
 }
 
-/**
- * Upstream `attachmentSalience` (`attachmentTypes.ts`): a zero-byte file is an empty placeholder
- * and sinks below real output within its bucket. An absent `bytes` weighs 0 — the server simply
- * did not report it, matching JS where `undefined === 0` is false.
- */
+/** Upstream `attachmentSalience` (`attachmentTypes.ts`): a zero-byte file is an empty placeholder
+ *  and sinks below real output within its bucket. An absent `bytes` is unreported, not zero, and
+ *  must not sink with it. */
 private fun attachmentSalience(attachment: Attachment): Int = if (attachment.bytes == 0L) 1 else 0
 
 /**
  * Mirrors upstream `isImageAttachment` (`attachmentTypes.ts`) on the MIME and filename halves, and
- * deliberately drops its `width`/`height`/`filepath` requirements.
- *
- * Upstream needs the dimensions to reserve DOM layout space; mobile renders through
- * `SubcomposeAsyncImage` with its own loading slot and a height cap, so a dimensionless image lays
- * out fine — and requiring them would *hide* every image whose `attachment` event omitted them,
- * which is the failure this classification exists to prevent. `filepath` is likewise optional:
- * `resolveAttachmentUrl` falls back to `$baseUrl/api/files/$fileId`.
+ * deliberately drops its `width`/`height`/`filepath` requirements: upstream needs the dimensions
+ * to reserve DOM layout space, and requiring them here would *hide* every image whose `attachment`
+ * event omitted them. `resolveAttachmentUrl` falls back to `$baseUrl/api/files/$fileId`.
  */
 private fun isImageAttachment(attachment: Attachment): Boolean =
     attachment.type?.startsWith("image/") == true ||
@@ -332,8 +306,7 @@ internal fun ToolCallAttachments(
 
 /**
  * Renders pre-bucketed attachments in the order [bucketToolAttachments] returned them. Shared by
- * the per-tool-call path and the hoisted-out-of-an-activity-group path, so both sort and present a
- * tool's output identically.
+ * the per-tool-call path and the hoisted-out-of-an-activity-group path.
  *
  * Emits no searchable text of its own — no section headers. `SearchMatchEnumeration` counts zero
  * occurrences for tool calls and images, and the renderer walks the same function, so a heading
@@ -390,7 +363,7 @@ internal fun ToolAttachmentBuckets(
                     } else {
                         // Classification is by MIME *or* extension, so an entry can reach this
                         // bucket with nothing resolvable to load. Degrade to a chip rather than
-                        // rendering nothing, which is how a generated file goes missing silently.
+                        // rendering nothing, which loses the file silently.
                         AttachmentDownloadChip(attachment = item.attachment)
                     }
                 }

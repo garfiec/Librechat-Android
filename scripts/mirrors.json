@@ -105,6 +105,20 @@
       "failure_mode": "A type upstream added to the parser is never routed to text, so it stays on a provider that cannot read it. A type upstream removed is routed to text and returns a generic 500."
     },
     {
+      "id": "image-ext-regex",
+      "upstream": {
+        "file": "packages/data-provider/src/file-config.ts",
+        "symbol": "imageExtRegex",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/ToolCallAttachments.kt",
+        "symbol": "IMAGE_EXTENSIONS"
+      },
+      "why": "Decides whether a tool call's generated file renders as an inline image preview or as a download chip, for the attachments that arrive with no MIME type. The exclusions are load-bearing: svg is absent upstream, and an .svg the server extracted text for is meant to reach the artifacts panel instead, so 'completing' this list is itself the drift.",
+      "failure_mode": "An extension upstream added renders as a download chip instead of an image the user can see. One removed sends a non-image down the image path, where a null resolved URL degrades it to a chip. Neither errors."
+    },
+    {
       "id": "feedback-tags",
       "upstream": {
         "file": "packages/data-provider/src/feedback.ts",
