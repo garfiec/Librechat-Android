@@ -55,6 +55,7 @@ import com.garfiec.librechat.feature.chat.util.ContentGroup
 import com.garfiec.librechat.feature.chat.util.IndexedContentPart
 import com.garfiec.librechat.feature.chat.util.activityLabelText
 import com.garfiec.librechat.feature.chat.util.groupContentParts
+import com.garfiec.librechat.feature.chat.util.groupedToolCallIds
 import com.garfiec.librechat.feature.chat.util.steerText
 import org.jetbrains.compose.resources.stringResource
 
@@ -365,7 +366,7 @@ internal fun MessageContentAndActions(
                     }
 
                     @Composable
-                    fun PartContent(entry: IndexedContentPart) {
+                    fun PartContent(entry: IndexedContentPart, hideAttachments: Boolean = false) {
                         val part = entry.part
                         val focusedInPart =
                             if (isCurrentSearchMatch) searchFocusedOccurrence - partOffsets[entry.index] else -1
@@ -393,6 +394,7 @@ internal fun MessageContentAndActions(
                                 searchFocusedOccurrence = focusedInPart,
                                 onFocusedOccurrencePosition = if (isCurrentSearchMatch) onFocusedOccurrencePosition else null,
                                 stateKey = "${message.messageId}:${entry.index}",
+                                hideAttachments = hideAttachments,
                                 modifier = Modifier.padding(vertical = 2.dp),
                             )
                         }
@@ -419,14 +421,40 @@ internal fun MessageContentAndActions(
                                     key(group.key) {
                                         when (group) {
                                             is ContentGroup.Single -> PartContent(group.entry)
-                                            is ContentGroup.Activity -> ActivityGroup(
-                                                group = group,
-                                                stateKey = "${message.messageId}:${group.key}",
-                                                autoExpand = group.key == focusedGroupKey,
-                                                autoExpandKey = LocalSearchFocusNonce.current,
-                                            ) {
-                                                group.entries.forEach { entry ->
-                                                    key(entry.index) { PartContent(entry) }
+                                            is ContentGroup.Activity -> {
+                                                // The block's own output, lifted out so folding the
+                                                // process does not fold the result away with it.
+                                                val hoisted = remember(message.attachments, group) {
+                                                    collectGroupAttachments(
+                                                        message.attachments.orEmpty(),
+                                                        group.groupedToolCallIds(),
+                                                    )
+                                                }
+                                                ActivityGroup(
+                                                    group = group,
+                                                    stateKey = "${message.messageId}:${group.key}",
+                                                    autoExpand = group.key == focusedGroupKey,
+                                                    autoExpandKey = LocalSearchFocusNonce.current,
+                                                    hoistedAttachments = {
+                                                        // Chrome, like the office-preview block
+                                                        // below: the inline path gets this from the
+                                                        // dispatcher, the hoisted one sits outside
+                                                        // it and would leak filenames into
+                                                        // "Select all".
+                                                        DisableSelection {
+                                                            ToolAttachmentBuckets(
+                                                                buckets = hoisted,
+                                                                baseUrl = baseUrl,
+                                                                modifier = Modifier.padding(top = 4.dp),
+                                                            )
+                                                        }
+                                                    },
+                                                ) {
+                                                    group.entries.forEach { entry ->
+                                                        key(entry.index) {
+                                                            PartContent(entry, hideAttachments = true)
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

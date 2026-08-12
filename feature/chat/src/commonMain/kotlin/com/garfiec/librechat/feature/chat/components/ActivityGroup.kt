@@ -73,6 +73,20 @@ internal fun ActivityGroup(
     // a collapsed group swallows a match the user just navigated to.
     autoExpand: Boolean = false,
     autoExpandKey: Any? = null,
+    /**
+     * The files this block's tool calls produced.
+     *
+     * **Load-bearing: rendered as a SIBLING AFTER the collapsible, never inside it.** The block
+     * exists to fold away the *process*; a generated image is the *result*, and folding the result
+     * with it is how multiple generated images disappeared into a "Used 2 tools" header. Upstream
+     * pins the same structure — `ToolCallGroup.tsx` places `<AttachmentGroup>` after the
+     * collapsible div, asserted by `__tests__/ToolCallGroup.test.tsx`. This module has no Compose
+     * test harness, so that assertion has no mobile counterpart and this comment is the contract.
+     *
+     * Unindented on purpose: the body carries the group's indent, the hoisted output reads at the
+     * message's own level. The slot supplies its own top padding so an empty one costs nothing.
+     */
+    hoistedAttachments: @Composable () -> Unit = {},
     body: @Composable () -> Unit,
 ) {
     // Saveable and keyed on the group: this is a LazyColumn item, so scrolling the message out of
@@ -163,6 +177,9 @@ internal fun ActivityGroup(
                 body()
             }
         }
+
+        // Outside the AnimatedVisibility — see the parameter's KDoc.
+        hoistedAttachments()
     }
 }
 
