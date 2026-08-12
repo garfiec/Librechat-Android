@@ -211,4 +211,171 @@ class ToolCallAttachmentsTest {
     fun `unknown extension yields no artifact`() {
         assertThat(attachmentToArtifact(Attachment(filename = "receipt.pdf", text = "%PDF"))).isNull()
     }
+
+    // ─── image classification ──────────────────────────────────────
+
+    @Test
+    fun `image mime routes to the image bucket without dimensions`() {
+        val result = partitionToolCallAttachments(
+            listOf(Attachment(fileId = "i", filename = "plot.png", type = "image/png", toolCallId = "c")),
+            "c",
+        )
+        assertThat(result.single()).isInstanceOf(ToolAttachment.Image::class.java)
+    }
+
+    @Test
+    fun `image filename routes to the image bucket without a mime type`() {
+        val result = partitionToolCallAttachments(
+            listOf(Attachment(fileId = "i", filename = "plot.png", toolCallId = "c")),
+            "c",
+        )
+        assertThat(result.single()).isInstanceOf(ToolAttachment.Image::class.java)
+    }
+
+    @Test
+    fun `image filepath alone routes to the image bucket`() {
+        val result = partitionToolCallAttachments(
+            listOf(Attachment(fileId = "i", filepath = "/api/files/i/render.WEBP", toolCallId = "c")),
+            "c",
+        )
+        assertThat(result.single()).isInstanceOf(ToolAttachment.Image::class.java)
+    }
+
+    @Test
+    fun `non image filename without a mime type stays a file chip`() {
+        val result = partitionToolCallAttachments(
+            listOf(Attachment(fileId = "d", filename = "data.bin", toolCallId = "c")),
+            "c",
+        )
+        assertThat(result.single()).isInstanceOf(ToolAttachment.File::class.java)
+    }
+
+    // svg is deliberately absent from the ported upstream extension list, so a type-less .svg keeps
+    // classifying on `attachmentToArtifact` alone exactly as before. It has no artifact branch
+    // either, so it lands as a chip — the point is that widening the list to be "complete" would
+    // silently reroute it into an image preview instead.
+    @Test
+    fun `type-less svg is unaffected by the filename image test`() {
+        val result = partitionToolCallAttachments(
+            listOf(Attachment(fileId = "s", filename = "chart.svg", text = "<svg/>", toolCallId = "c")),
+            "c",
+        )
+        assertThat(result.single()).isInstanceOf(ToolAttachment.File::class.java)
+    }
+
+    // ─── bucketToolAttachments ─────────────────────────────────────
+
+    @Test
+    fun `buckets render files first and images last`() {
+        val items = listOf<ToolAttachment>(
+            ToolAttachment.Image(Attachment(fileId = "i", filename = "a.png", type = "image/png")),
+            ToolAttachment.File(Attachment(fileId = "f", filename = "a.bin")),
+            ToolAttachment.Pdf(Attachment(fileId = "p", filename = "a.pdf", type = "application/pdf")),
+            ToolAttachment.ArtifactContent(
+                Attachment(fileId = "a", filename = "a.md", text = "# hi"),
+                attachmentToArtifact(Attachment(fileId = "a", filename = "a.md", text = "# hi"))!!,
+            ),
+        )
+
+        val buckets = bucketToolAttachments(items)
+
+        assertThat(buckets.map { it::class.java }).containsExactly(
+            ToolAttachmentBucket.Files::class.java,
+            ToolAttachmentBucket.Artifacts::class.java,
+            ToolAttachmentBucket.Pdfs::class.java,
+            ToolAttachmentBucket.Images::class.java,
+        ).inOrder()
+    }
+
+    @Test
+    fun `empty buckets are omitted`() {
+        val buckets = bucketToolAttachments(
+            listOf(ToolAttachment.Image(Attachment(fileId = "i", type = "image/png"))),
+        )
+        assertThat(buckets).hasSize(1)
+        assertThat(buckets.single()).isInstanceOf(ToolAttachmentBucket.Images::class.java)
+    }
+
+    @Test
+    fun `zero byte entries sink within their bucket and the rest keep arrival order`() {
+        val items = listOf<ToolAttachment>(
+            ToolAttachment.File(Attachment(fileId = "empty", filename = "empty.csv", bytes = 0L)),
+            ToolAttachment.File(Attachment(fileId = "real", filename = "real.csv", bytes = 42L)),
+            ToolAttachment.File(Attachment(fileId = "unreported", filename = "unreported.csv")),
+        )
+
+        val files = (bucketToolAttachments(items).single() as ToolAttachmentBucket.Files).items
+
+        assertThat(files.map { it.attachment.fileId })
+            .containsExactly("real", "unreported", "empty").inOrder()
+    }
+
+    // ─── collectGroupAttachments ───────────────────────────────────
+
+    @Test
+    fun `group attachments flatten across tool calls in id order`() {
+        val attachments = listOf(
+            Attachment(fileId = "b", filename = "b.png", type = "image/png", toolCallId = "call_2"),
+            Attachment(fileId = "a", filename = "a.png", type = "image/png", toolCallId = "call_1"),
+        )
+
+        val buckets = collectGroupAttachments(attachments, listOf("call_1", "call_2"))
+
+        val images = (buckets.single() as ToolAttachmentBucket.Images).items
+        assertThat(images.map { it.attachment.fileId }).containsExactly("a", "b").inOrder()
+    }
+
+    @Test
+    fun `group attachments dedupe by file id across calls`() {
+        val attachments = listOf(
+            Attachment(fileId = "shared", filename = "out.png", type = "image/png", toolCallId = "call_1"),
+            Attachment(fileId = "shared", filename = "out.png", type = "image/png", toolCallId = "call_2"),
+        )
+
+        val buckets = collectGroupAttachments(attachments, listOf("call_1", "call_2"))
+
+        assertThat((buckets.single() as ToolAttachmentBucket.Images).items).hasSize(1)
+    }
+
+    // The regression the fileId-only cross-call dedupe key exists to prevent: two calls each
+    // producing their own chart.png are two different files, not one reported twice.
+    @Test
+    fun `group attachments keep same named files from different calls when file id is absent`() {
+        val attachments = listOf(
+            Attachment(filename = "chart.png", type = "image/png", toolCallId = "call_1"),
+            Attachment(filename = "chart.png", type = "image/png", toolCallId = "call_2"),
+        )
+
+        val buckets = collectGroupAttachments(attachments, listOf("call_1", "call_2"))
+
+        assertThat((buckets.single() as ToolAttachmentBucket.Images).items).hasSize(2)
+    }
+
+    @Test
+    fun `empty tool call id list yields nothing`() {
+        val attachments = listOf(
+            Attachment(fileId = "a", filename = "a.png", type = "image/png", toolCallId = "call_1"),
+        )
+        assertThat(collectGroupAttachments(attachments, emptyList())).isEmpty()
+    }
+
+    @Test
+    fun `office preview attachments stay out of the group list`() {
+        val attachments = listOf(
+            Attachment(
+                fileId = "doc",
+                filename = "report.docx",
+                type = ArtifactType.DEFAULT_OFFICE_PREVIEW_MIME,
+                text = "<p>report</p>",
+                toolCallId = "call_1",
+            ),
+        )
+        assertThat(collectGroupAttachments(attachments, listOf("call_1"))).isEmpty()
+    }
+
+    @Test
+    fun `web search sources stay out of the group list`() {
+        val attachments = listOf(Attachment(fileId = "w", type = "web_search", toolCallId = "call_1"))
+        assertThat(collectGroupAttachments(attachments, listOf("call_1"))).isEmpty()
+    }
 }

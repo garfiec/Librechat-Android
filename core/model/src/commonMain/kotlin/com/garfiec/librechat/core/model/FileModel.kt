@@ -89,6 +89,9 @@ data class Attachment(
     val expiresAt: Long? = null,
     val width: Int? = null,
     val height: Int? = null,
+    /** File size. Only used to sink zero-byte placeholders below real output when ordering a
+     *  tool call's generated files (upstream `attachmentSalience`); absent means unreported. */
+    val bytes: Long? = null,
     /** Deferred office-doc preview lifecycle (v0.8.6): `pending` while the server
      *  extracts HTML, `ready` once [text]/[textFormat] are set, `failed` on error.
      *  Null for ordinary attachments (treated as already-ready). */

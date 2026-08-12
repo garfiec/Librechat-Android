@@ -296,4 +296,34 @@ class ContentSegmentsTest {
             .groups.single() as ContentGroup.Activity
         assertTrue(group.failed)
     }
+
+    // Upstream groups image-gen calls like any other tool — there is no image special-case in
+    // `groupToolCalls.ts`. The generated images stay visible because the render layer hoists them
+    // out of the collapsible, NOT because the grouping skips them. Excluding image tools here
+    // would diverge from upstream and re-break the parity this grouping exists to provide.
+    @Test
+    fun imageGenCallsStillGroupIntoOneActivityBlock() {
+        val groups = onlySegment(
+            listOf(tool("t1", name = "image_gen_oai"), tool("t2", name = "image_gen_oai")),
+        ).groups
+
+        val group = groups.single() as ContentGroup.Activity
+        assertEquals(2, group.toolCount)
+    }
+
+    @Test
+    fun groupedToolCallIdsReturnsToolCallsInOrderAndSkipsReasoning() {
+        val group = onlySegment(listOf(tool("t1"), think("pondering"), tool("t2"), label("Looked it up")))
+            .groups.single() as ContentGroup.Activity
+
+        assertEquals(listOf("t1", "t2"), group.groupedToolCallIds())
+    }
+
+    @Test
+    fun groupedToolCallIdsSkipsBlankIds() {
+        val group = onlySegment(listOf(tool(""), tool("t2")))
+            .groups.single() as ContentGroup.Activity
+
+        assertEquals(listOf("t2"), group.groupedToolCallIds())
+    }
 }

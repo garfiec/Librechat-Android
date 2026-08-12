@@ -86,6 +86,15 @@ private val SANDBOX_PLACEHOLDER = Regex("""^_\.(?:dirkeep|gitkeep)-[0-9a-f]{6}$"
  *  Upstream `SANITIZED_DOTFILE_PATTERN`. */
 private val SANITIZED_DOTFILE = Regex("""^_\.(.+?)-[0-9a-f]{6}(\.[^.]+)?$""", RegexOption.IGNORE_CASE)
 
+/**
+ * Upstream `imageExtRegex` (`packages/data-provider/src/file-config.ts`), copied verbatim.
+ *
+ * Deliberately excludes `svg`, `bmp` and `avif` even though they are images: an `.svg` the server
+ * extracted text for renders far better as an artifact, and widening this list to be "complete"
+ * would silently move it out of [ToolAttachment.ArtifactContent].
+ */
+private val IMAGE_EXTENSIONS = Regex("""\.(?:jpg|jpeg|png|gif|webp|heic|heif)$""", RegexOption.IGNORE_CASE)
+
 /** Extensions rendered as syntax-highlighted code (fenced markdown) in the artifacts panel. */
 private val CODE_EXTENSIONS = setOf(
     "py", "js", "jsx", "ts", "tsx", "kt", "kts", "java", "c", "cc", "cpp", "h", "hpp",
@@ -118,7 +127,7 @@ internal fun partitionToolCallAttachments(
         }
         .map { att ->
             when {
-                att.type?.startsWith("image/") == true -> ToolAttachment.Image(att)
+                isImageAttachment(att) -> ToolAttachment.Image(att)
                 // A PDF needs its downloadable fileId to preview; without one it stays a file chip.
                 isPdf(att) && att.fileId != null -> ToolAttachment.Pdf(att)
                 else -> attachmentToArtifact(att)?.let { ToolAttachment.ArtifactContent(att, it) }
@@ -127,6 +136,97 @@ internal fun partitionToolCallAttachments(
         }
         .toList()
 }
+
+/**
+ * Every renderable attachment produced by a run of tool calls, flattened in call order — the
+ * hoisted counterpart of [partitionToolCallAttachments]. Mirrors upstream's per-group
+ * `groupAttachments` (`ContentParts.tsx`) fed into `AttachmentGroup` (`Attachment.tsx`).
+ *
+ * Built by running the single-call partition per id rather than by a bulk filter, so the hoisted
+ * and inline paths can never disagree about *what* is renderable.
+ *
+ * Cross-call dedupe is by `fileId` **only**. Two different calls may legitimately each emit a
+ * `chart.png` carrying no fileId, and collapsing those on filename would drop real output — the
+ * per-call filename dedupe inside [partitionToolCallAttachments] still applies within one call.
+ * Pure — unit-tested.
+ */
+internal fun collectGroupAttachments(
+    attachments: List<Attachment>,
+    toolCallIds: List<String>,
+): List<ToolAttachmentBucket> =
+    bucketToolAttachments(
+        toolCallIds
+            .flatMap { partitionToolCallAttachments(attachments, it) }
+            .distinctBy { item ->
+                item.attachment.fileId
+                    ?: "${item.attachment.toolCallId}:${attachmentName(item.attachment)}"
+            },
+    )
+
+/**
+ * One run of same-kind attachments, emitted in final render order; empty runs are omitted.
+ *
+ * The render order is the *return* order of [bucketToolAttachments] rather than the declaration
+ * order of a composable, which is the only way it can be pinned — this module has no Compose test
+ * harness.
+ */
+internal sealed interface ToolAttachmentBucket {
+    val items: List<ToolAttachment>
+
+    data class Files(override val items: List<ToolAttachment.File>) : ToolAttachmentBucket
+    data class Artifacts(override val items: List<ToolAttachment.ArtifactContent>) : ToolAttachmentBucket
+    data class Pdfs(override val items: List<ToolAttachment.Pdf>) : ToolAttachmentBucket
+    data class Images(override val items: List<ToolAttachment.Image>) : ToolAttachmentBucket
+}
+
+/**
+ * Buckets [items] into upstream `AttachmentGroup`'s render order: files → artifacts → previews →
+ * **images last** (`Attachment.tsx`). Mobile's order was images-first; the swap is what keeps a
+ * long generated image from pushing the files that describe it off screen.
+ *
+ * Two deliberate mapping choices, because the buckets do not line up 1:1. Upstream's separate
+ * mermaid and inline-text buckets fold into [ToolAttachment.ArtifactContent] — `.mmd` already maps
+ * to `application/vnd.mermaid` there and all three render as the same button, so their position
+ * relative to files and images is preserved. [ToolAttachment.Pdf] has no upstream counterpart (a
+ * PDF falls to web's generic file row) and sits with the artifacts: like them it is a card that
+ * opens a preview, not a download chip.
+ *
+ * Each bucket is stable-sorted by [attachmentSalience]. Pure — unit-tested.
+ */
+internal fun bucketToolAttachments(items: List<ToolAttachment>): List<ToolAttachmentBucket> {
+    fun <T : ToolAttachment> List<T>.bySalience(): List<T> = sortedBy { attachmentSalience(it.attachment) }
+    return listOfNotNull(
+        items.filterIsInstance<ToolAttachment.File>().bySalience()
+            .takeIf { it.isNotEmpty() }?.let(ToolAttachmentBucket::Files),
+        items.filterIsInstance<ToolAttachment.ArtifactContent>().bySalience()
+            .takeIf { it.isNotEmpty() }?.let(ToolAttachmentBucket::Artifacts),
+        items.filterIsInstance<ToolAttachment.Pdf>().bySalience()
+            .takeIf { it.isNotEmpty() }?.let(ToolAttachmentBucket::Pdfs),
+        items.filterIsInstance<ToolAttachment.Image>().bySalience()
+            .takeIf { it.isNotEmpty() }?.let(ToolAttachmentBucket::Images),
+    )
+}
+
+/**
+ * Upstream `attachmentSalience` (`attachmentTypes.ts`): a zero-byte file is an empty placeholder
+ * and sinks below real output within its bucket. An absent `bytes` weighs 0 — the server simply
+ * did not report it, matching JS where `undefined === 0` is false.
+ */
+private fun attachmentSalience(attachment: Attachment): Int = if (attachment.bytes == 0L) 1 else 0
+
+/**
+ * Mirrors upstream `isImageAttachment` (`attachmentTypes.ts`) on the MIME and filename halves, and
+ * deliberately drops its `width`/`height`/`filepath` requirements.
+ *
+ * Upstream needs the dimensions to reserve DOM layout space; mobile renders through
+ * `SubcomposeAsyncImage` with its own loading slot and a height cap, so a dimensionless image lays
+ * out fine — and requiring them would *hide* every image whose `attachment` event omitted them,
+ * which is the failure this classification exists to prevent. `filepath` is likewise optional:
+ * `resolveAttachmentUrl` falls back to `$baseUrl/api/files/$fileId`.
+ */
+private fun isImageAttachment(attachment: Attachment): Boolean =
+    attachment.type?.startsWith("image/") == true ||
+        attachmentName(attachment)?.let { IMAGE_EXTENSIONS.containsMatchIn(it) } == true
 
 private fun isPdf(attachment: Attachment): Boolean =
     attachment.type == "application/pdf" ||
@@ -217,7 +317,6 @@ internal fun attachmentToArtifact(attachment: Attachment): Artifact? {
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ToolCallAttachments(
     attachments: List<Attachment>,
@@ -225,53 +324,75 @@ internal fun ToolCallAttachments(
     baseUrl: String,
     modifier: Modifier = Modifier,
 ) {
-    val items = remember(attachments, toolCallId) {
-        partitionToolCallAttachments(attachments, toolCallId)
+    val buckets = remember(attachments, toolCallId) {
+        bucketToolAttachments(partitionToolCallAttachments(attachments, toolCallId))
     }
-    if (items.isEmpty()) return
+    ToolAttachmentBuckets(buckets = buckets, baseUrl = baseUrl, modifier = modifier)
+}
+
+/**
+ * Renders pre-bucketed attachments in the order [bucketToolAttachments] returned them. Shared by
+ * the per-tool-call path and the hoisted-out-of-an-activity-group path, so both sort and present a
+ * tool's output identically.
+ *
+ * Emits no searchable text of its own — no section headers. `SearchMatchEnumeration` counts zero
+ * occurrences for tool calls and images, and the renderer walks the same function, so a heading
+ * here would desync the two walks and send prev/next to the wrong match.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ToolAttachmentBuckets(
+    buckets: List<ToolAttachmentBucket>,
+    baseUrl: String,
+    modifier: Modifier = Modifier,
+) {
+    if (buckets.isEmpty()) return
 
     val openArtifact = LocalOpenArtifact.current
     val openPdf = LocalOpenPdf.current
     val fallbackName = stringResource(Res.string.attachment_fallback)
-    val images = items.filterIsInstance<ToolAttachment.Image>()
-    val artifacts = items.filterIsInstance<ToolAttachment.ArtifactContent>()
-    val pdfs = items.filterIsInstance<ToolAttachment.Pdf>()
-    val files = items.filterIsInstance<ToolAttachment.File>()
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        images.forEach { item ->
-            val url = resolveAttachmentUrl(item.attachment, baseUrl)
-            if (url != null) {
-                MessageImagePreview(
-                    imageUrl = url,
-                    altText = item.attachment.filename?.let { displayFilename(it) } ?: fallbackName,
-                )
-            }
-        }
+        buckets.forEach { bucket ->
+            when (bucket) {
+                is ToolAttachmentBucket.Files -> FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    bucket.items.forEach { item ->
+                        AttachmentDownloadChip(attachment = item.attachment)
+                    }
+                }
 
-        artifacts.forEach { item ->
-            ArtifactButton(
-                artifact = item.artifact,
-                onClick = { openArtifact?.invoke(item.artifact, listOf(item.artifact)) },
-            )
-        }
+                is ToolAttachmentBucket.Artifacts -> bucket.items.forEach { item ->
+                    ArtifactButton(
+                        artifact = item.artifact,
+                        onClick = { openArtifact?.invoke(item.artifact, listOf(item.artifact)) },
+                    )
+                }
 
-        pdfs.forEach { item ->
-            val fileId = item.attachment.fileId ?: return@forEach
-            val name = attachmentName(item.attachment)?.let { displayFilename(it) } ?: fallbackName
-            PdfAttachmentCard(
-                title = name,
-                onClick = { openPdf(fileId, name) },
-            )
-        }
+                is ToolAttachmentBucket.Pdfs -> bucket.items.forEach { item ->
+                    val fileId = item.attachment.fileId ?: return@forEach
+                    val name = attachmentName(item.attachment)?.let { displayFilename(it) } ?: fallbackName
+                    PdfAttachmentCard(
+                        title = name,
+                        onClick = { openPdf(fileId, name) },
+                    )
+                }
 
-        if (files.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                files.forEach { item ->
-                    AttachmentDownloadChip(attachment = item.attachment)
+                is ToolAttachmentBucket.Images -> bucket.items.forEach { item ->
+                    val url = resolveAttachmentUrl(item.attachment, baseUrl)
+                    if (url != null) {
+                        MessageImagePreview(
+                            imageUrl = url,
+                            altText = item.attachment.filename?.let { displayFilename(it) } ?: fallbackName,
+                        )
+                    } else {
+                        // Classification is by MIME *or* extension, so an entry can reach this
+                        // bucket with nothing resolvable to load. Degrade to a chip rather than
+                        // rendering nothing, which is how a generated file goes missing silently.
+                        AttachmentDownloadChip(attachment = item.attachment)
+                    }
                 }
             }
         }
