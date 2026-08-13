@@ -3,44 +3,20 @@ package com.garfiec.librechat.feature.chat.viewmodel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.BackendBuildClass
 import com.garfiec.librechat.core.common.DetectedBackend
-import com.garfiec.librechat.core.common.identity.AccountId
-import com.garfiec.librechat.core.common.identity.AccountState
-import com.garfiec.librechat.core.common.identity.InMemoryActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
-import com.garfiec.librechat.core.data.datastore.ServerDataStore
-import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
-import com.garfiec.librechat.core.data.repository.AgentRepository
-import com.garfiec.librechat.core.data.repository.ChatRepository
-import com.garfiec.librechat.core.data.repository.ConfigRepository
-import com.garfiec.librechat.core.data.repository.ConversationRepository
-import com.garfiec.librechat.core.data.repository.DraftRepository
-import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
-import com.garfiec.librechat.core.data.repository.FavoritesRepository
-import com.garfiec.librechat.core.data.repository.FileRepository
-import com.garfiec.librechat.core.data.repository.KeyRepository
-import com.garfiec.librechat.core.data.repository.McpRepository
-import com.garfiec.librechat.core.data.repository.MessageRepository
-import com.garfiec.librechat.core.data.repository.PresetRepository
-import com.garfiec.librechat.core.data.repository.PromptRepository
-import com.garfiec.librechat.core.data.repository.ResumePinStore
-import com.garfiec.librechat.core.data.repository.RoleRepository
-import com.garfiec.librechat.core.data.repository.ShareRepository
-import com.garfiec.librechat.core.data.repository.UserRepository
-import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.request.SteerRequest
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.model.response.SteerResponse
-import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformDelegateFactory
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformFileHandler
 import com.google.common.truth.Truth.assertThat
@@ -55,7 +31,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -63,7 +38,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -102,32 +76,21 @@ class ChatViewModelDuringRunSendTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
-    private val agentRepository = mockk<AgentRepository>(relaxed = true)
-    private val chatRepository = mockk<ChatRepository>(relaxed = true)
-    private val messageRepository = mockk<MessageRepository>(relaxed = true)
-    private val fileRepository = mockk<FileRepository>(relaxed = true)
-    private val configRepository = mockk<ConfigRepository>(relaxed = true)
-    private val conversationRepository = mockk<ConversationRepository>(relaxed = true)
-    private val endpointTokenRepository = mockk<EndpointTokenRepository>(relaxed = true)
-    private val draftRepository = mockk<DraftRepository>(relaxed = true)
-    private val favoritesRepository = mockk<FavoritesRepository>(relaxed = true)
-    private val keyRepository = mockk<KeyRepository>(relaxed = true)
-    private val presetRepository = mockk<PresetRepository>(relaxed = true)
-    private val promptRepository = mockk<PromptRepository>(relaxed = true)
-    private val shareRepository = mockk<ShareRepository>(relaxed = true)
-    private val mcpRepository = mockk<McpRepository>(relaxed = true)
-    private val userRepository = mockk<UserRepository>(relaxed = true)
-    private val roleRepository = mockk<RoleRepository>(relaxed = true)
-    private val permissionGate = mockk<PermissionGate>(relaxed = true)
-    private val connectivityObserver =
-        mockk<com.garfiec.librechat.core.common.network.ConnectivityObserver>(relaxed = true)
-    private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
-    private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
-    private val platformDelegateFactory = mockk<PlatformDelegateFactory>(relaxed = true)
+    private val fixture = ChatViewModelTestFixture()
+    private val agentRepository get() = fixture.agentRepository
+    private val chatRepository get() = fixture.chatRepository
+    private val messageRepository get() = fixture.messageRepository
+    private val configRepository get() = fixture.configRepository
+    private val conversationRepository get() = fixture.conversationRepository
+    private val favoritesRepository get() = fixture.favoritesRepository
+    private val keyRepository get() = fixture.keyRepository
+    private val roleRepository get() = fixture.roleRepository
+    private val serverDataStore get() = fixture.serverDataStore
+    private val settingsDataStore get() = fixture.settingsDataStore
+    private val platformDelegateFactory get() = fixture.platformDelegateFactory
+    private val serverFileSelectionHandoff get() = fixture.serverFileSelectionHandoff
+    private val selectionHandoff get() = fixture.selectionHandoff
     private val fileHandler = mockk<PlatformFileHandler>(relaxed = true)
-    private val serverFileSelectionHandoff = mockk<ServerFileSelectionHandoff>(relaxed = true)
-
-    private val selectionHandoff = NewChatSelectionHandoff()
 
     /** The resumed run's SSE events. Hot, so a test can end the run by emitting an error. */
     private val resumedStream = MutableSharedFlow<StreamEvent>(extraBufferCapacity = 8)
@@ -135,14 +98,13 @@ class ChatViewModelDuringRunSendTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        fixture.stubDefaults()
 
         // Open the steering gate: 0.8.8-rc1 clears the version comparison outright, so the test
         // does not depend on the dev-build date gate or on the generated commit map.
         every { configRepository.detectedBackend } returns
             MutableStateFlow(DetectedBackend("0.8.8-rc1", BackendBuildClass.RC))
         every { configRepository.detectedBackendVersion } returns MutableStateFlow("0.8.8-rc1")
-        every { configRepository.startupConfig } returns MutableStateFlow(null)
-        every { roleRepository.userPermissions } returns MutableStateFlow(null)
 
         // Collection-typed flows read by init-time delegates: relaxed mockk hands back a bare
         // Object for the erased element type, which those delegates cast to Map/List.
@@ -151,7 +113,6 @@ class ChatViewModelDuringRunSendTest {
         // the turn-identity test below would never start.
         every { configRepository.endpointConfigs } returns MutableStateFlow(mapOf(ENDPOINT to EndpointConfig()))
         every { configRepository.availableModels } returns MutableStateFlow(mapOf(ENDPOINT to listOf(MODEL)))
-        every { favoritesRepository.favorites } returns MutableStateFlow(emptyList())
         every { settingsDataStore.selectedMcpServers } returns flowOf(emptySet())
         every { settingsDataStore.enabledTools } returns flowOf(emptySet())
 
@@ -166,13 +127,6 @@ class ChatViewModelDuringRunSendTest {
         every { settingsDataStore.chatHeaderAlignment } returns flowOf(ChatHeaderAlignment.LEFT)
         every { settingsDataStore.contextBarPlacement } returns flowOf(ContextBarPlacement.OPTIONS_SHEET)
         every { settingsDataStore.contextGaugeExpanded } returns flowOf(false)
-        every { messageRepository.observeMessages(any()) } returns emptyFlow()
-        every { serverFileSelectionHandoff.selectionsFor(any()) } returns emptyFlow()
-        // `SharedFlow.collect` returns Nothing, so a relaxed mock throws on these init collectors.
-        every { keyRepository.keyInvalidations } returns MutableSharedFlow()
-        // StateFlow.collect returns Nothing, so a relaxed mock throws in the delegate's collector.
-        every { agentRepository.revision } returns MutableStateFlow(0L)
-        every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()
 
         // buildSendSpec reads the attachment list; the relaxed factory would hand back an
         // untyped stub that fails the List cast.
@@ -507,37 +461,9 @@ class ChatViewModelDuringRunSendTest {
     }
 
     private fun newViewModel(): ChatViewModel =
-        ChatViewModel(
-            initialConversationId = CONVERSATION_ID,
-            initialAgentId = null,
-            agentRepository = agentRepository,
-            chatRepository = chatRepository,
-            messageRepository = messageRepository,
-            fileRepository = fileRepository,
-            resumePinStore = ResumePinStore(),
-            configRepository = configRepository,
-            conversationRepository = conversationRepository,
-            endpointTokenRepository = endpointTokenRepository,
-            draftRepository = draftRepository,
-            favoritesRepository = favoritesRepository,
-            keyRepository = keyRepository,
-            presetRepository = presetRepository,
-            promptRepository = promptRepository,
-            shareRepository = shareRepository,
-            mcpRepository = mcpRepository,
-            userRepository = userRepository,
-            roleRepository = roleRepository,
-            permissionGate = permissionGate,
-            connectivityObserver = connectivityObserver,
-            serverDataStore = serverDataStore,
-            settingsDataStore = settingsDataStore,
-            platformDelegateFactory = platformDelegateFactory,
-            json = Json { ignoreUnknownKeys = true },
+        fixture.build(
             defaultDispatcher = testDispatcher,
-            selectionHandoff = selectionHandoff,
-            serverFileSelectionHandoff = serverFileSelectionHandoff,
-            promptInsertionHandoff = PromptInsertionHandoff(),
-            activeAccountProvider = InMemoryActiveAccountProvider(AccountState.Resolved(AccountId("srv:user-1"))),
+            initialConversationId = CONVERSATION_ID,
         )
 
     private companion object {
