@@ -156,5 +156,9 @@ say what happened.
 - GitHub appends a trailing newline to a body it stores. The script strips trailing
   whitespace before writing so repeat edits cannot accrete blank lines, and tolerates that
   single newline when verifying. Any other difference in the tail is treated as corruption.
-- Do not hand-roll this with `gh release view ... -q .body > f && edit f && gh release edit`.
-  That pipeline drops the CRLFs.
+- Reading a body with `-q .body` is fine — that is what step 2 does. What must never happen
+  is a **write** round-tripped that way (`gh release view -q .body > f && edit f && gh
+  release edit`): that pipeline drops the CRLFs and appends a newline per pass.
+- `--backfill` and `--since` are instructions in this file, not flags on the script. Nothing
+  enforces them; they hold only as long as they are followed. The script's own guards are
+  `--apply`, `--replace`, and the refusals listed above.

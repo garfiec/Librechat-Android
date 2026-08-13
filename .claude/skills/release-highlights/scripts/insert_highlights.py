@@ -61,11 +61,17 @@ def split_body(body: str, tag: str) -> tuple[str, str]:
     return body[:index], body[index:]
 
 
+def highlights_line(head: str) -> int | None:
+    """Index of the Highlights heading. Scans only above the marker, so a PR title
+    mentioning highlights can't false-positive."""
+    for i, line in enumerate(head.splitlines()):
+        if line.lstrip().startswith("#") and line.strip().lstrip("#").strip().lower() == "highlights":
+            return i
+    return None
+
+
 def has_highlights(head: str) -> bool:
-    """Look only above the marker, so a PR title mentioning highlights can't false-positive."""
-    return any(line.strip().lstrip("#").strip().lower() == "highlights"
-               and line.lstrip().startswith("#")
-               for line in head.splitlines())
+    return highlights_line(head) is not None
 
 
 def main() -> None:
@@ -86,14 +92,14 @@ def main() -> None:
     body = fetch_body(args.tag, args.repo)
     head, tail = split_body(body, args.tag)
 
-    if has_highlights(head):
+    cut = highlights_line(head)
+    if cut is not None:
         if not args.replace:
             die(f"{args.tag} already has a Highlights section. "
                 f"Pass --replace only if the user explicitly asked to overwrite it.")
-        # Keep the badge lines above the old section; drop from its heading onward.
-        lines = head.splitlines(keepends=True)
-        cut = next(i for i, line in enumerate(lines) if line.lstrip().startswith("#"))
-        head = "".join(lines[:cut])
+        # Cut at the Highlights heading itself, never at whatever heading comes first —
+        # anything above it (badges, an intro note) belongs to the author, not to us.
+        head = "".join(head.splitlines(keepends=True)[:cut])
 
     # Match the body's existing line endings so the inserted block doesn't mix styles.
     nl = "\r\n" if "\r\n" in body else "\n"
@@ -105,40 +111,49 @@ def main() -> None:
     if not new_body.rstrip().endswith(tail.rstrip()):
         die("internal check failed: the reconstructed body does not end with the original tail")
 
-    backup = args.backup_dir / f"release-body-{args.tag}.bak.md"
-    backup.write_text(body)
-
     if not args.apply:
-        print(f"DRY RUN — {args.tag}")
-        print(f"  original body : {len(body)} chars (backed up to {backup})")
+        print(f"DRY RUN — {args.tag} (nothing written, no backup taken)")
+        print(f"  original body : {len(body)} chars")
         print(f"  new body      : {len(new_body)} chars")
-        print(f"  tail preserved: {len(tail)} chars below the marker, unchanged")
+        print(f"  tail          : {len(tail.rstrip())} chars, carried over verbatim "
+              f"({tail.count(chr(13))} CR, {tail.count(chr(10))} LF)")
         print(f"  line endings  : {'CRLF' if nl == chr(13) + chr(10) else 'LF'} (preserved)")
         print("\n--- head after edit ---")
         print(new_body[:new_body.index(MARKER)])
         return
+
+    backup = args.backup_dir / f"release-body-{args.tag}.bak.md"
+    backup.write_text(body)
 
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
         fh.write(new_body)
         notes_path = fh.name
     gh(["release", "edit", args.tag, "--repo", args.repo, "--notes-file", notes_path])
 
-    # GitHub normalizes trailing whitespace on its own; any other tail difference is corruption.
-    live = fetch_body(args.tag, args.repo)
-    _, live_tail = split_body(live, args.tag)
-    if live_tail.rstrip() != tail.rstrip():
-        print(f"\nCRITICAL: the section below the marker CHANGED on {args.tag}.", file=sys.stderr)
+    def fatal(what: str) -> None:
+        print(f"\nFATAL: {what} on {args.tag}.", file=sys.stderr)
         print(f"Restore it now with:\n"
               f"  gh release edit {args.tag} --repo {args.repo} --notes-file {backup}",
               file=sys.stderr)
         sys.exit(2)
+
+    # GitHub normalizes trailing whitespace on its own; any other tail difference is corruption.
+    live = fetch_body(args.tag, args.repo)
+    live_head, live_tail = split_body(live, args.tag)
+    if live_tail.rstrip() != tail.rstrip():
+        fatal("the section below the marker CHANGED")
     if not live.startswith(head.rstrip()):
-        print(f"WARNING: the badge header changed on {args.tag}; backup at {backup}",
-              file=sys.stderr)
-        sys.exit(2)
+        fatal("the content above the Highlights section CHANGED")
+    # Without this the tool cannot tell a successful write from one that silently did nothing.
+    # Compared line-ending-insensitively so a normalization upstream can't fake a corruption
+    # report — a spurious FATAL here would send the user to restore over a good write.
+    if highlights.replace("\r\n", "\n") not in live_head.replace("\r\n", "\n"):
+        fatal("the Highlights section is missing or incomplete after the write")
 
     print(f"OK  {args.tag}")
-    print(f"    tail verified byte-identical ({len(tail.rstrip())} chars below the marker)")
+    print(f"    tail unchanged, trailing whitespace excepted "
+          f"({len(tail.rstrip())} chars below the marker)")
+    print(f"    Highlights section confirmed present")
     print(f"    backup: {backup}")
     print(f"    https://github.com/{args.repo}/releases/tag/{args.tag}")
 
