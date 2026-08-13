@@ -11,7 +11,6 @@ import com.garfiec.librechat.core.model.request.CreatePromptData
 import com.garfiec.librechat.core.model.request.CreatePromptGroupData
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
-import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -119,8 +118,7 @@ class PromptEditorViewModel(
         val state = _uiState.value
         val groupId = state.groupId ?: return
         viewModelScope.launch {
-            val request = UpdatePromptTagRequest(productionPromptId = promptId)
-            when (val result = promptRepository.updatePromptProductionTag(promptId, request)) {
+            when (val result = promptRepository.updatePromptProductionTag(promptId)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         productionId = promptId,
@@ -212,16 +210,12 @@ class PromptEditorViewModel(
         )
         when (val result = promptRepository.update(groupId, updateRequest)) {
             is Result.Success -> {
-                // A changed body is added as a new version. This call carries the body — the
+                // A changed body is added as a new version. Those calls carry the body — the
                 // metadata update above does not — and the screen pops on `saved`, so flipping it
-                // without reading this result loses the user's edit behind a success animation.
+                // without reading their results loses the user's edit behind a success animation.
                 val currentProduction = state.prompts.find { it.id == state.productionId }
                 val textSaved = if (currentProduction == null || currentProduction.prompt != state.promptText) {
-                    val addRequest = AddPromptToGroupRequest(
-                        prompt = state.promptText,
-                        type = "text",
-                    )
-                    promptRepository.addPromptToGroup(groupId, addRequest) is Result.Success
+                    publishNewVersion(groupId, state.promptText)
                 } else {
                     true
                 }
@@ -239,6 +233,26 @@ class PromptEditorViewModel(
             }
             is Result.Loading -> { /* no-op */ }
         }
+    }
+
+    /**
+     * Writes the edited body as a new version and makes it the live one, reporting whether both
+     * halves landed.
+     *
+     * Adding a version does not move the group's `productionId`, so the promotion is not a
+     * refinement — without it the edit is stored where nothing reads it. Every surface shows the
+     * *production* body: the library row, the composer's `/` picker, and this editor when it
+     * reopens.
+     */
+    private suspend fun publishNewVersion(groupId: String, text: String): Boolean {
+        val addRequest = AddPromptToGroupRequest(
+            prompt = CreatePromptData(prompt = text, type = "text"),
+        )
+        val added = promptRepository.addPromptToGroup(groupId, addRequest)
+        // The response is the only place the new version's id appears, so no id means no promotion
+        // — report the save as incomplete rather than popping the editor over an unread edit.
+        val newPromptId = (added as? Result.Success)?.data?.id ?: return false
+        return promptRepository.updatePromptProductionTag(newPromptId) is Result.Success
     }
 
     fun consumeSaved() {

@@ -6,7 +6,6 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.model.request.AddPromptToGroupRequest
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
-import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.core.model.response.PromptGroupListResponse
 import kotlinx.coroutines.flow.StateFlow
 
@@ -32,8 +31,16 @@ interface PromptRepository {
     suspend fun create(request: CreatePromptRequest): Result<PromptGroup>
     suspend fun update(groupId: String, request: UpdatePromptGroupRequest): Result<PromptGroup>
     suspend fun delete(groupId: String): Result<Unit>
+
+    /**
+     * Adds a version to a group, answering the version created. A new version is not live until
+     * [updatePromptProductionTag] promotes it.
+     */
     suspend fun addPromptToGroup(groupId: String, request: AddPromptToGroupRequest): Result<Prompt>
-    suspend fun updatePromptProductionTag(promptId: String, request: UpdatePromptTagRequest): Result<Prompt>
+
+    /** Promotes a version to its group's production prompt — the body every surface reads. */
+    suspend fun updatePromptProductionTag(promptId: String): Result<Unit>
+
     suspend fun getPromptsByGroupId(groupId: String): Result<List<Prompt>>
 
     /**

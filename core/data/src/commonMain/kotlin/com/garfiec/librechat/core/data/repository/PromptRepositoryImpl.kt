@@ -7,7 +7,6 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.model.request.AddPromptToGroupRequest
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
-import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.core.model.response.PromptGroupListResponse
 import com.garfiec.librechat.core.network.api.PromptsApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,9 +68,10 @@ class PromptRepositoryImpl(
         }
     }
 
-    override suspend fun updatePromptProductionTag(promptId: String, request: UpdatePromptTagRequest): Result<Prompt> {
+    override suspend fun updatePromptProductionTag(promptId: String): Result<Unit> {
         return safeApiCall {
-            promptsApi.updatePromptProductionTag(promptId, request).also { bumpRevision() }
+            promptsApi.updatePromptProductionTag(promptId)
+            bumpRevision()
         }
     }
 

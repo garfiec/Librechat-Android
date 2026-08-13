@@ -7,7 +7,6 @@ import com.garfiec.librechat.core.model.request.CreatePromptData
 import com.garfiec.librechat.core.model.request.CreatePromptGroupData
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
-import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.core.network.api.PromptsApi
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
@@ -33,19 +32,23 @@ class PromptRepositoryRevisionTest {
         group = CreatePromptGroupData(name = "Group"),
     )
 
+    private val addRequest = AddPromptToGroupRequest(
+        prompt = CreatePromptData(prompt = "new body", type = "text"),
+    )
+
     @Test
     fun everyAcceptedMutationBumpsTheRevision() = runTest {
         coEvery { promptsApi.createPrompt(any()) } returns group
         coEvery { promptsApi.updatePromptGroup(any(), any()) } returns group
         coEvery { promptsApi.deletePromptGroup(any()) } returns Unit
         coEvery { promptsApi.addPromptToGroup(any(), any()) } returns prompt
-        coEvery { promptsApi.updatePromptProductionTag(any(), any()) } returns prompt
+        coEvery { promptsApi.updatePromptProductionTag(any()) } returns Unit
 
         val start = repository.revision.value
         repository.create(createRequest)
         repository.update("g-1", UpdatePromptGroupRequest(name = "Group"))
-        repository.addPromptToGroup("g-1", AddPromptToGroupRequest(prompt = "new body", type = "text"))
-        repository.updatePromptProductionTag("p-1", UpdatePromptTagRequest(productionPromptId = "p-1"))
+        repository.addPromptToGroup("g-1", addRequest)
+        repository.updatePromptProductionTag("p-1")
         repository.delete("g-1")
 
         // One per mutation: a missed bump is a surface left serving pre-save values with nothing
@@ -77,7 +80,7 @@ class PromptRepositoryRevisionTest {
         val start = repository.revision.value
         repository.create(createRequest)
         repository.delete("g-1")
-        repository.addPromptToGroup("g-1", AddPromptToGroupRequest(prompt = "new body", type = "text"))
+        repository.addPromptToGroup("g-1", addRequest)
 
         // The bump sits after the API call inside `safeApiCall`, so a throw skips it. Announcing a
         // failed delete would make the library refetch and repaint the prompt the user was told

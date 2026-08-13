@@ -12,7 +12,6 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
-import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.feature.chat.prompts.components.PromptSortOrder
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -261,8 +260,7 @@ class PromptsViewModel(
 
     fun setProductionTag(promptId: String) {
         viewModelScope.launch {
-            val request = UpdatePromptTagRequest(productionPromptId = promptId)
-            when (val result = promptRepository.updatePromptProductionTag(promptId, request)) {
+            when (val result = promptRepository.updatePromptProductionTag(promptId)) {
                 is Result.Success -> {
                     // Reload the selected group to reflect the new production tag
                     val groupId = _uiState.value.selectedGroup?.id

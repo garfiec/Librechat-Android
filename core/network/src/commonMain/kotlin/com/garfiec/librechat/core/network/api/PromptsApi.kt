@@ -5,7 +5,7 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.model.request.AddPromptToGroupRequest
 import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
-import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
+import com.garfiec.librechat.core.model.response.AddPromptToGroupResponse
 import com.garfiec.librechat.core.model.response.CreatePromptResponse
 import com.garfiec.librechat.core.model.response.PromptGroupListResponse
 import io.ktor.client.HttpClient
@@ -82,22 +82,32 @@ class PromptsApi constructor(
     }
 
     /**
-     * Add a prompt to an existing group.
+     * Adds a new version to an existing group, and answers the version it created.
+     *
+     * Adding a version does not make it live — the group's `productionId` still points at the old
+     * one, so callers editing a prompt must follow this with [updatePromptProductionTag], using the
+     * returned id. Request and response both nest under `prompt`; see [AddPromptToGroupRequest] and
+     * [AddPromptToGroupResponse].
      */
     suspend fun addPromptToGroup(groupId: String, request: AddPromptToGroupRequest): Prompt =
         client.post {
             url { path("api/prompts/groups/$groupId/prompts") }
             setBody(request)
-        }.body()
+        }.body<AddPromptToGroupResponse>().prompt
 
     /**
-     * Update the production tag for a prompt.
+     * Promotes a version to its group's production prompt — the body every prompt surface reads.
+     *
+     * Deliberately sends no body: the route promotes `req.params.promptId` and never reads
+     * `req.body`, so a body naming a different prompt is silently ignored while reading as though
+     * it chose. The response is `{ "message": ... }` with HTTP 200 either way, so there is nothing
+     * worth decoding; callers re-read the group to confirm the tag moved.
      */
-    suspend fun updatePromptProductionTag(promptId: String, request: UpdatePromptTagRequest): Prompt =
+    suspend fun updatePromptProductionTag(promptId: String) {
         client.patch {
             url { path("api/prompts/$promptId/tags/production") }
-            setBody(request)
-        }.body()
+        }
+    }
 
     /**
      * Get all prompts belonging to a group.

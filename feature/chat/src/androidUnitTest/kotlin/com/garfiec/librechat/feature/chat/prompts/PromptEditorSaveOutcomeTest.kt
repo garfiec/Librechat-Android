@@ -119,21 +119,85 @@ class PromptEditorSaveOutcomeTest {
         assertFalse(state.saved)
         assertNotNull(state.error)
         assertFalse(state.isSaving)
+        // Nothing was written, so there is no version to promote.
+        coVerify(exactly = 0) { promptRepository.updatePromptProductionTag(any()) }
     }
 
     @Test
-    fun anAcceptedBodyUpdateReportsSaved() = runTest(testDispatcher) {
+    fun anAcceptedBodyUpdatePromotesTheNewVersionAndReportsSaved() = runTest(testDispatcher) {
         val editor = loadedEditor()
         advanceUntilIdle()
         coEvery { promptRepository.update(any(), any()) } returns Result.Success(createdGroup)
         coEvery { promptRepository.addPromptToGroup(any(), any()) } returns
             Result.Success(existingPrompt.copy(id = "p-2", prompt = "new body"))
+        coEvery { promptRepository.updatePromptProductionTag("p-2") } returns Result.Success(Unit)
 
         editor.updatePromptText("new body")
         editor.save()
         advanceUntilIdle()
 
+        // Adding a version does not move the group's productionId. Without the promotion the edit
+        // is stored where nothing reads it, so the user's change looks discarded.
+        coVerify(exactly = 1) { promptRepository.updatePromptProductionTag("p-2") }
         assertTrue(editor.uiState.value.saved)
         assertNull(editor.uiState.value.error)
+    }
+
+    @Test
+    fun aFailedPromotionDoesNotReportTheEditAsSaved() = runTest(testDispatcher) {
+        val editor = loadedEditor()
+        advanceUntilIdle()
+        coEvery { promptRepository.update(any(), any()) } returns Result.Success(createdGroup)
+        coEvery { promptRepository.addPromptToGroup(any(), any()) } returns
+            Result.Success(existingPrompt.copy(id = "p-2", prompt = "new body"))
+        coEvery { promptRepository.updatePromptProductionTag("p-2") } returns Result.Error(message = "offline")
+
+        editor.updatePromptText("new body")
+        editor.save()
+        advanceUntilIdle()
+
+        // The version exists but is not live, so the edit is not in effect anywhere the user can
+        // see. Popping the editor here would animate success over a prompt that still answers with
+        // the old body.
+        val state = editor.uiState.value
+        assertFalse(state.saved)
+        assertNotNull(state.error)
+        assertFalse(state.isSaving)
+    }
+
+    @Test
+    fun aNewVersionWithNoIdIsNotReportedAsSaved() = runTest(testDispatcher) {
+        val editor = loadedEditor()
+        advanceUntilIdle()
+        coEvery { promptRepository.update(any(), any()) } returns Result.Success(createdGroup)
+        coEvery { promptRepository.addPromptToGroup(any(), any()) } returns
+            Result.Success(existingPrompt.copy(id = null, prompt = "new body"))
+
+        editor.updatePromptText("new body")
+        editor.save()
+        advanceUntilIdle()
+
+        // The response is the only place the new version's id appears, so no id means no promotion
+        // — and an unpromoted version is an edit nothing will read.
+        coVerify(exactly = 0) { promptRepository.updatePromptProductionTag(any()) }
+        assertFalse(editor.uiState.value.saved)
+        assertNotNull(editor.uiState.value.error)
+    }
+
+    @Test
+    fun anUnchangedBodyWritesNoVersionAndSaves() = runTest(testDispatcher) {
+        val editor = loadedEditor()
+        advanceUntilIdle()
+        coEvery { promptRepository.update(any(), any()) } returns Result.Success(createdGroup)
+
+        editor.updateCommand("summarize")
+        editor.save()
+        advanceUntilIdle()
+
+        // Renaming or re-commanding a prompt must not mint a version identical to the live one —
+        // the version history is the user's, and every save would otherwise add a row to it.
+        coVerify(exactly = 0) { promptRepository.addPromptToGroup(any(), any()) }
+        coVerify(exactly = 0) { promptRepository.updatePromptProductionTag(any()) }
+        assertTrue(editor.uiState.value.saved)
     }
 }
