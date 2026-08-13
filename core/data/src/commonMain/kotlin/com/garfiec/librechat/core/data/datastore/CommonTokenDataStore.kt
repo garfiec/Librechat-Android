@@ -20,12 +20,14 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.concurrent.Volatile
 import kotlin.random.Random
 import kotlin.time.Clock
@@ -39,11 +41,13 @@ import kotlin.time.Clock
  * ([onAccountCleared]) drops only the active account's slot.
  *
  * The active account is mirrored into the same synchronously-readable secure storage (key
- * [KEY_ACTIVE_ACCOUNT]) rather than the async account registry, so the bearer for the right account
- * is seeded in the constructor — the first-frame `isAuthenticated` check and the first authed request
- * never read a blind bearer at cold start. When no account is resolved (fresh install, logged out, or
- * a legacy pre-keying upgrade) the keys fall back to their bare form, which is also how tokens from an
- * older build are read until [onAccountResolved] re-homes them.
+ * [KEY_ACTIVE_ACCOUNT]) rather than the async account registry, so the bearer for the right account is
+ * available without an async account lookup — the first-frame `isAuthenticated` check and the first
+ * authed request never read a blind bearer at cold start. The mirror is loaded by [warmTokenCache] on
+ * the IO dispatcher at startup, with [ensureTokenLoaded] as the synchronous fallback for whoever gets
+ * there first. When no account is resolved (fresh install, logged out, or a legacy pre-keying upgrade)
+ * the keys fall back to their bare form, which is also how tokens from an older build are read until
+ * [onAccountResolved] re-homes them.
  *
  * **Authentication staging.** An interactive sign-in ([setTokens] from login/OAuth/2FA) always writes
  * the freshly-issued pair to the **bare** keys and drops the active binding, even when another account
@@ -65,6 +69,7 @@ import kotlin.time.Clock
  */
 abstract class CommonTokenDataStore(
     private val refreshClient: Lazy<HttpClient>,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : TokenManager, SecureTokenStorage {
 
     @Volatile
@@ -72,13 +77,19 @@ abstract class CommonTokenDataStore(
 
     /**
      * The account whose tokens are currently active, or `null` when logged out or on a legacy install
-     * whose tokens still live under the bare keys. Seeded synchronously from [KEY_ACTIVE_ACCOUNT] at
-     * construction. All key selection reads this, so the hot-path bearer read stays keyed without an
-     * async account lookup.
+     * whose tokens still live under the bare keys. Seeded from [KEY_ACTIVE_ACCOUNT] by
+     * [warmTokenCache]. All key selection reads this, so the hot-path bearer read stays keyed without
+     * an async account lookup.
      */
     @Volatile
     private var activeAccountKey: String? = null
 
+    /**
+     * `@Volatile`: [warmTokenCache] loads on the IO dispatcher while [ensureTokenLoaded] can read from
+     * any thread. Set *after* the two fields it guards, so a reader that observes `true` also observes
+     * their values.
+     */
+    @Volatile
     private var tokenInitialized = false
 
     private fun loadCacheFromStorage() {
@@ -88,15 +99,37 @@ abstract class CommonTokenDataStore(
     }
 
     /**
-     * Eagerly load the active account + its cached access token from platform storage.
-     * Must be called from each platform subclass's `init {}` block (not from the super constructor,
-     * which runs before subclass properties are initialised).
+     * Load the active account + its cached access token from platform storage, off the main thread.
+     * Idempotent, and driven by an eager `TokenCacheWarmer` single at `startKoin`.
+     *
+     * **This must be what performs the load — never something that waits for another caller to do it.**
+     * A logged-out cold start touches no other entry point on this class (`AccountRegistry` takes its
+     * `activeEntry == null` branch and never calls [selectAccount]), so a warm that only awaited
+     * someone else's seed would never complete.
+     *
+     * Takes [stateMutex] so the seed can never interleave with a mutation: the load either completes
+     * before one starts or begins after it has finished, and then reads back exactly what the mutation
+     * just wrote through to storage. Without that, a warm landing mid-[setTokens] could revert a
+     * completed login to whatever was on disk. This is the **only** writer of the cache fields outside
+     * a mutation.
      */
-    protected fun initializeTokenCache() = loadCacheFromStorage()
+    suspend fun warmTokenCache() = withContext(ioDispatcher) {
+        stateMutex.withLock { if (!tokenInitialized) loadCacheFromStorage() }
+    }
 
+    /**
+     * Synchronous fallback for the two non-suspend readers ([isAuthenticated], and [getAccessToken]'s
+     * lock-free hot path), for the window before [warmTokenCache] has landed.
+     *
+     * **It reads through and publishes nothing.** Populating the cache fields from here would be an
+     * unlocked read-read-write-write over the same two fields a mutator writes under [stateMutex]: a
+     * caller that read before [setTokens] wrote and assigned after would replace the fresh bearer with
+     * the pre-login disk value *and* pin it by marking the cache initialized — every later request on a
+     * stale bearer until process death. Reading through costs a repeated decrypt instead.
+     */
     private fun ensureTokenLoaded(): String? {
-        if (!tokenInitialized) loadCacheFromStorage()
-        return cachedAccessToken.nonBlankOrNull()
+        if (tokenInitialized) return cachedAccessToken.nonBlankOrNull()
+        return readValue(accessKey(readValue(KEY_ACTIVE_ACCOUNT))).nonBlankOrNull()
     }
 
     private fun String?.nonBlankOrNull(): String? = this?.takeUnless { it.isBlank() }
@@ -759,7 +792,15 @@ abstract class CommonTokenDataStore(
         // Scoped emit: only the ACTIVE binding's expiry routes the app to re-auth. A straggler
         // failure for a switched-away (retained) account is not a live-session event — its slot is
         // just stale until that account is selected again. Null = active/legacy session: always emit.
-        if (expiredAccountId != null && expiredAccountId != activeAccountKey) return
+        //
+        // Read the mirror through storage when the warm has not landed rather than approximating it;
+        // this is not suspend, so it cannot warm the cache, and neither guess is safe. Comparing
+        // against an unseeded (null) [activeAccountKey] suppresses every scoped emit and swallows a
+        // genuine expiry; skipping the comparison lets a straggler 401 for a switched-away account
+        // through, and [sessionExpiryReported] is one-shot — that spurious emit latches and swallows
+        // the ACTIVE account's real expiry.
+        val activeAccount = if (tokenInitialized) activeAccountKey else readValue(KEY_ACTIVE_ACCOUNT)
+        if (expiredAccountId != null && expiredAccountId != activeAccount) return
         // One signal per dead session. A cold start fans out ~a dozen requests, each of which 401s and
         // reaches here independently, spread far enough apart by the refresh retry/backoff that the
         // flow's 1-slot buffer coalesces nothing — and every emission replays the logout navigation.

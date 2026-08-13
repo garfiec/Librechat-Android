@@ -12,6 +12,7 @@ import io.ktor.http.contentType
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 
 /**
  * The one in-memory [CommonTokenDataStore] the datastore tests share: read-through/write-through
@@ -22,7 +23,14 @@ import kotlinx.coroutines.Dispatchers
 internal class FakeTokenStore(
     refreshClient: Lazy<HttpClient>,
     seed: Map<String, String> = emptyMap(),
-) : CommonTokenDataStore(refreshClient) {
+    /**
+     * Warms the cache during construction, which is what production's `TokenCacheWarmer` does a moment
+     * after `startKoin`. Defaults to `true` so every suite sees a seeded store. Pass `false` to
+     * exercise the unwarmed window — the state a real store is in between construction and the warm
+     * landing.
+     */
+    warmEagerly: Boolean = true,
+) : CommonTokenDataStore(refreshClient, Dispatchers.Unconfined) {
 
     val store = seed.toMutableMap()
 
@@ -33,8 +41,12 @@ internal class FakeTokenStore(
     var removeCount = 0
         private set
 
+    /** Every [readValue], so a test can assert the store touched storage zero times before its warm. */
+    var readCount = 0
+        private set
+
     init {
-        initializeTokenCache()
+        if (warmEagerly) runBlocking { warmTokenCache() }
     }
 
     /** The bare (no-account-resolved) slots, which is what a store with no active account uses. */
@@ -42,7 +54,10 @@ internal class FakeTokenStore(
 
     fun persistedRefresh(): String? = store[KEY_REFRESH_TOKEN]
 
-    override fun readValue(key: String): String? = store[key]
+    override fun readValue(key: String): String? {
+        readCount++
+        return store[key]
+    }
 
     override fun writeValue(key: String, value: String) {
         store[key] = value

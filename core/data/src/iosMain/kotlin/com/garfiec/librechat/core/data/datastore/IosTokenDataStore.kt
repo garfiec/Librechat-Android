@@ -8,6 +8,7 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
+import kotlinx.coroutines.CoroutineDispatcher
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFRelease
@@ -38,11 +39,8 @@ import platform.Security.kSecValueData
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IosTokenDataStore(
     refreshClient: Lazy<HttpClient>,
-) : CommonTokenDataStore(refreshClient), ServerUrlKeychainFallback {
-
-    init {
-        initializeTokenCache()
-    }
+    ioDispatcher: CoroutineDispatcher,
+) : CommonTokenDataStore(refreshClient, ioDispatcher), ServerUrlKeychainFallback {
 
     override fun readValue(key: String): String? = keychainGet(key)
 

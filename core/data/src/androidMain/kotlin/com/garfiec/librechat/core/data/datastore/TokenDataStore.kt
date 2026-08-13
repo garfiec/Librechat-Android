@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import co.touchlab.kermit.Logger
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CoroutineDispatcher
 import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.KeyStoreException
@@ -15,37 +16,59 @@ import kotlin.concurrent.Volatile
 class TokenDataStore(
     context: Context,
     refreshClient: Lazy<HttpClient>,
-) : CommonTokenDataStore(refreshClient) {
+    ioDispatcher: CoroutineDispatcher,
+) : CommonTokenDataStore(refreshClient, ioDispatcher) {
 
     private val appContext: Context = context.applicationContext
 
-    /**
-     * The encrypted store, or `null` once the device keystore is so broken that even a wipe + rebuild
-     * can't produce a working one. A `null` routes every override onto [memoryFallback] — the session
-     * lives only in memory until process death, then the user re-logs in — instead of crashing during
-     * `startKoin`. Keystore/keyset corruption (backup-restore, OS update, broken OEM keystore) would
-     * otherwise throw here and, via the eager `AccountRegistry` single, take down every launch.
-     *
-     * Reassigned at runtime (never back to a store known-broken) when a write rebuilds the keyset or
-     * drops to memory mode; `@Volatile` so the unlocked hot-path reads (`isAuthenticated`,
-     * `getAccessToken`) observe the swap.
-     */
-    @Volatile
-    private var prefs: SharedPreferences? = createEncryptedPrefsWithRecovery()
+    /** Holds a built store, where `value == null` means the keystore never recovered. */
+    private class PrefsState(val value: SharedPreferences?)
 
     /**
-     * Session-only backing used when [prefs] is `null` (the keystore never recovered). Reads/writes go
-     * here instead; nothing survives process death, so the user re-authenticates each launch — a
-     * degraded but usable app rather than a crash loop.
+     * The built encrypted store, or `null` while it has **not been built yet**. Once non-null, its
+     * [PrefsState.value] is the store — or `null` once the device keystore is so broken that even a
+     * wipe + rebuild can't produce a working one, which routes every override onto [memoryFallback]:
+     * the session lives only in memory until process death, then the user re-logs in, instead of
+     * crashing during `startKoin`.
+     *
+     * **Keep this one reference — never `prefs` + a `created` flag.** [write] reads "no usable store"
+     * as "go to [memoryFallback]", and with two fields a reader can observe `created == true` before
+     * `prefs` is published, take that for "the keystore gave up", and route a login into memory: a
+     * sign-in that reports success and is gone on relaunch.
+     *
+     * `@Volatile` for that publication, and for the unlocked hot-path reads (`isAuthenticated`,
+     * `getAccessToken`) that must observe a later rebuild's swap. Built on first use so the keystore
+     * work stays off the `startKoin` thread — see `core/data/CLAUDE.md`.
+     */
+    @Volatile
+    private var state: PrefsState? = null
+
+    /** Guards store construction + rebuild. A JVM monitor, and reentrant — [readValue]'s recovery nests. */
+    private val storeLock = Any()
+
+    /**
+     * Session-only backing used when the store could not be built (the keystore never recovered).
+     * Reads/writes go here instead; nothing survives process death, so the user re-authenticates each
+     * launch — a degraded but usable app rather than a crash loop.
      */
     private val memoryFallback = ConcurrentHashMap<String, String>()
 
-    init {
-        initializeTokenCache()
+    /**
+     * Build the encrypted store on first use, publishing the result — including a give-up `null` — so
+     * it is attempted exactly once per process unless a rebuild replaces it.
+     */
+    private fun store(): SharedPreferences? {
+        state?.let { return it.value }
+        return synchronized(storeLock) {
+            // Branch on the reference, not its contents: `state?.value ?: build()` reads a published
+            // PrefsState(null) — "built, and gave up" — as "not built yet" and rebuilds forever.
+            state?.let { return@synchronized it.value }
+            createEncryptedPrefsWithRecovery().also { state = PrefsState(it) }
+        }
     }
 
     override fun readValue(key: String): String? {
-        val store = prefs ?: return memoryFallback[key]
+        val store = store() ?: return memoryFallback[key]
         return try {
             store.getString(key, null)
         } catch (e: GeneralSecurityException) {
@@ -105,7 +128,9 @@ class TokenDataStore(
      * real bugs and re-thrown.
      */
     private inline fun write(toMemory: () -> Unit, mutate: (SharedPreferences.Editor) -> Unit) {
-        val store = prefs
+        // store() builds on demand, so a `null` here means the keystore gave up — never "not built
+        // yet". Conflating them lands a write in [memoryFallback], where it is lost at process death.
+        val store = store()
         if (store == null) {
             toMemory()
             return
@@ -125,7 +150,9 @@ class TokenDataStore(
             } catch (retry: Exception) {
                 if (!isCorruption(retry)) throw retry
                 Logger.e(retry) { "Token write still failing after rebuild — using in-memory fallback" }
-                prefs = null
+                // Publish "built, and gave up" — not "not built yet", which would rebuild on the very
+                // next read and re-enter this path indefinitely.
+                synchronized(storeLock) { state = PrefsState(null) }
                 toMemory()
             }
         }
@@ -135,8 +162,15 @@ class TokenDataStore(
     // and GeneralSecurityException / KeyStoreException (a subtype) on a broken keyset.
     private fun isCorruption(e: Exception): Boolean = e is SecurityException || e is GeneralSecurityException
 
-    /** Wipe the corrupt keystore state and recreate the store, publishing the result to [prefs]. */
-    private fun rebuildStore(): SharedPreferences? = createEncryptedPrefsWithRecovery().also { prefs = it }
+    /**
+     * Wipe the corrupt keystore state and recreate the store, publishing the result to [state].
+     *
+     * Takes [storeLock] so a rebuild and a first [store] build serialize rather than interleaving a
+     * wipe (which deletes the prefs file *and* the master key entry) with a build against them.
+     */
+    private fun rebuildStore(): SharedPreferences? = synchronized(storeLock) {
+        createEncryptedPrefsWithRecovery().also { state = PrefsState(it) }
+    }
 
     private fun createEncryptedPrefsWithRecovery(): SharedPreferences? = createWithRecovery(
         create = { createEncryptedPrefs(appContext) },

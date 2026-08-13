@@ -60,6 +60,39 @@ master key, and if even a rebuild can't produce a working store it degrades to a
 the process. Construction never throws into `startKoin`. The next request then 401s and routes to
 re-login through the normal expired-session flow.
 
+**The store is built lazily and the cache is warmed off the main thread** (#326 follow-up). `MasterKey.Builder().build()`
+plus `EncryptedSharedPreferences.create` cost 300–900 ms on an emulator's software Keymaster, and the
+eager `AccountRegistry` single used to pay that on the thread `startKoin` runs on. So the encrypted
+store is created on first use behind a monitor, and `TokenCacheWarmer` (an eager single) calls
+`warmTokenCache()` on the IO dispatcher. Its registration position relative to `AccountRegistry` only
+sequences construction, not the launches, so it is not an invariant.
+
+Three rules keep that safe, each with a test in `CommonTokenDataStoreWarmTest`:
+
+- **The warmer performs the load; it never awaits one.** A logged-out cold start touches no other entry
+  point on the store — `AccountRegistry` takes its `activeEntry == null` branch and never calls
+  `selectAccount` — so a warm that waited for someone else's seed would never complete.
+- **`warmTokenCache()` takes `stateMutex`, and is the only writer of the cache fields outside a
+  mutation.** Every mutator holds that lock across its whole critical section, so a warm either
+  completes before one starts or begins after it finished — and in the latter case it reads back what
+  the mutation just wrote through to storage, since memory always mirrors disk. Note `tokenInitialized`
+  is set *only* by the load, so a post-mutation warm still runs; it is the mutex, not that flag, that
+  makes it harmless.
+- **`ensureTokenLoaded()` is the synchronous fallback, and it reads through without publishing.**
+  Populating the cache fields from there would be an unlocked read-read-write-write against the same
+  fields a mutator writes under `stateMutex`: a caller that began reading before `setTokens` wrote and
+  assigned after would replace the fresh bearer with the pre-login disk value *and* pin it by marking
+  the cache initialized — every later request on a stale bearer until process death. Reading through
+  costs a repeated decrypt in the startup window instead. Losing the race therefore costs a duplicated
+  read, never a wrong bearer, which is what licenses the design and what keeps `isAuthenticated` on
+  `TokenManager`.
+
+Two consequences worth knowing. `emitSessionExpired` is not `suspend`, so it cannot warm the cache; it
+suppresses a scoped emit only against a *seeded* identity, because an unseeded `activeAccountKey` is
+null and would swallow the expiry signal. And the "a write before the warm must not land in
+`memoryFallback`" trap has **no unit test** — Robolectric cannot build `EncryptedSharedPreferences`, so
+every write there goes to memory and a test would pass for the wrong reason. It is a device-pass item.
+
 ### DataModule Bindings
 
 `DataModule.kt` defines a Koin `module { }` that binds repository interfaces to their implementations via `singleOf(::Impl) bind Interface::class` and provides the Room database, DAOs, and DataStore instances.

@@ -12,6 +12,7 @@ import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
+import com.garfiec.librechat.core.data.datastore.TokenCacheWarmer
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.data.prefetch.PrefetchBackgroundRunner
 import com.garfiec.librechat.core.data.prefetch.PrefetchController
@@ -129,6 +130,16 @@ val dataModule = module {
     single<ActiveAccountProvider> { InMemoryActiveAccountProvider() }
     // Persisted account roster (list + single active pointer). Pure storage.
     single { AccountRoster(dataStore = get(), json = get()) }
+    // Eager: its whole job is to pull the keystore work and the token decrypt off the thread startKoin
+    // runs on, so a lazy binding nobody resolves would never start it. Its position relative to
+    // AccountRegistry is not an invariant — both do their work in a launch, and the store's
+    // read-through fallback covers whoever gets there first.
+    single(createdAtStart = true) {
+        TokenCacheWarmer(
+            store = get(),
+            appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+        )
+    }
     // Eager: at cold start it must migrate + reconcile + seed the provider (driving the URL from the
     // active roster entry) even before any consumer asks for it. Bound as the AccountReadyGate the
     // HTTP clients + first-frame routing await.

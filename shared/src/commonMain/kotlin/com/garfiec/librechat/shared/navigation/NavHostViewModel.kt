@@ -68,14 +68,15 @@ class NavHostViewModel(
     private val versionCheckStateHolder =
         VersionCheckStateHolder(configRepository, settingsDataStore, serverUrlProvider, viewModelScope)
 
-    // Seeded synchronously so first-frame routing (LibreChatNavHost reads isLoggedIn.value
-    // once in a LaunchedEffect to redirect to auth) gets the correct value with no flash.
-    // This is a non-blocking in-memory cache read: TokenManager decrypts the access token at
-    // its own construction (TokenDataStore.init -> initializeTokenCache), so by the time the
-    // VM is built the token is already cached and isAuthenticated is just a null check. The
-    // init{} block below re-resolves the same value asynchronously. (The Keychain/
-    // EncryptedSharedPreferences decrypt itself still runs on Main at TokenDataStore
-    // construction — see report follow-up; it is out of this stream's three files.)
+    // Seeded synchronously so first-frame routing (LibreChatNavHost reads isLoggedIn.value once in a
+    // LaunchedEffect to redirect to auth) gets the correct value with no flash. The init{} block below
+    // re-resolves the same value asynchronously.
+    //
+    // Usually an in-memory null check, because TokenCacheWarmer decrypts on the IO dispatcher at
+    // startKoin — but not guaranteed. The warmer only launches, so when it has not landed this falls
+    // through to the store's read-through fallback and pays the keystore build plus two decrypts here,
+    // on Main, during first composition. Don't gate the first frame on the warm instead: that hangs a
+    // logged-out cold start, which reaches no other entry point on the store.
     private val _isLoggedIn = MutableStateFlow(tokenManager.isAuthenticated)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 

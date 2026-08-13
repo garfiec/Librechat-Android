@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.garfiec.librechat.core.common.di.KoinQualifiers
+import com.garfiec.librechat.core.data.datastore.CommonTokenDataStore
 import com.garfiec.librechat.core.data.datastore.TokenDataStore
 import com.garfiec.librechat.core.data.db.LibreChatDatabase
 import com.garfiec.librechat.core.data.db.migration.MIGRATION_3_4
@@ -53,13 +54,17 @@ actual val dataPlatformModule: Module = module {
         TokenDataStore(
             context = androidContext(),
             refreshClient = lazy(LazyThreadSafetyMode.NONE) { get<HttpClient>(KoinQualifiers.Refresh) },
+            ioDispatcher = get(KoinQualifiers.IO),
         )
-    } binds arrayOf(TokenManager::class, SecureTokenStorage::class)
+        // Bound as CommonTokenDataStore too: TokenCacheWarmer needs warmTokenCache(), which is
+        // deliberately not part of the TokenManager contract.
+    } binds arrayOf(TokenManager::class, SecureTokenStorage::class, CommonTokenDataStore::class)
 
     // --- Session Cache Cleaner ---
     single<SessionCacheCleaner> {
+        val context = androidContext()
         CommonSessionCacheCleaner(
-            cacheRoot = androidContext().cacheDir.absolutePath,
+            cacheRoot = { context.cacheDir.absolutePath },
         )
     }
 
