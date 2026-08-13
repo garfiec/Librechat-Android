@@ -74,7 +74,8 @@ internal fun ActivityGroup(
     autoExpand: Boolean = false,
     autoExpandKey: Any? = null,
     /**
-     * The files this block's tool calls produced.
+     * The files this block's tool calls produced, including those of the calls they ran nested
+     * inside a subagent.
      *
      * **Load-bearing: rendered as a SIBLING AFTER the collapsible, never inside it.** The block
      * folds away the *process*; a generated image is the *result*, and moving this inside folds

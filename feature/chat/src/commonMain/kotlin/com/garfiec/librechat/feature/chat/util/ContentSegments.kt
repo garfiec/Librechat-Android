@@ -118,15 +118,40 @@ sealed interface ContentGroup {
 }
 
 /**
- * The ids of the tool calls inside this block, in render order; blank ids and non-tool entries
- * drop out.
+ * The ids of the tool calls whose output this block owns, in render order.
  *
  * Keep the attachment join at the render site rather than folding it into [ContentGroup]: that
  * would widen the grouping memo's key to include attachments and re-run the whole segmentation
  * pass on every mid-stream `attachment` event.
  */
 fun ContentGroup.Activity.groupedToolCallIds(): List<String> =
-    entries.mapNotNull { it.part.toolCall?.id?.takeIf(String::isNotEmpty) }
+    outputToolCallIds(entries.map { it.part })
+
+/**
+ * Every tool-call id whose output belongs to [parts]: each call's own id, then the ids of the calls
+ * it ran nested inside it (`subagent_content`), recursively. Blank ids and non-tool parts drop out.
+ *
+ * **Load-bearing that this descends.** A subagent draws its nested parts with `hideAttachments`, so
+ * this walk is the only thing that puts their files on screen. Narrow it back to the top level and
+ * nested output renders nowhere.
+ *
+ * **DELIBERATE DIVERGENCE — a sync must NOT "correct" this toward upstream.** Upstream builds a
+ * group's attachment set from `group.parts` alone (`ContentParts.tsx:365-369`) and hands its
+ * subagent dialog no attachments, so a file generated *inside* a subagent is surfaced nowhere on
+ * web. Restoring that parity reads as a harmless narrowing and silently takes the files off screen.
+ */
+fun outputToolCallIds(parts: List<MessageContentPart>): List<String> {
+    val ids = mutableListOf<String>()
+    fun walk(list: List<MessageContentPart>) {
+        list.forEach { part ->
+            val call = part.toolCall ?: return@forEach
+            call.id?.takeIf(String::isNotEmpty)?.let(ids::add)
+            call.subagentContent?.let(::walk)
+        }
+    }
+    walk(parts)
+    return ids
+}
 
 /** The label text an activity-label part carries, trimmed; empty when it is still a reservation. */
 fun MessageContentPart.activityLabelText(): String =

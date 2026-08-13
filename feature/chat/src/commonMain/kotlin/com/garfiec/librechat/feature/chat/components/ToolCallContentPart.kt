@@ -40,6 +40,7 @@ import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.content.MessageContentPart
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.outputToolCallIds
 import org.jetbrains.compose.resources.stringResource
 
 // ─── ToolCallDispatcher ─────────────────────────────────────────────
@@ -72,14 +73,13 @@ internal fun ToolCallDispatcher(
     // `subagentContent` (reload) takes precedence inside the card. Depth-1:
     // nested parts pass allowSubagentCard=false so this never recurses.
     //
-    // The files this call itself produced render BELOW the card, under the same hideAttachments
-    // guard every other branch uses so an enclosing activity group can hoist them instead. Mirrors
-    // upstream `SubagentCall.tsx`, whose own AttachmentGroup sits outside the dialog behind that
-    // guard. Nested parts still render their own attachments: a group collects only the ids of its
-    // OWN parts, so nothing of theirs is hoisted and suppressing them would render them nowhere.
+    // The card's nested parts are drawn with hideAttachments, so the whole subtree's files — the
+    // subagent's own and its nested calls' — hoist out to here instead. Both ends move together;
+    // see [outputToolCallIds].
     if (allowSubagentCard && toolNameLower == ToolConstants.SUBAGENT) {
         val toolCallId = toolCall?.id
         val liveTrace = toolCallId?.let { LocalSubagentProgress.current[it] }
+        val tracedParts = subagentTraceParts(toolCall?.subagentContent, liveTrace)
         Column(modifier = modifier) {
             SubagentTraceCard(
                 persistedParts = toolCall?.subagentContent,
@@ -91,9 +91,14 @@ internal fun ToolCallDispatcher(
                 stateKey = cardKey,
             )
             if (!hideAttachments) {
-                ToolCallAttachments(
-                    attachments = attachments,
-                    toolCallId = toolCallId,
+                val hoisted = remember(attachments, toolCallId, tracedParts) {
+                    collectGroupAttachments(
+                        attachments,
+                        listOfNotNull(toolCallId?.takeIf { it.isNotEmpty() }) + outputToolCallIds(tracedParts),
+                    )
+                }
+                ToolAttachmentBuckets(
+                    buckets = hoisted,
                     baseUrl = baseUrl,
                     modifier = Modifier.padding(top = 8.dp),
                 )

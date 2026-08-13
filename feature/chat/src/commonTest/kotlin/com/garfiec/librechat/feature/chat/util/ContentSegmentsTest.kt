@@ -22,6 +22,12 @@ class ContentSegmentsTest {
             toolCall = AgentToolCall(id = id, name = name, output = output),
         )
 
+    private fun subagent(id: String, nested: List<MessageContentPart>) =
+        MessageContentPart(
+            type = ContentType.TOOL_CALL,
+            toolCall = AgentToolCall(id = id, name = "subagent", output = "done", subagentContent = nested),
+        )
+
     private fun label(
         text: String?,
         pending: Boolean? = null,
@@ -324,5 +330,46 @@ class ContentSegmentsTest {
             .groups.single() as ContentGroup.Activity
 
         assertEquals(listOf("t2"), group.groupedToolCallIds())
+    }
+
+    @Test
+    fun groupedToolCallIdsIncludesCallsNestedInsideASubagent() {
+        val group = onlySegment(
+            listOf(
+                subagent("s1", nested = listOf(tool("n1", name = "image_gen_oai"), tool("n2"))),
+                tool("t2"),
+            ),
+        ).groups.single() as ContentGroup.Activity
+
+        assertEquals(listOf("s1", "n1", "n2", "t2"), group.groupedToolCallIds())
+    }
+
+    // The walk is deliberately uncapped where the render stops at depth 1: a depth-2 subagent draws
+    // no nested parts at all, but its files still have to reach the hoist.
+    @Test
+    fun groupedToolCallIdsDescendsThroughNestedSubagents() {
+        val group = onlySegment(
+            listOf(
+                subagent("s1", nested = listOf(subagent("s2", nested = listOf(tool("n1"))))),
+                label("Ran a subagent"),
+            ),
+        ).groups.single() as ContentGroup.Activity
+
+        assertEquals(listOf("s1", "s2", "n1"), group.groupedToolCallIds())
+    }
+
+    // The ungrouped path: a lone subagent call never forms a group, and mid-run there is no
+    // persisted `subagent_content` to walk — the live trace's parts are fed in directly.
+    @Test
+    fun outputToolCallIdsWalksALooseRunOfParts() {
+        assertEquals(
+            listOf("n1", "n2"),
+            outputToolCallIds(listOf(think("pondering"), tool("n1"), text("done"), tool("n2"))),
+        )
+    }
+
+    @Test
+    fun outputToolCallIdsSkipsBlankAndNonToolParts() {
+        assertEquals(listOf("n2"), outputToolCallIds(listOf(text("hi"), tool(""), tool("n2"))))
     }
 }
