@@ -105,7 +105,9 @@ class ConfigRepositoryImpl(
         onValid: suspend (StartupConfig) -> Unit,
     ): Result<StartupConfig> {
         return try {
-            val config = configApi.getStartupConfig()
+            // Maps its own failures instead of going through safeApiCall, so it takes
+            // safeApiCall's dispatcher hop explicitly (#326).
+            val config = withContext(dispatcher) { configApi.getStartupConfig() }
             if (!isValidLibreChatConfig(config)) {
                 Result.Error(message = "This doesn't appear to be a LibreChat server")
             } else {

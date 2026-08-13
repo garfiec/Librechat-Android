@@ -72,7 +72,14 @@ re-login through the normal expired-session flow.
 
 - Dependencies: `:core:network`, `:core:model`, `:core:common`, Room, DataStore, security-crypto, Ktor, kotlinx-serialization, Timber, Koin.
 - Convention plugins: `librechat.mobile.library` + `librechat.mobile.koin` + `librechat.mobile.room` + `librechat.kotlin.serialization`.
-- Repositories must use `safeApiCall` from `:core:common` for all network calls.
+- Repositories must use `safeApiCall` from `:core:common` for all network calls. It carries the IO
+  dispatcher hop as well as the error mapping (#326), so an API invocation reached any other way runs
+  on whatever dispatcher the caller happened to launch from — the UI thread, for anything started
+  from `viewModelScope`. **The invariant: every `:core:network` API-service invocation sits inside
+  `safeApiCall`, inside `onApiDispatcher` (the same hop without the mapping, for calls that classify
+  their own failures), or inside a flow that ends in `.flowOn(dispatcher)`.** The one HTTP call in
+  this module that isn't an API-service method — `CommonTokenDataStore`'s token-refresh POST — is
+  always driven from inside a request that already took the hop.
 - Entities are internal to this module -- feature modules work with domain models from `:core:model`.
 - All DAO read methods that the UI observes should return `Flow`, not suspend functions.
 

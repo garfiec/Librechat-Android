@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
@@ -127,7 +128,9 @@ class ChatRepositoryImpl(
         conversationId: String,
         claimSteers: (List<PendingSteer>) -> Unit,
     ): ChatStatusResponse {
-        val status = chatApi.getChatStatus(conversationId)
+        // Throws rather than returning a Result, so it never gets safeApiCall's dispatcher hop;
+        // take it explicitly (#326).
+        val status = withContext(dispatcher) { chatApi.getChatStatus(conversationId) }
         // Before returning, so no staleness guard at the call site can sit between the read and
         // the claim. The server already deleted its copy answering this request.
         claimSteers(status.unrecoveredSteers)

@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.onApiDispatcher
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.model.permissions.UserRolePermissions
@@ -50,7 +51,9 @@ class RoleRepositoryImpl(
         }
 
         return try {
-            val role = rolesApi.getRole(user.role)
+            // Not safeApiCall: the catch below falls back to the cached role rather than mapping
+            // the failure. The hop is still needed (#326).
+            val role = onApiDispatcher { rolesApi.getRole(user.role) }
             _userPermissions.value = role
             cacheDataStore.save(role)
             Result.Success(role)

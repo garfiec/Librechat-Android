@@ -332,8 +332,9 @@ abstract class CommonTokenDataStore(
         currentAccessToken: String?,
     ): String? {
         // Everything before the refresh is pure computation on values the caller already holds: no
-        // storage read, no mutex. That matters because this runs on EVERY request the barrier builds,
-        // on the caller's dispatcher, which for several cold-start repositories is main (issue #326).
+        // storage read, no mutex. That matters because this runs on EVERY request the barrier builds.
+        // (It is no longer on the UI thread while doing so — safeApiCall now hops to the IO
+        // dispatcher before the request is issued, #326 — but per-request cost still has to be nil.)
         if (currentAccessToken == null) return currentAccessToken
         if (!isNearingExpiry(currentAccessToken)) return currentAccessToken
         // Resolve the slot exactly as [performRefresh] will, so suppression is tracked against the

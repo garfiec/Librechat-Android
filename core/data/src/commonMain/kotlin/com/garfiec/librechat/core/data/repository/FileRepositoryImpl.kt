@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.repository
 
 import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.onApiDispatcher
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
@@ -105,8 +106,12 @@ class FileRepositoryImpl(
      */
     override suspend fun downloadFile(userId: String, fileId: String): Result<ByteArray> {
         try {
-            val urlResponse = filesApi.getDownloadUrl(userId, fileId)
-            return Result.Success(filesApi.downloadFromUrl(urlResponse.url))
+            // onApiDispatcher, not safeApiCall: safeApiCall would log every one of these expected
+            // failures at error level. The dispatcher hop is still required (#326).
+            return onApiDispatcher {
+                val urlResponse = filesApi.getDownloadUrl(userId, fileId)
+                Result.Success(filesApi.downloadFromUrl(urlResponse.url))
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {

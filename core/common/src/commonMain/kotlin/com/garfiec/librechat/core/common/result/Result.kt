@@ -1,7 +1,9 @@
 package com.garfiec.librechat.core.common.result
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.di.ioDispatcher
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 
 sealed interface Result<out T> {
     data class Success<T>(val data: T) : Result<T>
@@ -32,9 +34,21 @@ fun <T> Result<T>.getOrThrow(): T = when (this) {
     is Result.Loading -> throw IllegalStateException("Result is still loading")
 }
 
+/**
+ * Runs [block] on [ioDispatcher] and turns a failure into a displayable [Result.Error].
+ *
+ * The hop belongs here, not at the call sites: Ktor resumes the continuation in the caller's
+ * context, so body decode, the auth plugin's `401` branch and the token refresh it drives all run
+ * wherever the call was launched from — the UI thread, for anything on `viewModelScope`. Do not
+ * drop it on the grounds that the engine already does its socket I/O off-thread (#326); see
+ * `core/common/CLAUDE.md`.
+ *
+ * Note that this wraps the whole block, not just the network call — a block that also touches Room
+ * or DataStore gets those reads and writes on the IO dispatcher too, which is where they belong.
+ */
 suspend fun <T> safeApiCall(block: suspend () -> T): Result<T> =
     try {
-        Result.Success(block())
+        Result.Success(withContext(ioDispatcher) { block() })
     } catch (e: CancellationException) {
         // Cooperative cancellation must propagate — callers rely on cancel()ed jobs
         // not writing stale errors back to state (e.g. SettingsViewModel.loadUserJob).
@@ -42,6 +56,13 @@ suspend fun <T> safeApiCall(block: suspend () -> T): Result<T> =
     } catch (e: Exception) {
         e.toSafeError()
     }
+
+/**
+ * [safeApiCall]'s dispatcher hop without its error mapping, for the few API calls that classify
+ * their own failures. Prefer [safeApiCall] unless you are one of those: it logs at error level, so
+ * routing an expected failure through it puts a `Logger.e` on a path that fails by design.
+ */
+suspend fun <T> onApiDispatcher(block: suspend () -> T): T = withContext(ioDispatcher) { block() }
 
 /**
  * Turns a caught failure into a [Result.Error] whose message is fit to display, and sends the full

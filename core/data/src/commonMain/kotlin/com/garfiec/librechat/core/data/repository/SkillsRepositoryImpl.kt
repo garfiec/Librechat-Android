@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.data.repository
 
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.onApiDispatcher
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.Skill
 import com.garfiec.librechat.core.model.SkillFile
@@ -16,6 +17,12 @@ import com.garfiec.librechat.core.network.api.SkillsApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 
+/**
+ * Create, update, upload and import map their own failures — the server's `issues` array carries
+ * validation detail (reserved name prefix, path traversal, a name conflict) that a generic message
+ * would throw away — so they hand-roll the try/catch instead of using `safeApiCall`, and take its
+ * dispatcher hop explicitly via `onApiDispatcher` (#326). The rest of the class uses `safeApiCall`.
+ */
 class SkillsRepositoryImpl(
     private val skillsApi: SkillsApi,
     private val json: Json,
@@ -34,7 +41,7 @@ class SkillsRepositoryImpl(
 
     override suspend fun createSkill(request: CreateSkillRequest): Result<Skill> {
         return try {
-            Result.Success(skillsApi.createSkill(request))
+            Result.Success(onApiDispatcher { skillsApi.createSkill(request) })
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -48,7 +55,7 @@ class SkillsRepositoryImpl(
 
     override suspend fun updateSkill(id: String, request: UpdateSkillRequest): SkillUpdateResult {
         return try {
-            SkillUpdateResult.Success(skillsApi.updateSkill(id, request))
+            SkillUpdateResult.Success(onApiDispatcher { skillsApi.updateSkill(id, request) })
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -81,7 +88,9 @@ class SkillsRepositoryImpl(
         mimeType: String,
     ): Result<SkillFile> {
         return try {
-            Result.Success(skillsApi.uploadSkillFile(skillId, relativePath, bytes, filename, mimeType))
+            Result.Success(
+                onApiDispatcher { skillsApi.uploadSkillFile(skillId, relativePath, bytes, filename, mimeType) },
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -98,7 +107,7 @@ class SkillsRepositoryImpl(
 
     override suspend fun importSkill(bytes: ByteArray, filename: String, mimeType: String): Result<Skill> {
         return try {
-            Result.Success(skillsApi.importSkill(bytes, filename, mimeType))
+            Result.Success(onApiDispatcher { skillsApi.importSkill(bytes, filename, mimeType) })
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
