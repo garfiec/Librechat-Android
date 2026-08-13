@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -35,6 +36,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -59,8 +61,10 @@ import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.SearchFocusRequest
 import com.garfiec.librechat.feature.chat.viewmodel.SearchMatch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
@@ -141,7 +145,6 @@ fun MessageList(
     // Track whether the user's finger is currently touching the list.
     // This is more reliable than isScrollInProgress which only covers flings.
     var isTouching by remember { mutableStateOf(false) }
-    val currentStreamingContent by rememberUpdatedState(streamingContent)
     val nearBottomThresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
     // Height (px) of the floating top bar occluding the list's top edge. The search fine-tune adds
     // this so a focused match settles below the bar rather than flush against (or under) it. Zero
@@ -157,6 +160,11 @@ fun MessageList(
     // Track whether user has deliberately scrolled away from the bottom.
     // Reset when user scrolls back to bottom (via FAB or manual scroll).
     var userScrolledUp by remember { mutableStateOf(false) }
+
+    // True only while an auto-scroll of ours is running. Load-bearing: isScrollInProgress cannot
+    // tell our scroll from the user's, so without this the scroll-away detector below scores the
+    // follower's own mid-growth scroll as intent and latches, silently killing the follow.
+    var programmaticScroll by remember { mutableStateOf(false) }
 
     val isNearBottom by remember {
         derivedStateOf {
@@ -175,7 +183,9 @@ fun MessageList(
     // Detect user scroll-away: when user touches/flings away from bottom, set the flag.
     // When they return to the bottom (manually or via FAB), clear it.
     LaunchedEffect(Unit) {
-        snapshotFlow { (isTouching || listState.isScrollInProgress) to isNearBottom }
+        snapshotFlow {
+            (isTouching || (listState.isScrollInProgress && !programmaticScroll)) to isNearBottom
+        }
             .collect { (userIsScrolling, nearBottom) ->
                 if (userIsScrolling && !nearBottom) {
                     userScrolledUp = true
@@ -204,18 +214,12 @@ fun MessageList(
     //
     // 2. STREAMING START — Jump to bottom when isStreaming flips true.
     //
-    // 3. STREAMING FOLLOW — A snapshotFlow observes streamingContent
-    //    length (via rememberUpdatedState) so every token guarantees an
-    //    emission. On each emission we check two conditions:
-    //      a) User is NOT actively scrolling (isScrollInProgress) so
-    //         programmatic scrolls never fight user gestures.
-    //      b) Pixel-based "near bottom" — the bottom edge of the last
-    //         visible item must be within 200dp of the viewport bottom.
-    //         This avoids yanking the user when they're reading the top
-    //         of a tall streaming bubble.
-    //    Scrolls are launched in an isolated coroutine so that if a
-    //    late user touch cancels the scroll via the scroll mutex, the
-    //    CancellationException doesn't kill the snapshotFlow collector.
+    // 3. STREAMING FOLLOW — ONE per-frame follower runs for the whole
+    //    run, easing a fraction of the remaining distance-to-bottom each
+    //    frame from live layout. It is deliberately NOT driven off
+    //    streamingContent. It yields to the user on a finger-down
+    //    (isTouching) or once the scroll-away latch is set; see the loop
+    //    itself for the invariants it rests on.
     //
     // 4. POST-STREAMING — When streaming ends, a 300ms delay lets the
     //    Room observer replace the streaming bubble with the real AI
@@ -327,26 +331,64 @@ fun MessageList(
             if (total > 0) {
                 listState.scrollToItem(total - 1, scrollOffset = Int.MAX_VALUE)
             }
-            // Rule 3: streaming follow (see block comment above)
-            snapshotFlow {
-                currentStreamingContent.length
-            }.collect {
-                // Skip auto-scroll if user is actively touching the screen,
-                // if a fling is in progress, or if user has scrolled away.
-                if (!isTouching && !listState.isScrollInProgress && !userScrolledUp) {
+            // Rule 3: streaming follow (see block comment above). ONE continuous follower for the
+            // whole run, driven per frame — not a scroll per text flush, which at the buffer's
+            // STREAMING_UI_UPDATE_INTERVAL_MS means ~20 instant scrollToItem jumps a second.
+            try {
+                while (isActive) {
+                    withFrameNanos { }
+                    // A finger down, or a deliberate scroll away, hands control back to the user.
+                    // isScrollInProgress is NOT consulted: our own scroll below sets it, so gating
+                    // on it would stop the follower on its own first frame.
+                    if (isTouching || userScrolledUp) {
+                        programmaticScroll = false
+                        continue
+                    }
+
                     val info = listState.layoutInfo
-                    val lastItem = info.visibleItemsInfo.lastOrNull()
                     val itemCount = info.totalItemsCount
-                    if (lastItem != null && itemCount > 0 && lastItem.index >= itemCount - 2) {
-                        val contentBottom = lastItem.offset + lastItem.size
-                        val distanceFromBottom = contentBottom - info.viewportEndOffset
-                        if (distanceFromBottom < nearBottomThresholdPx) {
-                            coroutineScope.launch {
-                                listState.scrollToItem(itemCount - 1, scrollOffset = Int.MAX_VALUE)
+                    val lastItem = info.visibleItemsInfo.lastOrNull()
+                    if (itemCount == 0 || lastItem == null) {
+                        programmaticScroll = false
+                        continue
+                    }
+
+                    // Held for as long as the follower is driving, not toggled per frame:
+                    // isScrollInProgress stays true for a moment after a scroll call returns, and a
+                    // per-frame false exposes that tail to the detector as a user scroll.
+                    programmaticScroll = true
+                    try {
+                        if (lastItem.index < itemCount - 1) {
+                            // The tail is off screen — a card was appended below the viewport (a
+                            // tool call, an office preview, a review pause), so there is no
+                            // on-screen distance to ease along; jump instead. Once per appended
+                            // item, not per flush.
+                            listState.scrollToItem(itemCount - 1, scrollOffset = Int.MAX_VALUE)
+                        } else {
+                            // Rest the tail against the bottom reserve, NOT viewportEndOffset: that
+                            // is the layout size minus *before*-content-padding, so it sits below
+                            // where the list can actually rest and inflates every step by the whole
+                            // reserve — the ease then never decelerates, it runs full speed into
+                            // the scroll clamp.
+                            val restOffset = info.viewportEndOffset - info.afterContentPadding
+                            val distance = (lastItem.offset + lastItem.size - restOffset).toFloat()
+                            if (distance > FOLLOW_SETTLE_PX) {
+                                val step = (distance * FOLLOW_FRACTION)
+                                    .coerceIn(FOLLOW_MIN_STEP_PX, distance)
+                                listState.scrollBy(step)
                             }
                         }
+                    } catch (e: CancellationException) {
+                        // A user gesture takes the scroll mutex at UserInput priority, cancelling
+                        // ours. That must not escape: this loop IS the follower, so letting it
+                        // through ends auto-scroll for the whole run with no way to re-arm it. Only
+                        // a cancellation of the effect itself may propagate.
+                        programmaticScroll = false
+                        if (!isActive) throw e
                     }
                 }
+            } finally {
+                programmaticScroll = false
             }
         } else if (wasStreaming) {
             // Streaming just ended. The final messages are now in displayMessages
@@ -434,7 +476,14 @@ fun MessageList(
                     }
                 },
             state = listState,
-            contentPadding = PaddingValues(top = topContentPadding + 8.dp, bottom = bottomContentPadding),
+            // The bottom reserve is the measured bar height PLUS a reading gap. The gap must stay
+            // here rather than in the follower's target: a follower-only gap is reclaimed by the
+            // scroll-to-bottom when the run settles, putting a jump at completion (the #169
+            // flicker class).
+            contentPadding = PaddingValues(
+                top = topContentPadding + 8.dp,
+                bottom = bottomContentPadding + MESSAGE_LIST_BOTTOM_GAP,
+            ),
         ) {
             itemsIndexed(
                 items = displayMessages,
@@ -641,6 +690,20 @@ fun MessageList(
 
 /** How long phase 2 waits for the focused occurrence to report before settling for the message top. */
 private const val SEARCH_FOCUS_REPORT_TIMEOUT_MS = 500L
+
+// ── Streaming follow tuning ───────────────────────────────────────────
+// Fraction of the remaining distance-to-bottom consumed per frame. Recomputed from live layout
+// every frame, so this is an exponential ease: 0.15 is a time constant near 100ms at 60fps.
+private const val FOLLOW_FRACTION = 0.15f
+
+/** Floor on the per-frame step, so the last sub-pixel gap closes instead of easing forever. */
+private const val FOLLOW_MIN_STEP_PX = 0.5f
+
+/** Distance below which the list counts as settled at the bottom and the follower idles. */
+private const val FOLLOW_SETTLE_PX = 0.5f
+
+/** Reading gap held below the last line, on top of the caller-measured bar reserve. */
+private val MESSAGE_LIST_BOTTOM_GAP = 24.dp
 
 private val SearchFocusScrollSpec = spring<Float>(
     dampingRatio = Spring.DampingRatioNoBouncy,

@@ -47,6 +47,10 @@ internal fun TextContentPart(
     // per-delta Loading flash and LRU pollution documented in CachedMarkdown return) and gates
     // inline artifact previews to buttons (see shouldRenderInlineArtifact).
     streaming: Boolean = false,
+    // Renders the live streaming cursor after this part's content — see StreamingCursor.kt. Exactly
+    // one cursor is emitted: the trailing text segment places it inline or falls back to a block
+    // cursor itself, so it is only drawn here when the tail is an artifact card.
+    trailingCursor: Boolean = false,
 ) {
     if (text.isBlank()) return
 
@@ -63,6 +67,7 @@ internal fun TextContentPart(
             searchFocusedOccurrence,
             onFocusedOccurrencePosition,
             streaming = streaming,
+            trailingCursor = trailingCursor,
         )
     } else {
         val versionMap = remember(segments) { groupArtifactVersions(segments) }
@@ -90,6 +95,7 @@ internal fun TextContentPart(
                 }
             }
         }
+        val tailIsText = segments.lastOrNull() is ArtifactSegment.Text
         Column(modifier = modifier) {
             segments.forEachIndexed { index, segment ->
                 when (segment) {
@@ -103,6 +109,7 @@ internal fun TextContentPart(
                             searchFocusedOccurrence - textOffsets[index],
                             onFocusedOccurrencePosition,
                             streaming = streaming,
+                            trailingCursor = trailingCursor && index == segments.lastIndex,
                         )
                     }
                     is ArtifactSegment.ArtifactReference -> {
@@ -169,6 +176,10 @@ internal fun TextContentPart(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
+            }
+
+            if (trailingCursor && !tailIsText) {
+                StandaloneStreamingCursor(fontSizeMultiplier = fontSizeMultiplier)
             }
         }
     }

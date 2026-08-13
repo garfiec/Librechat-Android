@@ -87,4 +87,6 @@ expect fun MarkdownContent(
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)? = null,
     immediate: Boolean = false,
     streaming: Boolean = false,
+    // Renders the live streaming cursor at the end of this content — see StreamingCursor.kt.
+    trailingCursor: Boolean = false,
 )

@@ -486,6 +486,7 @@ actual fun MarkdownContent(
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     immediate: Boolean,
     streaming: Boolean,
+    trailingCursor: Boolean,
 ) {
     val segments = rememberMarkdownSegments(text, streaming)
 
@@ -511,6 +512,11 @@ actual fun MarkdownContent(
     )
 
     val isSearchActive = !searchQuery.isNullOrBlank()
+
+    // Mirrors androidMain: search rewrites text segments into HighlightedTextSegment, which never
+    // reaches the annotator, so an active query forces the block-level cursor.
+    val inlineCursor = trailingCursor && !isSearchActive &&
+        segments.lastOrNull()?.let { canHostInlineCursor(it) } == true
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Per-segment occurrence base offsets, advanced via countSegmentOccurrences to stay
@@ -565,7 +571,7 @@ actual fun MarkdownContent(
                     Column {
                         // Rebase again per Text run within the segment.
                         var inlineOffset = 0
-                        segment.segments.forEach { inlineSegment ->
+                        segment.segments.forEachIndexed { inlineIndex, inlineSegment ->
                             when (inlineSegment) {
                                 is InlineSegment.Text -> {
                                     if (inlineSegment.text.isNotBlank()) {
@@ -589,6 +595,9 @@ actual fun MarkdownContent(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     immediate = immediate,
                                                     streaming = streaming,
+                                                    trailingCursor = inlineCursor &&
+                                                        index == segments.lastIndex &&
+                                                        inlineIndex == segment.segments.lastIndex,
                                                 )
                                             }
                                         }
@@ -636,11 +645,16 @@ actual fun MarkdownContent(
                                 modifier = Modifier.fillMaxWidth(),
                                 immediate = immediate,
                                 streaming = streaming,
+                                trailingCursor = inlineCursor && index == segments.lastIndex,
                             )
                         }
                     }
                 }
             }
+        }
+
+        if (trailingCursor && !inlineCursor) {
+            StandaloneStreamingCursor(fontSizeMultiplier = fontSizeMultiplier)
         }
     }
 }

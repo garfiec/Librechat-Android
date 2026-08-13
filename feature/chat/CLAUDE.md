@@ -124,6 +124,29 @@ Two consequences worth knowing before touching that block:
   class), and `CodeBlock`'s off-main highlight retention keys off it. The bubble passes no
   `searchQuery` — the streaming message is outside the search enumeration, which is what keeps
   the two search walks lockstep-free here.
+- **The cursor is inline content, not a sibling composable** (`StreamingCursor.kt`). `trailingCursor`
+  threads from the bubble to whichever segment holds the reply's tail, which appends an invisible
+  sentinel (U+2063) to the markdown it hands the renderer; a `MarkdownAnnotator` claims that leaf and
+  swaps the sentinel for an `InlineTextContent` placeholder resolving to the animated cursor. That is
+  what puts the cursor after the last word instead of on a line of its own, and going through inline
+  content (rather than baking a `▌` glyph into the source) is what keeps it animatable. Because it
+  rewrites the parsed content, `CachedMarkdown` treats `trailingCursor` like `streaming` for the AST
+  cache: nothing sentinel-bearing is written, and the fast-path read is skipped (the tier-2 fallback
+  read still consults the cache, harmlessly — its key derives from the sentinel-bearing content, which
+  is never written). A sentinel-bearing AST must never be served to a settled render. No current call
+  site is affected, since every `trailingCursor = true` caller also passes `streaming = true`, which
+  already disabled the cache — this is future-proofing. Tails the markdown library does not render as annotated text fall back to a block-level
+  cursor below, decided at **three** points — not one, so don't grep `canHostInlineCursor` expecting
+  to find them all: `TextContentPart` when the tail is an artifact card, `MarkdownContent` when a
+  search query is active (`HighlightedTextSegment` builds its own string and never reaches the
+  annotator — defensive today, since no `trailingCursor` caller passes a query), and
+  `canHostInlineCursor` on the trailing segment's kind — code blocks, tables, LaTeX blocks,
+  citation-bearing text (androidMain only; iosMain has no `CitationText`, so there the exclusion
+  costs a cursor for no rendering reason), and text still inside an **unclosed** code fence, because
+  `parseMarkdownSegments` only lifts *closed* fences out — without that last case a long code reply
+  would stream with no cursor at all. The segment-kind half is unit-tested.
+- Before the first delta there is no insertion point, so the bubble shows `StreamingWaitIndicator`
+  instead of a cursor blinking against empty space.
 - Tool calls tracked in `activeToolCalls` list (start -> complete lifecycle)
 - **Stream termination is a chokepoint** for every *event-driven* end — clean/aborted Final, error, failed abort, watchdog, resume-found-expired — which funnel through the single private `endStream(reason)` in `StreamingManagerDelegate` (the one exception is a flow that ends with neither Final nor Error — a clean SSE EOF or a stream-GET 404 — which the caller's `onTerminated` safety net clears directly; a known gap, don't rely on `endStream` being the *only* teardown); the sealed reason (`Finalized` / `StreamError` / `AbortFallback` / `ResumeExpired`) decides job cancel, state write, queue policy, and whether a reload is allowed. A per-session Int counter latches each session to at most ONE end, and stale ends from a previous session are no-ops — do not add teardown steps at call sites; add them to the reason table. Structural invariant this encodes: **nothing reloads on an abort path** — the server emits the aborted frame BEFORE persisting, so any refetch there races the save (and the optimistic user message was never in Room, so a reload can lose it entirely). `Finalized` writes no state: the atomic finalize in `finalizeChatDisplay` owns that (the no-completion-flash invariant)
 - `stopGeneration()` POSTs `chatRepository.abortChat()` and **deliberately does not cancel the stream job.** The abort POST only acks (`{ success, aborted }`); the server ends the run by emitting an ordinary `final` frame flagged `aborted` over the same SSE stream, and *that* frame carries the partial's content parts. Cancelling the collector was the original bug — the stopped reply vanished. `handleFinal` reads `aborted` off the frame, not off local stop state, so a Stop from another client is handled identically. Stop-specific behavior: no auto-TTS, no `gen_title`, no queue drain (the hold is re-asserted). `abortRequested` guards double-taps. Works before the `created` milestone too — a null stream id makes the abort route fall back to one of the caller's active jobs (the *oldest*, and the client can't tell which, since `ChatAbortResponse` drops the returned `aborted` id — so with a second stream live server-side a null-key Stop can hit the wrong job; known gap). An acked abort arms a 15s watchdog; if the frame never lands (dead socket) or the POST fails, `endStream(AbortFallback)` stops locally with the partial preserved and NO reload
@@ -142,7 +165,7 @@ Two consequences worth knowing before touching that block:
 | `ModelSelectorButton` | Header chip showing current model |
 | `SiblingNavigator` | "1/3" with chevrons for branch switching |
 | `LandingContent` | Greeting, entity icon, conversation starters |
-| `StreamingIndicator` | Blinking cursor during active generation |
+| `StreamingCursor` | Live insertion point during generation; `StreamingWaitIndicator` before the first delta |
 | `PresetPicker` | Preset selection menu |
 | `SavePresetDialog` | Dialog to name and save current config as preset |
 

@@ -9,6 +9,7 @@ import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.model.MarkdownColors
 import com.mikepenz.markdown.model.MarkdownTypography
 import com.mikepenz.markdown.model.State
+import com.mikepenz.markdown.model.markdownInlineContent
 import com.mikepenz.markdown.model.rememberMarkdownState
 
 /**
@@ -47,6 +48,11 @@ import com.mikepenz.markdown.model.rememberMarkdownState
  * first paint) — used for fully-settled artifact content. It only affects the
  * live path's first parse; it is not involved in the streaming flash fix, which
  * relies on the persistent-state + `retainState` behavior.
+ *
+ * [trailingCursor] renders the live streaming cursor at the end of this content —
+ * see StreamingCursor.kt. It rewrites the content being parsed, so it also opts out
+ * of the AST cache on both sides: a sentinel-bearing AST must never be served to a
+ * settled render, and a per-delta write would evict other messages' ASTs.
  */
 @Composable
 fun CachedMarkdown(
@@ -56,23 +62,31 @@ fun CachedMarkdown(
     modifier: Modifier = Modifier,
     immediate: Boolean = false,
     streaming: Boolean = false,
+    trailingCursor: Boolean = false,
 ) {
     val cache = LocalParsedMarkdownCache.current
-    val key = parsedMarkdownCacheKey(content)
+    val rendered = if (trailingCursor) withStreamingCursor(content) else content
+    val key = parsedMarkdownCacheKey(rendered)
     // The last message opts into synchronous first-parse; see [LocalImmediateMarkdown].
     val immediate = immediate || LocalImmediateMarkdown.current
+    val annotator = if (trailingCursor) StreamingCursorAnnotator else NoOpMarkdownAnnotator
+    val inlineContent =
+        if (trailingCursor) rememberStreamingCursorInlineContent() else markdownInlineContent()
+    val cacheable = !streaming && !trailingCursor
 
-    if (!streaming) {
+    if (cacheable) {
         // Fast path: stable content + a cache hit → render the cached AST with
         // no MarkdownState and no parse. The content equality guard (not just
         // the 32-bit hash key) keeps a hash collision on the shared cache from
         // rendering a different message's AST.
-        cache[key]?.takeIf { it.content == content }?.let { cached ->
+        cache[key]?.takeIf { it.content == rendered }?.let { cached ->
             Markdown(
                 state = cached,
                 colors = colors,
                 typography = typography,
                 modifier = modifier,
+                annotator = annotator,
+                inlineContent = inlineContent,
             )
             return
         }
@@ -80,7 +94,7 @@ fun CachedMarkdown(
 
     // Streaming, or a settled cache miss (first render / post-eviction).
     val mdState = rememberMarkdownState(
-        content = content,
+        content = rendered,
         immediate = immediate,
         retainState = true,
     )
@@ -90,8 +104,8 @@ fun CachedMarkdown(
     // Cache each parsed AST keyed by its own content (not the current `content`,
     // which may be a step ahead while retainState holds the previous Success).
     // Streaming deltas are intentionally not cached — see the kdoc.
-    LaunchedEffect(liveSuccess, streaming) {
-        if (!streaming) {
+    LaunchedEffect(liveSuccess, cacheable) {
+        if (cacheable) {
             liveSuccess?.let { cache.put(parsedMarkdownCacheKey(it.content), it) }
         }
     }
@@ -105,8 +119,8 @@ fun CachedMarkdown(
     // not just its hash key, so a 32-bit hashCode collision can't render another
     // message's AST. retainState also lets `liveSuccess` lag a delta behind
     // `content` while streaming, so tier 1 must reject the stale one.
-    val effective = liveSuccess?.takeIf { it.content == content }
-        ?: cache[key]?.takeIf { it.content == content }
+    val effective = liveSuccess?.takeIf { it.content == rendered }
+        ?: cache[key]?.takeIf { it.content == rendered }
         ?: liveState
 
     Markdown(
@@ -114,5 +128,7 @@ fun CachedMarkdown(
         colors = colors,
         typography = typography,
         modifier = modifier,
+        annotator = annotator,
+        inlineContent = inlineContent,
     )
 }

@@ -47,7 +47,6 @@ Material 3 theme and shared Compose components used across all feature modules. 
   it scrolls out. Shared by `:feature:chat`'s viewer (adds per-page pinch-zoom via the modifier
   slot) and `:feature:files`' preview (adds page labels). Fix render/recycle logic HERE, not in the
   feature copies — there are none.
-- `StreamingIndicator` - Pulsing indicator during SSE streaming.
 
 ## Rules
 
