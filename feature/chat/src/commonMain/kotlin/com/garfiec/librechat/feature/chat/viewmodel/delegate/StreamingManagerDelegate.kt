@@ -389,6 +389,9 @@ class StreamingManagerDelegate(
                     textFormat = event.textFormat,
                     previewError = event.previewError,
                     webSearch = event.webSearch,
+                    fileSearch = event.fileSearch,
+                    memory = event.memory,
+                    uiResources = event.uiResources,
                 )
                 // Office-doc previews (v0.8.6) arrive twice per file_id (pending →
                 // ready/failed) — route through the delegate for upsert-by-file_id +

@@ -161,6 +161,22 @@ internal fun ToolCallDispatcher(
                     GenericToolCallCard(displayName, displayArgs, output, cardModifier, cardKey)
                 }
             }
+            isFileSearchToolCall(toolNameLower) -> {
+                // Same split as web search: the citations live in the `file_search` attachment,
+                // while the tool output is only a flat digest of them.
+                val citations = remember(attachments, toolCall?.id) {
+                    collectFileSearchSources(attachments, toolCall?.id)
+                }
+                if (citations.isNotEmpty()) {
+                    FileSearchSourcesCard(
+                        citations = citations,
+                        modifier = cardModifier,
+                        stateKey = cardKey,
+                    )
+                } else {
+                    GenericToolCallCard(displayName, displayArgs, output, cardModifier, cardKey)
+                }
+            }
             isCodeExecutionToolCall(toolNameLower) -> {
                 val result = remember(toolCall, toolNameLower) {
                     parseCodeExecution(toolCall)?.let { r ->
@@ -173,10 +189,18 @@ internal fun ToolCallDispatcher(
                     GenericToolCallCard(displayName, displayArgs, output, cardModifier, cardKey)
                 }
             }
-            toolNameLower.contains("memory") -> {
-                val artifact = remember(output) { parseMemoryArtifact(output) }
-                if (artifact != null) {
-                    MemoryArtifactCard(artifact = artifact, modifier = cardModifier)
+            toolNameLower.contains(ToolConstants.MEMORY) -> {
+                // The `memory` attachment carries the key and the remembered value; the tool's own
+                // output is only a sentence about them, which is all a server without the payload
+                // gives us.
+                val artifacts = remember(attachments, toolCall?.id, output) {
+                    collectMemoryArtifacts(attachments, toolCall?.id)
+                        .ifEmpty { listOfNotNull(parseMemoryArtifact(output)) }
+                }
+                if (artifacts.isNotEmpty()) {
+                    artifacts.forEach { artifact ->
+                        MemoryArtifactCard(artifact = artifact, modifier = cardModifier)
+                    }
                 } else {
                     GenericToolCallCard(displayName, displayArgs, output, cardModifier, cardKey)
                 }

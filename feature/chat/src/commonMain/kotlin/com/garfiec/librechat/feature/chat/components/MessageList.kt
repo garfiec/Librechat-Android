@@ -637,6 +637,20 @@ fun MessageList(
                     }
                 }
 
+                val orphanMemory = collectUnrenderedMemoryArtifacts(
+                    streamingAttachments,
+                    renderedToolCalls.map { it.id },
+                )
+                if (orphanMemory.isNotEmpty()) {
+                    item(key = "streaming_memory_artifacts") {
+                        MemoryArtifactsSection(
+                            artifacts = orphanMemory,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            stateKey = "streaming",
+                        )
+                    }
+                }
+
                 // Human-review pause (v0.8.8): the run is waiting on the user, so the resolve
                 // controls sit at the tail of the still-unfinished reply — the continuation
                 // streams back into the bubble above.

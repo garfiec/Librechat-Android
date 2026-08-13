@@ -105,4 +105,11 @@ data class Attachment(
     /** Web-search sources, present only when [type] == `web_search` (no file_id/filename).
      *  Null for ordinary file attachments. */
     @SerialName("web_search") val webSearch: WebSearchData? = null,
+    /** Retrieval citations, present only when [type] == `file_search`. */
+    @SerialName("file_search") val fileSearch: FileSearchData? = null,
+    /** One memory write, present only when [type] == `memory`. */
+    val memory: MemoryArtifactData? = null,
+    /** MCP UI resources, present only when [type] == `ui_resources`. Carried, not yet rendered —
+     *  see [UiResources]. */
+    @SerialName("ui_resources") val uiResources: UiResources? = null,
 )

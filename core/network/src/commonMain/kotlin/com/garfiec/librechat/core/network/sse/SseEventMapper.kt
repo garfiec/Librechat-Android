@@ -639,9 +639,9 @@ class SseEventMapper(private val json: Json) {
         val fileId = data["file_id"]?.jsonPrimitive?.contentOrNull ?: ""
         val filename = data["filename"]?.jsonPrimitive?.contentOrNull ?: ""
         val type = data["type"]?.jsonPrimitive?.contentOrNull ?: ""
-        // Web-search results ride in as an attachment with no file — `type == "web_search"`
-        // and the sources nested under the `web_search` key. Parse it before the file guard
-        // so these aren't dropped as "empty" attachments.
+        // Four attachment types ride in with no file at all, carrying a structured payload nested
+        // under a key equal to the attachment's own type (upstream `TAttachmentMetadata`). All of
+        // them are parsed before the file guard below, which would otherwise drop them as "empty".
         val webSearch = data["web_search"]?.let { element ->
             try {
                 json.decodeFromJsonElement(com.garfiec.librechat.core.model.WebSearchData.serializer(), element)
@@ -650,7 +650,26 @@ class SseEventMapper(private val json: Json) {
                 null
             }
         }
-        if (fileId.isBlank() && filename.isBlank() && webSearch == null) return null
+        val fileSearch = data["file_search"]?.let { element ->
+            try {
+                json.decodeFromJsonElement(com.garfiec.librechat.core.model.FileSearchData.serializer(), element)
+            } catch (e: Exception) {
+                Logger.w("SSE", e) { "Failed to parse file_search attachment data" }
+                null
+            }
+        }
+        val memory = data["memory"]?.let { element ->
+            try {
+                json.decodeFromJsonElement(com.garfiec.librechat.core.model.MemoryArtifactData.serializer(), element)
+            } catch (e: Exception) {
+                Logger.w("SSE", e) { "Failed to parse memory attachment data" }
+                null
+            }
+        }
+        // Raw JSON on purpose — a typed decode would discard the whole attachment. See `UiResources`.
+        val uiResources = data["ui_resources"]
+        val hasPayload = webSearch != null || fileSearch != null || memory != null || uiResources != null
+        if (fileId.isBlank() && filename.isBlank() && !hasPayload) return null
         return StreamEvent.AttachmentCreated(
             fileId = fileId,
             filename = filename,
@@ -666,6 +685,9 @@ class SseEventMapper(private val json: Json) {
             textFormat = data["textFormat"]?.jsonPrimitive?.contentOrNull,
             previewError = data["previewError"]?.jsonPrimitive?.contentOrNull,
             webSearch = webSearch,
+            fileSearch = fileSearch,
+            memory = memory,
+            uiResources = uiResources,
         )
     }
 

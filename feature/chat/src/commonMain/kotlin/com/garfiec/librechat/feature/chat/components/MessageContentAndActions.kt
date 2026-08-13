@@ -479,6 +479,19 @@ internal fun MessageContentAndActions(
                         isDarkTheme = isSurfaceDark(),
                     )
                 }
+
+                val orphanMemory = remember(message.attachments, message.content) {
+                    collectUnrenderedMemoryArtifacts(
+                        message.attachments.orEmpty(),
+                        renderedToolCallIds(message.content),
+                    )
+                }
+                DisableSelection {
+                    MemoryArtifactsSection(
+                        artifacts = orphanMemory,
+                        stateKey = message.messageId,
+                    )
+                }
             }
         }
     }

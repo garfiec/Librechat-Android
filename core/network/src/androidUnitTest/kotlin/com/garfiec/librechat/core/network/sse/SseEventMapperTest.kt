@@ -602,6 +602,55 @@ class SseEventMapperTest {
         assertThat(result.webSearch!!.topStories!!.single().title).isEqualTo("photosynthesis - Wiktionary")
     }
 
+    @Test
+    fun `maps file_search attachment carrying citations without a file`() {
+        val event = SseEvent(
+            event = "attachment",
+            data = """{"type":"file_search","toolCallId":"call_fs","messageId":"m1","file_search":{"sources":[{"type":"file","fileId":"f1","fileName":"handbook.pdf","content":"leave policy","relevance":0.82,"pages":[4],"pageRelevance":{"4":0.82},"metadata":{"fileType":"application/pdf","fileBytes":2048}}]}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.AttachmentCreated
+        assertThat(result.type).isEqualTo("file_search")
+        assertThat(result.toolCallId).isEqualTo("call_fs")
+        val source = result.fileSearch!!.sources!!.single()
+        assertThat(source.fileId).isEqualTo("f1")
+        assertThat(source.fileName).isEqualTo("handbook.pdf")
+        assertThat(source.relevance).isEqualTo(0.82)
+        assertThat(source.pages).containsExactly(4)
+        assertThat(source.metadata!!.fileType).isEqualTo("application/pdf")
+    }
+
+    @Test
+    fun `maps memory attachment carrying a write without a file`() {
+        val event = SseEvent(
+            event = "attachment",
+            data = """{"type":"memory","toolCallId":"call_mem","messageId":"m1","memory":{"key":"favourite_colour","value":"blue","tokenCount":3,"type":"update"}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.AttachmentCreated
+        assertThat(result.type).isEqualTo("memory")
+        assertThat(result.memory!!.key).isEqualTo("favourite_colour")
+        assertThat(result.memory!!.value).isEqualTo("blue")
+        assertThat(result.memory!!.type).isEqualTo("update")
+    }
+
+    @Test
+    fun `maps ui_resources attachment, keeping the payload as raw JSON`() {
+        // The server forwards `artifact.ui_resources.data` verbatim and it is not always an array,
+        // so the mapper must not impose a shape on it.
+        val event = SseEvent(
+            event = "attachment",
+            data = """{"type":"ui_resources","toolCallId":"call_ui","messageId":"m1","ui_resources":{"0":{"type":"chart","data":[]}}}""",
+        )
+        val result = mapper.map(event) as StreamEvent.AttachmentCreated
+        assertThat(result.type).isEqualTo("ui_resources")
+        assertThat(result.uiResources).isNotNull()
+    }
+
+    @Test
+    fun `still drops an attachment carrying neither a file nor a payload`() {
+        val event = SseEvent(event = "attachment", data = """{"type":"memory","messageId":"m1"}""")
+        assertThat(mapper.map(event)).isNull()
+    }
+
     // --- Legacy Flat Format ---
 
     @Test

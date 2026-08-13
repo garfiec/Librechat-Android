@@ -32,17 +32,23 @@ import com.garfiec.librechat.feature.chat.resources.Res
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Data class representing a memory artifact parsed from tool call output.
+ * One memory write, from the call's `memory` attachment payload when the server sent one and from
+ * the tool-call output otherwise. The fallback carries the tool's readable sentence as [content]
+ * with no [title] — servers predating the payload, and any call whose artifact was dropped, still
+ * render a card that way.
  */
 data class MemoryArtifact(
     val title: String?,
     val content: String?,
     val key: String? = null,
+    val kind: MemoryChangeKind = MemoryChangeKind.UPDATE,
+    /** Set only when [kind] is [MemoryChangeKind.ERROR] and the failure blob parsed. */
+    val error: MemoryErrorInfo? = null,
 )
 
 /**
- * Card displaying a memory artifact with "Memory" badge, title, and expandable content preview.
- * Uses tertiary container color for distinction.
+ * The inline card for one memory write. Tertiary container colours, switching to the error
+ * container when the write was refused (upstream restyles its disclosure the same way).
  */
 @Composable
 fun MemoryArtifactCard(
@@ -50,6 +56,25 @@ fun MemoryArtifactCard(
     modifier: Modifier = Modifier,
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+
+    val isError = artifact.kind == MemoryChangeKind.ERROR
+    val containerColor = if (isError) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.tertiaryContainer
+    }
+    val contentColor = if (isError) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onTertiaryContainer
+    }
+    // A delete carries no value, so the card would otherwise be a bare key; an error's value is a
+    // JSON blob, which `memoryErrorMessage` turns into the sentence upstream shows.
+    val body = when (artifact.kind) {
+        MemoryChangeKind.ERROR -> memoryErrorMessage(artifact.error)
+        MemoryChangeKind.DELETE -> artifact.content ?: stringResource(Res.string.memory_deleted)
+        MemoryChangeKind.UPDATE -> artifact.content
+    }
 
     val memoryCd =
         stringResource(Res.string.cd_memory_artifact, artifact.title ?: stringResource(Res.string.memory_artifact_untitled))
@@ -60,7 +85,7 @@ fun MemoryArtifactCard(
                 contentDescription = memoryCd
             },
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            containerColor = containerColor,
         ),
         shape = RoundedCornerShape(8.dp),
     ) {
@@ -73,14 +98,22 @@ fun MemoryArtifactCard(
                     onClick = {},
                     label = {
                         Text(
-                            text = stringResource(Res.string.label_memory),
+                            text = if (isError) {
+                                stringResource(Res.string.memory_error)
+                            } else {
+                                stringResource(Res.string.label_memory)
+                            },
                             style = MaterialTheme.typography.labelSmall,
                         )
                     },
                     modifier = Modifier.height(24.dp),
                     colors = SuggestionChipDefaults.suggestionChipColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
-                        labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        containerColor = if (isError) {
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                        } else {
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                        },
+                        labelColor = contentColor,
                     ),
                 )
 
@@ -91,7 +124,7 @@ fun MemoryArtifactCard(
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
                         ),
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        color = contentColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -100,12 +133,12 @@ fun MemoryArtifactCard(
             }
 
             // Content preview
-            if (!artifact.content.isNullOrBlank()) {
+            if (!body.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = artifact.content,
+                    text = body,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    color = contentColor,
                     maxLines = if (isExpanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.clickable {

@@ -230,6 +230,21 @@
     <string name="cd_memory_artifact">Memory artifact: %1$s</string>
     <string name="memory_artifact_untitled">Untitled</string>
     <string name="label_memory">Memory</string>
+    <string name="cd_memory_artifacts">Memory updates: %1$d</string>
+    <string name="memory_updated">Updated saved memory</string>
+    <string name="memory_error">Memory Error</string>
+    <string name="memory_updated_items">Updated Memories</string>
+    <string name="memory_deleted_items">Deleted Memories</string>
+    <string name="memory_deleted">Memory deleted</string>
+    <string name="memory_storage_full">Memory Storage Full</string>
+    <string name="memory_already_exceeded">Memory storage already full — exceeded by %1$d tokens. Delete existing memories before adding new ones.</string>
+    <string name="memory_would_exceed">Cannot save — would exceed limit by %1$d tokens. Delete existing memories to make space.</string>
+
+    <!-- File search sources -->
+    <string name="files_searched">Searched your files</string>
+    <string name="cd_file_search_source">File search source: %1$s</string>
+    <string name="file_search_relevance">%1$d%%</string>
+    <string name="file_search_pages">Pages: %1$s</string>
 
     <!-- Mermaid diagram -->
     <string name="label_mermaid">mermaid</string>

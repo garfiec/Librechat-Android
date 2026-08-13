@@ -171,6 +171,19 @@
       },
       "why": "Ported in shape from findArtifactClose/getOpeningCodeFence. The real contract is 'whatever micromark parses', so this is a behavioural port, not a table. Three divergences are deliberate and pinned by ArtifactDetectorCorpusTest.",
       "failure_mode": "An artifact renders as raw source, or swallows the rest of the reply. The corpus test pins current agreement at 22/25 with a known-divergent set, so a genuine drift shows up there -- but only if someone re-runs the corpus against the new upstream."
+    },
+    {
+      "id": "memory-storage-error-types",
+      "upstream": {
+        "file": "packages/api/src/agents/memory.ts",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/AttachmentPayloadParsing.kt",
+        "symbol": "MEMORY_ERROR_ALREADY_EXCEEDED / MEMORY_ERROR_WOULD_EXCEED"
+      },
+      "why": "The two errorType values set_memory stringifies into a failed memory artifact's value. They decide which sentence the user is shown -- that the memory store is already full, or that this particular write would overflow it -- and the server sends only the raw key, never a display string. Watched file-level rather than by block: both literals sit inside createMemoryTool's body, and no smaller exported symbol wraps them -- a block anchored on createMemoryTool extracts only its signature and would compare equal across every revision, which is the inert-watch trap check-mirrors.py warns about.",
+      "failure_mode": "A renamed or added errorType silently degrades every storage-limit failure to the generic 'Memory Error' label, dropping the token count and the 'delete some memories' instruction that tells the user how to fix it. Nothing errors: the artifact still decodes and a card still renders."
     }
   ]
 }

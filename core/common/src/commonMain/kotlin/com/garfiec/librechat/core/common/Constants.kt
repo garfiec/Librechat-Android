@@ -20,9 +20,8 @@ object ToolConstants {
     const val PROGRAMMATIC_TOOLS = "programmatic_tools"
     const val DEFERRED_TOOLS = "deferred_tools"
 
-    /** Server-side retrieval tool (`retrieval` / RAG). Rendered as a generic tool card on
-     *  mobile — its structured sources live in the attachment's file_search payload, which
-     *  the mobile Attachment model does not yet carry. */
+    /** Server-side retrieval tool (`retrieval` / RAG). Renders the same sources card as
+     *  [FILE_SEARCH] — both carry their citations in the attachment's `file_search` payload. */
     const val RETRIEVAL = "retrieval"
 
     /** Sandbox "bash tool" — runs a shell command whose `code` arg is the command line.

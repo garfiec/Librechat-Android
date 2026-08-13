@@ -51,6 +51,12 @@ sealed interface StreamEvent {
         val previewError: String? = null,
         /** Web-search sources when this is a `web_search` attachment (no file). */
         val webSearch: WebSearchData? = null,
+        /** Retrieval citations when this is a `file_search` attachment (no file). */
+        val fileSearch: FileSearchData? = null,
+        /** The memory write when this is a `memory` attachment (no file). */
+        val memory: MemoryArtifactData? = null,
+        /** MCP UI resources when this is a `ui_resources` attachment (no file). */
+        val uiResources: UiResources? = null,
     ) : StreamEvent
 
     data class Final(

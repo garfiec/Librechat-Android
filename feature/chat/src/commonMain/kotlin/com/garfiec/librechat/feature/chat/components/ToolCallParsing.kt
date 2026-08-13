@@ -67,13 +67,17 @@ internal fun isCodeExecutionToolCall(toolNameLower: String): Boolean {
 
 /**
  * Web-search-style tool calls that render as the "Searched the web" sources card. `file_search`
- * and `retrieval` also contain "search" but carry their sources in an attachment payload the
- * mobile model doesn't parse yet, so they're excluded and fall through to the generic card.
+ * and `retrieval` also contain "search" but cite local documents, not the web, so they're routed
+ * to [isFileSearchToolCall]'s card instead.
  */
 internal fun isWebSearchToolCall(toolNameLower: String): Boolean =
     toolNameLower != ToolConstants.FILE_SEARCH &&
         toolNameLower != ToolConstants.RETRIEVAL &&
         toolNameLower.contains("search")
+
+/** Retrieval tool calls whose citations render as the "Searched your files" card. */
+internal fun isFileSearchToolCall(toolNameLower: String): Boolean =
+    toolNameLower == ToolConstants.FILE_SEARCH || toolNameLower == ToolConstants.RETRIEVAL
 
 // --- Parsing helpers ---
 
@@ -223,6 +227,13 @@ internal fun parseCodeExecution(toolCall: AgentToolCall?): CodeExecutionResult? 
     }
 }
 
+/**
+ * The fallback for a memory tool call with no `memory` attachment payload — an older server, or a
+ * write whose artifact the run dropped. `set_memory` returns `content_and_artifact`, so its output
+ * is a readable sentence rather than JSON and lands in the catch below; that sentence is still
+ * worth a card, just without the key as a title. Prefer [collectMemoryArtifacts] when a payload
+ * exists.
+ */
 internal fun parseMemoryArtifact(output: String?): MemoryArtifact? {
     if (output.isNullOrBlank()) return null
     return try {
