@@ -12,11 +12,9 @@ import com.garfiec.librechat.core.model.PromptGroup
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
-import com.garfiec.librechat.core.model.request.CreatePromptData
-import com.garfiec.librechat.core.model.request.CreatePromptGroupData
-import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.feature.chat.prompts.components.PromptSortOrder
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,9 +59,36 @@ class PromptsViewModel(
     // Keep raw domain groups for filtering/sorting by fields not in display data
     private var rawGroups: List<PromptGroup> = emptyList()
 
+    // The PromptRepository.revision this list was built from, and the one the in-flight fetch is
+    // for. Null until a load succeeds, so a failed one is retried on the next visit.
+    private var loadedRevision: Long? = null
+    private var requestedRevision: Long? = null
+    private var reloadJob: Job? = null
+
     init {
         observePermissionFlags()
         loadInitialGroups()
+    }
+
+    /**
+     * Bumped when any prompt is created, edited or deleted — the signal this list is stale.
+     * Read from the screen's composition and paired with [refreshIfStale].
+     */
+    val promptLibraryRevision: StateFlow<Long> = promptRepository.revision
+
+    /**
+     * Re-reads the list, but only when a prompt actually changed since it was loaded.
+     *
+     * Failures stay silent: nobody asked for this fetch, and reporting it would put "Failed to
+     * refresh prompts" on screen after a save that worked.
+     */
+    fun refreshIfStale() {
+        val current = promptRepository.revision.value
+        if (current == loadedRevision) return
+        // Already fetching this revision (the initial load): joining it is what keeps the first
+        // composition from duplicating it.
+        if (reloadJob?.isActive == true && requestedRevision == current) return
+        launchReload(current, surfaceErrors = false, fullSpinner = false)
     }
 
     /** Continuous collector mirroring CREATE/SHARE sub-action flags into UiState. */
@@ -87,71 +112,63 @@ class PromptsViewModel(
         }
     }
 
+    /** The initial load and the empty-state retry: a full-screen spinner, failures shown. */
     fun loadGroups() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = promptRepository.getGroups()) {
-                is Result.Success -> {
-                    val response = result.data
-                    val groups = response.promptGroups
-                    rawGroups = groups
-                    val categories = groups
-                        .mapNotNull { it.category }
-                        .filter { it.isNotBlank() }
-                        .distinct()
-                        .sorted()
-
-                    _uiState.value = _uiState.value.copy(
-                        groups = groups.map { it.toDisplayData() },
-                        totalPages = if (response.hasMore) 9999 else 1,
-                        currentPage = 1,
-                        isLoading = false,
-                        availableCategories = categories,
-                    )
-                    applyFilters()
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message ?: "Failed to load prompts",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
+        launchReload(promptRepository.revision.value, surfaceErrors = true, fullSpinner = true)
     }
 
+    /** The pull-to-refresh gesture. Its failures are the user's to see. */
     fun refresh() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isRefreshing = true, error = null)
-            when (val result = promptRepository.getGroups()) {
-                is Result.Success -> {
-                    val response = result.data
-                    val groups = response.promptGroups
-                    rawGroups = groups
-                    val categories = groups
-                        .mapNotNull { it.category }
-                        .filter { it.isNotBlank() }
-                        .distinct()
-                        .sorted()
+        launchReload(promptRepository.revision.value, surfaceErrors = true, fullSpinner = false)
+    }
 
-                    _uiState.value = _uiState.value.copy(
-                        groups = groups.map { it.toDisplayData() },
-                        totalPages = if (response.hasMore) 9999 else 1,
-                        currentPage = 1,
-                        isRefreshing = false,
-                        availableCategories = categories,
-                    )
-                    applyFilters()
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isRefreshing = false,
-                        error = result.message ?: "Failed to refresh prompts",
-                    )
-                }
-                is Result.Loading -> { /* no-op */ }
+    private fun launchReload(revision: Long, surfaceErrors: Boolean, fullSpinner: Boolean) {
+        // Cancel-replace: the fetches are unordered and the write is last-writer-wins, so a
+        // superseded reload could otherwise land on top of a newer list.
+        reloadJob?.cancel()
+        requestedRevision = revision
+        reloadJob = viewModelScope.launch { fetchGroups(revision, surfaceErrors, fullSpinner) }
+    }
+
+    private suspend fun fetchGroups(revision: Long, surfaceErrors: Boolean, fullSpinner: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            isLoading = fullSpinner,
+            isRefreshing = !fullSpinner,
+            error = if (surfaceErrors) null else _uiState.value.error,
+        )
+        when (val result = promptRepository.getGroups()) {
+            is Result.Success -> {
+                val response = result.data
+                val groups = response.promptGroups
+                rawGroups = groups
+                loadedRevision = revision
+                val categories = groups
+                    .mapNotNull { it.category }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .sorted()
+
+                _uiState.value = _uiState.value.copy(
+                    groups = groups.map { it.toDisplayData() },
+                    totalPages = if (response.hasMore) 9999 else 1,
+                    currentPage = 1,
+                    isLoading = false,
+                    isRefreshing = false,
+                    availableCategories = categories,
+                )
+                applyFilters()
             }
+            is Result.Error -> {
+                Logger.d(result.exception) { "Failed to load prompts: ${result.message}" }
+                val message = result.message
+                    ?: if (fullSpinner) "Failed to load prompts" else "Failed to refresh prompts"
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    error = if (surfaceErrors) message else _uiState.value.error,
+                )
+            }
+            is Result.Loading -> { /* no-op */ }
         }
     }
 
@@ -224,30 +241,11 @@ class PromptsViewModel(
         _uiState.value = state.copy(filteredGroups = filtered.map { it.toDisplayData() })
     }
 
-    fun createPrompt(promptText: String, type: String, groupName: String) {
-        viewModelScope.launch {
-            val request = CreatePromptRequest(
-                prompt = CreatePromptData(prompt = promptText, type = type),
-                group = CreatePromptGroupData(name = groupName),
-            )
-            try {
-                promptRepository.create(request)
-                refresh()
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to create prompt" }
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to create prompt",
-                )
-            }
-        }
-    }
-
     fun deleteGroup(groupId: String) {
         viewModelScope.launch {
             try {
                 promptRepository.delete(groupId)
                 _uiState.value = _uiState.value.copy(selectedGroup = null)
-                refresh()
             } catch (e: Exception) {
                 Logger.e(e) { "Failed to delete prompt" }
                 _uiState.value = _uiState.value.copy(

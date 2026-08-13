@@ -136,7 +136,7 @@ class ChatViewModel(
     favoritesRepository: FavoritesRepository,
     private val keyRepository: KeyRepository,
     presetRepository: PresetRepository,
-    promptRepository: PromptRepository,
+    private val promptRepository: PromptRepository,
     shareRepository: ShareRepository,
     mcpRepository: McpRepository,
     private val userRepository: UserRepository,
@@ -155,6 +155,9 @@ class ChatViewModel(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
+
+    /** Set once the role confirms PROMPTS.USE, so a denied user's screen issues no prompt fetch. */
+    private var promptsUseAllowed = false
 
     private val stateHandle = ChatStateHandle(_uiState, viewModelScope)
 
@@ -686,6 +689,7 @@ class ChatViewModel(
             val role = permissionGate.awaitRole()
             if (role?.hasAccess(PermissionType.PROMPTS, Permission.USE) != false) {
                 presetPromptDelegate.loadAvailablePrompts()
+                promptsUseAllowed = true
             }
             if (role?.hasAccess(PermissionType.MCP_SERVERS, Permission.USE) != false) {
                 modelDelegate.loadMcpServers()
@@ -1509,6 +1513,19 @@ class ChatViewModel(
     fun continueGeneration() {
         if (_uiState.value.isEditingQueued) return
         editingDelegate.continueGeneration()
+    }
+
+    /**
+     * Bumped when any prompt is created, edited or deleted — the signal the composer's `/` picker
+     * is stale. Read from the chat screen's composition (`ChatRoot`), not collected here, so the
+     * refetch lands on a screen the user is looking at.
+     */
+    val promptLibraryRevision: StateFlow<Long> = promptRepository.revision
+
+    /** Paired with [promptLibraryRevision]; a no-op unless a prompt changed since the last load. */
+    fun refreshPromptsIfStale() {
+        if (!promptsUseAllowed) return
+        presetPromptDelegate.refreshAvailablePromptsIfStale()
     }
 
     fun onPause() = streamingManager.onPause()

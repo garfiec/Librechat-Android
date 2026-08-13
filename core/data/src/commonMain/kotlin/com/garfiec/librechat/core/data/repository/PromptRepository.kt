@@ -8,8 +8,22 @@ import com.garfiec.librechat.core.model.request.CreatePromptRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptGroupRequest
 import com.garfiec.librechat.core.model.request.UpdatePromptTagRequest
 import com.garfiec.librechat.core.model.response.PromptGroupListResponse
+import kotlinx.coroutines.flow.StateFlow
 
 interface PromptRepository {
+
+    /**
+     * Bumped after any prompt mutation this repository accepted — create, group update, delete,
+     * a new version added to a group, or a production-tag change.
+     *
+     * Prompts are network-direct with no Room cache, so a screen that fetched them once has no
+     * observable to re-read from and nothing else reports the staleness: the composer's `/` picker
+     * keeps offering a deleted prompt and inserting a superseded body. Every prompt mutation in the
+     * app goes through the methods below, so a mutation added there must bump here too. Mirrors
+     * [AgentRepository.revision]; the consumer side is in `feature/chat/CLAUDE.md`.
+     */
+    val revision: StateFlow<Long>
+
     suspend fun getGroups(pageSize: Int = 10, cursor: String? = null): Result<PromptGroupListResponse>
 
     /** Every visible prompt group in one call, for surfaces that must not truncate (the `/` picker). */

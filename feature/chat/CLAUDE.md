@@ -150,6 +150,30 @@ Two consequences worth knowing before touching that block:
 - `PromptsLibraryScreen` and `PromptDetailScreen` live in `chat/prompts/`
 - `PromptsViewModel` loads prompt groups from `PromptRepository`
 - `handlePromptMention()` on ChatViewModel inserts prompt command text at `@` position
+- **`PromptRepository.revision` is how a mutation reaches the screens beneath it.** The editor is
+  *pushed on top of* both the library and the chat entry, so their ViewModels are retained and
+  `init` — the only caller of `loadGroups` / `loadAvailablePrompts` — never runs again; prompts are
+  network-direct with no `Flow` and no Room cache, so there is no observable to re-drive them from
+  either. The counter is bumped **inside the repository**, after the API call, so it announces only
+  mutations the server accepted and no call site can forget it (same shape as
+  `AgentRepository.revision`). A ViewModel mutation must **not** also call `refresh()` itself: the
+  revision is the single reload path, and doing both fetches the same list twice.
+- **The reload is driven from the composition, not from a ViewModel collector.** Both screens read
+  the revision (`ChatRoot`'s required `promptLibraryRevision`/`onRefreshPrompts` pair for the chat,
+  a `LaunchedEffect` in `PromptsLibraryScreen` for the library) and call a `refreshIfStale`. That is
+  the visibility gate: a bump while the screen is off-screen costs nothing until the user returns,
+  so an editor that bumps five times flipping through versions costs one reload — and the picker's
+  route is the deliberately unpaginated one. Keying the effect on the revision (rather than firing
+  once on entry) is what keeps it correct if a screen *stays* composed: it still reloads the moment
+  the revision moves, so nothing here depends on Nav3 disposing the entry underneath.
+  Each consumer records the revision it loaded and the one it is fetching, so a re-entry with
+  nothing changed is free, the first composition does not duplicate `init`'s in-flight load, and a
+  load that *failed* (which records nothing) is retried on the next visit. Reloads are
+  cancel-replace: the fetches are unordered and the write is last-writer-wins, so a superseded one
+  could otherwise re-list a prompt the user just deleted. The chat's refresh sits behind the
+  `PROMPTS.USE` gate, so a denied user issues no request; the revision-driven library reload
+  swallows its own errors (nobody asked for that fetch — only the pull-to-refresh gesture and the
+  initial load report failure).
 
 ## `ask_user_question`: one question, two cards (v0.8.8)
 

@@ -104,6 +104,7 @@ actual fun ChatScreen(
     val uiState by chromeFlow.collectAsStateWithLifecycle(initialChrome)
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
+    val promptLibraryRevision by viewModel.promptLibraryRevision.collectAsStateWithLifecycle()
 
     val useKatex = prefs.latexRenderer == LatexRenderer.KATEX
     val fontSizeMultiplier = when (uiState.chatFontSize) {
@@ -211,6 +212,8 @@ actual fun ChatScreen(
         onOpenMedia = viewModel::openMedia,
         onCloseMedia = viewModel::closeMedia,
         onDownloadAttachment = viewModel::downloadFileBytes,
+        promptLibraryRevision = promptLibraryRevision,
+        onRefreshPrompts = viewModel::refreshPromptsIfStale,
     ) {
     Scaffold(
         modifier = modifier.imePadding(),

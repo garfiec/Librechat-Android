@@ -67,6 +67,13 @@ fun PromptsLibraryScreen(
     viewModel: PromptsViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Keyed on the revision from inside the composition, so the reload happens when this list is on
+    // screen: a user who saves three prompts in a row pays one reload on return, and a screen that
+    // stays composed still reloads as soon as one lands.
+    val promptLibraryRevision by viewModel.promptLibraryRevision.collectAsStateWithLifecycle()
+    LaunchedEffect(promptLibraryRevision) { viewModel.refreshIfStale() }
+
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.error) {
         val error = uiState.error

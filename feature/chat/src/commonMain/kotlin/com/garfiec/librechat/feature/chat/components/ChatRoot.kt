@@ -2,9 +2,11 @@ package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -40,8 +42,18 @@ fun ChatRoot(
     onOpenMedia: (url: String) -> Unit,
     onCloseMedia: () -> Unit,
     onDownloadAttachment: suspend (fileId: String) -> ByteArray?,
+    /** Required, not defaulted, so neither platform's `ChatScreen` can quietly drop the wiring. */
+    promptLibraryRevision: Long,
+    onRefreshPrompts: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    // Driven from the chat screen's composition rather than a ViewModel collector, which defers the
+    // refetch to a screen the user is looking at — the picker's route is the unpaginated one, and
+    // the editor can bump this several times before the user comes back. Keyed on the revision
+    // (not fired once on entry) so a chat that stays composed still refreshes.
+    val refreshPrompts by rememberUpdatedState(onRefreshPrompts)
+    LaunchedEffect(promptLibraryRevision) { refreshPrompts() }
+
     // Hosted here (not in the VM) so the tapped PDF card can scroll off-screen without dismissing
     // the viewer. rememberSaveable so the open preview survives configuration changes (rotation);
     // the opener just records the request and the overlay re-downloads + renders below.

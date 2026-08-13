@@ -83,6 +83,9 @@ internal class ChatViewModelTestFixture {
 
     val selectionHandoff = NewChatSelectionHandoff()
 
+    /** Driven by hand where a test needs a prompt mutation to reach a retained ViewModel. */
+    val promptRevision = MutableStateFlow(0L)
+
     fun stubDefaults() {
         every { configRepository.startupConfig } returns MutableStateFlow(null)
         every { configRepository.detectedBackendVersion } returns MutableStateFlow("0.8.7")
@@ -93,6 +96,7 @@ internal class ChatViewModelTestFixture {
         every { favoritesRepository.favorites } returns MutableStateFlow(emptyList())
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
         every { agentRepository.revision } returns MutableStateFlow(0L)
+        every { promptRepository.revision } returns promptRevision
         every { messageRepository.observeMessages(any()) } returns emptyFlow()
         every { serverFileSelectionHandoff.selectionsFor(any()) } returns emptyFlow()
         every { platformDelegateFactory.createShareConsumer().sharesFor(any()) } returns emptyFlow()

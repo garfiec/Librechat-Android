@@ -137,6 +137,7 @@ actual fun ChatScreen(
     val attachedFiles by viewModel.attachedFiles.collectAsStateWithLifecycle()
     val shareLinkUrl by viewModel.shareLinkUrl.collectAsStateWithLifecycle()
     val prefs by viewModel.chatPreferences.collectAsStateWithLifecycle()
+    val promptLibraryRevision by viewModel.promptLibraryRevision.collectAsStateWithLifecycle()
     val showImageDescriptions = prefs.showImageDescriptions
     val dismissKeyboardOnSend = prefs.dismissKeyboardOnSend
     val chatLayoutStyle = prefs.chatLayoutStyle
@@ -237,6 +238,8 @@ actual fun ChatScreen(
         onOpenMedia = viewModel::openMedia,
         onCloseMedia = viewModel::closeMedia,
         onDownloadAttachment = viewModel::downloadFileBytes,
+        promptLibraryRevision = promptLibraryRevision,
+        onRefreshPrompts = viewModel::refreshPromptsIfStale,
     ) {
     Scaffold(
         modifier = modifier

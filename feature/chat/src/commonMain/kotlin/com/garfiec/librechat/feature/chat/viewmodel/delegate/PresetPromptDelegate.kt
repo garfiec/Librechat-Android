@@ -14,6 +14,7 @@ import com.garfiec.librechat.feature.chat.prompts.resolvePromptInsertion
 import com.garfiec.librechat.feature.chat.prompts.resolvePromptText
 import com.garfiec.librechat.feature.chat.viewmodel.PendingVariablePrompt
 import com.garfiec.librechat.feature.chat.viewmodel.PresetPromptHandle
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class PresetPromptDelegate(
@@ -25,6 +26,12 @@ class PresetPromptDelegate(
     // Keep domain objects for internal operations (loadPreset, handleSlashCommand, etc.)
     private var cachedPresets: List<Preset> = emptyList()
     private var cachedPromptGroups: List<PromptGroup> = emptyList()
+
+    // The PromptRepository.revision the picker's list was built from, and the one the in-flight
+    // fetch is for. Null until a load succeeds.
+    private var loadedRevision: Long? = null
+    private var requestedRevision: Long? = null
+    private var loadJob: Job? = null
 
     fun loadPresets() {
         handle.scope.launch {
@@ -51,11 +58,33 @@ class PresetPromptDelegate(
      * would hide groups with no indication that anything was omitted.
      */
     fun loadAvailablePrompts() {
-        handle.scope.launch {
+        launchLoad(promptRepository.revision.value)
+    }
+
+    /**
+     * Re-reads the picker's prompts, but only when a prompt actually changed since the list was
+     * loaded. A load that failed leaves [loadedRevision] null, so returning to the chat retries it.
+     */
+    fun refreshAvailablePromptsIfStale() {
+        val current = promptRepository.revision.value
+        if (current == loadedRevision) return
+        // Already fetching exactly this revision (the initial load, or a previous entry): joining
+        // it is what keeps the first composition from duplicating `init`'s load.
+        if (loadJob?.isActive == true && requestedRevision == current) return
+        launchLoad(current)
+    }
+
+    private fun launchLoad(revision: Long) {
+        // Cancel-replace: the fetches are unordered and the write below is last-writer-wins, so a
+        // superseded load could otherwise land on top of a newer list and re-list a deleted prompt.
+        loadJob?.cancel()
+        requestedRevision = revision
+        loadJob = handle.scope.launch {
             when (val result = promptRepository.getAllGroups()) {
                 is Result.Success -> {
                     val groups = result.data.filter { it.id != null }
                     cachedPromptGroups = groups
+                    loadedRevision = revision
                     handle.update {
                         presetPrompts = presetPrompts.copy(availablePrompts = groups.map { it.toDisplayData() })
                     }
