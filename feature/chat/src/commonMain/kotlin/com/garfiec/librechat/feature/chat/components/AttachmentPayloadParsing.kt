@@ -141,6 +141,10 @@ internal fun collectMemoryArtifacts(
  * Every tool call id a message renders a card for, including the calls nested one level inside a
  * subagent trace — this must track the depth the dispatcher recurses to, or
  * [collectUnrenderedMemoryArtifacts] double-reports the nested calls' writes.
+ *
+ * **Not interchangeable with `outputToolCallIds`, which recurses.** That one answers "which calls'
+ * output does this subtree own"; this one "which calls have a card". Nested parts render with
+ * `allowSubagentCard = false`, so a call two levels down is drawn by nothing and must NOT count.
  */
 internal fun renderedToolCallIds(parts: List<MessageContentPart>?): Set<String> {
     if (parts.isNullOrEmpty()) return emptySet()

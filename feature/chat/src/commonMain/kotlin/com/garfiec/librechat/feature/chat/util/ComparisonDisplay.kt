@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.util
 
+import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.content.MessageContentPart
@@ -29,8 +30,8 @@ fun buildComparisonDisplayMessages(
     secondaryEndpoint: String? = null,
     secondaryIconUrl: String? = null,
 ): List<MessageNode> {
-    fun Message.forPane(newContent: List<MessageContentPart>): Message {
-        val base = copy(content = newContent, sender = senderName ?: sender)
+    fun Message.forPane(newContent: List<MessageContentPart>, paneAttachments: List<Attachment>?): Message {
+        val base = copy(content = newContent, attachments = paneAttachments, sender = senderName ?: sender)
         // Only the secondary pane needs re-pointing; the primary message already carries
         // its own endpoint/iconURL. Force iconURL (even to null) so the primary's avatar
         // never bleeds into the secondary pane.
@@ -50,14 +51,24 @@ fun buildComparisonDisplayMessages(
                 } else {
                     paneParts
                 }
-                node.copy(message = message.forPane(content))
+                node.copy(
+                    message = message.forPane(
+                        newContent = content,
+                        paneAttachments = message.attachments?.let {
+                            attachmentsForPane(it, paneParts, message.content.orEmpty(), secondary)
+                        },
+                    ),
+                )
             }
             // Final→reload gap: the server message isn't parallel-attributed yet, so fall
-            // back to this pane's captured streaming buffer.
+            // back to this pane's captured streaming buffer. No attributed parts to scope
+            // attachments against yet, so the turn's go to the primary pane — where they land
+            // once the attributed message arrives.
             message.messageId == parallelMessageId && !finalContent.isNullOrBlank() -> {
                 node.copy(
                     message = message.forPane(
-                        listOf(MessageContentPart(type = ContentType.TEXT, text = finalContent)),
+                        newContent = listOf(MessageContentPart(type = ContentType.TEXT, text = finalContent)),
+                        paneAttachments = message.attachments?.takeIf { !secondary },
                     ),
                 )
             }
@@ -67,15 +78,59 @@ fun buildComparisonDisplayMessages(
 }
 
 /**
+ * The attachments one pane owns, given the parts it renders ([paneParts]) and the whole parallel
+ * message's parts ([allParts]).
+ *
+ * A pane filters `content` but a `copy` carries `attachments` whole, so an unscoped list renders
+ * once per pane on every surface drawn from `message.attachments` rather than from a part.
+ *
+ * An attachment follows the lane whose parts contain the call that produced it — the RECURSIVE
+ * [outputToolCallIds] walk, so a call nested inside a subagent still belongs to its lane. One
+ * attributable to no call in the turn — the background memory agent writes from its own sub-run,
+ * whose calls never become content parts — belongs to the turn rather than to either agent, so it
+ * renders once, in the primary pane. See `feature/chat/CLAUDE.md`, "Compare Models".
+ */
+internal fun attachmentsForPane(
+    attachments: List<Attachment>,
+    paneParts: List<MessageContentPart>,
+    allParts: List<MessageContentPart>,
+    secondary: Boolean,
+): List<Attachment> {
+    val paneCallIds = outputToolCallIds(paneParts).toSet()
+    val messageCallIds = outputToolCallIds(allParts).toSet()
+    return attachments.filter { attachment ->
+        val owner = attachment.toolCallId
+        when {
+            owner != null && owner in paneCallIds -> true
+            owner != null && owner in messageCallIds -> false
+            else -> !secondary
+        }
+    }
+}
+
+/**
  * Collapses any parallel (Compare Models) message to just its primary agent's parts,
  * so an old comparison turn never renders both agents' content concatenated in the
  * single (non-comparison) list — e.g. after branching, or when viewing a comparison
  * sibling that isn't the active-path tail.
+ *
+ * Attachments are scoped the same way ([attachmentsForPane]) — the added agent's files would
+ * otherwise outlive the content that explains them, and its memory writes would surface here as
+ * unattributed ones.
  */
 fun collapseParallelToPrimary(displayMessages: List<MessageNode>): List<MessageNode> =
     displayMessages.map { node ->
-        if (hasParallelParts(node.message)) {
-            node.copy(message = node.message.copy(content = partsForPane(node.message, secondary = false)))
+        val message = node.message
+        if (hasParallelParts(message)) {
+            val primaryParts = partsForPane(message, secondary = false)
+            node.copy(
+                message = message.copy(
+                    content = primaryParts,
+                    attachments = message.attachments?.let {
+                        attachmentsForPane(it, primaryParts, message.content.orEmpty(), secondary = false)
+                    },
+                ),
+            )
         } else {
             node
         }

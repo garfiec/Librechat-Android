@@ -97,6 +97,19 @@ Two consequences worth knowing before touching that block:
 - **Live streaming attribution:** SSE deltas carry only a step id, never an agentId. `SseEventMapper` records each `on_run_step`'s agentId keyed by step id and resolves deltas by their own step id — required because two agents' run steps interleave, and a last-write-wins would collapse both panes onto one agent. `ComparisonModeDelegate.isSecondaryEvent` then fans deltas into the primary/secondary buffers.
 - **Rendering (`ChatContent.buildComparisonDisplayMessages`):** each pane filters the parallel message's parts via `util/ParallelContent.partsForPane` — so it works for every comparison turn in history, not just the live one. The captured streaming buffer is only a Final→reload-gap fallback. The single (non-comparison) list runs `collapseParallelToPrimary` so a branched-away comparison never renders both agents concatenated.
 - **A pane's lane renders WITHOUT activity grouping**, matching upstream: `ContentParts.tsx` early-returns any content carrying a `groupId` to `ParallelContentRenderer`, which calls the bare `renderPart` — no `groupSequentialToolCalls` and no `hideAttachments`, so a lane folds no tool calls into a collapsed block and hoists no attachments out of one. `MessageContentAndActions` passes `groupActivity = !hasParallelGroupIds(parts)` into `groupContentParts`; the lane is keyed on `groupId` rather than the `____N` suffix because `partsForPane` has already run, leaving the primary lane unsuffixed. Only grouping is bypassed — steer segmentation still applies. The server strips `groupId` when branching one agent's parts out of a comparison (`POST /api/messages/branch`), so a branched sibling reads as ordinary content and groups again.
+- **A pane's attachments are scoped to its own lane** (`util/ComparisonDisplay.attachmentsForPane`).
+  A pane filters `content`, so anything a bubble draws from `message.attachments` rather than from a
+  pane-filtered part would otherwise render once per pane — the office previews unconditionally, and
+  the memory writes through a join (`collectUnrenderedMemoryArtifacts`) whose two halves then
+  disagree about which calls exist, so even an ordinary inline `set_memory` reads as an *orphan* in
+  the pane that does not hold its call. An attachment follows the lane whose parts contain the call
+  that produced it; one attributable to no call in the turn — the background memory agent writes
+  from its own sub-run, whose calls never become content parts — belongs to the turn rather than to
+  either agent and renders once, in the primary pane, where upstream also puts it
+  (`ParallelContent.tsx` renders `MemoryArtifacts` once above both columns). `collapseParallelToPrimary`
+  scopes the same way. **Ownership is the recursive `outputToolCallIds` walk, never
+  `renderedToolCallIds`** — the latter stops at one level because that is where the dispatcher stops
+  drawing cards, which is a different question.
 - **Reopen (`ComparisonModeDelegate.rehydrateFromMessage`):** nothing but the persisted attribution records that a conversation was a comparison, so `loadConversation` rehydrates comparison state from the assistant tail's parts on the first non-empty emission (latched once per load; respects a session toggle-off). Continue-with-response = `POST /api/messages/branch` filtered to one agent's parts; the branched sibling becomes a single-agent tail, so the next reopen is the normal view.
 
 ## Content Rendering
