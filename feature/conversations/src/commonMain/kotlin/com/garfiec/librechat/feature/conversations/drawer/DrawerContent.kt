@@ -203,20 +203,30 @@ fun DrawerContent(
     DrawerContent(
         uiState = uiState,
         footerContent = {
-            accounts.firstOrNull { it.isActive }?.let { active ->
-                Spacer(modifier = Modifier.height(8.dp))
-                // Footer row: Settings (icon + label) on the left takes the width; the account
-                // avatar (icon only, tap to switch) sits on the right.
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(end = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    DrawerFooterItem(
-                        icon = Icons.Default.Settings,
-                        label = stringResource(Res.string.settings),
-                        onClick = onSettingsClick,
-                        modifier = Modifier.weight(1f),
-                    )
+            val active = accounts.firstOrNull { it.isActive }
+            Spacer(modifier = Modifier.height(8.dp))
+            // Footer row: Settings (icon + label) on the left takes the width; the account avatar
+            // (icon only, tap to switch) sits on the right.
+            //
+            // Settings must render even with an empty roster: it is the only route to the
+            // server/account screens, sign-out and the log export, and an empty roster is exactly
+            // the state a user needs them in. Only AccountChip needs a resolved account — do not
+            // fold Settings back under it. See issue #360.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Inset for the chip only, so Settings still aligns with the rows above it
+                    // when there is no chip.
+                    .padding(end = if (active != null) 12.dp else 0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DrawerFooterItem(
+                    icon = Icons.Default.Settings,
+                    label = stringResource(Res.string.settings),
+                    onClick = onSettingsClick,
+                    modifier = Modifier.weight(1f),
+                )
+                if (active != null) {
                     AccountChip(
                         account = active,
                         onClick = { showAccountSheet = true },
