@@ -44,3 +44,5 @@ Thumbs.db
 # Ephemeral runtime state from Claude Code's scheduler (per-session lock)
 .claude/scheduled_tasks.lock
 .claude/*.lock
+# Bytecode from the Python helpers bundled with .claude skills
+__pycache__/
