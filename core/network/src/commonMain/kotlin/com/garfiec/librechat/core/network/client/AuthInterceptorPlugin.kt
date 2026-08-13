@@ -45,19 +45,9 @@ class AuthInterceptorPlugin private constructor(
 
         override fun install(plugin: AuthInterceptorPlugin, scope: HttpClient) {
             // Endpoints that take no bearer and whose 401 is the endpoint's own verdict, not an
-            // expired session — kept out of the refresh/session-expiry leg below.
-            val skipPaths = setOf(
-                "auth/login", "auth/register", "auth/refresh",
-                "auth/requestPasswordReset", "auth/resetPassword",
-                "auth/2fa/verify-temp",
-            )
-
-            // Matched on whole path segments, not as a substring of the URL, so a path-prefixed
-            // deployment (e.g. /apps/auth/login-x) doesn't match every request it serves.
-            fun isSkipPath(url: URLBuilder): Boolean {
-                val path = url.encodedPathSegments.filter { it.isNotEmpty() }.joinToString("/")
-                return skipPaths.any { path == it || path.endsWith("/$it") }
-            }
+            // expired session — kept out of the refresh/session-expiry leg below. Shared with
+            // SwitchBarrierPlugin; see AuthSkipPaths.kt.
+            fun isSkipPath(url: URLBuilder): Boolean = isAuthSkipPath(url)
 
             // Attach token to outgoing requests. Runs at State, which is after
             // the SwitchBarrier/defaultRequest phases have applied the base URL —

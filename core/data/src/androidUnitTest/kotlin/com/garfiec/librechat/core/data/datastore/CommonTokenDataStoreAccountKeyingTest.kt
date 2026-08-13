@@ -27,44 +27,16 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class CommonTokenDataStoreAccountKeyingTest {
 
-    private class FakeKeyedStore(
-        refreshClient: Lazy<HttpClient>,
-        seed: Map<String, String> = emptyMap(),
-    ) : CommonTokenDataStore(refreshClient) {
-        val store = seed.toMutableMap()
-
-        init {
-            initializeTokenCache()
-        }
-
-        override fun readValue(key: String): String? = store[key]
-        override fun writeValue(key: String, value: String) {
-            store[key] = value
-        }
-
-        override fun writeValues(values: Map<String, String>) {
-            store.putAll(values)
-        }
-
-        override fun removeValue(key: String) {
-            store.remove(key)
-        }
-
-        override fun onKeystoreCorruption() = Unit
-    }
-
     private val noRefresh: Lazy<HttpClient> = lazy { error("refresh client not expected in this test") }
 
-    private fun accessKey(account: String) = "acct:$account:access_token"
-    private fun refreshKeyOf(account: String) = "acct:$account:refresh_token"
 
     @Test
     fun `init seeds cached bearer from the mirror's keyed slot`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
             ),
         )
 
@@ -74,7 +46,7 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `init falls back to the bare key for a legacy pre-keying install`() = runTest {
-        val store = FakeKeyedStore(noRefresh, seed = mapOf("access_token" to "legacy-access"))
+        val store = FakeTokenStore(noRefresh, seed = mapOf("access_token" to "legacy-access"))
 
         assertThat(store.isAuthenticated).isTrue()
         assertThat(store.getAccessToken()).isEqualTo("legacy-access")
@@ -82,7 +54,7 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `init reports logged out when storage is empty`() = runTest {
-        val store = FakeKeyedStore(noRefresh)
+        val store = FakeTokenStore(noRefresh)
 
         assertThat(store.isAuthenticated).isFalse()
         assertThat(store.getAccessToken()).isNull()
@@ -90,13 +62,13 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `onAccountResolved migrates bare tokens into the keyed slot and writes the mirror`() = runTest {
-        val store = FakeKeyedStore(noRefresh)
+        val store = FakeTokenStore(noRefresh)
         // Fresh login: no account resolved yet, so setTokens lands under the bare keys.
         store.setTokens(accessToken = "A-access", refreshToken = "A-refresh")
 
         store.onAccountResolved("acctA")
 
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
         assertThat(store.store[refreshKeyOf("acctA")]).isEqualTo("A-refresh")
         assertThat(store.store["active_account_id"]).isEqualTo("acctA")
         assertThat(store.store).doesNotContainKey("access_token")
@@ -106,13 +78,13 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `onAccountResolved with a torn staging pair does not cache an unpersisted bearer`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 // Torn staging: a bare access token survived but its refresh partner didn't (e.g. a
                 // partial keychain write). The keyed slot still holds the prior value.
                 "access_token" to "torn-access",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
             ),
         )
@@ -121,7 +93,7 @@ class CommonTokenDataStoreAccountKeyingTest {
 
         // The keyed slot is NOT overwritten from the torn pair, and the cached bearer matches storage
         // (the keyed value), never the unpersisted staged token.
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
         assertThat(store.getAccessToken()).isEqualTo("A-access")
         // Bare staging keys are cleared regardless.
         assertThat(store.store).doesNotContainKey("access_token")
@@ -129,24 +101,24 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `onAccountResolved is a no-op when the account is unchanged`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
-            seed = mapOf("active_account_id" to "acctA", accessKey("acctA") to "A-access"),
+            seed = mapOf("active_account_id" to "acctA", accessKeyOf("acctA") to "A-access"),
         )
 
         store.onAccountResolved("acctA")
 
         assertThat(store.getAccessToken()).isEqualTo("A-access")
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
     }
 
     @Test
     fun `authenticating a different account while one is active retains the previous account's tokens`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
             ),
         )
@@ -156,10 +128,10 @@ class CommonTokenDataStoreAccountKeyingTest {
 
         store.onAccountResolved("acctB")
 
-        assertThat(store.store[accessKey("acctB")]).isEqualTo("B-access")
+        assertThat(store.store[accessKeyOf("acctB")]).isEqualTo("B-access")
         assertThat(store.store[refreshKeyOf("acctB")]).isEqualTo("B-refresh")
         // A's tokens are RETAINED (multi-account) — a switch back needs no re-login.
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
         assertThat(store.store[refreshKeyOf("acctA")]).isEqualTo("A-refresh")
         assertThat(store.store).doesNotContainKey("access_token")
         assertThat(store.store).doesNotContainKey("refresh_token")
@@ -169,11 +141,11 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `staged tokens are readable while staged and clearStagedTokens drops only the bare keys`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
             ),
         )
@@ -188,17 +160,17 @@ class CommonTokenDataStoreAccountKeyingTest {
         assertThat(store.getStagedAccessToken()).isNull()
         assertThat(store.store).doesNotContainKey("access_token")
         assertThat(store.store).doesNotContainKey("refresh_token")
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
         assertThat(store.store[refreshKeyOf("acctA")]).isEqualTo("A-refresh")
     }
 
     @Test
     fun `getAccessTokenFor reads an account's own slot even while another sign-in is staged`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
             ),
         )
@@ -214,13 +186,13 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `selectAccount switches to an already-keyed account without writing or deleting tokens`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
-                accessKey("acctB") to "B-access",
+                accessKeyOf("acctB") to "B-access",
                 refreshKeyOf("acctB") to "B-refresh",
             ),
         )
@@ -230,9 +202,9 @@ class CommonTokenDataStoreAccountKeyingTest {
         assertThat(store.store["active_account_id"]).isEqualTo("acctB")
         assertThat(store.getAccessToken()).isEqualTo("B-access")
         // Neither slot is written or deleted; no bare staging keys appear.
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
         assertThat(store.store[refreshKeyOf("acctA")]).isEqualTo("A-refresh")
-        assertThat(store.store[accessKey("acctB")]).isEqualTo("B-access")
+        assertThat(store.store[accessKeyOf("acctB")]).isEqualTo("B-access")
         assertThat(store.store).doesNotContainKey("access_token")
 
         // Switch back is cold-free.
@@ -242,20 +214,20 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `removeAccount drops a non-active account and leaves the active one untouched`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
-                accessKey("acctB") to "B-access",
+                accessKeyOf("acctB") to "B-access",
                 refreshKeyOf("acctB") to "B-refresh",
             ),
         )
 
         store.removeAccount("acctB")
 
-        assertThat(store.store).doesNotContainKey(accessKey("acctB"))
+        assertThat(store.store).doesNotContainKey(accessKeyOf("acctB"))
         assertThat(store.store).doesNotContainKey(refreshKeyOf("acctB"))
         assertThat(store.store["active_account_id"]).isEqualTo("acctA")
         assertThat(store.getAccessToken()).isEqualTo("A-access")
@@ -263,30 +235,30 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `removeAccount of the active account clears the mirror and cached bearer`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
             ),
         )
 
         store.removeAccount("acctA")
 
-        assertThat(store.store).doesNotContainKey(accessKey("acctA"))
+        assertThat(store.store).doesNotContainKey(accessKeyOf("acctA"))
         assertThat(store.store).doesNotContainKey("active_account_id")
         assertThat(store.getAccessToken()).isNull()
     }
 
     @Test
     fun `getAccessTokenFor reads a non-active account's keyed slot`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
-                accessKey("acctB") to "B-access",
+                accessKeyOf("acctA") to "A-access",
+                accessKeyOf("acctB") to "B-access",
             ),
         )
 
@@ -299,18 +271,18 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `onAccountCleared removes the active account's tokens and the mirror`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
             ),
         )
 
         store.onAccountCleared()
 
-        assertThat(store.store).doesNotContainKey(accessKey("acctA"))
+        assertThat(store.store).doesNotContainKey(accessKeyOf("acctA"))
         assertThat(store.store).doesNotContainKey(refreshKeyOf("acctA"))
         assertThat(store.store).doesNotContainKey("active_account_id")
         assertThat(store.getAccessToken()).isNull()
@@ -318,7 +290,7 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `setTokens stages under the bare keys even when an account is active`() = runTest {
-        val store = FakeKeyedStore(noRefresh)
+        val store = FakeTokenStore(noRefresh)
         store.setTokens("bootstrap", "bootstrap-refresh")
         store.onAccountResolved("acctA")
 
@@ -327,12 +299,12 @@ class CommonTokenDataStoreAccountKeyingTest {
         store.setTokens("A-access-2", "A-refresh-2")
 
         assertThat(store.store["access_token"]).isEqualTo("A-access-2")
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("bootstrap")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("bootstrap")
         assertThat(store.getAccessToken()).isEqualTo("A-access-2")
 
         // Re-home overwrites the account's slot with the freshly-staged pair.
         store.onAccountResolved("acctA")
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access-2")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access-2")
         assertThat(store.store[refreshKeyOf("acctA")]).isEqualTo("A-refresh-2")
         assertThat(store.store).doesNotContainKey("access_token")
     }
@@ -340,11 +312,11 @@ class CommonTokenDataStoreAccountKeyingTest {
     @Test
     fun `setTokens clears the persisted mirror so a staging-window cold start can't resurrect the previous account`() =
         runTest {
-            val store = FakeKeyedStore(
+            val store = FakeTokenStore(
                 noRefresh,
                 seed = mapOf(
                     "active_account_id" to "acctA",
-                    accessKey("acctA") to "A-access",
+                    accessKeyOf("acctA") to "A-access",
                     refreshKeyOf("acctA") to "A-refresh",
                 ),
             )
@@ -355,16 +327,16 @@ class CommonTokenDataStoreAccountKeyingTest {
             assertThat(store.store).doesNotContainKey("active_account_id")
             assertThat(store.store["access_token"]).isEqualTo("B-access")
             // A's keyed tokens are still retained for a later switch back.
-            assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+            assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
         }
 
     @Test
     fun `clearTokens fully tears down the active session including any leftover bare staging keys`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
                 // A stale staged pair left behind by an abandoned/killed login.
                 "access_token" to "orphan-access",
@@ -374,7 +346,7 @@ class CommonTokenDataStoreAccountKeyingTest {
 
         store.clearTokens()
 
-        assertThat(store.store).doesNotContainKey(accessKey("acctA"))
+        assertThat(store.store).doesNotContainKey(accessKeyOf("acctA"))
         assertThat(store.store).doesNotContainKey(refreshKeyOf("acctA"))
         assertThat(store.store).doesNotContainKey("active_account_id")
         // The orphaned staging pair is purged too, so it can't cold-start a phantom session.
@@ -401,11 +373,11 @@ class CommonTokenDataStoreAccountKeyingTest {
                 }
             }
         }
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             refreshClient,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
             ),
         )
@@ -413,7 +385,7 @@ class CommonTokenDataStoreAccountKeyingTest {
         val ok = store.refreshAccessToken()
 
         assertThat(ok).isEqualTo(RefreshResult.Refreshed)
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access-refreshed")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access-refreshed")
         assertThat(store.getAccessToken()).isEqualTo("A-access-refreshed")
     }
 
@@ -439,13 +411,13 @@ class CommonTokenDataStoreAccountKeyingTest {
                 }
             }
         }
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             refreshClient,
             seed = mapOf(
                 "active_account_id" to "acctA",
-                accessKey("acctA") to "A-access",
+                accessKeyOf("acctA") to "A-access",
                 refreshKeyOf("acctA") to "A-refresh",
-                accessKey("acctB") to "B-access",
+                accessKeyOf("acctB") to "B-access",
                 refreshKeyOf("acctB") to "B-refresh",
             ),
         )
@@ -454,16 +426,16 @@ class CommonTokenDataStoreAccountKeyingTest {
 
         assertThat(ok).isEqualTo(RefreshResult.Refreshed)
         assertThat(requestedUrl).startsWith("https://b.example.com/api/auth/refresh")
-        assertThat(store.store[accessKey("acctB")]).isEqualTo("B-access-refreshed")
+        assertThat(store.store[accessKeyOf("acctB")]).isEqualTo("B-access-refreshed")
         // acctB is not the active account, so the cached bearer (A's) is untouched.
         assertThat(store.getAccessToken()).isEqualTo("A-access")
     }
 
     @Test
     fun `session expiry scoped to the active account emits`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
-            seed = mapOf("active_account_id" to "acctA", accessKey("acctA") to "A-access"),
+            seed = mapOf("active_account_id" to "acctA", accessKeyOf("acctA") to "A-access"),
         )
         var emissions = 0
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -482,9 +454,9 @@ class CommonTokenDataStoreAccountKeyingTest {
 
     @Test
     fun `session expiry for a non-active account is suppressed`() = runTest {
-        val store = FakeKeyedStore(
+        val store = FakeTokenStore(
             noRefresh,
-            seed = mapOf("active_account_id" to "acctA", accessKey("acctA") to "A-access"),
+            seed = mapOf("active_account_id" to "acctA", accessKeyOf("acctA") to "A-access"),
         )
         var emissions = 0
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

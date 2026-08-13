@@ -33,34 +33,6 @@ class CommonTokenDataStoreSessionExpiryTest {
         const val SERVER = "https://chat.example.com"
     }
 
-    private class FakeStore(
-        refreshClient: Lazy<HttpClient>,
-        seed: Map<String, String> = emptyMap(),
-    ) : CommonTokenDataStore(refreshClient) {
-        val store = seed.toMutableMap()
-
-        init {
-            initializeTokenCache()
-        }
-
-        override fun readValue(key: String): String? = store[key]
-        override fun writeValue(key: String, value: String) {
-            store[key] = value
-        }
-
-        override fun writeValues(values: Map<String, String>) {
-            store.putAll(values)
-        }
-
-        override fun removeValue(key: String) {
-            store.remove(key)
-        }
-
-        override fun onKeystoreCorruption() = Unit
-    }
-
-    private fun accessKey(account: String) = "acct:$account:access_token"
-    private fun refreshKeyOf(account: String) = "acct:$account:refresh_token"
 
     private val noRefresh: Lazy<HttpClient> = lazy { error("refresh client not expected in this test") }
 
@@ -74,11 +46,11 @@ class CommonTokenDataStoreSessionExpiryTest {
         }
     }
 
-    private fun seededStore(refreshClient: Lazy<HttpClient>) = FakeStore(
+    private fun seededStore(refreshClient: Lazy<HttpClient>) = FakeTokenStore(
         refreshClient,
         seed = mapOf(
             "active_account_id" to "acctA",
-            accessKey("acctA") to "A-access",
+            accessKeyOf("acctA") to "A-access",
             refreshKeyOf("acctA") to "A-refresh",
         ),
     )
@@ -90,7 +62,7 @@ class CommonTokenDataStoreSessionExpiryTest {
         val result = store.refreshAccessTokenFor("acctA", SERVER)
 
         assertThat(result).isEqualTo(RefreshResult.HardExpired)
-        assertThat(store.store[accessKey("acctA")]).isNull()
+        assertThat(store.store[accessKeyOf("acctA")]).isNull()
         assertThat(store.store[refreshKeyOf("acctA")]).isNull()
         // The cold-start check reads through these, so this is what stops the replay.
         assertThat(store.isAuthenticated).isFalse()
@@ -116,7 +88,7 @@ class CommonTokenDataStoreSessionExpiryTest {
         // A 5xx is a server-side blip, not evidence the session is dead — tearing down here would
         // log the user out over a transient failure a later request would have recovered from.
         assertThat(result).isEqualTo(RefreshResult.Transient)
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
         assertThat(store.store[refreshKeyOf("acctA")]).isEqualTo("A-refresh")
         assertThat(store.isAuthenticated).isTrue()
     }
@@ -144,7 +116,7 @@ class CommonTokenDataStoreSessionExpiryTest {
         val result = store.refreshAccessTokenFor("acctA", SERVER)
 
         assertThat(result).isEqualTo(RefreshResult.Refreshed)
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access-2")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access-2")
     }
 
     @Test
@@ -222,7 +194,7 @@ class CommonTokenDataStoreSessionExpiryTest {
      */
     @Test
     fun `an expiry discovered with no subscriber leaves the signal armed`() = runTest {
-        val store = FakeStore(lazy { throw AssertionError("no refresh expected") })
+        val store = FakeTokenStore(lazy { throw AssertionError("no refresh expected") })
 
         // Nobody listening — the report is dropped, and the latch must survive it.
         store.emitSessionExpired(null)
@@ -241,7 +213,7 @@ class CommonTokenDataStoreSessionExpiryTest {
     /** The storm guard still holds once someone is actually listening. */
     @Test
     fun `repeated expiries with a subscriber report once`() = runTest {
-        val store = FakeStore(lazy { throw AssertionError("no refresh expected") })
+        val store = FakeTokenStore(lazy { throw AssertionError("no refresh expected") })
 
         var emissions = 0
         val job = launch(UnconfinedTestDispatcher(testScheduler)) {

@@ -93,6 +93,37 @@ interface TokenManager {
     ): RefreshResult
 
     /**
+     * Renew [accountId]'s access token **before** a request goes out, if [currentAccessToken] is at or
+     * near its expiry, and return the bearer the caller should use. Returns [currentAccessToken]
+     * unchanged when the token is still good, absent, carries no readable deadline, or the renewal
+     * did not succeed.
+     *
+     * Renewal is otherwise driven entirely by failure — a token is refreshed only after a request
+     * using it has come back `401`. Access tokens live 15 minutes by default, so every cold start
+     * after an idle period pays a full round trip of 401-then-refresh-then-retry on the critical path
+     * before anything renders (issue #323). Checking the deadline we already hold turns that into one
+     * refresh with no 401 at all.
+     *
+     * The current bearer is passed **in** rather than re-read: this runs on every request the barrier
+     * builds, and the caller has already read the identity triple under its own lock. Re-reading here
+     * would both cost a second lock acquisition per request and risk pairing a token with a different
+     * account than the caller snapshotted.
+     *
+     * **Best-effort and non-signalling.** It must never tear down a session or emit session-expired:
+     * a failed renewal leaves everything as it was and the request proceeds on the old bearer, so the
+     * reactive 401 path — which retries and can distinguish a dead session from a server
+     * false-negative — remains the only thing that logs anyone out.
+     *
+     * Defaulted to returning the token unchanged, so an implementation that is not the token store
+     * opts out by saying nothing rather than being forced into a stub.
+     */
+    suspend fun ensureFreshAccessToken(
+        accountId: String?,
+        baseUrl: String,
+        currentAccessToken: String?,
+    ): String? = currentAccessToken
+
+    /**
      * Bind token storage to [accountId] once identity resolves (login, cold-start restore, upgrade).
      * Re-homes the staged (bare-key) authentication tokens into this account's keyed slot and repoints
      * the synchronously-readable mirror, so subsequent cold starts seed the right account's bearer with

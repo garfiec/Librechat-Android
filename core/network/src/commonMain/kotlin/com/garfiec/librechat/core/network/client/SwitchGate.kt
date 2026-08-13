@@ -122,8 +122,14 @@ class SwitchGate(
      * A caller running under a [PendingRequestIdentity] (the add-account flow) short-circuits to the
      * pending identity: no gates, no live-provider reads — the pending flow is self-contained and a
      * concurrent switch doesn't affect it.
+     *
+     * [renewIfStale] opts this snapshot into proactive token renewal
+     * ([TokenManager.ensureFreshAccessToken]) — only the transports pass it. It is **not** the default
+     * because `captureSnapshot` has non-transport callers for which a renewal is wrong rather than
+     * merely wasteful: logout pins an identity before revoking the session, and refreshing a session
+     * we are about to destroy adds a round trip to it and rotates a token nobody will use.
      */
-    suspend fun captureSnapshot(): RequestIdentity {
+    suspend fun captureSnapshot(renewIfStale: Boolean = false): RequestIdentity {
         coroutineContext[PendingRequestIdentity]?.let { return it.identity() }
         accountReadyGate?.awaitReady()
         serverUrlProvider.awaitBaseUrl()
@@ -137,7 +143,7 @@ class SwitchGate(
         // directly avoids allocating a flow collector on every request and only suspends when a switch
         // is actually mid-flip.
         if (!open.value) open.first { it }
-        return lock.withLock {
+        val snapshot = lock.withLock {
             val accountId = activeAccountProvider.currentAccountId()?.value
             val baseUrl = serverUrlProvider.getBaseUrl()
             RequestIdentity(
@@ -156,6 +162,26 @@ class SwitchGate(
                 customHeaders = serverHeadersProvider.headersFor(baseUrl),
             )
         }
+        if (!renewIfStale) return snapshot
+        // Renew AFTER the snapshot and OUTSIDE [lock], and feed it the snapshot's own values.
+        //
+        // Outside the lock because it is the same mutex [withSwitch] takes, and a refresh POST
+        // suspended inside it would stall every account switch — the rule the header warm-up above
+        // follows too. Off the *snapshot* rather than re-reading the providers because those two reads
+        // would not be atomic with each other: a switch publishes the new server URL before the new
+        // account, so an unguarded pair can be (old account, new URL), and refreshing against that
+        // POSTs one account's refresh token to another deployment — the exact tearing this class
+        // exists to prevent. Reusing the snapshot also keeps the triple to one read per request.
+        //
+        // A switch landing between the snapshot and the renewal is harmless: this request is already
+        // pinned to that account, refreshAccessTokenFor writes only that account's keyed slot, and a
+        // switched-away account's tokens are retained.
+        val renewed = tokenManager.ensureFreshAccessToken(
+            accountId = snapshot.accountId,
+            baseUrl = snapshot.baseUrl,
+            currentAccessToken = snapshot.bearer,
+        )
+        return if (renewed == snapshot.bearer) snapshot else snapshot.copy(bearer = renewed)
     }
 
     /**

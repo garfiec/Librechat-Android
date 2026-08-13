@@ -33,40 +33,12 @@ class CommonTokenDataStoreGatewayTest {
         const val ACCESS_LOGIN = "https://team.cloudflareaccess.com/cdn-cgi/access/login/chat.example.com"
     }
 
-    private class FakeStore(
-        refreshClient: Lazy<HttpClient>,
-        seed: Map<String, String> = emptyMap(),
-    ) : CommonTokenDataStore(refreshClient) {
-        val store = seed.toMutableMap()
 
-        init {
-            initializeTokenCache()
-        }
-
-        override fun readValue(key: String): String? = store[key]
-        override fun writeValue(key: String, value: String) {
-            store[key] = value
-        }
-
-        override fun writeValues(values: Map<String, String>) {
-            store.putAll(values)
-        }
-
-        override fun removeValue(key: String) {
-            store.remove(key)
-        }
-
-        override fun onKeystoreCorruption() = Unit
-    }
-
-    private fun accessKey(account: String) = "acct:$account:access_token"
-    private fun refreshKeyOf(account: String) = "acct:$account:refresh_token"
-
-    private fun seededStore(refreshClient: Lazy<HttpClient>) = FakeStore(
+    private fun seededStore(refreshClient: Lazy<HttpClient>) = FakeTokenStore(
         refreshClient,
         seed = mapOf(
             "active_account_id" to "acctA",
-            accessKey("acctA") to "A-access",
+            accessKeyOf("acctA") to "A-access",
             refreshKeyOf("acctA") to "A-refresh",
         ),
     )
@@ -109,7 +81,7 @@ class CommonTokenDataStoreGatewayTest {
         assertThat(result).isEqualTo(RefreshResult.Transient)
         // The tokens must survive for the retry that follows the header fix.
         assertThat(store.store[refreshKeyOf("acctA")]).isEqualTo("A-refresh")
-        assertThat(store.store[accessKey("acctA")]).isEqualTo("A-access")
+        assertThat(store.store[accessKeyOf("acctA")]).isEqualTo("A-access")
     }
 
     /** Deterministic until the user edits the credential, and the budget is spent under the flight lock. */

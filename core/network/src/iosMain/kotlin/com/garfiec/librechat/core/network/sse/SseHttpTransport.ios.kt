@@ -108,7 +108,7 @@ actual class SseHttpTransport(
         // is the SwitchBarrierPlugin equivalent for the NWConnection path (which can't use Ktor
         // plugins): a switch mid-stream can't tear the URL and token apart — the stream keeps running
         // against the account and server it started on, whose tokens are retained.
-        val snapshot = switchGate.captureSnapshot()
+        val snapshot = switchGate.captureSnapshot(renewIfStale = true)
         var token = snapshot.bearer
         var triedRefresh = false
         while (true) {

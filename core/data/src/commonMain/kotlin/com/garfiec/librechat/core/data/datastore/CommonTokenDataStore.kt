@@ -12,6 +12,7 @@ import com.garfiec.librechat.core.network.client.RefreshResult
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
 import com.garfiec.librechat.core.network.client.SessionEndReason
 import com.garfiec.librechat.core.network.client.TokenManager
+import com.garfiec.librechat.core.network.client.expiresAtEpochMillisOrNull
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
@@ -27,6 +28,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.concurrent.Volatile
 import kotlin.random.Random
+import kotlin.time.Clock
 
 /**
  * Account-keyed secure token store. Tokens are namespaced by account
@@ -142,6 +144,23 @@ abstract class CommonTokenDataStore(
 
     @Volatile
     private var sessionExpiryReported = false
+
+    /** One-entry cache for [memoizedExpiryOf], so the per-request decode is a string comparison. */
+    @Volatile
+    private var expiryMemo: ExpiryMemo? = null
+
+    /**
+     * When each slot may next attempt a proactive renewal ([Long.MAX_VALUE] = never again), keyed like
+     * [flights] (bare = [BARE_FLIGHT_KEY]). Reactive 401 renewal is never suppressed.
+     *
+     * Per slot rather than process-wide: both conditions that suppress it — a refresh endpoint that
+     * cannot answer, and a deployment issuing tokens already inside the skew window — are properties
+     * of one server, and one account's bad deployment must not silently turn the feature off for
+     * another account on a healthy one. Immutable map behind a single [Volatile] so the per-request
+     * read stays lock-free.
+     */
+    @Volatile
+    private var proactiveSuppressedUntil: Map<String, Long> = emptyMap()
 
     // Platform implementations provide a plain synchronously-readable key/value secure store.
     protected abstract fun readValue(key: String): String?
@@ -307,6 +326,104 @@ abstract class CommonTokenDataStore(
             usedAccessToken = usedAccessToken,
         )
 
+    override suspend fun ensureFreshAccessToken(
+        accountId: String?,
+        baseUrl: String,
+        currentAccessToken: String?,
+    ): String? {
+        // Everything before the refresh is pure computation on values the caller already holds: no
+        // storage read, no mutex. That matters because this runs on EVERY request the barrier builds,
+        // on the caller's dispatcher, which for several cold-start repositories is main (issue #326).
+        if (currentAccessToken == null) return currentAccessToken
+        if (!isNearingExpiry(currentAccessToken)) return currentAccessToken
+        // Resolve the slot exactly as [performRefresh] will, so suppression is tracked against the
+        // same key the refresh actually targets rather than a bare-key approximation of it.
+        val accountKey = accountId ?: activeAccountKey
+        val slot = accountKey ?: BARE_FLIGHT_KEY
+        if (Clock.System.now().toEpochMilliseconds() < (proactiveSuppressedUntil[slot] ?: 0L)) {
+            return currentAccessToken
+        }
+        Diag.d(
+            "Auth",
+            origin = LogOrigin.CLIENT,
+            attrs = mapOf("event" to "refresh_proactive"),
+        ) { "Access token is at or past its expiry; renewing before the request goes out" }
+        // Pin the POST to the URL the caller snapshotted, on EVERY branch — including the
+        // no-account one, where the reactive [refreshAccessToken] posts to the *live* base URL and a
+        // concurrent server switch can therefore redirect this slot's refresh token to another
+        // deployment. Left unpinned only when the base URL is genuinely unknown, where an empty
+        // `pinnedBaseUrl` would derive the wrong serverId and cost the gateway headers.
+        val pinned = baseUrl.trimTrailingSlash().takeIf { it.isNotEmpty() }
+        val result = performRefresh(
+            accountKey = accountKey,
+            absoluteRefreshUrl = pinned?.let { "$it$REFRESH_PATH" },
+            pinnedBaseUrl = pinned,
+            usedAccessToken = currentAccessToken,
+            bestEffort = true,
+        )
+        if (result != RefreshResult.Refreshed) {
+            // Negative caching, and NOT an optimization. A renewal that cannot succeed — offline, or
+            // a 5xx-ing refresh endpoint — changes nothing for the coalescing check to see, so
+            // without this every request in a cold-start fan-out queues behind the flight lock and
+            // spends its own connect timeout BEFORE being sent, serially. Suppressed per slot; the
+            // request still goes out on its old bearer and a real 401 still gets the full reactive
+            // ladder.
+            suppressProactiveRenewal(slot, Clock.System.now().toEpochMilliseconds() + PROACTIVE_RETRY_COOLDOWN_MS)
+            return currentAccessToken
+        }
+        val renewed = (if (accountId != null) getAccessTokenFor(accountId) else getAccessToken())
+        // A token that reads as stale the moment it is issued means the deadline and our clock
+        // disagree — a device clock fast by more than the token's lifetime, or a deployment whose
+        // SESSION_EXPIRY is shorter than the skew window. Left alone that is a refresh POST per
+        // request, forever. One wasted refresh detects both causes. Suppressed per slot, not
+        // process-wide: the cause is a property of one deployment, and a second account on a normal
+        // server must keep the feature.
+        if (renewed != null && isNearingExpiry(renewed)) {
+            suppressProactiveRenewal(slot, Long.MAX_VALUE)
+            Diag.w(
+                "Auth",
+                origin = LogOrigin.CLIENT,
+                attrs = mapOf("event" to "refresh_proactive_disabled"),
+            ) { "A freshly-issued access token already reads as expired; disabling proactive renewal" }
+        }
+        return renewed
+    }
+
+    /**
+     * Copy-on-write so the hot-path read above needs no lock. A lost update under a race just costs a
+     * redundant renewal attempt, never a wrong suppression.
+     */
+    private fun suppressProactiveRenewal(slot: String, untilEpochMillis: Long) {
+        proactiveSuppressedUntil = proactiveSuppressedUntil + (slot to untilEpochMillis)
+    }
+
+    /**
+     * True when [token] carries a deadline at or inside [PROACTIVE_RENEWAL_SKEW_MS]. An unreadable or
+     * absent `exp` is false — unknown means leave it to the reactive path.
+     */
+    private fun isNearingExpiry(token: String): Boolean {
+        val expiresAt = memoizedExpiryOf(token) ?: return false
+        return expiresAt - Clock.System.now().toEpochMilliseconds() <= PROACTIVE_RENEWAL_SKEW_MS
+    }
+
+    /**
+     * [expiresAtEpochMillisOrNull] for [token], reusing the last result when the string is unchanged.
+     *
+     * This runs at the request barrier, so without the memo every request base64-decodes and
+     * JSON-parses the access token — including the overwhelmingly common case where it is fresh and
+     * nothing happens — on the caller's dispatcher, which for several cold-start repositories is the
+     * main thread (issue #326). One immutable entry swapped under a single [Volatile] write: a race
+     * can only recompute, never publish a half-built memo or pair a token with another's deadline.
+     */
+    private fun memoizedExpiryOf(token: String): Long? {
+        expiryMemo?.let { if (it.token == token) return it.expiresAtMillis }
+        val computed = expiresAtEpochMillisOrNull(token)
+        expiryMemo = ExpiryMemo(token, computed)
+        return computed
+    }
+
+    private class ExpiryMemo(val token: String, val expiresAtMillis: Long?)
+
     /**
      * Refresh [accountKey]'s tokens with a bounded retry loop, classifying the outcome so a caller can
      * tell a hard-expired session (route to re-auth) from a transient failure (keep the session).
@@ -332,12 +449,22 @@ abstract class CommonTokenDataStore(
      * does not *coalesce* them, so N callers each POST in turn. A waiter that arrives holding the bearer
      * its request sent can compare it against the slot once it gets the lock — if the value has already
      * moved, the holder before it rotated on its behalf and there is nothing left to do.
+     *
+     * [bestEffort] is the proactive-renewal mode ([ensureFreshAccessToken]) and changes two things:
+     * a **single** attempt instead of the retry ladder, and **never** dropping the slot — any failure
+     * returns [Transient]. Both follow from the same fact: a proactive renewal nobody is waiting on
+     * must not be able to log the user out. The ladder exists because the backend answers `401`
+     * identically for a dead session and a transiently-missed one, so a single attempt cannot tell
+     * them apart — which is exactly why a single attempt must not be allowed to settle the question.
+     * The request proceeds on its old bearer and the reactive 401 path, with its full ladder, keeps
+     * sole ownership of the logout decision.
      */
     private suspend fun performRefresh(
         accountKey: String?,
         absoluteRefreshUrl: String?,
         pinnedBaseUrl: String?,
         usedAccessToken: String? = null,
+        bestEffort: Boolean = false,
     ): RefreshResult =
         flightFor(accountKey).withLock {
             // Coalesce: another caller rotated this slot while we waited for the flight lock, so its
@@ -367,7 +494,7 @@ abstract class CommonTokenDataStore(
             // teardown that landed while the last POST was in flight still wins.
             var lastEpoch = NO_EPOCH
             suspend fun settle(): RefreshResult =
-                if (sawHardRejection) {
+                if (sawHardRejection && !bestEffort) {
                     // The session is dead, so drop the slot. `isLoggedIn()` is a token-PRESENCE check:
                     // a retained dead pair is replayed on every later cold start.
                     invalidateRefresh(accountKey, lastEpoch)
@@ -380,7 +507,7 @@ abstract class CommonTokenDataStore(
                 } else {
                     RefreshResult.Transient
                 }
-            repeat(MAX_REFRESH_ATTEMPTS) { attempt ->
+            repeat(if (bestEffort) 1 else MAX_REFRESH_ATTEMPTS) { attempt ->
                 // Capture the slot's epoch BEFORE the stored-token read, so any teardown of THIS slot
                 // that races the POST below is detected (and its result discarded) with no lock held
                 // across the network call. Re-read each attempt: a teardown or a sibling that landed
@@ -391,8 +518,9 @@ abstract class CommonTokenDataStore(
                 if (storedRefreshToken.isNullOrBlank()) {
                     // Attempt 0 with no token = no session at all → hard. A LATER attempt losing the
                     // token means a teardown (logout/removal) landed mid-loop and already owns the
-                    // routing → Transient, so we don't double-emit session-expired over it.
-                    return@withLock if (attempt == 0) {
+                    // routing → Transient, so we don't double-emit session-expired over it. A
+                    // best-effort renewal never makes that call at all — see [bestEffort].
+                    return@withLock if (attempt == 0 && !bestEffort) {
                         Diag.w(
                             "Auth",
                             origin = LogOrigin.CLIENT,
@@ -404,6 +532,15 @@ abstract class CommonTokenDataStore(
                         invalidateRefresh(accountKey, epochAtStart)
                         RefreshResult.HardExpired
                     } else {
+                        // A best-effort renewal against an empty slot, or a teardown that landed
+                        // between retries. Logged so every renewal reconciles to an outcome: this is
+                        // the one arm that can return without a POST, and untraced it makes
+                        // `refresh_proactive` read as a POST counter when it isn't.
+                        Diag.d(
+                            "Auth",
+                            origin = LogOrigin.CLIENT,
+                            attrs = mapOf("event" to "refresh_skipped", "reason" to "no_refresh_token"),
+                        ) { "No refresh token in this slot; skipping the refresh without a POST" }
                         RefreshResult.Transient
                     }
                 }
@@ -718,6 +855,30 @@ abstract class CommonTokenDataStore(
         /** "No attempt has captured an epoch yet". Never equals a real epoch, so an
          *  [invalidateRefresh] against it is a no-op rather than an unguarded clear. */
         private const val NO_EPOCH = -1
+
+        /**
+         * How far ahead of an access token's `exp` a proactive renewal fires.
+         *
+         * **Must stay under 30 s.** On an OpenID deployment the refresh endpoint has a reuse path
+         * (`OPENID_REUSE_EXPIRY_BUFFER_SECONDS = 30` in `AuthController.js`): while
+         * `decoded.exp > now + 30` it answers 2xx with *the same token* and no rotation. A wider
+         * window would fire inside that band, get the identical token back, and repeat on the next
+         * request with nothing to coalesce against. Below 30 s the same call falls through to a
+         * genuine renewal.
+         *
+         * Nothing is lost by keeping it small: this only governs how far *ahead* of expiry we
+         * preempt, and the case the feature exists for — a cold start after idle — has an `exp`
+         * already minutes in the past, which any positive threshold catches.
+         */
+        private const val PROACTIVE_RENEWAL_SKEW_MS = 20_000L
+
+        /**
+         * How long a slot stops attempting proactive renewal after one fails. Long enough that a
+         * cold-start fan-out spends at most one failed attempt rather than one per request, and
+         * costless when wrong: the request goes out on its old bearer and a real 401 still gets the
+         * full reactive ladder immediately.
+         */
+        private const val PROACTIVE_RETRY_COOLDOWN_MS = 60_000L
 
         /** Total refresh attempts (initial + retries) before a persistent failure is classified. */
         private const val MAX_REFRESH_ATTEMPTS = 3

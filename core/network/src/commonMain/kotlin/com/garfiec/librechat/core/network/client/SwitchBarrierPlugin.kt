@@ -44,13 +44,33 @@ class SwitchBarrierPlugin private constructor(
         override fun install(plugin: SwitchBarrierPlugin, scope: HttpClient) {
             scope.requestPipeline.insertPhaseBefore(HttpRequestPipeline.Before, SwitchBarrierPhase)
             scope.requestPipeline.intercept(SwitchBarrierPhase) {
-                val snapshot = plugin.switchGate.captureSnapshot()
+                val snapshot = plugin.switchGate.captureSnapshot(renewIfStale = shouldRenewFor(context.url))
                 context.attributes.put(RequestIdentityKey, snapshot)
                 if (snapshot.baseUrl.isNotEmpty()) {
                     applyBaseUrl(context.url, snapshot.baseUrl)
                 }
             }
         }
+
+        /**
+         * Whether this request should proactively renew a near-expired access token before being
+         * sent. Both exclusions cover requests that will never carry the session bearer, so a refresh
+         * on their behalf is at best wasted and at worst harmful:
+         *
+         * - **Auth endpoints** ([isAuthSkipPath]) — a sign-in or password-reset POST issued while an
+         *   expired token is still stored would otherwise put a full refresh in front of the Sign in
+         *   button. The bearer is deliberately never attached to these; renewing it is not this
+         *   request's business.
+         * - **Absolute URLs** — a request that already carries a host at this phase is a cross-host
+         *   fetch (a presigned CDN download), which [AuthInterceptorPlugin] host-scopes the bearer
+         *   away from anyway. A relative URL has no host yet and will be resolved against the
+         *   snapshot's base below, so it is same-server by construction.
+         *
+         * An absolute URL that happens to *be* the server is excluded too — a missed head start on a
+         * rare path, and it falls back to the reactive 401. Fail-safe is the right side to err on.
+         */
+        private fun shouldRenewFor(requestUrl: URLBuilder): Boolean =
+            requestUrl.host.isEmpty() && !isAuthSkipPath(requestUrl)
 
         /**
          * Merge [baseUrlString] into [requestUrl] with the same semantics as Ktor's
