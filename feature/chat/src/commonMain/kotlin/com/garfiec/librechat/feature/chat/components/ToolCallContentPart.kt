@@ -70,23 +70,35 @@ internal fun ToolCallDispatcher(
     // Subagent tool_call → collapsible trace card (v0.8.6). Live progress comes
     // from LocalSubagentProgress (keyed by the parent tool_call id); persisted
     // `subagentContent` (reload) takes precedence inside the card. Depth-1:
-    // nested parts pass allowSubagentCard=false so this never recurses. Nested parts
-    // render their own attachments, so this branch keeps its pass-through return.
-    // hideAttachments is deliberately NOT forwarded: a group only collects the ids of its OWN
-    // parts, so a subagent's nested calls are never hoisted and suppressing them here would
-    // render them nowhere.
+    // nested parts pass allowSubagentCard=false so this never recurses.
+    //
+    // The files this call itself produced render BELOW the card, under the same hideAttachments
+    // guard every other branch uses so an enclosing activity group can hoist them instead. Mirrors
+    // upstream `SubagentCall.tsx`, whose own AttachmentGroup sits outside the dialog behind that
+    // guard. Nested parts still render their own attachments: a group collects only the ids of its
+    // OWN parts, so nothing of theirs is hoisted and suppressing them would render them nowhere.
     if (allowSubagentCard && toolNameLower == ToolConstants.SUBAGENT) {
         val toolCallId = toolCall?.id
         val liveTrace = toolCallId?.let { LocalSubagentProgress.current[it] }
-        SubagentTraceCard(
-            persistedParts = toolCall?.subagentContent,
-            liveTrace = liveTrace,
-            modifier = modifier,
-            baseUrl = baseUrl,
-            attachments = attachments,
-            showImageDescriptions = showImageDescriptions,
-            stateKey = cardKey,
-        )
+        Column(modifier = modifier) {
+            SubagentTraceCard(
+                persistedParts = toolCall?.subagentContent,
+                liveTrace = liveTrace,
+                modifier = Modifier.fillMaxWidth(),
+                baseUrl = baseUrl,
+                attachments = attachments,
+                showImageDescriptions = showImageDescriptions,
+                stateKey = cardKey,
+            )
+            if (!hideAttachments) {
+                ToolCallAttachments(
+                    attachments = attachments,
+                    toolCallId = toolCallId,
+                    baseUrl = baseUrl,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        }
         return
     }
 
