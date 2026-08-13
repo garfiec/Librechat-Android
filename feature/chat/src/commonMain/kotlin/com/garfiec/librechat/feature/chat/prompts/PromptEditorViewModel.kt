@@ -168,19 +168,27 @@ class PromptEditorViewModel(
         when (val result = promptRepository.create(request)) {
             is Result.Success -> {
                 val createdGroup = result.data
-                // If there is metadata to update (oneliner, command), do a follow-up update
-                if (state.oneliner.isNotBlank() || state.command.isNotBlank()) {
+                // The oneliner and the `/` command ride on a follow-up update — the create route
+                // takes neither — so its outcome decides this save's: a prompt saved without the
+                // command the user typed is not findable by the command they will type. `groupId`
+                // is adopted either way, so a retry updates the group just created rather than
+                // minting a duplicate.
+                val metadataSaved = if (state.oneliner.isNotBlank() || state.command.isNotBlank()) {
                     val updateRequest = UpdatePromptGroupRequest(
                         name = state.name,
                         oneliner = state.oneliner.ifBlank { null },
                         command = state.command.ifBlank { null },
                     )
-                    createdGroup.id?.let { promptRepository.update(it, updateRequest) }
+                    val groupId = createdGroup.id
+                    groupId != null && promptRepository.update(groupId, updateRequest) is Result.Success
+                } else {
+                    true
                 }
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    saved = true,
+                    saved = metadataSaved,
                     groupId = createdGroup.id,
+                    error = if (metadataSaved) null else "Prompt created, but its details could not be saved",
                 )
             }
             is Result.Error -> {
@@ -204,18 +212,23 @@ class PromptEditorViewModel(
         )
         when (val result = promptRepository.update(groupId, updateRequest)) {
             is Result.Success -> {
-                // Check if prompt text changed; if so, add as new version
+                // A changed body is added as a new version. This call carries the body — the
+                // metadata update above does not — and the screen pops on `saved`, so flipping it
+                // without reading this result loses the user's edit behind a success animation.
                 val currentProduction = state.prompts.find { it.id == state.productionId }
-                if (currentProduction == null || currentProduction.prompt != state.promptText) {
+                val textSaved = if (currentProduction == null || currentProduction.prompt != state.promptText) {
                     val addRequest = AddPromptToGroupRequest(
                         prompt = state.promptText,
                         type = "text",
                     )
-                    promptRepository.addPromptToGroup(groupId, addRequest)
+                    promptRepository.addPromptToGroup(groupId, addRequest) is Result.Success
+                } else {
+                    true
                 }
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    saved = true,
+                    saved = textSaved,
+                    error = if (textSaved) null else "Could not save the prompt text",
                 )
             }
             is Result.Error -> {

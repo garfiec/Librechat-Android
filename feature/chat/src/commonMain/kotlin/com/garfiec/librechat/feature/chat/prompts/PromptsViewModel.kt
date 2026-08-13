@@ -243,14 +243,18 @@ class PromptsViewModel(
 
     fun deleteGroup(groupId: String) {
         viewModelScope.launch {
-            try {
-                promptRepository.delete(groupId)
-                _uiState.value = _uiState.value.copy(selectedGroup = null)
-            } catch (e: Exception) {
-                Logger.e(e) { "Failed to delete prompt" }
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to delete prompt",
-                )
+            // Close the detail view only on Success — doing it unconditionally reports a prompt as
+            // gone while it is still on the server. `delete` is safeApiCall-wrapped, so failure
+            // arrives as a returned Result.Error and a try/catch here would never see it.
+            when (val result = promptRepository.delete(groupId)) {
+                is Result.Success -> _uiState.value = _uiState.value.copy(selectedGroup = null)
+                is Result.Error -> {
+                    Logger.e(result.exception) { "Failed to delete prompt" }
+                    _uiState.value = _uiState.value.copy(
+                        error = result.message ?: "Failed to delete prompt",
+                    )
+                }
+                is Result.Loading -> { /* no-op */ }
             }
         }
     }

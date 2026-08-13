@@ -174,6 +174,13 @@ Two consequences worth knowing before touching that block:
   `PROMPTS.USE` gate, so a denied user issues no request; the revision-driven library reload
   swallows its own errors (nobody asked for that fetch — only the pull-to-refresh gesture and the
   initial load report failure).
+- **A prompt save is two or three requests, and `saved` may only flip when all of them landed.**
+  The create route carries neither the oneliner nor the `/` command, and a body edit rides on
+  `addPromptToGroup` rather than the group update — so each save reads every follow-up `Result`
+  before reporting success. Every `PromptRepository` method is `safeApiCall`-wrapped: failure
+  arrives as a returned `Result.Error`, never as a throw, so a `try/catch` around one is dead code.
+  `PromptEditorScreen` pops on `saved`, so discarding a result loses the user's edit behind a
+  success animation.
 
 ## `ask_user_question`: one question, two cards (v0.8.8)
 

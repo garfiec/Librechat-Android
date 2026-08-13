@@ -149,4 +149,45 @@ class PromptsViewModelLibraryRefreshTest {
         assertNotNull(viewModel.uiState.value.error)
     }
 
+    @Test
+    fun aFailedDeleteReportsTheFailureAndKeepsTheDetailOpen() = runTest(testDispatcher) {
+        coEvery { promptRepository.getGroups(any(), any()) } returns response(group("g-1", "First"))
+        coEvery { promptRepository.getGroup(any()) } returns Result.Success(group("g-1", "First"))
+        coEvery { promptRepository.getPromptsByGroupId(any()) } returns Result.Success(emptyList())
+
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.selectGroup("g-1")
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.selectedGroup)
+
+        // `delete` REPORTS failure by returning Result.Error and never throws, so a try/catch
+        // around it sees nothing: closing the detail view here tells the user a prompt is gone
+        // while it is still on the server.
+        coEvery { promptRepository.delete(any()) } returns Result.Error(message = "forbidden")
+        viewModel.deleteGroup("g-1")
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.uiState.value.error)
+        assertNotNull(viewModel.uiState.value.selectedGroup)
+    }
+
+    @Test
+    fun anAcceptedDeleteClosesTheDetailView() = runTest(testDispatcher) {
+        coEvery { promptRepository.getGroups(any(), any()) } returns response(group("g-1", "First"))
+        coEvery { promptRepository.getGroup(any()) } returns Result.Success(group("g-1", "First"))
+        coEvery { promptRepository.getPromptsByGroupId(any()) } returns Result.Success(emptyList())
+
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.selectGroup("g-1")
+        advanceUntilIdle()
+
+        coEvery { promptRepository.delete(any()) } returns Result.Success(Unit)
+        viewModel.deleteGroup("g-1")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.selectedGroup)
+        assertNull(viewModel.uiState.value.error)
+    }
 }
