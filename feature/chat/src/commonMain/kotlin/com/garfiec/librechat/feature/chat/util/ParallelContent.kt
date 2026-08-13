@@ -103,3 +103,14 @@ fun partsForPane(message: Message, secondary: Boolean): List<MessageContentPart>
     val parts = message.content ?: return emptyList()
     return parts.filter { isAddedAgentId(it.agentId) == secondary }
 }
+
+/**
+ * True when [parts] are one lane of a parallel (Compare Models) response — the signal to render
+ * them WITHOUT activity grouping, the way upstream's `ParallelContentRenderer` does.
+ *
+ * Keyed on `groupId`, not [isAddedAgentId], because this runs on content [partsForPane] has ALREADY
+ * filtered: the primary lane's parts are all unsuffixed, so a suffix test reports false there and
+ * that lane would keep grouping. `groupId` survives the filter on both lanes.
+ */
+fun hasParallelGroupIds(parts: List<MessageContentPart>): Boolean =
+    parts.any { it.groupId != null }

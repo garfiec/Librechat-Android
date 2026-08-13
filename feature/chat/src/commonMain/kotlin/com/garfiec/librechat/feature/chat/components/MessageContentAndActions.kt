@@ -56,6 +56,7 @@ import com.garfiec.librechat.feature.chat.util.IndexedContentPart
 import com.garfiec.librechat.feature.chat.util.activityLabelText
 import com.garfiec.librechat.feature.chat.util.groupContentParts
 import com.garfiec.librechat.feature.chat.util.groupedToolCallIds
+import com.garfiec.librechat.feature.chat.util.hasParallelGroupIds
 import com.garfiec.librechat.feature.chat.util.steerText
 import org.jetbrains.compose.resources.stringResource
 
@@ -342,7 +343,12 @@ internal fun MessageContentAndActions(
                     // Segment + group the parts ONCE, not while emitting them: a group's header has to
                     // be written before its members, which a Column cannot express without knowing the
                     // group's extent up front. Pure, so the boundaries are unit-testable.
-                    val segments = remember(contentParts) { groupContentParts(contentParts) }
+                    val segments = remember(contentParts) {
+                        groupContentParts(
+                            contentParts,
+                            groupActivity = !hasParallelGroupIds(contentParts),
+                        )
+                    }
 
                     // A collapsed group would swallow the match the user just navigated to, so the
                     // one holding it opens. Resolved once per focus rather than per group per frame.

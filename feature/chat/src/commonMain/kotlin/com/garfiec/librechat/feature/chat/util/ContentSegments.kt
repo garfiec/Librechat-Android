@@ -17,8 +17,14 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * Mirrors upstream `client/src/utils/groupToolCalls.ts` (grouping) and the `postSteerAuthors` pass
  * in `ContentParts.tsx` (segmentation).
+ *
+ * @param groupActivity false for a comparison pane's lane, which renders every part standalone —
+ *  see [hasParallelGroupIds]. Steer segmentation still applies either way.
  */
-fun groupContentParts(parts: List<MessageContentPart>): List<ContentSegment> {
+fun groupContentParts(
+    parts: List<MessageContentPart>,
+    groupActivity: Boolean = true,
+): List<ContentSegment> {
     if (parts.isEmpty()) return emptyList()
 
     val segments = mutableListOf<ContentSegment>()
@@ -32,7 +38,7 @@ fun groupContentParts(parts: List<MessageContentPart>): List<ContentSegment> {
         segments += ContentSegment(
             key = "seg:${pending.first().index}",
             author = author,
-            groups = groupSequentially(pending, parts),
+            groups = groupSequentially(pending, parts, groupActivity),
         )
         pending = mutableListOf()
     }
@@ -173,7 +179,11 @@ fun MessageContentPart.steerText(): String? =
 private fun groupSequentially(
     entries: List<IndexedContentPart>,
     allParts: List<MessageContentPart>,
+    groupActivity: Boolean,
 ): List<ContentGroup> {
+    // A parallel (Compare Models) lane renders raw parts, as upstream's ParallelContentRenderer
+    // does: no Activity group, so nothing hoists a part's attachments away from it.
+    if (!groupActivity) return entries.map { ContentGroup.Single(it) }
     val result = mutableListOf<ContentGroup>()
     var block = mutableListOf<IndexedContentPart>()
     // Position in `block` just past the most recent blank label. A filled label may only claim
