@@ -36,7 +36,7 @@ internal class RecordingTokenManager : TokenManager {
     override suspend fun setTokens(accessToken: String, refreshToken: String) {
         stagedAccess = accessToken
     }
-    override suspend fun refreshAccessToken(): RefreshResult = RefreshResult.HardExpired
+    override suspend fun refreshAccessToken(usedAccessToken: String?): RefreshResult = RefreshResult.HardExpired
     override suspend fun clearTokens() {}
     override suspend fun getAccessTokenFor(accountId: String): String? = null
     override suspend fun getStagedAccessToken(): String? = stagedAccess
@@ -49,7 +49,11 @@ internal class RecordingTokenManager : TokenManager {
     override suspend fun removeAccount(accountId: String) {
         removedAccounts += accountId
     }
-    override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult = RefreshResult.HardExpired
+    override suspend fun refreshAccessTokenFor(
+        accountId: String,
+        baseUrl: String,
+        usedAccessToken: String?,
+    ): RefreshResult = RefreshResult.HardExpired
     override suspend fun onAccountResolved(accountId: String) {
         resolvedAccount = accountId
         stagedAccess = null

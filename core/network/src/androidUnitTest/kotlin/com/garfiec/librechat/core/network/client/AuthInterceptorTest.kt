@@ -40,7 +40,7 @@ class AuthInterceptorTest {
             this.accessToken = accessToken
         }
 
-        override suspend fun refreshAccessToken(): RefreshResult {
+        override suspend fun refreshAccessToken(usedAccessToken: String?): RefreshResult {
             refreshCallCount++
             if (refreshOutcome == RefreshResult.Refreshed) accessToken = refreshedToken
             return refreshOutcome
@@ -62,8 +62,11 @@ class AuthInterceptorTest {
             accessToken = null
         }
 
-        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult =
-            refreshAccessToken()
+        override suspend fun refreshAccessTokenFor(
+            accountId: String,
+            baseUrl: String,
+            usedAccessToken: String?,
+        ): RefreshResult = refreshAccessToken(usedAccessToken)
 
         override suspend fun onAccountResolved(accountId: String) = Unit
 

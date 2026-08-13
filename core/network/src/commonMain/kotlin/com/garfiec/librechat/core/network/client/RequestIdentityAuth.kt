@@ -23,13 +23,18 @@ sealed interface BearerResult {
  * Maps the refresh [RefreshResult] to a [BearerResult]: only a genuine [RefreshResult.HardExpired]
  * (or a refreshed-but-empty slot, meaning a logout/removal raced the refresh) becomes [Expired] and
  * logs the user out; a [RefreshResult.Transient] becomes [Transient] and keeps the session.
+ *
+ * The snapshot's bearer is handed to the refresh as `usedAccessToken`: it is exactly what this request
+ * put on the wire (the attach phase reads the snapshot, never the live cache), so a cold-start fan-out
+ * of N 401s collapses to one refresh POST — every waiter behind the flight lock sees the rotated token
+ * and skips its own.
  */
 suspend fun TokenManager.refreshBearerFor(identity: RequestIdentity?): BearerResult {
     val account = identity?.accountId
     val result = if (account != null) {
-        refreshAccessTokenFor(account, identity.baseUrl)
+        refreshAccessTokenFor(account, identity.baseUrl, usedAccessToken = identity.bearer)
     } else {
-        refreshAccessToken()
+        refreshAccessToken(usedAccessToken = identity?.bearer)
     }
     return when (result) {
         RefreshResult.Refreshed -> {

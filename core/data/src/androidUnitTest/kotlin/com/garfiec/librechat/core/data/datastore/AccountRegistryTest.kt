@@ -144,14 +144,18 @@ class AccountRegistryTest {
         override val isAuthenticated: Boolean = false
         override suspend fun getAccessToken(): String? = null
         override suspend fun setTokens(accessToken: String, refreshToken: String) {}
-        override suspend fun refreshAccessToken(): RefreshResult = RefreshResult.HardExpired
+        override suspend fun refreshAccessToken(usedAccessToken: String?): RefreshResult = RefreshResult.HardExpired
         override suspend fun clearTokens() {}
         override suspend fun getAccessTokenFor(accountId: String): String? = null
         override suspend fun getStagedAccessToken(): String? = null
         override suspend fun clearStagedTokens() {}
         override suspend fun selectAccount(accountId: String) { selected = accountId }
         override suspend fun removeAccount(accountId: String) {}
-        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult = RefreshResult.HardExpired
+        override suspend fun refreshAccessTokenFor(
+            accountId: String,
+            baseUrl: String,
+            usedAccessToken: String?,
+        ): RefreshResult = RefreshResult.HardExpired
         override suspend fun onAccountResolved(accountId: String) {}
         override suspend fun onAccountCleared() { cleared = true }
         override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) {}

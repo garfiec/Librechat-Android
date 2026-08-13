@@ -18,7 +18,17 @@ interface TokenManager {
     val isAuthenticated: Boolean
     suspend fun getAccessToken(): String?
     suspend fun setTokens(accessToken: String, refreshToken: String)
-    suspend fun refreshAccessToken(): RefreshResult
+
+    /**
+     * Refresh the live active account against the live base URL.
+     *
+     * [usedAccessToken] is **the bearer the caller's failing request actually sent**. Refreshes of one
+     * account are single-flighted, so a cold-start fan-out queues N callers behind one lock, all
+     * holding the same stale bearer; passing it lets a waiter notice that the holder of the lock
+     * already rotated the token and return [RefreshResult.Refreshed] without POSTing a second time.
+     * Null (the default) disables that check and preserves the unconditional-POST behaviour.
+     */
+    suspend fun refreshAccessToken(usedAccessToken: String? = null): RefreshResult
 
     /**
      * Full teardown of the active session — keyed tokens, any bare staging keys, and the persisted
@@ -73,8 +83,14 @@ interface TokenManager {
      * [accountId]'s keyed slot and updates the cached bearer only while [accountId] is still the active
      * account. Distinct from [refreshAccessToken], which refreshes the live active account against the
      * live base URL.
+     *
+     * [usedAccessToken] carries the same coalescing hint as on [refreshAccessToken].
      */
-    suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult
+    suspend fun refreshAccessTokenFor(
+        accountId: String,
+        baseUrl: String,
+        usedAccessToken: String? = null,
+    ): RefreshResult
 
     /**
      * Bind token storage to [accountId] once identity resolves (login, cold-start restore, upgrade).

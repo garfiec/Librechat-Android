@@ -282,11 +282,20 @@ abstract class CommonTokenDataStore(
         }
     }
 
-    override suspend fun refreshAccessToken(): RefreshResult =
+    override suspend fun refreshAccessToken(usedAccessToken: String?): RefreshResult =
         // The live active account, against the live base URL (the refresh client's defaultRequest).
-        performRefresh(accountKey = activeAccountKey, absoluteRefreshUrl = null, pinnedBaseUrl = null)
+        performRefresh(
+            accountKey = activeAccountKey,
+            absoluteRefreshUrl = null,
+            pinnedBaseUrl = null,
+            usedAccessToken = usedAccessToken,
+        )
 
-    override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult =
+    override suspend fun refreshAccessTokenFor(
+        accountId: String,
+        baseUrl: String,
+        usedAccessToken: String?,
+    ): RefreshResult =
         // URL-pinned: post to an absolute URL so a concurrent server switch can't redirect this
         // account's refresh token to another server. [pinnedBaseUrl] carries the *server* half of that
         // pin to ServerHeadersPlugin — the request URL alone can't serve as the key, because it is the
@@ -295,6 +304,7 @@ abstract class CommonTokenDataStore(
             accountKey = accountId,
             absoluteRefreshUrl = "${baseUrl.trimTrailingSlash()}$REFRESH_PATH",
             pinnedBaseUrl = baseUrl.trimTrailingSlash(),
+            usedAccessToken = usedAccessToken,
         )
 
     /**
@@ -317,13 +327,38 @@ abstract class CommonTokenDataStore(
      * rather than retried, so the flight lock is not held across repeated full request timeouts.
      *
      * A settled [HardExpired] also **drops the account's token slot** — see [settle].
+     *
+     * [usedAccessToken] collapses a queued burst: the flight lock serializes same-account refreshes but
+     * does not *coalesce* them, so N callers each POST in turn. A waiter that arrives holding the bearer
+     * its request sent can compare it against the slot once it gets the lock — if the value has already
+     * moved, the holder before it rotated on its behalf and there is nothing left to do.
      */
     private suspend fun performRefresh(
         accountKey: String?,
         absoluteRefreshUrl: String?,
         pinnedBaseUrl: String?,
+        usedAccessToken: String? = null,
     ): RefreshResult =
         flightFor(accountKey).withLock {
+            // Coalesce: another caller rotated this slot while we waited for the flight lock, so its
+            // POST already did our work. Only a *changed* value counts — an absent one means a teardown
+            // or a hard-expiry dropped the slot, which must still fall through to the loop below and
+            // settle as HardExpired rather than reporting a refresh that never happened.
+            //
+            // Read outside [stateMutex], like the stored-refresh-token read below: the failure mode is
+            // one-directional. A stale read can only miss a rotation, which costs a redundant POST —
+            // never the reverse.
+            if (usedAccessToken != null) {
+                val current = readValue(accessKey(accountKey)).nonBlankOrNull()
+                if (current != null && current != usedAccessToken) {
+                    Diag.d(
+                        "Auth",
+                        origin = LogOrigin.CLIENT,
+                        attrs = mapOf("event" to "refresh_coalesced"),
+                    ) { "Token already rotated by a concurrent refresh; skipping this POST" }
+                    return@withLock RefreshResult.Refreshed
+                }
+            }
             // Any auth rejection ⇒ a genuinely dead session ⇒ route to re-auth, even if a later attempt
             // hit a transient blip; a purely transient run (5xx / rate-limit / transport) keeps the
             // session. This fold is the terminal classification for every non-Success exit of the loop.

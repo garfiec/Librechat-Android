@@ -60,7 +60,7 @@ class ServerHeadersPluginTest {
             this.accessToken = accessToken
         }
 
-        override suspend fun refreshAccessToken(): RefreshResult {
+        override suspend fun refreshAccessToken(usedAccessToken: String?): RefreshResult {
             accessToken = "refreshed-token"
             return RefreshResult.Refreshed
         }
@@ -74,8 +74,11 @@ class ServerHeadersPluginTest {
         override suspend fun clearStagedTokens() = Unit
         override suspend fun selectAccount(accountId: String) = Unit
         override suspend fun removeAccount(accountId: String) = Unit
-        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult =
-            refreshAccessToken()
+        override suspend fun refreshAccessTokenFor(
+            accountId: String,
+            baseUrl: String,
+            usedAccessToken: String?,
+        ): RefreshResult = refreshAccessToken(usedAccessToken)
 
         override suspend fun onAccountResolved(accountId: String) = Unit
         override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) = Unit

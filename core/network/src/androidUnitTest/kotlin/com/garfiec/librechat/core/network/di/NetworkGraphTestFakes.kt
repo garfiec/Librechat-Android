@@ -45,15 +45,18 @@ internal object NetworkGraphTestFakes {
         override val isAuthenticated: Boolean = false
         override suspend fun getAccessToken(): String? = null
         override suspend fun setTokens(accessToken: String, refreshToken: String) = Unit
-        override suspend fun refreshAccessToken(): RefreshResult = RefreshResult.Transient
+        override suspend fun refreshAccessToken(usedAccessToken: String?): RefreshResult = RefreshResult.Transient
         override suspend fun clearTokens() = Unit
         override suspend fun getAccessTokenFor(accountId: String): String? = null
         override suspend fun getStagedAccessToken(): String? = null
         override suspend fun clearStagedTokens() = Unit
         override suspend fun selectAccount(accountId: String) = Unit
         override suspend fun removeAccount(accountId: String) = Unit
-        override suspend fun refreshAccessTokenFor(accountId: String, baseUrl: String): RefreshResult =
-            RefreshResult.Transient
+        override suspend fun refreshAccessTokenFor(
+            accountId: String,
+            baseUrl: String,
+            usedAccessToken: String?,
+        ): RefreshResult = RefreshResult.Transient
 
         override suspend fun onAccountResolved(accountId: String) = Unit
         override fun emitSessionExpired(expiredAccountId: String?, reason: SessionEndReason) = Unit
