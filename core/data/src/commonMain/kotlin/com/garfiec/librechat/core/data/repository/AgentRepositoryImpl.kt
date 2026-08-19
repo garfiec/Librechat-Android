@@ -27,6 +27,10 @@ class AgentRepositoryImpl(
     // Account-keyed in-memory cache: the only isolation tier for agents (no Room/accountId scoping).
     private val cache = AccountKeyedCache<List<Agent>>(activeAccountProvider)
 
+    // The EDIT verdicts the list routes stamp per row; nothing else carries them (see
+    // [listedEditVerdict]).
+    private val editVerdicts = AgentEditVerdicts(activeAccountProvider)
+
     private val _revision = MutableStateFlow(0L)
     override val revision: StateFlow<Long> = _revision.asStateFlow()
 
@@ -35,9 +39,9 @@ class AgentRepositoryImpl(
     override suspend fun getAgents(category: String?): Result<List<Agent>> {
         return safeApiCall {
             if (category != null) {
-                return@safeApiCall agentsApi.getAgents(category).data
+                return@safeApiCall agentsApi.getAgents(category).data.also { editVerdicts.record(it) }
             }
-            cache.getOrFetch { agentsApi.getAgents(null).data }
+            cache.getOrFetch { agentsApi.getAgents(null).data }.also { editVerdicts.record(it) }
         }
     }
 
@@ -54,6 +58,7 @@ class AgentRepositoryImpl(
                 search = search,
                 category = category,
             )
+            editVerdicts.record(response.data)
             PaginatedAgents(
                 agents = response.data,
                 hasMore = response.hasMore,
@@ -61,6 +66,8 @@ class AgentRepositoryImpl(
             )
         }
     }
+
+    override suspend fun listedEditVerdict(id: String): Boolean? = editVerdicts.get(id)
 
     override suspend fun getAgent(id: String): Result<Agent> {
         return safeApiCall {
@@ -94,6 +101,10 @@ class AgentRepositoryImpl(
     override suspend fun updateAgent(id: String, request: UpdateAgentRequest): Result<Agent> {
         return safeApiCall {
             val agent = agentsApi.updateAgent(id, request)
+            // The RESPONSE body must never be written into the cache: pre-0.8.8-rc1 servers
+            // could answer an update with a stale 200 (upstream da390fa9, "Save reverted" on
+            // web, which cached it). Invalidate-and-refetch means a stale body can at most be
+            // returned to the caller, which reads only its id.
             invalidateCache()
             agent
         }
@@ -195,6 +206,10 @@ class AgentRepositoryImpl(
 
     private suspend fun invalidateCache() {
         cache.invalidate()
+        // A mutation can change who may edit what (an ACL grant rides one), so the verdicts
+        // learned from the previous list are no longer evidence. Cleared rather than refreshed:
+        // absence hands the decision back to the detail screen's own permission probe.
+        editVerdicts.clear()
         // Announce it as well as clearing: consumers outside this module memoize per-agent fields
         // (upload routing reads `provider`) and cannot see the cache drop any other way.
         _revision.value += 1

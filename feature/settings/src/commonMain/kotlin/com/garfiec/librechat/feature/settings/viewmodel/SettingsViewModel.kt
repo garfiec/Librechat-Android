@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.settings.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
@@ -165,6 +166,11 @@ class SettingsViewModel(
                         serverMemoriesEnabled = role.hasAccessOrPermissive(PermissionType.MEMORIES, Permission.USE),
                         remoteAgentsEnabled = role.hasAccessOrPermissive(PermissionType.REMOTE_AGENTS, Permission.USE),
                         remoteAgentsCreateEnabled = role.hasAccessOrPermissive(PermissionType.REMOTE_AGENTS, Permission.CREATE),
+                        // Only the update affordance is gated — DELETE stays ungated server-side.
+                        // Permissive on unknown: an older server emits no such permission and
+                        // still accepts the call, and the server enforces with 403 either way.
+                        sharedLinksUpdateEnabled =
+                            role.hasAccessOrPermissive(PermissionType.SHARED_LINKS, Permission.CREATE),
                     )
                 }
             }
@@ -187,6 +193,10 @@ class SettingsViewModel(
                         allowAccountDeletion = config?.allowAccountDeletion ?: true,
                         buildInfo = config?.buildInfo,
                         serverVersion = version,
+                        // Fail-safe false: only a CONFIRMED rc1+ server keeps the shareId across
+                        // a re-publish, so an unresolved version warns instead of promising it.
+                        sharedLinkUpdateKeepsUrl = version != null &&
+                            BackendVersion.isCompatibleOrNewer(version, "0.8.8-rc1"),
                     )
                 }
             }
@@ -435,7 +445,7 @@ class SettingsViewModel(
     fun dismissExportComingSoon() = dataDelegate.dismissExportComingSoon()
     fun loadSharedLinks() = dataDelegate.loadSharedLinks()
     fun loadMoreSharedLinks() = dataDelegate.loadMoreSharedLinks()
-    fun toggleSharedLinkVisibility(shareId: String) = dataDelegate.toggleSharedLinkVisibility(shareId)
+    fun updateSharedLink(shareId: String) = dataDelegate.updateSharedLink(shareId)
     fun deleteSharedLink(shareId: String) = dataDelegate.deleteSharedLink(shareId)
     fun clearCache() = dataDelegate.clearCache()
     fun revokeAllKeys() = dataDelegate.revokeAllKeys()

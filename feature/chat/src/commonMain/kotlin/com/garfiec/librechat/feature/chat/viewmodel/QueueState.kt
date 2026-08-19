@@ -57,6 +57,14 @@ data class QueuedMessage(
      */
     val modelParamsPayload: JsonObject? = null,
     val ephemeralAgent: EphemeralAgent? = null,
+    /**
+     * Quoted excerpts taken from the pending-quote chips when this spec was minted (v0.8.7
+     * "Add to chat"). They ride the spec — not the composer — so a queued follow-up, a drained
+     * item, and a degraded steer that re-homes here all send the excerpts they were composed
+     * with. Composer-origin steers deliberately mint their spec WITHOUT quotes (web parity:
+     * server steers never carry them, so they stay staged for the next real send).
+     */
+    val quotes: List<String> = emptyList(),
     val dispatch: EndpointDispatch,
     val isTemporary: Boolean = false,
     /**

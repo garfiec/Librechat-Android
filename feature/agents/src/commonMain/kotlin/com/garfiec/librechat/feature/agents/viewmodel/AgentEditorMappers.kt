@@ -18,6 +18,8 @@ import com.garfiec.librechat.feature.agents.components.model.AgentVisibility
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.components.model.buildAgentVersionList
 import com.garfiec.librechat.feature.agents.util.OpenApiSpecParser
+import com.garfiec.librechat.feature.agents.util.normalizeMcpServerName
+import com.garfiec.librechat.feature.agents.util.resolveRawMcpServerName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -68,6 +70,7 @@ private val EDGE_JSON = Json {
  */
 private fun partitionTools(
     rawTools: List<String>?,
+    knownServerNames: Collection<String>,
 ): Triple<List<String>, Set<String>, Set<String>> {
     if (rawTools == null) return Triple(emptyList(), emptySet(), emptySet())
 
@@ -87,8 +90,15 @@ private fun partitionTools(
                 // The sys__server__sys marker means the entire MCP server was
                 // toggled on -- we still track the server name for display.
                 if (toolName == MCP_SERVER_MARKER) {
-                    // Server-level toggle: store the server name
-                    val serverName = tool.substringAfter(MCP_TOOL_SEPARATOR)
+                    // Server-level toggle. The key holds the NORMALIZED server name, but every
+                    // display and match surface (the servers list, the marketplace rows) speaks
+                    // the raw configured one — so resolve it back, keeping the raw name in state
+                    // and normalizing again on the way out. Unresolvable names round-trip
+                    // unchanged, which is what a client with no server list loaded must do.
+                    val serverName = resolveRawMcpServerName(
+                        tool.substringAfter(MCP_TOOL_SEPARATOR),
+                        knownServerNames,
+                    )
                     mcpToolNames.add(serverName)
                 } else {
                     mcpToolNames.add(toolName)
@@ -102,13 +112,45 @@ private fun partitionTools(
 }
 
 /**
+ * Re-resolves the server names in [AgentEditorUiState.selectedMcpTools] against a now-loaded
+ * MCP server list, given the agent's raw [rawTools].
+ *
+ * [applyAgentData] can only resolve a stored (normalized) server name back to its raw configured
+ * form if the MCP tools have already arrived — and they are fetched by an independent, concurrent
+ * request, so roughly half the time the agent wins and the normalized name is kept as if it were
+ * the raw one. The row then renders as OFF against the raw-named server, and toggling it stores
+ * BOTH spellings, which write the same marker key twice on save.
+ *
+ * Only entries that came from a server marker are rewritten, and only when the resolution actually
+ * changes them, so a name the user has since toggled is left alone. This is the MCP counterpart of
+ * `AgentFilesDelegate.remergeLoadedFiles`.
+ */
+internal fun AgentEditorUiState.remergeMcpServerNames(rawTools: List<String>?): AgentEditorUiState {
+    if (rawTools.isNullOrEmpty() || selectedMcpTools.isEmpty()) return this
+    val knownServerNames = mcpTools.mapNotNull { it.serverName }.distinct()
+    if (knownServerNames.isEmpty()) return this
+
+    val resolved = rawTools.asSequence()
+        .filter { it.contains(MCP_TOOL_SEPARATOR) && it.substringBefore(MCP_TOOL_SEPARATOR) == MCP_SERVER_MARKER }
+        .map { it.substringAfter(MCP_TOOL_SEPARATOR) }
+        .associateWith { resolveRawMcpServerName(it, knownServerNames) }
+        .filter { (stored, raw) -> stored != raw && stored in selectedMcpTools }
+    if (resolved.isEmpty()) return this
+
+    return copy(selectedMcpTools = selectedMcpTools.map { resolved[it] ?: it }.toSet())
+}
+
+/**
  * Applies agent data to the UI state using the copy() function.
  * Returns a new AgentEditorUiState with all agent fields populated.
  * This is the single source of truth for mapping agent API response data
  * to the editor UI, used by both loadAgent() and revertToVersion().
  */
 internal fun AgentEditorUiState.applyAgentData(agent: Agent): AgentEditorUiState {
-    val (regularTools, capabilityTools, mcpToolNames) = partitionTools(agent.tools)
+    val (regularTools, capabilityTools, mcpToolNames) = partitionTools(
+        agent.tools,
+        knownServerNames = mcpTools.mapNotNull { it.serverName }.distinct(),
+    )
     val parsedEdges = parseHandoffEdges(agent.edges)
     val versionBasis = AgentVersionBasis(
         name = agent.name,
@@ -334,7 +376,10 @@ internal fun buildToolsList(state: AgentEditorUiState): List<String> {
     if (state.webSearchEnabled && state.isWebSearchAvailable) tools.add(ToolConstants.WEB_SEARCH)
     if (state.fileContextEnabled) tools.add("context")
 
-    // Add MCP server markers for each selected MCP tool
+    // Add MCP server markers for each selected MCP tool. The server-name half of the key must be
+    // NORMALIZED — `GET /api/mcp/servers` advertises the raw configured name, but the tool cache
+    // resolves against the normalized one, so a raw name produces a key no producer honours. See
+    // `normalizeMcpServerName`.
     for (mcpToolName in state.selectedMcpTools) {
         // Check if this is a server name or a tool name by looking at available MCP tools
         val matchingTool = state.mcpTools.find { it.name == mcpToolName }
@@ -342,13 +387,13 @@ internal fun buildToolsList(state: AgentEditorUiState): List<String> {
             val serverName = matchingTool.serverName
             if (serverName != null) {
                 // Store as "toolName_mcp_serverName" format
-                tools.add("${mcpToolName}${MCP_TOOL_SEPARATOR}$serverName")
+                tools.add("${mcpToolName}${MCP_TOOL_SEPARATOR}${normalizeMcpServerName(serverName)}")
             } else {
                 tools.add(mcpToolName)
             }
         } else {
             // May be a server name marker
-            tools.add("${MCP_SERVER_MARKER}${MCP_TOOL_SEPARATOR}$mcpToolName")
+            tools.add("${MCP_SERVER_MARKER}${MCP_TOOL_SEPARATOR}${normalizeMcpServerName(mcpToolName)}")
         }
     }
 

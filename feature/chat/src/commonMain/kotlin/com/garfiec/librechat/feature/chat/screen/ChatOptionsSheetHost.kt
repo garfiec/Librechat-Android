@@ -9,6 +9,7 @@ import com.garfiec.librechat.feature.chat.components.ChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.ChatToolsPageParams
 import com.garfiec.librechat.feature.chat.components.ModelParametersPageParams
 import com.garfiec.librechat.feature.chat.components.ModelSelectorPageParams
+import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 
@@ -53,6 +54,8 @@ internal fun ChatOptionsSheetHost(
             null
         }
     }
+
+    val error = uiState.error?.let { localizedStreamError(it) }
 
     ChatOptionsBottomSheet(
         page = page,
@@ -109,7 +112,7 @@ internal fun ChatOptionsSheetHost(
             onSetApiKey = { name -> onNavigateToProviderKeys(name) },
             onSurfaced = viewModel::prepareModelSelector,
             // Inline because the Scaffold snackbar draws behind the sheet scrim.
-            errorMessage = uiState.error,
+            errorMessage = error,
             onErrorDismiss = viewModel::dismissError,
             serverUrl = uiState.serverUrl,
             favoriteAgentIds = uiState.favoriteAgentIds,

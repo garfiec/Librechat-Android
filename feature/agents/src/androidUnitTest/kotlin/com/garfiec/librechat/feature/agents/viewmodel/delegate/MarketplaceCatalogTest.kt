@@ -106,6 +106,71 @@ class MarketplaceCatalogTest {
         assertThat(pinned.map { it.id }).containsExactly("wolfram")
     }
 
+    // ── capability gating (v0.8.8-rc1, web catalog.ts parity) ──────
+
+    private fun askPlugin() = AgentToolDisplayData(
+        toolId = ToolConstants.ASK_USER_QUESTION,
+        name = "Ask User",
+        description = "Pauses to ask",
+        icon = null,
+        isAvailable = true,
+    )
+
+    @Test
+    fun `ask_user_question surfaces as a builtin-style row, not a plugin`() {
+        val catalog = state()
+            .copy(availableTools = state().availableTools + askPlugin())
+            .marketplaceCatalog()
+
+        val builtins = catalog.filter { it.kind == MarketplaceKind.BUILTIN }.map { it.id }
+        val tools = catalog.filter { it.kind == MarketplaceKind.TOOL }.map { it.id }
+        assertThat(builtins).contains(ToolConstants.ASK_USER_QUESTION)
+        assertThat(tools).doesNotContain(ToolConstants.ASK_USER_QUESTION)
+    }
+
+    @Test
+    fun `ask_user_question is hidden when its capability is disabled`() {
+        // The server drops the tool at runtime when the capability is off, so offering the row
+        // produces agents whose tool "does not exist".
+        val catalog = state()
+            .copy(
+                availableTools = state().availableTools + askPlugin(),
+                isAskUserQuestionAvailable = false,
+            )
+            .marketplaceCatalog()
+
+        assertThat(catalog.map { it.id }).doesNotContain(ToolConstants.ASK_USER_QUESTION)
+    }
+
+    @Test
+    fun `ask_user_question is hidden when the server does not list the plugin`() {
+        // Plugin presence is the pre-feature-server gate: capability lists that predate the
+        // feature fail open, but /api/agents/tools never lists a tool the server lacks.
+        val catalog = state().marketplaceCatalog()
+
+        assertThat(catalog.map { it.id }).doesNotContain(ToolConstants.ASK_USER_QUESTION)
+    }
+
+    @Test
+    fun `generic plugins are gated on the tools capability`() {
+        val catalog = state().copy(isGenericToolsAvailable = false).marketplaceCatalog()
+
+        assertThat(catalog.filter { it.kind == MarketplaceKind.TOOL }).isEmpty()
+        // The other kinds are their own gates, not casualties of this one.
+        assertThat(catalog.filter { it.kind == MarketplaceKind.MCP }).isNotEmpty()
+    }
+
+    @Test
+    fun `the ask row reads and toggles agent tools membership`() {
+        val selected = state().copy(
+            availableTools = state().availableTools + askPlugin(),
+            selectedTools = listOf(ToolConstants.ASK_USER_QUESTION),
+        )
+
+        assertThat(selected.isBuiltinEnabled(ToolConstants.ASK_USER_QUESTION)).isTrue()
+        assertThat(state().isBuiltinEnabled(ToolConstants.ASK_USER_QUESTION)).isFalse()
+    }
+
     @Test
     fun `selection reads through to whichever list owns that kind`() {
         val selected = state().copy(

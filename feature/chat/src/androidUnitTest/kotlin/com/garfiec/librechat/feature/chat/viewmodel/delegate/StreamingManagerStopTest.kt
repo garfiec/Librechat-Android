@@ -55,7 +55,7 @@ class StreamingManagerStopTest {
     private val queueDelegate = mockk<MessageQueueDelegate>(relaxed = true)
     private val reloadConversation = mockk<(String) -> Unit>(relaxed = true)
     private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
-    private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
+    private val restoreUnsentInput = mockk<(String, List<String>) -> Unit>(relaxed = true)
 
     private fun message(id: String, parentId: String? = null, isUser: Boolean = false) = Message(
         messageId = id,
@@ -319,7 +319,7 @@ class StreamingManagerStopTest {
 
             verify(exactly = 1) { treeDelegate.unsendOptimisticTurn("u1") }
             // The optimistic message's own text (from state), not the frame's.
-            verify(exactly = 1) { restoreUnsentInput("text-u1") }
+            verify(exactly = 1) { restoreUnsentInput("text-u1", any()) }
             // Nothing was saved server-side: no completion work at all — no conversation save,
             // no cacheTurn, no title refresh, no TTS.
             verify(exactly = 0) {
@@ -345,7 +345,7 @@ class StreamingManagerStopTest {
         runCurrent()
 
         verify(exactly = 1) { treeDelegate.unsendOptimisticTurn(null) }
-        verify(exactly = 0) { restoreUnsentInput(any()) }
+        verify(exactly = 0) { restoreUnsentInput(any(), any()) }
         events.close()
         advanceUntilIdle()
     }

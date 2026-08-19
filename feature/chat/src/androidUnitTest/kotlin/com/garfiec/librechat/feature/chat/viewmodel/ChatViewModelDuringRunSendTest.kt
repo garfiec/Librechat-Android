@@ -11,12 +11,20 @@ import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
+import com.garfiec.librechat.core.model.AskUserQuestionItem
+import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.EndpointConfig
+import com.garfiec.librechat.core.model.PendingAction
+import com.garfiec.librechat.core.model.PendingActionPayload
+import com.garfiec.librechat.core.model.PendingActionTypes
 import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.SteerRequest
+import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.model.response.SteerResponse
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformFileHandler
 import com.google.common.truth.Truth.assertThat
@@ -24,6 +32,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
@@ -136,6 +145,8 @@ class ChatViewModelDuringRunSendTest {
         coEvery { conversationRepository.getConversation(any(), any()) } returns Result.Error(message = "test")
         coEvery { chatRepository.steerChat(any()) } returns
             Result.Success(SteerResponse(status = "queued", steerId = "steer-1"))
+        coEvery { chatRepository.resumeChat(any()) } returns
+            Result.Success(ChatResumeResponse(status = "resuming"))
 
         // The conversation opens onto a live run: `resumeActiveStreamIfNeeded` sees active=true and
         // flips `isStreaming` on. `resumedStream` is a hot flow the test drives: left alone the run
@@ -149,6 +160,7 @@ class ChatViewModelDuringRunSendTest {
             chatRepository.startChat(
                 any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
                 any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(),
             )
         } returns MutableSharedFlow()
     }
@@ -286,6 +298,126 @@ class ChatViewModelDuringRunSendTest {
             assertThat(vm.uiState.value.messageQueue.map { it.text }).containsExactly(TEXT)
         }
 
+    /**
+     * The composer, not the card, is the input the user reaches for — and the resume route picks
+     * the body it accepts off the pause's PAYLOAD. A pause carrying `questions` rejects a bare
+     * `answer` outright, so a composer send that took the single-question path here would 400 and
+     * leave the run paused with Stop as the only escape.
+     *
+     * Driven through `sendDuringRun` rather than the delegate: the routing is the subject, and
+     * `PendingActionDelegate` submits whichever channel it is handed.
+     */
+    @Test
+    fun `answering a one-question batch from the composer submits the batched channel`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic"))
+            runCurrent()
+            assertThat(vm.uiState.value.pendingAction).isNotNull()
+
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            val request = slot<ChatResumeRequest>()
+            coVerify(exactly = 1) { chatRepository.resumeChat(capture(request)) }
+            assertThat(request.captured.answers).isEqualTo(mapOf("topic" to TEXT))
+            assertThat(request.captured.answer).isNull()
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+        }
+
+    /**
+     * A multi-question batch is answered from the composer one question per send, in payload
+     * order, and the resume goes up only once every id has an answer — a partial map is a 400
+     * ("Answers are required for every question"), so there is nothing to submit before that.
+     * Routing the text to the queue instead reads as broken: the send appears to work while the
+     * run stays paused.
+     *
+     * The draft assertions are the half a routing-only test cannot see. An answer recorded where
+     * only the delegate can read it leaves the card's field empty and its Send disabled, and
+     * nothing goes up — so asserting on the same map the card renders from is asserting on what
+     * is on screen.
+     */
+    @Test
+    fun `the composer answers a multi-question batch one question per send`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic", "depth"))
+            runCurrent()
+            assertThat(vm.uiState.value.pendingAction).isNotNull()
+
+            vm.onInputChanged("kotlin")
+            vm.sendDuringRun()
+            runCurrent()
+
+            // First answer recorded and visible in the card, nothing resumed, nothing queued or
+            // steered — the run is still paused on the second question.
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+            coVerify(exactly = 0) { chatRepository.steerChat(any()) }
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+            assertThat(vm.uiState.value.inputText).isEmpty()
+            assertThat(vm.uiState.value.askAnswerDrafts)
+                .containsExactly("topic", AskAnswerDraft(freeText = "kotlin"))
+
+            vm.onInputChanged("very deep")
+            vm.sendDuringRun()
+            runCurrent()
+
+            val request = slot<ChatResumeRequest>()
+            coVerify(exactly = 1) { chatRepository.resumeChat(capture(request)) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+            assertThat(request.captured.answer).isNull()
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+
+            // The accepted resume clears the pause, and nothing hands the consumed sends back:
+            // the composer stays empty instead of refilling with every answer already submitted.
+            assertThat(vm.uiState.value.pendingAction).isNull()
+            assertThat(vm.uiState.value.askAnswerDrafts).isEmpty()
+            assertThat(vm.uiState.value.inputText).isEmpty()
+        }
+
+    /**
+     * The card is the other writer of the same drafts, and the composer must not fight it: a send
+     * fills the first field the CARD has left blank. A private copy on either side leaves the two
+     * disagreeing about which question is still open.
+     */
+    @Test
+    fun `a composer send fills the question the card has not answered`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic", "depth"))
+            runCurrent()
+
+            vm.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
+            vm.onInputChanged("very deep")
+            vm.sendDuringRun()
+            runCurrent()
+
+            val request = slot<ChatResumeRequest>()
+            coVerify(exactly = 1) { chatRepository.resumeChat(capture(request)) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+        }
+
+    /**
+     * Nothing left to answer means nothing to take: the send is refused and the words stay in the
+     * composer rather than being cleared into a batch that is already on its way up.
+     */
+    @Test
+    fun `a send against an already-answered batch keeps the composer text`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic", "depth"))
+            runCurrent()
+
+            vm.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
+            vm.updateAskAnswerDraft("depth", AskAnswerDraft(freeText = "very deep"))
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+            assertThat(vm.uiState.value.inputText).isEqualTo(TEXT)
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+        }
+
     @Test
     fun `a steer preference degrades to queueing on a server without the steer route`() =
         duringRunTest(
@@ -388,6 +520,7 @@ class ChatViewModelDuringRunSendTest {
                 chatRepository.startChat(
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(),
                 )
             }
         }
@@ -440,6 +573,128 @@ class ChatViewModelDuringRunSendTest {
 
             assertThat(vm.uiState.value.justSettledMessageId).isEqualTo(SETTLED_ID)
         }
+
+    // ─── pending quotes (v0.8.7 "Add to chat", SYNC A11) ─────────────
+
+    /** Captures the `quotes` argument of every `startChat` the ViewModel fires. */
+    private fun captureStartChatQuotes(): MutableList<List<String>?> {
+        val captured = mutableListOf<List<String>?>()
+        every {
+            chatRepository.startChat(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                captureNullable(captured),
+            )
+        } returns MutableSharedFlow()
+        return captured
+    }
+
+    @Test
+    fun `a fresh send drains the staged quotes onto the request`() =
+        duringRunTest(
+            DuringRunAction.QUEUE,
+            arrange = {
+                // No live run: this is the plain fresh-submit path.
+                coEvery { chatRepository.checkStreamStatus(eq(CONVERSATION_ID), any()) } returns
+                    ChatStatusResponse(active = false)
+            },
+        ) { vm ->
+            val captured = captureStartChatQuotes()
+            vm.addPendingQuote("the selected excerpt")
+            vm.onInputChanged("about this part")
+            vm.sendMessage()
+            runCurrent()
+
+            assertThat(captured.last()).containsExactly("the selected excerpt")
+            // Atomic take: the chips are gone the moment the send owns them.
+            assertThat(vm.uiState.value.pendingQuotes).isEmpty()
+        }
+
+    @Test
+    fun `a queued message carries the staged quotes through its drain`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            val captured = captureStartChatQuotes()
+            vm.addPendingQuote("the selected excerpt")
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            // Composer-origin queue takes the chips with it (web takeComposerContext): they pair
+            // with THIS item, not with whatever the user sends next.
+            assertThat(vm.uiState.value.messageQueue.single().quotes)
+                .containsExactly("the selected excerpt")
+            assertThat(vm.uiState.value.pendingQuotes).isEmpty()
+
+            resumedStream.emit(
+                StreamEvent.Final(
+                    requestMessage = null,
+                    responseMessage = com.garfiec.librechat.core.model.Message(
+                        messageId = SETTLED_ID,
+                        conversationId = CONVERSATION_ID,
+                        text = "done",
+                        isCreatedByUser = false,
+                    ),
+                    conversation = null,
+                ),
+            )
+            runCurrent()
+
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+            assertThat(captured.last()).containsExactly("the selected excerpt")
+        }
+
+    @Test
+    fun `a composer steer leaves the staged quotes for the next real send`() =
+        duringRunTest(DuringRunAction.STEER) { vm ->
+            // Web parity: server steers never carry quotes, so a composer-origin steer must not
+            // consume them — they stay staged and ride the next fresh submit instead.
+            vm.addPendingQuote("the selected excerpt")
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            coVerify(exactly = 1) { chatRepository.steerChat(SteerRequest(CONVERSATION_ID, TEXT)) }
+            assertThat(vm.uiState.value.pendingQuotes).containsExactly("the selected excerpt")
+        }
+
+    @Test
+    fun `quote capture is gated on server version and endpoint`() {
+        val gatedOn = ChatUiState(
+            gates = FeatureGatesState(backendVersion = "0.8.7"),
+            selection = ModelSelectionState(selectedEndpoint = "anthropic"),
+        )
+        assertThat(gatedOn.quoteCaptureAvailable).isTrue()
+
+        // Pre-0.8.7 servers ignore the field and would silently drop the excerpts; unknown
+        // versions fail CLOSED for the same reason.
+        assertThat(
+            gatedOn.copy(gates = FeatureGatesState(backendVersion = "0.8.6")).quoteCaptureAvailable,
+        ).isFalse()
+        assertThat(
+            gatedOn.copy(gates = FeatureGatesState(backendVersion = null)).quoteCaptureAvailable,
+        ).isFalse()
+        // Assistants endpoints bypass the server-side merge (web quotesSupported).
+        assertThat(
+            gatedOn.copy(
+                selection = ModelSelectionState(selectedEndpoint = "assistants"),
+            ).quoteCaptureAvailable,
+        ).isFalse()
+    }
+
+    /** A live pause carrying a batched `ask_user_question`, as the SSE stream announces one. */
+    private fun pendingBatch(vararg ids: String) = StreamEvent.PendingActionRequested(
+        PendingAction(
+            actionId = "act_1",
+            conversationId = CONVERSATION_ID,
+            payload = PendingActionPayload(
+                type = PendingActionTypes.ASK_USER_QUESTION,
+                // Upstream keeps `question` populated with the first item as a display fallback
+                // even on a batch, so a build reading it would see a single-question pause here.
+                question = AskUserQuestionRequest(question = "Which one?"),
+                questions = ids.map { AskUserQuestionItem(id = it, question = "Which $it?") },
+            ),
+        ),
+    )
 
     private fun duringRunTest(
         preference: DuringRunAction,

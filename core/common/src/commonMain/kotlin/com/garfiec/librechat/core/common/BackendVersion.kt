@@ -169,6 +169,10 @@ object BackendVersion {
     /**
      * Feature-gate check that also understands servers built from UNTAGGED upstream commits.
      *
+     * Boolean shorthand for [featureSupport] `== PRESENT`. It answers "is the feature known to be
+     * there", which folds "known absent" and "cannot place this server" into one `false` — use
+     * [featureSupport] instead wherever those two deserve different handling (see its docs).
+     *
      * Upstream only bumps package.json at rc prep, so a server running a dev commit with
      * next-release features still REPORTS the previous release version (e.g. a 0.8.8-cycle
      * dev build reports "0.8.7") — [isCompatibleOrNewer] alone would hide the feature. This
@@ -209,15 +213,54 @@ object BackendVersion {
         detected: DetectedBackend?,
         minVersion: String,
         landedDate: String? = null,
-    ): Boolean {
-        if (detected == null) return false
-        if (isCompatibleOrNewer(detected.version, minVersion)) return true
+    ): Boolean = featureSupport(detected, minVersion, landedDate).isPresent
+
+    /**
+     * The three-state form of [supportsFeature]: does this server carry the feature, is it
+     * known NOT to, or can it not be placed at all?
+     *
+     * [supportsFeature] answers PRESENT-or-not, which is the right question only for a gate that
+     * treats "don't know" the same as "no" — see [FeatureSupport] for why most gates should not.
+     * Ask this instead whenever "unplaceable" deserves different handling than "too old", in
+     * practice whenever the feature can be discovered by probing for it.
+     *
+     * How each state is reached:
+     * - **PRESENT** — the reported version already meets [minVersion], or [landedDate] is given
+     *   and a DEV build's commit date is at or past it.
+     * - **ABSENT** — the version falls short AND the build commit resolved to a release
+     *   ([BackendBuildClass.OFFICIAL]) or prerelease ([BackendBuildClass.RC]) TAG, where
+     *   package.json is exact in both directions; or [landedDate] is given and a DEV build's
+     *   commit date predates it.
+     * - **UNKNOWN** — everything else: a null [detected], and any DEV build that no [landedDate]
+     *   settles. [BackendBuildClass.UNKNOWN] is UNKNOWN too — it covers a config-supplied
+     *   `version` field, which upstream would source from the same package.json that dev builds
+     *   under-report.
+     *
+     * Deliberately NOT inferred: that a DEV build reporting a version far below [minVersion]
+     * (say 0.8.5 against a 0.8.8-rc1 gate) must be ABSENT because a dev build can only
+     * under-report by one release line. It is true of upstream's current release habit and
+     * nothing enforces it — one 0.8.8 → 0.9.0 bump turns the inference into a silent
+     * feature-suppression, which is the exact failure this three-state split exists to end. The
+     * cost of not inferring it is one probe against an ancient server, cached by the callsite.
+     */
+    fun featureSupport(
+        detected: DetectedBackend?,
+        minVersion: String,
+        landedDate: String? = null,
+    ): FeatureSupport {
+        if (detected == null) return FeatureSupport.UNKNOWN
+        if (isCompatibleOrNewer(detected.version, minVersion)) return FeatureSupport.PRESENT
         if (landedDate != null &&
             detected.classification == BackendBuildClass.DEV &&
             detected.commitDate != null
         ) {
-            return detected.commitDate >= landedDate
+            return if (detected.commitDate >= landedDate) FeatureSupport.PRESENT else FeatureSupport.ABSENT
         }
-        return false
+        return when (detected.classification) {
+            // A tagged build reports the version of its tag, so falling short of the threshold
+            // is proof, not evidence.
+            BackendBuildClass.OFFICIAL, BackendBuildClass.RC -> FeatureSupport.ABSENT
+            BackendBuildClass.DEV, BackendBuildClass.UNKNOWN -> FeatureSupport.UNKNOWN
+        }
     }
 }

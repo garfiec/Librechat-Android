@@ -4,8 +4,10 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.McpRepository
+import com.garfiec.librechat.core.model.error.ServerErrorCode
 import com.garfiec.librechat.core.model.mcp.McpApiKeyConfig
 import com.garfiec.librechat.core.model.mcp.McpOAuthConfig
 import com.garfiec.librechat.core.model.mcp.McpServer
@@ -40,6 +42,16 @@ data class McpUiState(
      * session without anyone having agreed to it.
      */
     val pendingOAuth: McpOAuthPrompt? = null,
+    /**
+     * The last save was refused with `OAUTH_SECRET_REENTRY_REQUIRED`.
+     *
+     * The stored client secret is bound to the authorization/token endpoint it was issued for, so
+     * changing either endpoint invalidates it and every retry of the same body fails identically.
+     * This is a prompt-for-input outcome, not a retryable failure: the dialog stays open and asks
+     * for the secret again, because nothing the user can do from a generic "save failed" would
+     * ever succeed.
+     */
+    val oauthSecretReentryRequired: Boolean = false,
 )
 
 /** A server waiting on the user to authorize it, with the provider URL to send them to. */
@@ -140,14 +152,30 @@ class McpViewModel(
         oauth: McpOAuthConfig? = null,
     ) {
         viewModelScope.launch {
-            val result = mcpRepository.createServer(
-                name = name,
-                description = description,
-                url = url,
-                type = type,
-                apiKey = apiKey,
-                oauth = oauth,
-            )
+            // An edit addresses the stored server (PATCH), a new one does not (POST); see
+            // McpRepository.updateServer for why an edit must not be sent as a create.
+            val editing = _uiState.value.editingServer?.name
+            _uiState.value = _uiState.value.copy(oauthSecretReentryRequired = false)
+            val result = if (editing != null) {
+                mcpRepository.updateServer(
+                    serverName = editing,
+                    name = name,
+                    description = description,
+                    url = url,
+                    type = type,
+                    apiKey = apiKey,
+                    oauth = oauth,
+                )
+            } else {
+                mcpRepository.createServer(
+                    name = name,
+                    description = description,
+                    url = url,
+                    type = type,
+                    apiKey = apiKey,
+                    oauth = oauth,
+                )
+            }
             when (result) {
                 is Result.Success -> {
                     dismissServerDialog()
@@ -155,8 +183,19 @@ class McpViewModel(
                     loadConnectionStatus()
                 }
                 is Result.Error -> {
+                    // A rejected secret binding is a prompt-for-input outcome, never a retry: the
+                    // same body can only be refused again. See [oauthSecretReentryRequired].
+                    val exception = result.exception as? ApiException
+                    val reentry = exception?.statusCode == HTTP_BAD_REQUEST &&
+                        ServerErrorCode.from(exception.body) == ServerErrorCode.OAUTH_SECRET_REENTRY_REQUIRED
                     _uiState.value = _uiState.value.copy(
-                        error = result.message ?: "Failed to save server",
+                        oauthSecretReentryRequired = reentry,
+                        error = if (reentry) {
+                            "This server's OAuth endpoints changed, so the saved client secret " +
+                                "no longer applies. Enter the client secret again to save."
+                        } else {
+                            result.message ?: "Failed to save server"
+                        },
                     )
                 }
                 is Result.Loading -> { /* no-op */ }
@@ -266,5 +305,8 @@ class McpViewModel(
          * reinitialize outcome whose wording is ours rather than the server's.
          */
         const val DEFERRED_MARKER = "mcp_connection_deferred"
+
+        /** The MCP write routes report a rejected OAuth secret binding with 400. */
+        private const val HTTP_BAD_REQUEST = 400
     }
 }

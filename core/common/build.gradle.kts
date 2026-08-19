@@ -82,6 +82,16 @@ val generateBackendCommitMap = tasks.register("generateBackendCommitMap") {
             return out.trim()
         }
 
+        // A shallow submodule clone silently truncates rev-list, shrinking the dev window
+        // (and often the tag set) without any error — fail loudly instead of emitting a map
+        // that resolves hundreds of real upstream builds to null.
+        if (git("rev-parse", "--is-shallow-repository") == "true") {
+            error(
+                "upstream/ submodule is a shallow clone; the commit map would be silently " +
+                    "truncated. Run: git -C upstream fetch --unshallow",
+            )
+        }
+
         val versionTagRegex = Regex("""^v?\d+\.\d+""")
         val versionLineRegex = Regex(""""version"\s*:\s*"([^"]+)"""")
         fun normalize(raw: String): String = raw.trim().trimStart('v', 'V')
@@ -118,6 +128,13 @@ val generateBackendCommitMap = tasks.register("generateBackendCommitMap") {
             ?.takeIf { it.isNotEmpty() } ?: git("rev-parse", "HEAD")
         val revList = git("rev-list", "-n", devCommitCount.toString(), pinnedHead)
             .lineSequence().filter { it.isNotBlank() }.toList() // newest -> oldest
+        if (revList.size < devCommitCount) {
+            error(
+                "rev-list returned only ${revList.size} of $devCommitCount dev commits from " +
+                    "$pinnedHead — the upstream/ history is truncated (partial fetch?). " +
+                    "Run: git -C upstream fetch --unshallow",
+            )
+        }
         var boundaryShows = 0
         if (revList.isNotEmpty()) {
             val oldest = revList.last()

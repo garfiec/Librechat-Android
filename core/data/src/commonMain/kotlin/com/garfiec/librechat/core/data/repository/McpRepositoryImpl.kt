@@ -28,6 +28,17 @@ class McpRepositoryImpl(
     ): Result<McpServer> =
         safeApiCall { mcpApi.createServer(name, description, url, type, apiKey, oauth) }
 
+    override suspend fun updateServer(
+        serverName: String,
+        name: String,
+        description: String?,
+        url: String,
+        type: McpServerType,
+        apiKey: McpApiKeyConfig?,
+        oauth: McpOAuthConfig?,
+    ): Result<McpServer> =
+        safeApiCall { mcpApi.updateServer(serverName, name, description, url, type, apiKey, oauth) }
+
     override suspend fun deleteServer(serverName: String): Result<Unit> =
         safeApiCall { mcpApi.deleteServer(serverName) }
 

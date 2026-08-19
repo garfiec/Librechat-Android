@@ -182,8 +182,120 @@
         "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/AttachmentPayloadParsing.kt",
         "symbol": "MEMORY_ERROR_ALREADY_EXCEEDED / MEMORY_ERROR_WOULD_EXCEED"
       },
-      "why": "The two errorType values set_memory stringifies into a failed memory artifact's value. They decide which sentence the user is shown -- that the memory store is already full, or that this particular write would overflow it -- and the server sends only the raw key, never a display string. Watched file-level rather than by block: both literals sit inside createMemoryTool's body, and no smaller exported symbol wraps them -- a block anchored on createMemoryTool extracts only its signature and would compare equal across every revision, which is the inert-watch trap check-mirrors.py warns about.",
+      "why": "The two errorType values set_memory stringifies into a failed memory artifact's value. They decide which sentence the user is shown -- that the memory store is already full, or that this particular write would overflow it -- and the server sends only the raw key, never a display string. Watched file-level rather than by block: both literals sit inside createMemoryTool's body, and no smaller exported symbol wraps them -- a block anchored on createMemoryTool extracts only its signature and would compare equal across every revision, which is the inert-watch trap check-mirrors.py warns about. Consequence of watching the whole file: unrelated churn reports DRIFT. It did over 91adcf3f..db431210 (registerMemoryTools gained a toolNames field) and was dismissed after verifying both literals byte-identical at each end -- verify the two literals, not the file, before re-investigating a report here.",
       "failure_mode": "A renamed or added errorType silently degrades every storage-limit failure to the generic 'Memory Error' label, dropping the token count and the 'delete some memories' instruction that tells the user how to fix it. Nothing errors: the artifact still decodes and a card still renders."
+    },
+    {
+      "id": "anthropic-document-mime-types",
+      "upstream": {
+        "file": "packages/data-provider/src/file-config.ts",
+        "symbol": "textualApplicationTypes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/response/UploadRouting.kt",
+        "symbol": "TEXTUAL_APPLICATION_MIME_TYPES / isProviderCapable"
+      },
+      "why": "Upstream now filters what a Claude model may receive natively through isAnthropicDocumentType, built on this set plus application/pdf. Mobile decides the same question in isProviderCapable, whose anthropic branch is deliberately NARROWER (image/* plus application/pdf only), so a .docx already resolves to UploadRoute.TEXT. The two are the same decision made in two places, and nothing on the wire reconciles them.",
+      "failure_mode": "Upstream widening what Claude accepts natively leaves mobile extracting text from a file the provider would have read better, or -- if mobile's branch is ever widened to match a stale copy of this list -- routing a type the server now drops. The server console.warns and drops it with no error reaching the client, so a file simply never arrives."
+    },
+    {
+      "id": "mcp-normalize-server-name",
+      "upstream": {
+        "file": "packages/data-provider/src/config.ts",
+        "symbol": "normalizeServerName",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/util/McpServerNames.kt",
+        "symbol": "normalizeMcpServerName"
+      },
+      "why": "MCP tool keys are built as `<toolName>_mcp_<normalizeServerName(server)>`, but GET /api/mcp/servers still advertises the RAW configured name. The client has to normalize identically to write a key any producer will honour; the rule is never served.",
+      "failure_mode": "A key the server cannot resolve. Upstream surfaces it as 'Tool not found' at execution time -- the save succeeds, the agent looks correct, and every per-tool option (defer_loading, allowed_callers, run_in_background, describe_intent) is silently inert."
+    },
+    {
+      "id": "ask-user-question-max-questions",
+      "upstream": {
+        "file": "packages/api/src/agents/hitl/resume.ts",
+        "symbol": "MAX_ASK_QUESTIONS",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/PendingAction.kt",
+        "symbol": "AskUserQuestionLimits.MAX_QUESTIONS"
+      },
+      "why": "How many questions an ask_user_question batch may carry. Module-private upstream, never exported and never served, but the resume route rejects a batch outside 1..MAX_QUESTIONS -- so the card truncates the rendered list to it.",
+      "failure_mode": "Upstream RAISING the cap is the dangerous direction: the card renders the first four of a five-question batch and submits a four-entry answer map, which the route rejects 400 'Answers are required for every question' on BOTH Send and Skip. The run stays paused with Stop as the only escape, and nothing on this side errors or logs."
+    },
+    {
+      "id": "ask-user-question-max-answer-length",
+      "upstream": {
+        "file": "packages/api/src/agents/hitl/resume.ts",
+        "symbol": "MAX_ASK_ANSWER_LENGTH",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/PendingAction.kt",
+        "symbol": "AskUserQuestionLimits.MAX_ANSWER_LENGTH"
+      },
+      "why": "The per-answer character cap the resume route enforces on both the bare and the batched path. Mirrored because the answer boxes budget against it, so a user cannot compose an answer the route will refuse.",
+      "failure_mode": "Upstream LOWERING it makes a long answer 400 at submit with the run already paused; raising it costs the user characters they were entitled to type. Both are silent -- a stale copy still compiles and still submits."
+    },
+    {
+      "id": "model-not-found-url-pattern",
+      "upstream": {
+        "file": "client/src/components/Messages/Content/Error.tsx",
+        "symbol": "langChainModelNotFoundUrl",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/error/StreamErrorType.kt",
+        "symbol": "StreamErrorType.MODEL_NOT_FOUND_PATTERN"
+      },
+      "why": "MODEL_NOT_FOUND is not one of upstream's typed ErrorTypes -- it arrives as a documentation URL embedded in provider prose, and this regex is the whole of the detection. Nothing on the wire distinguishes it from any other provider sentence. The Kotlin copy spells `\\b` out as a character-class lookahead because Android's Regex is ICU; that divergence is deliberate and is not drift.",
+      "failure_mode": "A reworded upstream link stops matching, so the provider's raw unhelpful sentence reaches the user instead of the 'that model is not available' message -- exactly where a model picker would have fixed it. A widened pattern retitles unrelated provider errors as a missing model."
+    },
+    {
+      "id": "generation-reconcile-message",
+      "upstream": {
+        "file": "api/server/routes/agents/index.js",
+        "symbol": "onDone",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/network/src/commonMain/kotlin/com/garfiec/librechat/core/network/sse/SseEventMapper.kt",
+        "symbol": "GENERATION_RECONCILE_MESSAGE"
+      },
+      "why": "A generation reconciled away is rewritten to an ordinary `event: error` frame for protocol-v1 clients. `final: true` there is a writeEvent option consumed by telemetry, never a body field, and the genuine-error frame on the same route also carries generationProtocolVersion -- so this literal sentence is the only thing on the wire separating a benign reconciliation (the reply is saved; refetch it) from a real stream failure.",
+      "failure_mode": "Upstream rewording the sentence makes every reconciliation read as a stream error again: the saved reply still loads, but under an alarming error banner, and the run is reported as failed when it was not. Nothing fails to decode."
+    },
+    {
+      "id": "stream-error-types",
+      "upstream": {
+        "file": "packages/data-provider/src/config.ts",
+        "symbol": "ErrorTypes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/error/StreamErrorType.kt",
+        "symbol": "StreamErrorType"
+      },
+      "why": "StreamErrorType transcribes the wire strings of upstream's ErrorTypes enum by hand -- the server never serves the table, it only sends one of its values on a stream-error payload. The enum lists only the codes with something actionable to say, so upstream ADDING a member is deliberately not drift; upstream RENAMING one of the listed values is, and nothing on this side can see it happen.",
+      "failure_mode": "A renamed value stops matching, so that error silently degrades to the generic message -- the user is told something went wrong instead of being told to reattach their files or pick another model. Nothing fails to decode and nothing errors."
+    },
+    {
+      "id": "mcp-error-codes",
+      "upstream": {
+        "file": "packages/api/src/mcp/errors.ts",
+        "symbol": "MCPErrorCodes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/error/ServerErrorCode.kt",
+        "symbol": "ServerErrorCode.OAUTH_SECRET_REENTRY_REQUIRED"
+      },
+      "why": "The MCP save path branches on the literal `MCP_OAUTH_SECRET_REENTRY_REQUIRED` to turn a 400 into a re-enter-your-secret prompt rather than a generic failure. The wire value carries an `MCP_` prefix that upstream's TypeScript member name drops, so the copy cannot be derived from the member name and has to be transcribed.",
+      "failure_mode": "A renamed code makes the re-entry prompt unreachable: the save reports a plain 'could not save' and the user has no way to learn the stored secret is the thing that must be re-supplied, so the write keeps failing forever."
     }
   ]
 }

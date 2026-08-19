@@ -58,6 +58,41 @@ class SafeErrorMessageTest {
         assertEquals(FailureMessages.GATEWAY, error.message)
     }
 
+    @Test
+    fun `a structured upload rejection surfaces the server's own reason`() {
+        // v0.8.8-rc1 (upstream 5e464bc9): multer file-filter rejections carry statusCode + a
+        // {message} body instead of collapsing to a bare 500, so the reason ("Unsupported file
+        // type: <mime>", "No file provided") must reach the upload surfaces verbatim. Every
+        // upload path renders Result.Error.message, so this seam is the whole contract.
+        val unsupported = ApiException(
+            statusCode = 415,
+            message = "Unsupported file type: application/x-msdownload",
+            body = """{"message":"Unsupported file type: application/x-msdownload"}""",
+            serverAuthored = true,
+        ).toSafeError()
+        assertEquals("Unsupported file type: application/x-msdownload", unsupported.message)
+        assertEquals(FailureKind.Server, unsupported.kind)
+
+        val noFile = ApiException(
+            statusCode = 400,
+            message = "No file provided",
+            serverAuthored = true,
+        ).toSafeError()
+        assertEquals("No file provided", noFile.message)
+    }
+
+    @Test
+    fun `a server-authored rejection that is not prose still falls back to safe copy`() {
+        // The screen stays in force on the new 400/415 bodies: a gateway or proxy putting a
+        // document where the reason belongs must not render it.
+        val error = ApiException(
+            statusCode = 415,
+            message = "<html><body>Blocked</body></html>",
+            serverAuthored = true,
+        ).toSafeError()
+        assertEquals(FailureMessages.UNKNOWN, error.message)
+    }
+
     /** The classifier walks the chain — Ktor wraps the interesting exception more often than not. */
     @Test
     fun `a wrapped cause is still classified`() {
@@ -115,7 +150,7 @@ class SafeErrorMessageTest {
      * screen exists to stop.
      */
     @Test
-    fun `app-authored text is never screened, however long`() {
+    fun `app-authored text is never screened however long it is`() {
         val longAppMessage = "Server returned an unexpected response when starting the chat. " +
             "This usually indicates a backend version incompatibility — please check that the " +
             "server is running a supported LibreChat release, and that no proxy is rewriting it."

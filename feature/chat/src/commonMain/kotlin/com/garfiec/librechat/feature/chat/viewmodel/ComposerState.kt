@@ -44,6 +44,13 @@ data class ComposerState(
      * this exists to close. Written only by [ChatViewModel].
      */
     val resolvingPickCount: Int = 0,
+    /**
+     * Verbatim excerpts staged via the selection toolbar's "Add to chat" (v0.8.7, upstream
+     * #13868), one chip each above the composer until a fresh send or a composer-origin queue
+     * takes them. Taken atomically at spec-mint time (`ChatViewModel.takePendingQuotes`);
+     * composer-origin steers leave them staged, and assistants endpoints never take them.
+     */
+    val pendingQuotes: List<String> = emptyList(),
 ) {
     /** True while at least one intake is still in flight. See [resolvingPickCount]. */
     val isResolvingPickedFiles: Boolean get() = resolvingPickCount > 0

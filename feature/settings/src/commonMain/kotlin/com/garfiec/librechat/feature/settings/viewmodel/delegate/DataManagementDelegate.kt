@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.settings.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
@@ -176,20 +177,51 @@ class DataManagementDelegate(
         }
     }
 
-    fun toggleSharedLinkVisibility(shareId: String) {
+    /**
+     * Re-publishes a shared link against the conversation as it stands now.
+     *
+     * On v0.8.8-rc1+ the link's id and URL survive, so anything already handed out keeps working;
+     * earlier servers mint a new id and orphan the old URL, which is what the confirmation copy
+     * is gated on. Either way this changes what is behind the link, which is why the route now
+     * demands SHARED_LINKS CREATE and why the caller confirms first.
+     *
+     * The response carries only `{_id, shareId, conversationId, targetMessageId}` — no title, no
+     * `createdAt`, no `isPublic` — on BOTH versions, so the row is patched rather than replaced.
+     * Rebuilding it from the response relabels every updated link "Untitled Conversation" and
+     * drops its date; adopting the returned `shareId` is what keeps a pre-rc1 row pointing at the
+     * link that now exists.
+     */
+    fun updateSharedLink(shareId: String) {
         stateHandle.scope.launch {
-            when (val result = shareRepository.toggleShareVisibility(shareId)) {
+            when (val result = shareRepository.updateShareLink(shareId)) {
                 is Result.Success -> {
                     stateHandle.update {
                         copy(
                             sharedLinks = sharedLinks.map { link ->
-                                if (link.shareId == shareId) result.data.toDisplayData() else link
+                                if (link.shareId == shareId) {
+                                    link.copy(shareId = result.data.shareId ?: link.shareId)
+                                } else {
+                                    link
+                                }
                             },
                         )
                     }
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = result.message ?: "Failed to toggle visibility") }
+                    // 403 is now a distinct, permanent outcome rather than a transient failure:
+                    // the role may still hold SHARED_LINKS.USE (and may still DELETE), so a
+                    // generic "failed" reads as something worth retrying when it never will be.
+                    val forbidden = (result.exception as? ApiException)?.statusCode == HTTP_FORBIDDEN
+                    stateHandle.update {
+                        copy(
+                            error = if (forbidden) {
+                                "You don't have permission to update shared links. " +
+                                    "You can still delete this link."
+                            } else {
+                                result.message ?: "Failed to update the shared link"
+                            },
+                        )
+                    }
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -267,6 +299,9 @@ class DataManagementDelegate(
         }
     }
 }
+
+/** The route answers 403 when the caller's role lost SHARED_LINKS CREATE. */
+private const val HTTP_FORBIDDEN = 403
 
 private fun SharedLink.toDisplayData() = SharedLinkDisplayData(
     shareId = shareId ?: "",

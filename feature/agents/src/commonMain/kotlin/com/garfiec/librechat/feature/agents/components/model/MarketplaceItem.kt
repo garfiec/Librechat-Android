@@ -75,4 +75,5 @@ enum class MarketplaceBuiltinLabel {
     FILE_SEARCH,
     WEB_SEARCH,
     FILE_CONTEXT,
+    ASK_USER_QUESTION,
 }

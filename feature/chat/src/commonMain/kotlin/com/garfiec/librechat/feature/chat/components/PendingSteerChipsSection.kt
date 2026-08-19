@@ -53,11 +53,16 @@ fun PendingSteerChipsSection(
 ) {
     if (pendingSteers.isEmpty()) return
 
+    // Right-aligned as a user-side turn (upstream 7694428c): the persisted steer part lands
+    // in-thread on the user's side, so a left-anchored in-flight bubble would jump across the
+    // screen on `on_steer_applied`. Alignment only — the broader message-row reorg of that PR
+    // is deliberately not ported.
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.End,
     ) {
         pendingSteers.forEach { chip ->
             PendingSteerRow(
@@ -77,14 +82,13 @@ private fun PendingSteerRow(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .fillMaxWidth()
                 .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         ) {
             // The POST is still out, so the row shows a spinner instead of the bolt: until the
@@ -112,7 +116,7 @@ private fun PendingSteerRow(
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontSize = 14.sp * fontSizeMultiplier,
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(1f, fill = false)
                     .padding(vertical = 2.dp),
             )
 

@@ -40,9 +40,11 @@ class MessageQueueDelegate(
      * until the request settles so [startHoldRenewal]'s loop can be its own overlap guard.
      */
     private val markFilesUsed: suspend (List<String>) -> Unit = {},
-    /** Whether the server exposes `POST /api/files/usage`. Asked before the heartbeat starts:
-     *  [markFilesUsed] already no-ops without the route, but the loop would otherwise wake every
-     *  30 minutes for the ViewModel's whole life to call something that does nothing. */
+    /** Whether `POST /api/files/usage` is worth calling. Asked before the heartbeat starts AND
+     *  before each renewal: [markFilesUsed] already no-ops without the route, but the loop would
+     *  otherwise wake every 30 minutes for the ViewModel's whole life to call something that does
+     *  nothing. Re-asked because the answer can flip once — on a server the version gate cannot
+     *  place, the first touch is a probe and its 404 is what settles this. */
     private val holdRenewalSupported: () -> Boolean = { true },
     /** Clock the renewal heartbeat measures elapsed time with. Injected so a test can drive it
      *  in step with the virtual scheduler — production always uses the monotonic default. */
@@ -74,7 +76,7 @@ class MessageQueueDelegate(
      *
      * **Lives only as long as there is something to hold.** Started by [enqueue] and [reinsert]
      * whenever an item with uploaded attachments joins the queue, and returns as soon as a tick
-     * finds no file ids left — a later add starts a fresh loop. Upstream heartbeats "while anything is queued" for the
+     * finds no file ids left — or finds the route ruled out — a later add starts a fresh loop. Upstream heartbeats "while anything is queued" for the
      * same reason, and it keeps an idle chat from parking a coroutine that can never have work.
      *
      * **The loop delays first and renews second, deliberately.** Renewing at the top would fire
@@ -107,6 +109,11 @@ class MessageQueueDelegate(
                 // is the authority; `delay` only decides when to come back and look.
                 delay((RENEW_INTERVAL - lastRenewedAt.elapsedNow()).coerceAtLeast(MIN_TICK))
                 if (lastRenewedAt.elapsedNow() < RENEW_INTERVAL) continue
+                // The loop can outlive the answer that started it: an unplaceable server is
+                // touched once on the chance it has the route, and that touch's 404 is what turns
+                // support off. Stop on the first tick after that, rather than ticking for the
+                // ViewModel's whole life against a route this server has already refused.
+                if (!holdRenewalSupported()) return@launch
                 val fileIds = queuedFileIds()
                 // The queue drained (or nothing left in it carries an upload): stop rather than
                 // spin, and let the next enqueue start a fresh loop.

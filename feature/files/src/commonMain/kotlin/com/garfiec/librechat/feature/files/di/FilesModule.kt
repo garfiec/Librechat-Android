@@ -13,6 +13,7 @@ val filesModule = module {
     viewModel {
         FilesViewModel(
             fileRepository = get(),
+            configRepository = get(),
             fileReader = get(),
             serverDataStore = get(),
             settingsDataStore = get(),

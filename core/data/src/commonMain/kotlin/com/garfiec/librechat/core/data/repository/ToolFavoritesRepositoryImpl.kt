@@ -29,18 +29,33 @@ class ToolFavoritesRepositoryImpl(
     /** Serializes toggles so two rapid stars can't roll each other back. */
     private val writeMutex = Mutex()
 
-    override suspend fun refresh(): Result<Set<ToolFavorite>> {
-        // The routes landed on the untagged 0.8.8 line (#13952), so the version alone cannot
-        // decide: a dev build carrying them still reports 0.8.7. The date fallback covers that.
-        // Landing day itself rather than the day after — a same-day predecessor misread as
-        // having the routes costs one 404 that the branch below turns into "unsupported",
-        // whereas rounding up would hide the feature from a day's worth of real 0.8.8 servers.
-        if (!BackendVersion.supportsFeature(
+    /**
+     * Set once a probe has 404'd, so the picker does not re-ask a server that has already
+     * answered. [_isSupported] cannot serve this: it is also false before the first probe and
+     * after a [clear], and re-probing on every picker open is exactly what it would cause.
+     * Reset by [clear] on account/server switch.
+     */
+    private var routeMissingByProbe = false
+
+    /**
+     * True only when the routes are KNOWN absent: a build commit that resolved to a tag below
+     * v0.8.8-rc1 (#13952), or a probe that already 404'd.
+     *
+     * A server the version gate cannot place is NOT ruled out: support here is discoverable by
+     * asking — one GET, no rate limiter, a 404 that means exactly one thing — so a dev build
+     * reporting the previous release, or a server built past this app's commit-map pin, gets
+     * asked instead of assumed. Assuming absence there renders the picker with no star column at
+     * all on the self-hosted servers most likely to have the routes.
+     */
+    private fun favoritesRuledOut(): Boolean =
+        routeMissingByProbe ||
+            BackendVersion.featureSupport(
                 configRepository.detectedBackend.value,
                 minVersion = "0.8.8-rc1",
-                landedDate = "2026-07-05",
-            )
-        ) {
+            ).isRuledOut
+
+    override suspend fun refresh(): Result<Set<ToolFavorite>> {
+        if (favoritesRuledOut()) {
             _isSupported.value = false
             _favorites.value = emptySet()
             return Result.Success(emptySet())
@@ -60,6 +75,7 @@ class ToolFavoritesRepositoryImpl(
                 if ((result.exception as? ApiException)?.statusCode == HTTP_NOT_FOUND) {
                     _isSupported.value = false
                     _favorites.value = emptySet()
+                    routeMissingByProbe = true
                     Logger.d { "Tool favorites unsupported on this server" }
                 }
                 result
@@ -117,6 +133,9 @@ class ToolFavoritesRepositoryImpl(
     override fun clear() {
         _favorites.value = emptySet()
         _isSupported.value = false
+        // The verdict belonged to the server being left; keeping it carries one server's 404 onto
+        // the next account.
+        routeMissingByProbe = false
     }
 
     private companion object {

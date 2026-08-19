@@ -32,6 +32,9 @@ class AgentDetailViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        // Stubbed explicitly because a relaxed mock answers `false` for a nullable Boolean, which
+        // this screen reads as the list denying edit — the opposite of "no list answer".
+        coEvery { agentRepository.listedEditVerdict(any()) } returns null
     }
 
     @After
@@ -84,6 +87,64 @@ class AgentDetailViewModelTest {
         val state = viewModel.uiState.value
         assertThat(state.agent).isNotNull()
         assertThat(state.canEdit).isTrue()
+    }
+
+    /**
+     * The list is the only place `isEditable` is stamped (upstream `getListAgents`), so the verdict
+     * has to reach the detail screen through the repository — reading it off the agent this screen
+     * fetched leaves the conjunct permanently null and narrows nothing on any server.
+     */
+    @Test
+    fun `canEdit is false when the list said this agent is not editable`() = runTest(testDispatcher) {
+        coEvery { agentRepository.getAgentForEditing("agent-1") } returns Result.Success(agent)
+        coEvery { agentRepository.listedEditVerdict("agent-1") } returns false
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.agent).isNotNull()
+        assertThat(viewModel.uiState.value.canEdit).isFalse()
+    }
+
+    /**
+     * Absence is UNKNOWN, not permission — but it is also not denial: every server that predates
+     * the field answers null for every agent, so the probe has to stay in charge there.
+     */
+    @Test
+    fun `an unknown list verdict leaves the probe in charge`() = runTest(testDispatcher) {
+        coEvery { agentRepository.getAgentForEditing("agent-1") } returns Result.Success(agent)
+        coEvery { agentRepository.listedEditVerdict("agent-1") } returns null
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.canEdit).isTrue()
+    }
+
+    /** A list verdict cannot GRANT edit either: the 403 probe still decides against it. */
+    @Test
+    fun `a list verdict of true does not override a forbidden probe`() = runTest(testDispatcher) {
+        coEvery { agentRepository.getAgentForEditing("agent-1") } returns forbidden()
+        coEvery { agentRepository.getAgent("agent-1") } returns Result.Success(agent)
+        coEvery { agentRepository.listedEditVerdict("agent-1") } returns true
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.canEdit).isFalse()
+    }
+
+    /** `getAgent` can serve a list-projection row from the cache, which carries its own answer. */
+    @Test
+    fun `the agent's own field wins over the recorded list verdict`() = runTest(testDispatcher) {
+        coEvery { agentRepository.getAgentForEditing("agent-1") } returns
+            Result.Success(agent.copy(isEditable = false))
+        coEvery { agentRepository.listedEditVerdict("agent-1") } returns true
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.canEdit).isFalse()
     }
 
     @Test

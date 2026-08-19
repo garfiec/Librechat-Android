@@ -68,7 +68,7 @@ class StreamingManagerTokenUsageTest {
             steeringDelegate = mockk(relaxed = true),
             emitUserKeyError = {},
             reloadConversation = {},
-            restoreUnsentInput = {},
+            restoreUnsentInput = { _, _ -> },
             isNewConversation = { false },
             isHandedOffNewChat = { false },
         )

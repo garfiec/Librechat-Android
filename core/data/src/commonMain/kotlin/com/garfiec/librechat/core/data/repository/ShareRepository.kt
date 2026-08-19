@@ -8,7 +8,15 @@ import com.garfiec.librechat.core.model.response.SharedLinksResponse
 interface ShareRepository {
     suspend fun createShareLink(conversationId: String): Result<String>
     suspend fun getSharedLinksPaginated(cursor: String? = null): Result<SharedLinksResponse>
-    suspend fun toggleShareVisibility(shareId: String): Result<SharedLink>
+
+    /**
+     * Re-publishes a shared link against the conversation's current state.
+     *
+     * The `shareId` is stable across this — it is an update, not a refresh, and not the
+     * visibility toggle the old name claimed. Needs the SHARED_LINKS CREATE permission; a role
+     * that lost it gets 403 here while its DELETE still works.
+     */
+    suspend fun updateShareLink(shareId: String): Result<SharedLink>
     suspend fun deleteShareLink(shareId: String): Result<Unit>
 
     /**

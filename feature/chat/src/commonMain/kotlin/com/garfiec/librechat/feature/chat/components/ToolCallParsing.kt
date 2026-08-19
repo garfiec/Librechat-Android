@@ -450,13 +450,51 @@ internal fun isAskUserQuestionToolCall(toolNameLower: String): Boolean =
 /**
  * The streaming tool-call cards to render.
  *
- * An `ask_user_question` call is dropped until its answer lands on it. While the run is paused,
- * [PendingActionCard] *is* the question — a second card restating it under a spinner (the call
- * cannot complete until the user replies) is both a duplicate and a lie about what is running.
- * Once the answer arrives the same call renders as the durable Q&A record, so the question is
- * never on screen twice and never absent after it is settled.
+ * An `ask_user_question` call is dropped while the pause card owns it. `PendingActionCard` *is*
+ * the question — a second card restating it under a spinner (the call cannot complete until the
+ * user replies) is both a duplicate and a lie about what is running. Once the answer arrives the
+ * same call renders as the durable Q&A record, so the question is never on screen twice and never
+ * absent after it is settled.
+ *
+ * [pausedToolCallId] is the pause payload's own `tool_call_id`, present from
+ * `@librechat/agents` > 3.3.8. When the server names the call, only that call is dropped — a model
+ * that emits two ask calls in one turn leaves the other genuinely in flight, and hiding it too
+ * would show the user nothing for work that is running.
+ *
+ * When the field is absent (agents SDK <= 3.3.8) there is still exactly ONE live pause, so
+ * exactly one call is suppressed: the one whose args pose [pausedQuestion], falling back to the
+ * first unanswered ask (positional, the order the server paused them in). Dropping *every*
+ * unanswered ask instead collapses two parallel asks into one card.
  */
-internal fun List<ActiveToolCall>.withoutUnansweredQuestions(): List<ActiveToolCall> =
+internal fun List<ActiveToolCall>.withoutUnansweredQuestions(
+    pausedToolCallId: String? = null,
+    pausedQuestion: String? = null,
+): List<ActiveToolCall> {
+    fun isUnansweredAsk(call: ActiveToolCall) =
+        isAskUserQuestionToolCall(call.name.lowercase()) && call.output.isNullOrBlank()
+
+    if (pausedToolCallId != null) {
+        return filterNot { isUnansweredAsk(it) && it.id == pausedToolCallId }
+    }
+    val unanswered = withIndex().filter { isUnansweredAsk(it.value) }
+    if (unanswered.isEmpty()) return this
+    val suppressed = unanswered.firstOrNull { (_, call) ->
+        pausedQuestion != null &&
+            parseAskUserQuestion(call.input)?.question?.takeIf { it.isNotBlank() } == pausedQuestion
+    } ?: unanswered.first()
+    return filterIndexed { index, _ -> index != suppressed.index }
+}
+
+/**
+ * Drops EVERY unanswered `ask_user_question` call — for panes that host no `PendingActionCard`.
+ *
+ * [withoutUnansweredQuestions] deliberately leaves a second, un-paused ask visible because the
+ * primary thread renders the pause card beside it, so the user can see one question being asked
+ * while another is genuinely in flight. A comparison lane has no such card: an unanswered ask
+ * there renders as a Q&A record with an empty answer and no way to answer it, which is a dead end
+ * rather than a status. Suppressing all of them restores that pane's pre-v0.8.8 behaviour.
+ */
+internal fun List<ActiveToolCall>.withoutAnyUnansweredQuestions(): List<ActiveToolCall> =
     filterNot { isAskUserQuestionToolCall(it.name.lowercase()) && it.output.isNullOrBlank() }
 
 /**
@@ -550,7 +588,7 @@ internal fun parseAskUserQuestion(raw: String?): AskUserQuestionRequest? {
     return (parsed as? JsonObject)?.toAskUserQuestion()
 }
 
-private fun JsonObject.toAskUserQuestion(): AskUserQuestionRequest? {
+internal fun JsonObject.toAskUserQuestion(): AskUserQuestionRequest? {
     val question = stringField("question") ?: return null
     val options = (this["options"] as? JsonArray).orEmpty().mapNotNull { element ->
         val option = element as? JsonObject ?: return@mapNotNull null
@@ -566,7 +604,7 @@ private fun JsonObject.toAskUserQuestion(): AskUserQuestionRequest? {
     )
 }
 
-private fun JsonObject.stringField(key: String): String? =
+internal fun JsonObject.stringField(key: String): String? =
     (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
 /** How an answer reads back against the question that was asked. */

@@ -54,6 +54,7 @@ import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.ContentGroup
 import com.garfiec.librechat.feature.chat.util.IndexedContentPart
 import com.garfiec.librechat.feature.chat.util.activityLabelText
+import com.garfiec.librechat.feature.chat.util.findLateBatchLabelsConsumedByPhase
 import com.garfiec.librechat.feature.chat.util.groupContentParts
 import com.garfiec.librechat.feature.chat.util.groupedToolCallIds
 import com.garfiec.librechat.feature.chat.util.hasParallelGroupIds
@@ -300,7 +301,7 @@ internal fun MessageContentAndActions(
         SelectionContainer {
             Column {
                 // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
-                // text. Created on web; mobile displays them (no creation affordance yet).
+                // text. Created on web and via Android's selection-toolbar "Add to chat".
                 // Selectable: a quote is conversation text the user pulled forward, not chrome.
                 val quotes = message.quotes
                 if (isUser && !quotes.isNullOrEmpty()) {
@@ -332,10 +333,17 @@ internal fun MessageContentAndActions(
                     val partOffsets = remember(contentParts, searchQuery, isCurrentSearchMatch) {
                         val offsets = IntArray(contentParts.size)
                         if (isCurrentSearchMatch && !searchQuery.isNullOrBlank()) {
+                            // Lockstep with countMessageOccurrences: a late batch label a
+                            // finalized phase consumed is not drawn, so it contributes no offset.
+                            val consumed = findLateBatchLabelsConsumedByPhase(contentParts)
                             var acc = 0
                             contentParts.forEachIndexed { i, part ->
                                 offsets[i] = acc
-                                acc += countPartOccurrences(part, searchQuery)
+                                acc += countPartOccurrences(
+                                    part,
+                                    searchQuery,
+                                    consumedLateBatchLabel = i in consumed,
+                                )
                             }
                         }
                         offsets

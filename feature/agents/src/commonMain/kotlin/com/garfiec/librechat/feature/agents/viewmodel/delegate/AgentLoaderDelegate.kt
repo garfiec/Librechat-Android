@@ -9,6 +9,7 @@ import com.garfiec.librechat.feature.agents.components.ModelOption
 import com.garfiec.librechat.feature.agents.components.model.buildAgentVersionList
 import com.garfiec.librechat.feature.agents.viewmodel.AgentEditorStateHandle
 import com.garfiec.librechat.feature.agents.viewmodel.applyAgentData
+import com.garfiec.librechat.feature.agents.viewmodel.remergeMcpServerNames
 import com.garfiec.librechat.feature.agents.viewmodel.toDisplayData
 import com.garfiec.librechat.feature.agents.viewmodel.toHandoffDisplayData
 import kotlinx.coroutines.launch
@@ -22,7 +23,10 @@ import kotlinx.serialization.json.JsonObject
  * failure leaves the corresponding section empty rather than blocking the rest.
  *
  * After applying agent data, [loadAgent] asks [AgentFilesDelegate] to re-merge
- * any file metadata that arrived first (see remergeLoadedFiles).
+ * any file metadata that arrived first (see remergeLoadedFiles). The MCP tool
+ * fetch has the mirror-image hazard — it resolves the normalized server names in
+ * the agent's tool keys back to their raw configured form — so whichever of the
+ * two lands second triggers that merge, via [loadedAgentTools].
  */
 class AgentLoaderDelegate(
     private val stateHandle: AgentEditorStateHandle,
@@ -32,6 +36,12 @@ class AgentLoaderDelegate(
     private val filesDelegate: AgentFilesDelegate,
     private val editAgentId: String?,
 ) {
+
+    /** The loaded agent's raw tools list, kept so [loadMcpTools] can re-resolve the
+     *  server names in it if the MCP fetch is the one that finishes second. Without
+     *  it, the normalized name from the tool key stays in `selectedMcpTools` and the
+     *  server's row renders as OFF against its raw configured name. */
+    private var loadedAgentTools: List<String>? = null
 
     /** Kicks off the form's reference-data fetches (always run, edit or create). */
     fun loadReferenceData() {
@@ -54,6 +64,7 @@ class AgentLoaderDelegate(
             when (val result = agentRepository.getAgentForEditing(agentId)) {
                 is Result.Success -> {
                     val agent = result.data
+                    loadedAgentTools = agent.tools
                     Logger.d {
                         "AgentEditor: Loaded agent fields BEFORE mapping - " +
                             "name=${agent.name}, description=${agent.description}, " +
@@ -130,7 +141,11 @@ class AgentLoaderDelegate(
     }
 
     private fun loadMcpTools() = launchBestEffort(mcpRepository::getTools) { tools ->
-        stateHandle.update { copy(mcpTools = tools) }
+        // Merged in the same update as the list itself: remergeMcpServerNames resolves against
+        // `mcpTools`, so a state that has not yet taken them would resolve nothing. If the agent
+        // has not loaded yet, `loadedAgentTools` is null and this is a no-op — applyAgentData
+        // will then see a populated list and resolve on its own.
+        stateHandle.update { copy(mcpTools = tools).remergeMcpServerNames(loadedAgentTools) }
     }
 
     private fun loadAllAgents() = launchBestEffort(agentRepository::getAgents) { agents ->

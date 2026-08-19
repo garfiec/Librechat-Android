@@ -252,4 +252,130 @@ class BackendVersionTest {
     }
 
     // endregion
+
+    // region featureSupport (three-state gates)
+
+    @Test
+    fun featureSupportIsUnknownWhenTheServerCannotBePlaced() {
+        // Null is not "old": it is overwhelmingly a server built PAST the app's commit-map pin,
+        // i.e. one that very likely HAS the feature.
+        assertEquals(
+            FeatureSupport.UNKNOWN,
+            BackendVersion.featureSupport(null, "0.8.8-rc1", landedDate = "2026-07-01"),
+        )
+    }
+
+    @Test
+    fun featureSupportIsPresentAtOrAboveTheThreshold() {
+        assertEquals(
+            FeatureSupport.PRESENT,
+            BackendVersion.featureSupport(DetectedBackend("0.8.8-rc1", BackendBuildClass.RC), "0.8.8-rc1"),
+        )
+        assertEquals(
+            FeatureSupport.PRESENT,
+            BackendVersion.featureSupport(DetectedBackend("0.8.9", BackendBuildClass.OFFICIAL), "0.8.8-rc1"),
+        )
+    }
+
+    @Test
+    fun featureSupportIsAbsentOnlyForTaggedBuildsBelowTheThreshold() {
+        // A tag's package.json is exact in BOTH directions, so falling short is proof.
+        assertEquals(
+            FeatureSupport.ABSENT,
+            BackendVersion.featureSupport(DetectedBackend("0.8.7", BackendBuildClass.OFFICIAL), "0.8.8-rc1"),
+        )
+        assertEquals(
+            FeatureSupport.ABSENT,
+            BackendVersion.featureSupport(DetectedBackend("0.8.7-rc1", BackendBuildClass.RC), "0.8.8-rc1"),
+        )
+    }
+
+    @Test
+    fun featureSupportIsUnknownForAnUnsettledDevBuild() {
+        // The whole point of the split: this server reports 0.8.7 and may well be a 0.8.8-cycle
+        // build carrying the feature. supportsFeature() calls it false; this must not.
+        assertEquals(
+            FeatureSupport.UNKNOWN,
+            BackendVersion.featureSupport(dev0888Cycle, "0.8.8-rc1"),
+        )
+        assertFalse(BackendVersion.supportsFeature(dev0888Cycle, "0.8.8-rc1"))
+    }
+
+    @Test
+    fun featureSupportIsUnknownForADevBuildWithNoCommitDate() {
+        val undated = dev0888Cycle.copy(commitDate = null)
+        assertEquals(
+            FeatureSupport.UNKNOWN,
+            BackendVersion.featureSupport(undated, "0.8.8-rc1", landedDate = "2026-07-14"),
+        )
+    }
+
+    @Test
+    fun featureSupportSettlesADevBuildInBothDirectionsWithALandedDate() {
+        assertEquals(
+            FeatureSupport.PRESENT,
+            BackendVersion.featureSupport(dev0888Cycle, "0.8.8-rc1", landedDate = "2026-07-14"),
+        )
+        assertEquals(
+            FeatureSupport.ABSENT,
+            BackendVersion.featureSupport(dev0888Cycle, "0.8.8-rc1", landedDate = "2026-07-21"),
+        )
+    }
+
+    @Test
+    fun featureSupportKeepsTheDateFallbackDevOnly() {
+        val official = DetectedBackend("0.8.7", BackendBuildClass.OFFICIAL, commitDate = "2026-07-20")
+        assertEquals(
+            FeatureSupport.ABSENT,
+            BackendVersion.featureSupport(official, "0.8.8-rc1", landedDate = "2026-07-14"),
+        )
+    }
+
+    @Test
+    fun featureSupportTreatsAnUnclassifiedVersionAsUnknown() {
+        // The only producer today is a config-supplied `version` field, which upstream would
+        // source from the same package.json a dev build under-reports.
+        assertEquals(
+            FeatureSupport.UNKNOWN,
+            BackendVersion.featureSupport(DetectedBackend("0.8.7"), "0.8.8-rc1"),
+        )
+    }
+
+    @Test
+    fun featureSupportDoesNotInferAgeFromHowFarBelowTheThresholdADevBuildReports() {
+        // A dev build two lines back is ALMOST certainly too old, and "almost" is the problem:
+        // the one-release-line-per-bump habit is upstream's convention, not a guarantee, and
+        // reading it as proof would silently suppress the feature the day that habit changes.
+        // Deliberately UNKNOWN — the callsite pays one probe instead.
+        assertEquals(
+            FeatureSupport.UNKNOWN,
+            BackendVersion.featureSupport(
+                DetectedBackend("0.8.5", BackendBuildClass.DEV, "2026-04-20"),
+                "0.8.8-rc1",
+            ),
+        )
+    }
+
+    @Test
+    fun supportsFeatureIsExactlyThePresentCase() {
+        // supportsFeature is the Boolean shorthand, so every existing gate keeps its behaviour
+        // byte for byte — only callsites that ASK for the third state can see a difference.
+        val servers = listOf(
+            null,
+            DetectedBackend("0.8.8-rc1", BackendBuildClass.RC),
+            DetectedBackend("0.8.7", BackendBuildClass.OFFICIAL),
+            DetectedBackend("0.8.7", BackendBuildClass.DEV, "2026-07-20"),
+            DetectedBackend("0.8.7"),
+        )
+        for (landedDate in listOf(null, "2026-07-14", "2026-07-21")) {
+            for (server in servers) {
+                assertEquals(
+                    BackendVersion.featureSupport(server, "0.8.8-rc1", landedDate).isPresent,
+                    BackendVersion.supportsFeature(server, "0.8.8-rc1", landedDate),
+                )
+            }
+        }
+    }
+
+    // endregion
 }

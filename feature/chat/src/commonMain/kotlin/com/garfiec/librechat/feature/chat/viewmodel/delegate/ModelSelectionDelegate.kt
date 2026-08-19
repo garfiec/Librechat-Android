@@ -687,6 +687,17 @@ class ModelSelectionDelegate(
      *
      * Agents are validated against the authoritative fetched [agents] list, not
      * `availableModels` (agents are fetched separately and may not appear there).
+     *
+     * **This is also what makes upstream's soft-default re-arm bug (SYNC-30) unreachable here,
+     * verified rather than ported.** Upstream had a stored agent selection that no longer resolved
+     * keep suppressing the `softDefault` model spec, stranding New Chat on the agents endpoint
+     * with nothing selected. An agent absent from a LOADED list is INVALID here, not sticky, so
+     * `applySeed` falls straight through to Tier 2/3 and re-arms. The sibling bug — a `?spec=`
+     * cold load rendering a chimera of spec chip and agent entity — needs a persisted selection
+     * that is a bare SPEC NAME carrying no endpoint or model; this client persists
+     * `lastUsedEndpoint` and `lastUsedModel` as a pair and models no spec-name selection at all.
+     *
+     * Do not "port" either fix on a later sync without first re-checking those two premises.
      */
     private fun selectability(
         endpoint: String?,

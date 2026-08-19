@@ -1,5 +1,7 @@
 package com.garfiec.librechat.core.model.response
 
+import com.garfiec.librechat.core.common.BackendVersion
+
 /**
  * Verbatim mirror of `fullMimeTypesList` in upstream `packages/data-provider/src/file-config.ts`
  * (its trailing `...excelFileTypes` spread inlined), in upstream order.
@@ -19,6 +21,8 @@ private val UPSTREAM_MIME_TYPES: List<String> = listOf(
     "application/pdf",
     "text/x-php",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    // .potx templates (v0.8.8-rc1, upstream 6c46fd12); offered only at ≥ rc1 — see POTX_MIME_TYPE.
+    "application/vnd.openxmlformats-officedocument.presentationml.template",
     "text/x-python",
     "text/x-script.python",
     "text/x-ruby",
@@ -134,6 +138,7 @@ fun FileUploadConfig.effectiveSupportedMimeTypes(endpoint: String?): List<String
 fun FileUploadConfig.pickerMimeTypes(
     endpoint: String? = null,
     includeTextRoute: Boolean = false,
+    serverVersion: String? = null,
 ): List<String> {
     val patterns = effectiveSupportedMimeTypes(endpoint)
     if (patterns.isEmpty()) return emptyList()
@@ -147,8 +152,21 @@ fun FileUploadConfig.pickerMimeTypes(
         matched += hits
     }
     if (includeTextRoute) matched += TEXT_ROUTE_MIME_TYPES
+    // .potx joined upstream's accepted list at v0.8.8-rc1; a pre-rc1 (or unknown) server rejects
+    // the upload, so don't offer it in the translated filter there. This only narrows the
+    // translation — the no-restriction (empty) answer still falls back to */* either way.
+    if (serverVersion == null || !BackendVersion.isCompatibleOrNewer(serverVersion, POTX_MIN_VERSION)) {
+        matched -= POTX_MIME_TYPE
+    }
     return matched.toList()
 }
+
+/** `.potx` — accepted upstream from v0.8.8-rc1 (6c46fd12); see [pickerMimeTypes]. */
+private const val POTX_MIME_TYPE =
+    "application/vnd.openxmlformats-officedocument.presentationml.template"
+
+/** First server version whose default allowlist accepts [POTX_MIME_TYPE]. */
+private const val POTX_MIN_VERSION = "0.8.8-rc1"
 
 /**
  * The known types the server-side text route can extract.

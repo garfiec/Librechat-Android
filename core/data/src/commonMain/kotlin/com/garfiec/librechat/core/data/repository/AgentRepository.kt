@@ -36,6 +36,19 @@ interface AgentRepository {
     suspend fun getAgent(id: String): Result<Agent>
 
     /**
+     * The LIST route's own EDIT answer (`isEditable`) for one agent, or null when this account has
+     * no list answer for it.
+     *
+     * The field is stamped by `getListAgents` alone; neither `GET /api/agents/:id` nor `/expanded`
+     * reports it, so a screen holding a single agent cannot read it off that agent. Remembered as
+     * list rows arrive and dropped whenever an agent mutation invalidates the cache.
+     *
+     * **Null means unknown, not permitted** ([Agent.isEditable]): use it only to NARROW a verdict
+     * reached some other way.
+     */
+    suspend fun listedEditVerdict(id: String): Boolean?
+
+    /**
      * The agent's LLM `provider`, straight from `GET /api/agents/:id` (returned at VIEW permission).
      *
      * Deliberately not expressed as `getAgent(id).provider`: the agent *list* projection omits

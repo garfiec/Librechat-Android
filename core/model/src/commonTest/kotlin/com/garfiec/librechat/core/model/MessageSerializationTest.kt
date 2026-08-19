@@ -238,4 +238,59 @@ class MessageSerializationTest {
         assertEquals("stop", decoded.finishReason)
         assertEquals("t-1", decoded.threadId)
     }
+
+    // ─── tolerant TEXT part decode (upstream d920328bfa53) ──────────
+
+    @Test
+    fun textPartDecodesTheAnnotatedObjectForm() {
+        // A part edited via PUT /api/messages spread-preserves its text as {value, annotations};
+        // every later fetch of the conversation returns that object where a string used to be.
+        val serverJson = """
+            {
+                "messageId": "msg-edit",
+                "conversationId": "conv-1",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": { "value": "Edited body.", "annotations": [] }
+                    },
+                    { "type": "text", "text": "Plain body." }
+                ]
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString(Message.serializer(), serverJson)
+        assertEquals("Edited body.", decoded.content?.get(0)?.text)
+        assertEquals("Plain body.", decoded.content?.get(1)?.text)
+    }
+
+    @Test
+    fun textPartObjectFormWithoutAValueDegradesToNullNotAThrow() {
+        // The point of the tolerance: one malformed part must not reject the whole response.
+        val serverJson = """
+            {
+                "messageId": "msg-odd",
+                "conversationId": "conv-1",
+                "content": [
+                    { "type": "text", "text": { "annotations": [] } },
+                    { "type": "text", "text": ["not", "a", "string"] }
+                ]
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString(Message.serializer(), serverJson)
+        assertEquals(null, decoded.content?.get(0)?.text)
+        assertEquals(null, decoded.content?.get(1)?.text)
+    }
+
+    @Test
+    fun textPartRoundTripsAsAPlainString() {
+        // The Room cache and conversation export re-encode decoded parts; the object form must
+        // come back out as the plain string every consumer and older app version reads.
+        val part = json.decodeFromString(
+            MessageContentPart.serializer(),
+            """{ "type": "text", "text": { "value": "Edited body.", "annotations": [{"x":1}] } }""",
+        )
+        val encoded = json.encodeToString(MessageContentPart.serializer(), part)
+        val reDecoded = json.decodeFromString(MessageContentPart.serializer(), encoded)
+        assertEquals("Edited body.", reDecoded.text)
+    }
 }

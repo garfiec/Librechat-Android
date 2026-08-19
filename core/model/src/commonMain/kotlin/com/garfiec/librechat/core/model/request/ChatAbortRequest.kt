@@ -4,7 +4,25 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ChatAbortRequest(
-    val abortKey: String,
+    /**
+     * The job key, when one is known. **Never the empty string.**
+     *
+     * The abort route validates every target field before resolving anything: a value that is
+     * `!= null` but zero-length (or over 512 chars) is rejected outright with 400
+     * `INVALID_ABORT_TARGET` — the empty string is no longer falsy here. An unknown id must OMIT
+     * this field and say so through [conversationId] instead.
+     */
+    val abortKey: String? = null,
+    /**
+     * The conversation being aborted, or the literal `"new"` when the `created` event has not
+     * assigned an id yet.
+     *
+     * `"new"` is the only way to reach the route's user-scoped fallback: it is gated on
+     * `streamId === 'new' || conversationId === 'new'`, so an omitted or unknown-but-concrete id
+     * resolves no job and aborts nothing. Safe against older servers too — they skipped `"new"`
+     * when picking a job id and then fell into the same fallback unconditionally.
+     */
+    val conversationId: String? = null,
     val endpoint: String,
     /**
      * SECURITY: temp-chat data-at-rest guard, server side.

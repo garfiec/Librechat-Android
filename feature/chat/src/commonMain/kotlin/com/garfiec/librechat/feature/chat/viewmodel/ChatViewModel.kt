@@ -58,12 +58,14 @@ import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
 import com.garfiec.librechat.feature.chat.util.hasParallelParts
 import com.garfiec.librechat.feature.chat.util.isImageType
+import com.garfiec.librechat.feature.chat.util.serializeMessageForClipboard
 import com.garfiec.librechat.feature.chat.util.stabilizeMessageInstances
 import com.garfiec.librechat.feature.chat.util.visionUnreadableImageNames
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
@@ -391,7 +393,7 @@ class ChatViewModel(
         fingerprintRejectedMessage = {
             "This paused response was started with a different setup, so it can't be answered here."
         },
-        restoreAnswer = ::restoreUnsentInput,
+        restoreAnswer = { text -> restoreUnsentInput(text) },
         resumePinStore = resumePinStore,
     )
 
@@ -593,19 +595,24 @@ class ChatViewModel(
             }
         }
 
-        // Mid-run steering (v0.8.8). Version-gated rather than self-proving: unlike a HITL pause,
-        // which the server pushes, steering has to be OFFERED before any server has said anything
-        // about it. Date-gated on top of the version because the 0.8.8 line is untagged — a dev
-        // build still reports 0.8.7 (see BackendVersion.supportsFeature). Failing closed here
+        // Mid-run steering (v0.8.8-rc1). Version-gated rather than self-proving: unlike a HITL
+        // pause, which the server pushes, steering has to be OFFERED before any server has said
+        // anything about it. Plain version compare since the rc1 tag shipped. Failing closed here
         // just leaves the composer queueing mid-run, which every supported server handles.
         viewModelScope.launch {
             configRepository.detectedBackend.collect { detected ->
                 val supported = BackendVersion.supportsFeature(
                     detected = detected,
                     minVersion = "0.8.8-rc1",
-                    landedDate = "2026-07-14",
                 )
-                _uiState.update { it.copy(gates = it.gates.copy(steeringSupported = supported)) }
+                _uiState.update {
+                    it.copy(
+                        gates = it.gates.copy(
+                            steeringSupported = supported,
+                            backendVersion = detected?.version,
+                        ),
+                    )
+                }
             }
         }
 
@@ -885,9 +892,21 @@ class ChatViewModel(
      * Yields to anything the user has since typed — same rule as [restoreDraft] — and persists
      * as a draft so the restored text survives process death, same as [onInputChanged].
      */
-    private fun restoreUnsentInput(text: String) {
+    private fun restoreUnsentInput(text: String, quotes: List<String> = emptyList()) {
         _uiState.update {
-            if (it.inputText.isBlank()) it.copy(composer = it.composer.copy(inputText = text)) else it
+            if (it.inputText.isBlank()) {
+                it.copy(
+                    composer = it.composer.copy(
+                        inputText = text,
+                        // The chips were taken (and cleared) when the spec was minted, so an
+                        // un-send has to put them back or the retry silently loses the excerpts.
+                        // Anything staged since wins — same yield-to-the-user rule as the text.
+                        pendingQuotes = it.composer.pendingQuotes.ifEmpty { quotes },
+                    ),
+                )
+            } else {
+                it
+            }
         }
         if (_uiState.value.inputText != text) return
         val draftKey = _uiState.value.conversationId ?: NEW_CHAT_DRAFT_KEY
@@ -1044,8 +1063,20 @@ class ChatViewModel(
             DuringRunSendTarget.ANSWER_PAUSE -> {
                 val answer = state.inputText.trim()
                 if (answer.isEmpty()) return
-                clearComposer()
-                answerPendingQuestion(answer)
+                // A batched pause (one question or many) resolves through the batched channel:
+                // the route reads the PAYLOAD to pick which body it accepts, and a pause carrying
+                // `questions` rejects a bare `answer`. The delegate fills the first question the
+                // CARD still has no answer for — the drafts are shared state, so the answer shows
+                // up in that question's field — and submits the full map once the last one is in;
+                // a partial map is 400 "Answers are required for every question", so there is no
+                // per-question submit to route to. The composer is cleared only if the delegate
+                // took the text, so a send it cannot use leaves the words where the user put them.
+                if (state.renderablePendingAction?.payload?.questions != null) {
+                    if (pendingActionDelegate.answerNextBatchQuestion(answer)) clearComposer()
+                } else {
+                    clearComposer()
+                    answerPendingQuestion(answer)
+                }
             }
 
             DuringRunSendTarget.STEER -> steerMessage()
@@ -1144,8 +1175,11 @@ class ChatViewModel(
 
     private fun enqueueNow(text: String) {
         val spec = buildSendSpec(text) ?: return
+        // Composer-origin queue takes the staged quotes with it (web takeComposerContext): they
+        // pair with THIS queued message instead of gluing onto whatever the user sends next.
+        val withQuotes = spec.copy(quotes = takePendingQuotes(spec.endpoint))
         clearComposer()
-        enqueueSpec(spec)
+        enqueueSpec(withQuotes)
     }
 
     /**
@@ -1208,7 +1242,8 @@ class ChatViewModel(
             // The upload wait is async — bail if the edit was cancelled (or replaced) meanwhile,
             // so we don't reinsert a duplicate after cancelQueuedEdit already restored the item.
             if (_uiState.value.editingQueuedItem != session) return@withUploadGate
-            val edited = buildSendSpec(text)?.copy(localId = session.original.localId)
+            val edited = buildSendSpec(text)
+                ?.copy(localId = session.original.localId, quotes = session.original.quotes)
             if (edited != null) {
                 queueDelegate.reinsert(session.originalIndex, edited)
             } else {
@@ -1330,7 +1365,49 @@ class ChatViewModel(
 
     private fun sendNow(text: String) {
         val spec = buildSendSpec(text) ?: return
-        doSendWithSpec(spec, clearComposerOnSend = true)
+        doSendWithSpec(
+            spec.copy(quotes = takePendingQuotes(spec.endpoint)),
+            clearComposerOnSend = true,
+        )
+    }
+
+    /**
+     * Atomically takes (and clears) the staged quote chips for a send on [endpoint] — the
+     * fresh-submit / composer-queue drain of web's `pendingQuotesByConvoId` atom. Assistants
+     * endpoints take nothing and leave the chips staged: they bypass the server-side merge, and
+     * a selection staged elsewhere must not silently ride along (web's `quotesSupported` guard).
+     * Regenerate/continue/edit never call this — those flows replay a prior turn.
+     */
+    private fun takePendingQuotes(endpoint: String): List<String> {
+        if (!quotesSupportedOn(endpoint)) return emptyList()
+        var taken: List<String> = emptyList()
+        _uiState.update {
+            taken = it.composer.pendingQuotes
+            if (taken.isEmpty()) it else it.copy(composer = it.composer.copy(pendingQuotes = emptyList()))
+        }
+        return taken
+    }
+
+    /** Stages a selected excerpt as a pending quote chip (selection toolbar "Add to chat"). */
+    fun addPendingQuote(text: String) {
+        val excerpt = text.trim()
+        if (excerpt.isEmpty()) return
+        _uiState.update {
+            it.copy(composer = it.composer.copy(pendingQuotes = it.composer.pendingQuotes + excerpt))
+        }
+    }
+
+    /** Removes one staged quote chip (its ×). */
+    fun removePendingQuote(index: Int) {
+        _uiState.update {
+            val quotes = it.composer.pendingQuotes
+            if (index !in quotes.indices) return@update it
+            it.copy(
+                composer = it.composer.copy(
+                    pendingQuotes = quotes.filterIndexed { i, _ -> i != index },
+                ),
+            )
+        }
     }
 
     /**
@@ -1401,6 +1478,9 @@ class ChatViewModel(
             sender = "User",
             createdAt = Clock.System.now().toString(),
             files = fileRefs.takeIf { it.isNotEmpty() },
+            // The server persists and echoes them; painting them optimistically keeps the user
+            // bubble's quote blocks from popping in a turn later.
+            quotes = spec.quotes.takeIf { it.isNotEmpty() },
         )
         val isNewChat = conversationId == null
         _uiState.update {
@@ -1462,6 +1542,7 @@ class ChatViewModel(
             ephemeralAgent = spec.ephemeralAgent,
             isTemporary = spec.isTemporary,
             modelParams = spec.modelParamsPayload,
+            quotes = spec.quotes.takeIf { it.isNotEmpty() },
         )
         streamingManager.launchStream(stream) {
             // Safety net: if the flow ends without Final or Error, clear streaming
@@ -1486,6 +1567,10 @@ class ChatViewModel(
         editingDelegate.regenerateMessage(messageId)
     }
 
+    /**
+     * Text-parts extraction for TTS and the edit prefill. NOT the copy path — whole-message copy
+     * goes through [getMessageClipboardText], which serializes every part.
+     */
     fun getMessageText(messageId: String): String {
         val message = _uiState.value.messages.find { it.messageId == messageId } ?: return ""
         val contentParts = message.content
@@ -1495,6 +1580,15 @@ class ChatViewModel(
             }.joinToString("")
         }
         return message.text
+    }
+
+    /**
+     * The clipboard serialization of a whole message — tool calls, reasoning and media parts as
+     * labeled blocks, not just its text. Mirrors web `serializeMessageForClipboard`.
+     */
+    fun getMessageClipboardText(messageId: String): String {
+        val message = _uiState.value.messages.find { it.messageId == messageId } ?: return ""
+        return serializeMessageForClipboard(message)
     }
 
     fun stopGeneration() = streamingManager.stopGeneration()
@@ -1507,8 +1601,22 @@ class ChatViewModel(
     fun resolveToolApproval(decisions: List<ToolApprovalResolution>) =
         pendingActionDelegate.submitToolDecisions(decisions)
 
-    /** Answers the paused run's `ask_user_question` and lets it continue. */
+    /** Answers a single-question `ask_user_question` pause and lets the run continue. */
     fun answerPendingQuestion(answer: String) = pendingActionDelegate.submitAnswer(answer)
+
+    /**
+     * Answers a batched `ask_user_question` pause — one answer per question id.
+     *
+     * Separate from [answerPendingQuestion] because the resume route is: it selects the channel
+     * from the pause's payload, so a batch cannot be resolved with a joined string and a single
+     * question cannot be resolved with a map.
+     */
+    fun answerPendingQuestions(answers: Map<String, String>) =
+        pendingActionDelegate.submitAnswers(answers)
+
+    /** One batched question's editor state, hoisted out of `PendingActionCard`. */
+    fun updateAskAnswerDraft(questionId: String, draft: AskAnswerDraft) =
+        pendingActionDelegate.updateAskAnswerDraft(questionId, draft)
 
     fun continueGeneration() {
         if (_uiState.value.isEditingQueued) return

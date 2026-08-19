@@ -51,8 +51,26 @@ data class Agent(
      *
      * Read-only: it comes from the owner's account, not from the agent editor, and is the
      * fallback shown when an agent declares no support contact of its own.
+     *
+     * **No longer carries `email`** (validated security advisory): any authenticated user with
+     * VIEW access to a shared agent could read the owner's private account address. The server
+     * now resolves a display name only, and discards any candidate containing `@`. Nothing here
+     * breaks — `toContact()` already returns name-only when the address is absent — but a mailto
+     * affordance on the OWNER fallback is dead against a current server. An agent's own declared
+     * [supportContact] is unaffected.
      */
     @SerialName("owner_contact") val ownerContact: JsonElement? = null,
+    /**
+     * Whether the caller may edit this agent, stamped per row by the LIST endpoint from an
+     * EDIT-scoped accessible-id set resolved alongside the VIEW set.
+     *
+     * **Absent means UNKNOWN, and unknown must not grant edit.** An older server sends nothing
+     * here, so an edit affordance shown on absence would appear for every agent in the list on
+     * every server that predates the field — including agents the caller cannot touch, whose
+     * edit attempt then 403s. The per-agent probe that `AgentDetailViewModel.canEdit` performs
+     * stays the authority; this only lets the LIST avoid it where the server has already answered.
+     */
+    val isEditable: Boolean? = null,
     @SerialName("tool_options") val toolOptions: JsonObject? = null,
     /**
      * Runtime-supplied extra instructions appended to the agent system prompt.

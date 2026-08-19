@@ -52,8 +52,8 @@ fun SecondaryMessageList(
     bottomContentPadding: Dp = 160.dp,
 ) {
     val listState = rememberLazyListState()
-    // A live `ask_user_question` pause is rendered by PendingActionCard, not as a tool card.
-    val renderedToolCalls = remember(activeToolCalls) { activeToolCalls.withoutUnansweredQuestions() }
+    // This pane hosts no PendingActionCard, so an unanswered ask has no affordance to resolve it.
+    val renderedToolCalls = remember(activeToolCalls) { activeToolCalls.withoutAnyUnansweredQuestions() }
     val totalItemCount = displayMessages.size +
         (if (isStreaming) 1 else 0) +
         (if (isStreaming) renderedToolCalls.size else 0)

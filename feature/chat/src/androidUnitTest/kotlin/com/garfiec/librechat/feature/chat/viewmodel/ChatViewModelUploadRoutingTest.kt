@@ -285,6 +285,7 @@ class ChatViewModelUploadRoutingTest {
                 chatRepository.startChat(
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(),
                 )
             }
             assertThat(vm.uiState.value.composer.pendingUploadRouting).isNotNull()
@@ -314,6 +315,7 @@ class ChatViewModelUploadRoutingTest {
                 chatRepository.startChat(
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(),
                 )
             }
             assertThat(vm.uiState.value.inputText).isEqualTo("look at this")

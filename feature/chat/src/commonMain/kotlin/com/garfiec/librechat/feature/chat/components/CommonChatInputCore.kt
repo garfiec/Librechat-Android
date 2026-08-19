@@ -113,6 +113,8 @@ data class ChatInputState(
     val duringRunSendTarget: DuringRunSendTarget = DuringRunSendTarget.QUEUE,
     /** Steers accepted by the running turn but not yet injected; rendered above the queue. */
     val pendingSteers: List<PendingSteerChip> = emptyList(),
+    /** Staged "Add to chat" excerpts (v0.8.7 quotes); chips above the composer. */
+    val pendingQuotes: List<String> = emptyList(),
     /** True while the composer is editing a queued item (queued-edit mode): the send button
      *  becomes "Update" and an editing banner shows above the input. */
     val isEditingQueued: Boolean = false,
@@ -163,6 +165,8 @@ fun CommonChatInputCore(
     onSteer: () -> Unit = {},
     /** Withdraw a steer the run has not injected yet. */
     onCancelSteer: (steerId: String) -> Unit = {},
+    /** Remove one staged quote chip (v0.8.7 "Add to chat"). */
+    onRemoveQuote: (index: Int) -> Unit = {},
     /** Persist a new default for what a mid-stream send does. */
     onSetDuringRunAction: (DuringRunAction) -> Unit = {},
     /** Number of queued messages held by a Stop/error pause. >0 shows the "Send queued" banner
@@ -214,6 +218,12 @@ fun CommonChatInputCore(
             // vertical scroll here would fight the long-press drag-reorder. Self-hides when empty.
             // Steers first, then the queue: the order they will reach the model. A steer lands in
             // the reply being written right now; a queued message becomes a later turn.
+            PendingQuoteChipsSection(
+                pendingQuotes = state.pendingQuotes,
+                onRemove = onRemoveQuote,
+                fontSizeMultiplier = fontSizeMultiplier,
+            )
+
             PendingSteerChipsSection(
                 pendingSteers = state.pendingSteers,
                 onCancel = onCancelSteer,

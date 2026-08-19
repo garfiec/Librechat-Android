@@ -270,4 +270,107 @@ class UploadRoutingTest {
         assertFalse(isProviderCapable(txt, "ollama"))
         assertFalse(isProviderCapable(null, "anthropic"))
     }
+
+    // ------------------------------------- shell-script alias (v0.8.8-rc1, upstream 5e464bc9)
+
+    @Test
+    fun shellScriptVariantsRouteToTextOnAnRc1Server() {
+        // Chrome-on-Linux and libmagic spellings of `.sh`; the server aliases both to
+        // application/x-sh, which is textual and not provider-native on anthropic.
+        assertEquals(
+            UploadRoute.TEXT,
+            resolveUploadRoute("application/x-shellscript", "anthropic", serverVersion = "0.8.8-rc1"),
+        )
+        assertEquals(
+            UploadRoute.TEXT,
+            resolveUploadRoute("text/x-shellscript", "anthropic", serverVersion = "0.8.8"),
+        )
+        assertTrue(isTextExtractable("application/x-shellscript", serverVersion = "0.8.8-rc1"))
+    }
+
+    @Test
+    fun applicationShellScriptStaysOnTheProviderOnPreRc1AndUnknownServers() {
+        // A pre-rc1 server does not normalise this spelling, so treating it as textual there
+        // routes it to a path the server rejects. Unaliased it reads as an unknown application/*
+        // type and fails toward PROVIDER — the pre-alias behaviour.
+        assertEquals(
+            UploadRoute.PROVIDER,
+            resolveUploadRoute("application/x-shellscript", "anthropic", serverVersion = "0.8.7"),
+        )
+        assertEquals(
+            UploadRoute.PROVIDER,
+            resolveUploadRoute("application/x-shellscript", "anthropic", serverVersion = null),
+        )
+        assertFalse(isTextExtractable("application/x-shellscript"))
+    }
+
+    @Test
+    fun textShellScriptWasAlwaysTextualAndStaysSo() {
+        // The libmagic spelling sits in the text/ tree, which this router has always treated as
+        // extractable — the rc1 alias must not regress that on older servers. The alias only
+        // changes which canonical name later lookups see, not the outcome.
+        assertEquals(
+            UploadRoute.TEXT,
+            resolveUploadRoute("text/x-shellscript", "anthropic", serverVersion = null),
+        )
+        assertTrue(isTextExtractable("text/x-shellscript"))
+    }
+
+    // ------------------------------------- platform MIME normalization (Android `.sh`)
+
+    @Test
+    fun theAndroidShellScriptSpellingIsRewrittenForTheWire() {
+        // Android's DocumentsProvider reports `.sh` as text/x-sh, a spelling that appears nowhere
+        // upstream — not in mimeTypeAliases, not in fullMimeTypesList — so the upload gate answers
+        // 415 "Unsupported file type: text/x-sh". Probed against a live rc1 server; the canonical
+        // application/x-sh passes.
+        assertEquals("application/x-sh", uploadMimeType("text/x-sh"))
+    }
+
+    @Test
+    fun theRewriteIsNotVersionGatedBecauseTheTargetPredatesRc1() {
+        // application/x-sh has been in upstream's fullMimeTypesList since well before this sync's
+        // baseline (verified at v0.8.6, v0.8.7 and at the shellscript-alias commit's parent), so
+        // there is no older server whose behaviour a gate would preserve. Contrast
+        // application/x-shellscript below, whose gate exists precisely because its target only
+        // became an alias at rc1.
+        assertEquals(UploadRoute.TEXT, resolveUploadRoute("text/x-sh", "anthropic", serverVersion = "0.8.7"))
+        assertEquals(UploadRoute.TEXT, resolveUploadRoute("text/x-sh", "anthropic", serverVersion = null))
+        assertTrue(isTextExtractable("text/x-sh"))
+    }
+
+    @Test
+    fun theRewriteLeavesTheUpstreamAliasesOnTheWireAlone() {
+        // The server normalises those itself on receipt and each already clears the upload gate,
+        // so rewriting them here would change what the server records for no reason — and putting
+        // this row in the mirrored table would make check-mirrors.py report a phantom drift
+        // against a table upstream will never contain.
+        assertEquals("application/x-zip-compressed", uploadMimeType("application/x-zip-compressed"))
+        assertEquals("text/x-markdown", uploadMimeType("text/x-markdown"))
+        assertEquals("application/x-shellscript", uploadMimeType("application/x-shellscript"))
+        assertEquals("text/plain", uploadMimeType("text/plain"))
+        assertEquals(null, uploadMimeType(null))
+    }
+
+    @Test
+    fun theRewriteKeepsMimeParametersAndRoutesTheSameAsBefore() {
+        // It rewrites a type, it does not sanitise a header.
+        assertEquals("application/x-sh;charset=utf-8", uploadMimeType("text/x-sh;charset=utf-8"))
+        // And the routing outcome is unchanged by the normalization: text/x-sh was extractable via
+        // the text/ tree, application/x-sh via TEXTUAL_APPLICATION_MIME_TYPES. Only the name the
+        // server is handed changes, which is the whole defect.
+        assertEquals(
+            resolveUploadRoute("application/x-sh", "anthropic"),
+            resolveUploadRoute("text/x-sh", "anthropic"),
+        )
+        assertTrue(isProviderCapable("text/x-sh", "anthropic") == isProviderCapable("application/x-sh", "anthropic"))
+    }
+
+    @Test
+    fun preExistingAliasesAreNotVersionGated() {
+        // Only the two shell-script rows landed at rc1; the rest of the table has aliased on
+        // every supported server all along and must keep doing so with no version in hand —
+        // unaliased, `text/x-markdown` would miss Bedrock's native format table.
+        assertTrue(isProviderCapable("text/x-markdown", "bedrock"))
+    }
 }

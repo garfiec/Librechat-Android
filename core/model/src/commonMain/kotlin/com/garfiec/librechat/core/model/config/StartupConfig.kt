@@ -2,6 +2,7 @@ package com.garfiec.librechat.core.model.config
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 @Serializable
@@ -56,6 +57,24 @@ data class StartupConfig(
     val cloudFront: JsonObject? = null,
     /** Server build metadata (commit/branch/buildDate), gated by `interface.buildInfo`. */
     val buildInfo: BuildInfo? = null,
+    // --- v0.8.8 detection (parse-surface only) ---
+    /**
+     * The operator's admin panel URL, emitted **only** when `ADMIN_PANEL_URL` is configured AND
+     * the caller has the ACCESS_ADMIN capability — it is stripped for unauthenticated requests
+     * and for non-admins, and upstream's tests assert that.
+     *
+     * That makes its **presence** the server's own admin signal, which is the cheapest way for a
+     * client to decide whether to offer an admin entry point at all. Two consequences: absence is
+     * the normal case and must never be treated as an error, and the value **must not be cached
+     * across accounts** — it is a per-caller answer, not a property of the deployment.
+     *
+     * No mobile admin UI is in scope; this is decode surface.
+     */
+    val adminPanelURL: String? = null,
+    /** Langfuse observability fan-out. Always present; admin-facing, opaque to mobile. */
+    val langfuseFanoutEnabled: Boolean? = null,
+    /** Which roles may manage Langfuse connections. Always present; admin-facing, opaque here. */
+    val langfuseConnectionAccess: JsonElement? = null,
     // --- v0.8.7 detection (parse-surface only) ---
     /** Whether shared links may include snapshot file copies. Mirrors `interface.sharedLinks.snapshotFiles`
      *  at startup level. Mobile has no public-share viewer / snapshot fetch, so detection-only. */

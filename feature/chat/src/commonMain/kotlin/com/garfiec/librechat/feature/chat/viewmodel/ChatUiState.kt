@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
 import androidx.compose.runtime.Immutable
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
@@ -28,6 +29,7 @@ import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.MessageNode
 
 /**
@@ -104,6 +106,23 @@ data class ChatUiState(
     val sendBlockReason: SendBlockReason? get() = composer.sendBlockReason
     val editingQueuedItem: QueuedEditSession? get() = composer.editingQueuedItem
     val isAwaitingUploadSend: Boolean get() = composer.isAwaitingUploadSend
+    val pendingQuotes: List<String> get() = composer.pendingQuotes
+
+    /**
+     * Whether the "Add to chat" quote affordance is offered (v0.8.7, upstream #13868).
+     *
+     * Fail-CLOSED on an unknown backend version: a pre-0.8.7 server ignores the request's
+     * `quotes` field, so the excerpts would be silently dropped — offering the affordance there
+     * is worse than hiding it. Also off on assistants endpoints, which bypass the server-side
+     * blockquote merge (web's `quotesSupported` guard).
+     */
+    val quoteCaptureAvailable: Boolean
+        get() = quotesSupportedOnEndpoint &&
+            gates.backendVersion?.let { BackendVersion.isCompatibleOrNewer(it, "0.8.7") } == true
+
+    /** Web's `quotesSupported`: everything except the assistants endpoints. */
+    val quotesSupportedOnEndpoint: Boolean
+        get() = quotesSupportedOn(selectedEndpoint)
 
     /**
      * True while picked files exist but are not yet in the attachment tray — mid-intake, or staged
@@ -166,6 +185,7 @@ data class ChatUiState(
     val tokenUsage: TokenUsage? get() = content.tokenUsage
     val pendingAction: PendingAction? get() = content.pendingAction
     val isResolvingPendingAction: Boolean get() = content.isResolvingPendingAction
+    val askAnswerDrafts: Map<String, AskAnswerDraft> get() = content.askAnswerDrafts
     val memoryEnabled: Boolean get() = gates.memoryEnabled
     val conversationId: String? get() = conversation.conversationId
     val conversationTitle: String? get() = conversation.conversationTitle
@@ -304,11 +324,18 @@ data class ChatUiState(
      *
      * Tool-approval pauses are excluded: they take decisions, not prose, so free text there is a
      * genuine follow-up.
+     *
+     * A multi-question batch ([PendingAction.isComposerAnswerableAsk]) is included: the send fills
+     * the first question the card still has no answer for, into the same [askAnswerDrafts] the
+     * card's own editors write, and the batch goes up whole once the last one is in. The resume
+     * route wants one answer per id and 400s a body missing any of them, so there is no
+     * per-question submit to route to — but there is progress to make, and steer/queue would
+     * leave the run paused while the send appeared to work.
      */
     val duringRunSendTarget: DuringRunSendTarget
         get() {
             val pause = renderablePendingAction
-            if (pause != null && pause.isAskUserQuestion && !isResolvingPendingAction) {
+            if (pause != null && pause.isComposerAnswerableAsk && !isResolvingPendingAction) {
                 return DuringRunSendTarget.ANSWER_PAUSE
             }
             return when (effectiveDuringRunAction) {
@@ -428,6 +455,7 @@ data class ChatUiState(
             endpoint = selectedEndpoint,
             endpointType = endpointConfigs[selectedEndpoint]?.type,
             agentProvider = routingAgentProvider,
+            serverVersion = gates.backendVersion,
         )
     }
 
@@ -448,7 +476,7 @@ data class ChatUiState(
         if (!isFileContextAvailable) return false
         // A type the server cannot extract has exactly one usable mode however capable the
         // provider is: there is no second option to offer.
-        if (!isTextExtractable(mimeType)) return false
+        if (!isTextExtractable(mimeType, serverVersion = gates.backendVersion)) return false
         val endpointType = endpointConfigs[selectedEndpoint]?.type
         // An unresolved provider is not a *provider-only* file. Auto still routes it to PROVIDER —
         // guessing is what this feature refuses to do — but a user who asked to be asked every time
@@ -461,6 +489,7 @@ data class ChatUiState(
             endpoint = selectedEndpoint,
             endpointType = endpointType,
             agentProvider = routingAgentProvider,
+            serverVersion = gates.backendVersion,
         )
     }
 
@@ -494,3 +523,13 @@ enum class DuringRunSendTarget {
     /** Hold as a follow-up for after the run. */
     QUEUE,
 }
+
+/**
+ * Web's `quotesSupported`: the assistants endpoints bypass the server-side blockquote merge, so
+ * they take no quotes. Shared by the affordance gate ([ChatUiState.quotesSupportedOnEndpoint]) and
+ * the send-time take, which must agree — offering the chips and then dropping them at send is the
+ * failure this single spelling exists to prevent.
+ */
+internal fun quotesSupportedOn(endpoint: String?): Boolean =
+    !endpoint.equals("assistants", ignoreCase = true) &&
+        !endpoint.equals("azureAssistants", ignoreCase = true)

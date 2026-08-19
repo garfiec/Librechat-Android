@@ -74,7 +74,14 @@ class ToolsMarketplaceDelegate(
     fun toggleItem(item: MarketplaceItem) {
         val state = stateHandle.state
         when (item.kind) {
-            MarketplaceKind.BUILTIN -> setCapability(item.id, !state.isBuiltinEnabled(item.id))
+            // Builtin-style row, agent.tools mechanics: the ask tool has no capability toggle of
+            // its own on the agent — membership in the tools list IS its enablement.
+            MarketplaceKind.BUILTIN ->
+                if (item.id == ToolConstants.ASK_USER_QUESTION) {
+                    toggleTool(item.id)
+                } else {
+                    setCapability(item.id, !state.isBuiltinEnabled(item.id))
+                }
             MarketplaceKind.TOOL -> toggleTool(item.id)
             MarketplaceKind.MCP -> toggleMcpTool(item.id)
             MarketplaceKind.SKILL -> capabilitiesDelegate.onSkillSelectionToggled(item.id)
@@ -121,17 +128,31 @@ fun AgentEditorUiState.marketplaceCatalog(): List<MarketplaceItem> = buildList {
     }
     add(builtin(FILE_CONTEXT, MarketplaceBuiltinLabel.FILE_CONTEXT))
 
-    availableTools.forEach { tool ->
-        val id = tool.toolId ?: tool.name ?: return@forEach
-        add(
-            MarketplaceItem(
-                kind = MarketplaceKind.TOOL,
-                id = id,
-                name = tool.name ?: id,
-                description = tool.description,
-                iconUrl = tool.icon,
-            ),
-        )
+    // Native tool presented with the builtins (it ships with the app and pauses the run like a
+    // first-class feature) while remaining an `agent.tools` entry mechanically. Availability is
+    // its OWN capability, NOT the generic `tools` one — AND the server must still list the
+    // plugin (which is also what hides it on pre-feature servers). Mirrors web buildCatalog.
+    if (isAskUserQuestionAvailable &&
+        availableTools.any { (it.toolId ?: it.name) == ToolConstants.ASK_USER_QUESTION }
+    ) {
+        add(builtin(ToolConstants.ASK_USER_QUESTION, MarketplaceBuiltinLabel.ASK_USER_QUESTION))
+    }
+
+    if (isGenericToolsAvailable) {
+        availableTools.forEach { tool ->
+            val id = tool.toolId ?: tool.name ?: return@forEach
+            // Surfaced as a builtin-style row above — don't double-list as a plugin.
+            if (id == ToolConstants.ASK_USER_QUESTION) return@forEach
+            add(
+                MarketplaceItem(
+                    kind = MarketplaceKind.TOOL,
+                    id = id,
+                    name = tool.name ?: id,
+                    description = tool.description,
+                    iconUrl = tool.icon,
+                ),
+            )
+        }
     }
 
     mcpTools.forEach { tool ->
@@ -180,6 +201,8 @@ internal fun AgentEditorUiState.isBuiltinEnabled(id: String): Boolean = when (id
     ToolConstants.FILE_SEARCH -> fileSearchEnabled
     ToolConstants.WEB_SEARCH -> webSearchEnabled
     FILE_CONTEXT -> fileContextEnabled
+    // Builtin-style presentation over agent.tools membership — see marketplaceCatalog.
+    ToolConstants.ASK_USER_QUESTION -> ToolConstants.ASK_USER_QUESTION in selectedTools
     else -> false
 }
 

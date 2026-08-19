@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 
@@ -47,11 +48,11 @@ internal fun ChatScreenEffects(
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        val error = uiState.error
-        if (error != null) {
+    val errorMessage = uiState.error?.let { localizedStreamError(it) }
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
             snackbarHostState.showSnackbar(
-                message = error,
+                message = errorMessage,
                 actionLabel = "Dismiss",
                 duration = SnackbarDuration.Long,
             )

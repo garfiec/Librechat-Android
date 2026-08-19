@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.model.content
 
 import com.garfiec.librechat.core.model.ContentType
+import com.garfiec.librechat.core.model.serializer.FlexibleTextSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -8,6 +9,10 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class MessageContentPart(
     val type: ContentType,
+    // String on the wire normally, but a part edited through PUT /api/messages persists its text
+    // as the annotated-object form `{value, annotations}` (upstream d920328bfa53) — the serializer
+    // normalizes both to the string so one edited part cannot reject the whole response decode.
+    @Serializable(with = FlexibleTextSerializer::class)
     val text: String? = null,
     val think: String? = null,
     val error: String? = null,
@@ -33,6 +38,42 @@ data class MessageContentPart(
     // with the type itself.
     val pending: Boolean? = null,
     val status: String? = null,
+    /**
+     * Which KIND of activity label this is. **Absent means the per-batch label** — the only kind
+     * that existed before — and `"phase"` means a parent phase spanning several batches.
+     *
+     * A phase label is APPENDED AT THE END of the content array (upstream takes its index from
+     * `getContentParts().length`) while [activityStartIndex] names where the phase actually
+     * began, then it is re-emitted filled. So its position says nothing about its scope, which is
+     * exactly the assumption per-batch grouping is built on: a renderer that treats any filled
+     * label as a batch header lets a trailing phase label claim whatever is left in the block —
+     * rendering as a stray sentence at the bottom of the reply, or wrapping the wrong span.
+     */
+    @SerialName("activity_label_type") val activityLabelType: String? = null,
+    /** Phase labels only: the content index the phase began at. See [activityLabelType]. */
+    @SerialName("activity_start_index") val activityStartIndex: Int? = null,
+    /**
+     * Phase labels only: the EXCLUSIVE content index the phase's span ends at (upstream #14768).
+     * The marker itself may trail its span — phases split once their text grows past ~200 chars,
+     * so several phase markers can land in one response, each appended after content the previous
+     * phase does not cover. `[activityStartIndex, activityEndIndex)` is the authoritative span;
+     * the marker's own position says nothing. Absent on pre-rc1 phase labels, whose span ran to
+     * the marker itself.
+     */
+    @SerialName("activity_end_index") val activityEndIndex: Int? = null,
+    /** Phase labels only: how many content parts the phase covers from [activityStartIndex]. */
+    @SerialName("activity_count") val activityCount: Int? = null,
+    /** Phase labels only: the agents that participated in the phase. Telemetry, not rendering. */
+    @SerialName("agent_ids") val agentIds: List<String>? = null,
+    /**
+     * TEXT parts and run-step `message_creation`: the Open Responses semantic channel this text
+     * belongs to — `commentary` (the model narrating its work) or `final_answer`.
+     *
+     * Upstream uses `final_answer` to terminate its backward scan for leading commentary, i.e.
+     * this is the signal that scopes an activity phase. Absent on every server that does not emit
+     * phases, so nothing may become conditional on it being present.
+     */
+    val phase: String? = null,
     // SUMMARY content-part fields (type == "summary"). Fields are top-level on the wire,
     // not nested under a `summary` key. `content` can be an array of {type,text} blocks
     // or a raw string; legacy servers fall back to the top-level `text` field above.

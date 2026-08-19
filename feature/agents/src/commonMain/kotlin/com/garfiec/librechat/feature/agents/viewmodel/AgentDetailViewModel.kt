@@ -74,9 +74,19 @@ class AgentDetailViewModel(
             }
             when (result) {
                 is Result.Success -> {
+                    // `isEditable` only ever NARROWS the probe's verdict: an explicit false hides
+                    // Edit, absence leaves the probe in charge. Never the other way round — an
+                    // absent field read as permission grows an Edit button that 403s on tap on
+                    // every server that predates it.
+                    //
+                    // Read from the LIST's answer, since neither endpoint loaded above stamps the
+                    // field; the agent's own copy still wins where it exists, because `getAgent`
+                    // can serve a list-projection row from the cache.
+                    val serverSaysEditable =
+                        result.data.isEditable ?: agentRepository.listedEditVerdict(agentId)
                     _uiState.value = _uiState.value.copy(
                         agent = result.data.toDetailDisplayData(),
-                        canEdit = canEdit,
+                        canEdit = canEdit && serverSaysEditable != false,
                         isLoading = false,
                     )
                 }

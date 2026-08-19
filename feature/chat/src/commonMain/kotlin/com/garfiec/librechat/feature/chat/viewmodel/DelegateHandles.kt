@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.viewmodel
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.usage.ContextUsage
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 
@@ -251,11 +252,13 @@ class ContextProjectionHandle(root: ChatStateHandle) : DelegateHandle(root) {
 class PendingActionWrites internal constructor(state: ChatUiState) {
     var pendingAction: PendingAction? = state.content.pendingAction
     var isResolvingPendingAction: Boolean = state.content.isResolvingPendingAction
+    var askAnswerDrafts: Map<String, AskAnswerDraft> = state.content.askAnswerDrafts
     var error: String? = state.error
     internal fun applyTo(s: ChatUiState) = s.copy(
         content = s.content.copy(
             pendingAction = pendingAction,
             isResolvingPendingAction = isResolvingPendingAction,
+            askAnswerDrafts = askAnswerDrafts,
         ),
         error = error,
     )

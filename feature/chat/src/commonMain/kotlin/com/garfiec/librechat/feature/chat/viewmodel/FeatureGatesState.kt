@@ -58,6 +58,13 @@ data class FeatureGatesState(
      * until the next sync. Documented in VERSION_GATES.md.
      */
     val steeringSupported: Boolean = false,
+    /**
+     * The detected backend version string (null while unresolved), for the handful of version
+     * gates that live in pure state helpers rather than in a collector — currently the
+     * shell-script MIME aliasing inside [ChatUiState.uploadRouteFor] and the .potx picker offer.
+     * Written by the same `detectedBackend` collector that sets [steeringSupported].
+     */
+    val backendVersion: String? = null,
 )
 
 /**

@@ -149,7 +149,7 @@ private fun copyMessageToClipboard(
     clipboardManager: ClipboardManager,
     messageId: String,
 ) {
-    val text = viewModel.getMessageText(messageId)
+    val text = viewModel.getMessageClipboardText(messageId)
     if (text.isNotBlank()) {
         clipboardManager.setPrimaryClip(ClipData.newPlainText("Message", text))
     }
@@ -227,6 +227,9 @@ private fun ChatMessageListPane(
         isResolvingPendingAction = uiState.isResolvingPendingAction,
         onSubmitToolDecisions = viewModel::resolveToolApproval,
         onSubmitPendingAnswer = viewModel::answerPendingQuestion,
+        onSubmitPendingAnswers = viewModel::answerPendingQuestions,
+        askAnswerDrafts = uiState.askAnswerDrafts,
+        onAskAnswerDraftChange = viewModel::updateAskAnswerDraft,
         modifier = modifier,
     )
 }

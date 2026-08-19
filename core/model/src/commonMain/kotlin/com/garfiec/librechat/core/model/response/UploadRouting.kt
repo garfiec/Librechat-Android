@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.model.response
 
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.EndpointConstants
 
 /**
@@ -77,12 +78,83 @@ private val BEDROCK_DOCUMENT_MIME_TYPES: Set<String> = setOf(
 /**
  * Verbatim mirror of upstream's `mimeTypeAliases`. The server normalises these on receipt, so the
  * router must apply them *before* any lookup or `text/x-markdown` misses the Bedrock table.
+ *
+ * The two shell-script entries landed in v0.8.8-rc1 (upstream 5e464bc93078): Chrome on Linux
+ * reports `.sh` as `application/x-shellscript` (freedesktop shared-mime-info) and libmagic as
+ * `text/x-shellscript`. A PRE-rc1 server does not normalise them and rejects the raw type at
+ * upload, so [normalizeMimeType] applies these two only when the detected server is ≥ 0.8.8-rc1
+ * — see [SHELL_SCRIPT_MIME_ALIASES].
  */
 private val MIME_TYPE_ALIASES: Map<String, String> = mapOf(
     "application/x-zip-compressed" to "application/zip",
     "text/x-python-script" to "text/x-python",
     "text/x-markdown" to "text/markdown",
+    "application/x-shellscript" to "application/x-sh",
+    "text/x-shellscript" to "application/x-sh",
 )
+
+/**
+ * Platform-reported MIME strings rewritten to a name the server knows. **Deliberately NOT part of
+ * [MIME_TYPE_ALIASES] and deliberately NOT in `scripts/mirrors.json`.**
+ *
+ * Upstream's alias table targets what a *browser* reports — freedesktop shared-mime-info and
+ * libmagic — because that is the only client it has. Android's `DocumentsProvider` reports `.sh`
+ * as `text/x-sh`, a spelling that appears nowhere upstream: not in the alias table, not in
+ * `fullMimeTypesList`, not in the accept regexes. The server therefore answers the upload
+ * 415 `Unsupported file type: text/x-sh`, and no amount of mirroring fixes it — there is nothing
+ * upstream to mirror. Adding the row to the mirrored map instead would make every future
+ * `check-mirrors.py` run report a phantom drift against a table upstream will never contain.
+ *
+ * **Not version-gated, unlike [SHELL_SCRIPT_MIME_ALIASES].** The target here is the canonical
+ * `application/x-sh`, which upstream has listed in `fullMimeTypesList` since well before this
+ * sync's baseline — verified present at v0.8.6, v0.8.7 and at the commit that introduced the
+ * shellscript aliases (`packages/data-provider/src/file-config.ts`, and `sh: 'application/x-sh'`
+ * in the extension map beside it). Every supported server accepts it, so there is no older
+ * behaviour to preserve. The shellscript rows need their gate because their targets only became
+ * *aliases* at rc1; this row's target was always a first-class type.
+ *
+ * Applied ahead of the mirrored table so a platform spelling reaches the same canonical name a
+ * browser's would, and applied to the type actually sent on the wire — otherwise the router
+ * decides against one string while the multipart part carries another.
+ */
+private val PLATFORM_MIME_NORMALIZATION: Map<String, String> = mapOf(
+    // Android DocumentsProvider for `.sh`. Probed against a live rc1 server: `text/x-sh` 415s;
+    // `application/x-sh` passes the gate.
+    "text/x-sh" to "application/x-sh",
+)
+
+/**
+ * The MIME type to *send* for a file the platform reported as [mimeType].
+ *
+ * Only [PLATFORM_MIME_NORMALIZATION] applies here. The upstream aliases are deliberately left
+ * alone: the server normalises those itself on receipt and every one of them already clears the
+ * upload gate, so rewriting them on the wire would change what the server records for no reason.
+ *
+ * MIME parameters are preserved — this rewrites a type, it does not sanitise a header.
+ */
+fun uploadMimeType(mimeType: String?): String? {
+    val raw = mimeType?.trim()?.takeIf { it.isNotEmpty() } ?: return mimeType
+    val bare = raw.substringBefore(';').trim()
+    val normalized = PLATFORM_MIME_NORMALIZATION[bare] ?: return raw
+    val params = raw.substringAfter(';', missingDelimiterValue = "")
+    return if (params.isEmpty()) normalized else "$normalized;$params"
+}
+
+/**
+ * The [MIME_TYPE_ALIASES] keys whose aliasing is version-gated at ≥ 0.8.8-rc1. On an older or
+ * UNKNOWN server the raw type passes through unaliased, restoring the pre-alias behaviour:
+ * `application/x-shellscript` reads as an unknown application-tree type and fails toward
+ * [UploadRoute.PROVIDER] (this file's doctrine for anything uncertain), while
+ * `text/x-shellscript` keeps the text/-tree extractability it has always had — only its
+ * canonical name changes with the gate, not its outcome.
+ */
+private val SHELL_SCRIPT_MIME_ALIASES: Set<String> = setOf(
+    "application/x-shellscript",
+    "text/x-shellscript",
+)
+
+/** First server version that normalises [SHELL_SCRIPT_MIME_ALIASES] on receipt. */
+private const val SHELL_SCRIPT_ALIAS_MIN_VERSION = "0.8.8-rc1"
 
 /**
  * The excel MIME variants upstream matches with `excelMimeTypes`, which is one leg of
@@ -149,9 +221,24 @@ private val OPAQUE_ENDPOINTS: Set<String> = setOf(
     "azureAssistants",
 )
 
-/** Strips MIME parameters (`text/plain; charset=utf-8`) and applies upstream's alias table. */
-private fun normalizeMimeType(mimeType: String?): String? {
-    val bare = mimeType?.substringBefore(';')?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+/**
+ * Strips MIME parameters (`text/plain; charset=utf-8`) and applies upstream's alias table.
+ *
+ * Runs [PLATFORM_MIME_NORMALIZATION] first, then upstream's table.
+ *
+ * @param serverVersion the detected backend version, gating the aliases that only newer servers
+ *   normalise ([SHELL_SCRIPT_MIME_ALIASES]). Null means unknown and fails toward NOT aliasing.
+ */
+private fun normalizeMimeType(mimeType: String?, serverVersion: String? = null): String? {
+    val reported = mimeType?.substringBefore(';')?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    // Platform spellings first, so the router decides against the same canonical name the upload
+    // will actually carry ([uploadMimeType]).
+    val bare = PLATFORM_MIME_NORMALIZATION[reported] ?: reported
+    if (bare in SHELL_SCRIPT_MIME_ALIASES &&
+        (serverVersion == null || !BackendVersion.isCompatibleOrNewer(serverVersion, SHELL_SCRIPT_ALIAS_MIN_VERSION))
+    ) {
+        return bare
+    }
     return MIME_TYPE_ALIASES[bare] ?: bare
 }
 
@@ -213,8 +300,9 @@ fun isProviderCapable(
     endpoint: String?,
     endpointType: String? = null,
     agentProvider: String? = null,
+    serverVersion: String? = null,
 ): Boolean {
-    val mime = normalizeMimeType(mimeType) ?: return false
+    val mime = normalizeMimeType(mimeType, serverVersion) ?: return false
     val provider = effectiveProvider(endpoint, agentProvider)
     val type = canonicalProvider(endpointType)
 
@@ -249,8 +337,8 @@ fun isProviderCapable(
  * built-in defaults are `RegExp` arrays that cannot cross JSON, and `mergeFileConfig` only ever
  * runs server-side. Such a file routes to text and comes back as a generic 500.
  */
-fun isTextExtractable(mimeType: String?): Boolean {
-    val mime = normalizeMimeType(mimeType) ?: return false
+fun isTextExtractable(mimeType: String?, serverVersion: String? = null): Boolean {
+    val mime = normalizeMimeType(mimeType, serverVersion) ?: return false
     return mime.startsWith("text/") ||
         mime in DOCUMENT_PARSER_MIME_TYPES ||
         mime in TEXTUAL_APPLICATION_MIME_TYPES
@@ -275,12 +363,13 @@ fun resolveUploadRoute(
     endpoint: String?,
     endpointType: String? = null,
     agentProvider: String? = null,
+    serverVersion: String? = null,
 ): UploadRoute {
-    val mime = normalizeMimeType(mimeType) ?: return UploadRoute.PROVIDER
+    val mime = normalizeMimeType(mimeType, serverVersion) ?: return UploadRoute.PROVIDER
 
     // An unresolvable provider means we'd be guessing; today's behaviour is the safe guess.
     if (isProviderUnknown(endpoint, endpointType, agentProvider)) return UploadRoute.PROVIDER
 
-    if (isProviderCapable(mime, endpoint, endpointType, agentProvider)) return UploadRoute.PROVIDER
-    return if (isTextExtractable(mime)) UploadRoute.TEXT else UploadRoute.PROVIDER
+    if (isProviderCapable(mime, endpoint, endpointType, agentProvider, serverVersion)) return UploadRoute.PROVIDER
+    return if (isTextExtractable(mime, serverVersion)) UploadRoute.TEXT else UploadRoute.PROVIDER
 }

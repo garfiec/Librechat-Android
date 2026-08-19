@@ -15,9 +15,10 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 /**
- * The context-projection suppression window. Upstream deleted the endpoint on 2026-06-25, but the
- * commit map dates commits by DAY, and three upstream commits merged earlier that same day — so the
- * gate is declared at 2026-06-26 and a 2026-06-25 dev server must still get its projection.
+ * The context-projection suppression. The endpoint was removed on the 0.8.8 line, and since the
+ * v0.8.8-rc1 tag shipped the gate is a plain version compare: servers reporting >= 0.8.8-rc1 skip
+ * the POST; anything older (including dev builds that still report 0.8.7) issues it and discards
+ * the 404 — the harmless direction.
  */
 class EndpointTokenRepositoryImplTest {
 
@@ -39,21 +40,13 @@ class EndpointTokenRepositoryImplTest {
         DetectedBackend("0.8.7", BackendBuildClass.DEV, commitDate)
 
     @Test
-    fun `a dev build from the removal's own day still gets the projection`() = runTest {
+    fun `a dev build still reporting the previous release gets the projection`() = runTest {
         coEvery { api.getContextProjection(any()) } returns null
 
-        val result = repository(devBackend("2026-06-25")).getContextProjection(request)
+        val result = repository(devBackend("2026-08-01")).getContextProjection(request)
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
         coVerify(exactly = 1) { api.getContextProjection(request) }
-    }
-
-    @Test
-    fun `a dev build from the day after the removal skips the call`() = runTest {
-        val result = repository(devBackend("2026-06-26")).getContextProjection(request)
-
-        assertThat((result as Result.Success).data).isNull()
-        coVerify(exactly = 0) { api.getContextProjection(any()) }
     }
 
     @Test

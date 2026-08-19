@@ -44,6 +44,7 @@ import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
+import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import com.garfiec.librechat.feature.chat.components.rememberChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.IosChatInput
 import com.garfiec.librechat.feature.chat.components.LandingContent
@@ -58,6 +59,7 @@ import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.clipboardHasImage
 import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
+import com.garfiec.librechat.feature.chat.util.copyToClipboard
 import com.garfiec.librechat.feature.chat.util.openCamera
 import com.garfiec.librechat.feature.chat.util.openDocumentPicker
 import com.garfiec.librechat.feature.chat.util.openPhotoPicker
@@ -178,11 +180,11 @@ actual fun ChatScreen(
     }
 
     // Show errors in snackbar (matches Android behavior)
-    LaunchedEffect(uiState.error) {
-        val error = uiState.error
-        if (error != null) {
+    val errorMessage = uiState.error?.let { localizedStreamError(it) }
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
             snackbarHostState.showSnackbar(
-                message = error,
+                message = errorMessage,
                 actionLabel = "Dismiss",
                 duration = SnackbarDuration.Long,
             )
@@ -282,6 +284,8 @@ actual fun ChatScreen(
                 duringRunAction = uiState.effectiveDuringRunAction,
                 duringRunSendTarget = uiState.duringRunSendTarget,
                 pendingSteers = uiState.pendingSteers,
+                pendingQuotes = uiState.pendingQuotes,
+                onRemoveQuote = viewModel::removePendingQuote,
                 onCancelSteer = viewModel::cancelSteer,
                 onSetDuringRunAction = viewModel::setDuringRunAction,
                 enabledTools = uiState.effectiveEnabledTools,
@@ -585,7 +589,9 @@ private fun IosChatBody(
                 showBubbles = showBubbles,
                 useKatex = useKatex,
                 bottomContentPadding = bottomContentPadding,
-                onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
+                onCopyMessage = { messageId ->
+                    copyToClipboard(viewModel.getMessageClipboardText(messageId), "Message")
+                },
                 onShowSecondaryModelSheet = onShowSecondaryModelSheet,
                 onComparisonTabChange = onComparisonTabChange,
                 modifier = topPaddedFill,
@@ -605,7 +611,9 @@ private fun IosChatBody(
                 onSiblingNavigation = viewModel::switchBranch,
                 onEditMessage = viewModel::startEditing,
                 onRegenerateMessage = { messageId -> viewModel.regenerateMessage(messageId) },
-                onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
+                onCopyMessage = { messageId ->
+                    copyToClipboard(viewModel.getMessageClipboardText(messageId), "Message")
+                },
                 onFeedback = viewModel::submitFeedback,
                 onContinue = { viewModel.continueGeneration() },
                 onReadAloud = viewModel::readAloud,
@@ -641,6 +649,9 @@ private fun IosChatBody(
                 isResolvingPendingAction = uiState.isResolvingPendingAction,
                 onSubmitToolDecisions = viewModel::resolveToolApproval,
                 onSubmitPendingAnswer = viewModel::answerPendingQuestion,
+                onSubmitPendingAnswers = viewModel::answerPendingQuestions,
+                askAnswerDrafts = uiState.askAnswerDrafts,
+                onAskAnswerDraftChange = viewModel::updateAskAnswerDraft,
                 modifier = Modifier.fillMaxSize(),
             )
         }

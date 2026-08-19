@@ -39,6 +39,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -57,6 +58,7 @@ import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.SearchFocusRequest
@@ -139,6 +141,9 @@ fun MessageList(
     isResolvingPendingAction: Boolean = false,
     onSubmitToolDecisions: (List<ToolApprovalResolution>) -> Unit = {},
     onSubmitPendingAnswer: (String) -> Unit = {},
+    onSubmitPendingAnswers: (Map<String, String>) -> Unit = {},
+    askAnswerDrafts: Map<String, AskAnswerDraft> = emptyMap(),
+    onAskAnswerDraftChange: (String, AskAnswerDraft) -> Unit = { _, _ -> },
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -153,7 +158,17 @@ fun MessageList(
     var lastNavigatedParentKey by remember { mutableStateOf<String?>(null) }
 
     // A live `ask_user_question` pause is rendered by PendingActionCard, not as a tool card.
-    val renderedToolCalls = remember(activeToolCalls) { activeToolCalls.withoutUnansweredQuestions() }
+    // Attribution is by the pause's own tool_call_id where the server sends one, so a sibling ask
+    // call that is genuinely still running keeps its card instead of being hidden by association.
+    val pausedAskToolCallId = pendingAction?.payload?.toolCallId
+    // Fallback attribution for payloads without a tool_call_id: the pause's own question text
+    // (a batched pause keeps `question` populated with its first item as a display fallback).
+    val pausedAskQuestion = pendingAction?.payload?.let { payload ->
+        payload.question?.question ?: payload.questions?.firstOrNull()?.question
+    }?.takeIf { it.isNotBlank() }
+    val renderedToolCalls = remember(activeToolCalls, pausedAskToolCallId, pausedAskQuestion) {
+        activeToolCalls.withoutUnansweredQuestions(pausedAskToolCallId, pausedAskQuestion)
+    }
     val streamingToolCallCount = if (isStreaming) renderedToolCalls.size else 0
     val totalItemCount = displayMessages.size + streamingToolCallCount + if (isStreaming) 1 else 0
 
@@ -165,6 +180,16 @@ fun MessageList(
     // tell our scroll from the user's, so without this the scroll-away detector below scores the
     // follower's own mid-growth scroll as intent and latches, silently killing the follow.
     var programmaticScroll by remember { mutableStateOf(false) }
+
+    // True while the focus sits on something inside the list — an answer field on a pause card.
+    // The keyboard handler below stands down for those; foundation brings a focused node into
+    // view on its own, and unlike this file it knows which node that is.
+    var listHasFocus by remember { mutableStateOf(false) }
+
+    // Read through updated state, not the captured parameter: the follower below runs for a whole
+    // run inside one LaunchedEffect, so a plain capture would keep reporting whatever was true on
+    // the frame the run started — which is always "no pause".
+    val isAwaitingHumanReview by rememberUpdatedState(pendingAction != null)
 
     val isNearBottom by remember {
         derivedStateOf {
@@ -218,8 +243,9 @@ fun MessageList(
     //    run, easing a fraction of the remaining distance-to-bottom each
     //    frame from live layout. It is deliberately NOT driven off
     //    streamingContent. It yields to the user on a finger-down
-    //    (isTouching) or once the scroll-away latch is set; see the loop
-    //    itself for the invariants it rests on.
+    //    (isTouching), once the scroll-away latch is set, or while the
+    //    run is paused for human review; see the loop itself for the
+    //    invariants it rests on.
     //
     // 4. POST-STREAMING — When streaming ends, a 300ms delay lets the
     //    Room observer replace the streaming bubble with the real AI
@@ -316,7 +342,17 @@ fun MessageList(
         if (pendingAction?.actionId != null) {
             userScrolledUp = false
             val total = listState.layoutInfo.totalItemsCount
-            if (total > 0) listState.animateScrollToItem(total - 1, scrollOffset = Int.MAX_VALUE)
+            // Flagged like the follower's own scrolls: this one animates from above the tail, so
+            // every frame of it reads to the scroll-away detector as a user dragging away from
+            // the bottom — the one thing that would latch the follower off for the rest of the run.
+            if (total > 0) {
+                programmaticScroll = true
+                try {
+                    listState.animateScrollToItem(total - 1, scrollOffset = Int.MAX_VALUE)
+                } finally {
+                    programmaticScroll = false
+                }
+            }
         }
     }
 
@@ -340,7 +376,14 @@ fun MessageList(
                     // A finger down, or a deliberate scroll away, hands control back to the user.
                     // isScrollInProgress is NOT consulted: our own scroll below sets it, so gating
                     // on it would stop the follower on its own first frame.
-                    if (isTouching || userScrolledUp) {
+                    //
+                    // A pause for human review hands it back too. The run stays open across the
+                    // pause, so isStreaming alone keeps this loop pinning the tail every frame
+                    // while the one thing it exists to follow — output — has stopped. The card is
+                    // brought into view once by its own effect above; after that the list is the
+                    // user's, to read a long question or reach a field, and a follower still
+                    // running would undo every scroll the instant their finger lifts.
+                    if (isTouching || userScrolledUp || isAwaitingHumanReview) {
                         programmaticScroll = false
                         continue
                     }
@@ -414,6 +457,16 @@ fun MessageList(
     // shrinks and the user was near the bottom, we scroll down to
     // keep the latest messages visible above the input box.
     //
+    // It runs ONLY while nothing inside the list holds focus. This
+    // exists for the composer, which sits outside the list, so the
+    // list learns about the keyboard from nothing but its own
+    // shrinking viewport. A field INSIDE the list — an answer field
+    // on a pause card — needs no help: foundation scrolls a newly
+    // focused node into view by itself, and it knows where the focus
+    // is, which this does not. Both running means this one wins and
+    // jumps to the tail of the last item, scrolling the user off the
+    // very field they tapped.
+    //
     // This approach is more reliable than observing WindowInsets.ime
     // directly because:
     //  - It fires AFTER the layout has actually resized (no timing
@@ -428,7 +481,7 @@ fun MessageList(
         snapshotFlow {
             listState.layoutInfo.viewportEndOffset
         }.collect { viewportEnd ->
-            if (previousViewportEnd > 0 && viewportEnd < previousViewportEnd) {
+            if (previousViewportEnd > 0 && viewportEnd < previousViewportEnd && !listHasFocus) {
                 // Viewport shrank (e.g., keyboard opened). If user was
                 // near the bottom, scroll to keep them there.
                 val info = listState.layoutInfo
@@ -465,6 +518,7 @@ fun MessageList(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .onFocusChanged { listHasFocus = it.hasFocus }
                 .onGloballyPositioned { listCoordinates = it }
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
@@ -661,7 +715,10 @@ fun MessageList(
                             isResolving = isResolvingPendingAction,
                             onSubmitToolDecisions = onSubmitToolDecisions,
                             onSubmitAnswer = onSubmitPendingAnswer,
+                            onSubmitAnswers = onSubmitPendingAnswers,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            askAnswerDrafts = askAnswerDrafts,
+                            onAskAnswerDraftChange = onAskAnswerDraftChange,
                         )
                     }
                 }

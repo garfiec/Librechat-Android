@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ResumePinStore
+import com.garfiec.librechat.core.model.AskUserQuestionItem
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.PendingActionPayload
 import com.garfiec.librechat.core.model.PendingActionTypes
@@ -13,6 +14,7 @@ import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.ui.components.ModelParameters
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -62,6 +64,7 @@ class PendingActionDelegateTest {
         scope: TestScope,
         state: ChatUiState = pausedState(),
         store: ResumePinStore = pinStore,
+        nowMillis: () -> Long = { 0L },
     ): Pair<PendingActionDelegate, MutableStateFlow<ChatUiState>> {
         val flow = MutableStateFlow(state)
         val root = ChatStateHandle(flow, scope)
@@ -73,6 +76,8 @@ class PendingActionDelegateTest {
             fingerprintRejectedMessage = { FINGERPRINT_REJECTED },
             restoreAnswer = { restored += it },
             resumePinStore = store,
+            pauseExpiredMessage = { EXPIRED_COPY },
+            nowMillis = nowMillis,
         )
         return delegate to flow
     }
@@ -107,6 +112,251 @@ class PendingActionDelegateTest {
             assertThat(request.captured.agentId).isEqualTo("agent_abc")
             assertThat(request.captured.model).isEqualTo("agent_abc")
             assertThat(request.captured.decisions).hasSize(1)
+        }
+
+    @Test
+    fun `resume echoes the recorded generation epoch`() = runTest(UnconfinedTestDispatcher()) {
+        // v0.8.8-rc1: the server fences a resume against a newer run reusing the same stream id
+        // by comparing generationCreatedAt to the live job's createdAt (409 RUN_REPLACED).
+        val (delegate, _) = delegateWith(this)
+        val request = slot<ChatResumeRequest>()
+        coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+        delegate.onGenerationEpoch(1755400000123L)
+        delegate.onPendingAction(toolApproval())
+        delegate.submitAnswer("yes")
+
+        assertThat(request.captured.generationCreatedAt).isEqualTo(1755400000123L)
+    }
+
+    @Test
+    fun `a null epoch report does not wipe the recorded epoch`() = runTest(UnconfinedTestDispatcher()) {
+        // The server's own SSE `created` frame follows the start POST's synthetic Created on
+        // every fresh send and carries no epoch — it must not un-fence the live run.
+        val (delegate, _) = delegateWith(this)
+        val request = slot<ChatResumeRequest>()
+        coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+        delegate.onGenerationEpoch(1755400000123L)
+        delegate.onGenerationEpoch(null)
+        delegate.onPendingAction(toolApproval())
+        delegate.submitAnswer("yes")
+
+        assertThat(request.captured.generationCreatedAt).isEqualTo(1755400000123L)
+    }
+
+    @Test
+    fun `an unknown generation epoch sends the resume unfenced`() = runTest(UnconfinedTestDispatcher()) {
+        // Older servers report no epoch; omitting the field stays legal and must not block the
+        // resume. clear() also resets it so a dead run's epoch cannot fence the next one.
+        val (delegate, _) = delegateWith(this)
+        val request = slot<ChatResumeRequest>()
+        coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+        delegate.onGenerationEpoch(42L)
+        delegate.clear()
+        delegate.onPendingAction(toolApproval())
+        delegate.submitAnswer("yes")
+
+        assertThat(request.captured.generationCreatedAt).isNull()
+    }
+
+    private fun askBatch(vararg ids: String, actionId: String = "act-1") = PendingAction(
+        actionId = actionId,
+        conversationId = "conv-1",
+        payload = PendingActionPayload(
+            type = PendingActionTypes.ASK_USER_QUESTION,
+            questions = ids.map { AskUserQuestionItem(id = it, question = "Which $it?") },
+        ),
+    )
+
+    @Test
+    fun `batch drafts submit only once every question has an answer`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, state) = delegateWith(this)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isTrue()
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+            // The card reads this map, so the answer is on screen in the first question's field
+            // — the whole reason the drafts are not private to this delegate.
+            assertThat(state.value.askAnswerDrafts["topic"]).isEqualTo(AskAnswerDraft(freeText = "kotlin"))
+
+            assertThat(delegate.answerNextBatchQuestion("very deep")).isTrue()
+
+            coVerify(exactly = 1) { chatRepository.resumeChat(any()) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+        }
+
+    @Test
+    fun `a composer send skips questions the card already answered`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, _) = delegateWith(this)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
+
+            // One send, and the batch completes: the composer fills the one question left rather
+            // than overwriting the field the user typed into.
+            assertThat(delegate.answerNextBatchQuestion("very deep")).isTrue()
+
+            coVerify(exactly = 1) { chatRepository.resumeChat(any()) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+        }
+
+    @Test
+    fun `an emptied field still counts as unanswered`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The card writes a draft on every keystroke, so a question the user typed into and
+            // then cleared HAS a draft and no answer. Targeting on "has a draft" rather than on
+            // the composed answer skips it, leaving a blank field the batch can never submit.
+            val (delegate, state) = delegateWith(this)
+            coEvery { chatRepository.resumeChat(any()) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "  "))
+
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isTrue()
+
+            assertThat(state.value.askAnswerDrafts["topic"]).isEqualTo(AskAnswerDraft(freeText = "kotlin"))
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+        }
+
+    @Test
+    fun `a fully answered batch refuses the composer instead of swallowing the text`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, _) = delegateWith(this)
+            coEvery { chatRepository.resumeChat(any()) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(askBatch("topic"))
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isTrue()
+
+            // The batch went up on that send; a second one has nowhere to go, and the caller
+            // keeps the composer's text rather than the delegate dropping it.
+            assertThat(delegate.answerNextBatchQuestion("more")).isFalse()
+        }
+
+    @Test
+    fun `a batch with an unanswerable question refuses composer answering`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, state) = delegateWith(this)
+
+            delegate.onPendingAction(askBatch("topic", ""))
+
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isFalse()
+            assertThat(state.value.askAnswerDrafts).isEmpty()
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+        }
+
+    @Test
+    fun `a new pause starts with empty drafts and a re-announcement keeps them`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The same pause is replayed on every reconnect sync frame; wiping the drafts there
+            // would erase whatever the user had typed into the card mid-run.
+            val (delegate, state) = delegateWith(this)
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            assertThat(state.value.askAnswerDrafts).containsKey("topic")
+
+            delegate.onPendingAction(askBatch("topic", "depth", actionId = "act-2"))
+            assertThat(state.value.askAnswerDrafts).isEmpty()
+        }
+
+    @Test
+    fun `clearing the pause drops the drafts without re-homing them`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // They were never invisible: the card showed them, so putting them back in the
+            // composer would duplicate text the user can still see (and, once the batch resolved
+            // from the card, resurrect every composer send it had already consumed).
+            val (delegate, state) = delegateWith(this)
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.answerNextBatchQuestion("kotlin")
+            delegate.clear()
+
+            assertThat(state.value.askAnswerDrafts).isEmpty()
+            assertThat(restored).isEmpty()
+        }
+
+    @Test
+    fun `a pause announced already past its expiry dismisses with the expiry copy`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, flow) = delegateWith(this, nowMillis = { 2_000L })
+
+            delegate.onPendingAction(toolApproval().copy(expiresAt = 1_000L))
+
+            assertThat(flow.value.pendingAction).isNull()
+            assertThat(flow.value.error).isEqualTo(EXPIRED_COPY)
+        }
+
+    @Test
+    fun `a pause expires in place when its deadline passes`() = runTest {
+        var now = 0L
+        val (delegate, flow) = delegateWith(this, nowMillis = { now })
+
+        delegate.onPendingAction(toolApproval().copy(expiresAt = 60_000L))
+        runCurrent()
+        assertThat(flow.value.pendingAction).isNotNull()
+
+        now = 60_000L
+        testScheduler.advanceTimeBy(60_001L)
+        runCurrent()
+
+        assertThat(flow.value.pendingAction).isNull()
+        assertThat(flow.value.error).isEqualTo(EXPIRED_COPY)
+    }
+
+    @Test
+    fun `a pause without an expiry never expires client-side`() = runTest {
+        val (delegate, flow) = delegateWith(this)
+
+        delegate.onPendingAction(toolApproval())
+        testScheduler.advanceTimeBy(86_400_000L)
+        runCurrent()
+
+        assertThat(flow.value.pendingAction).isNotNull()
+    }
+
+    @Test
+    fun `a 409 past the expiry reads as the expiry, not a retryable failure`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Clock skew: the server expires the pause before the local timer does, so the 409
+            // arrives while the card is still up. Checked at failure time against a moved clock.
+            var now = 4_000L
+            val (delegate, flow) = delegateWith(this, nowMillis = { now })
+            coEvery { chatRepository.resumeChat(any()) } returns
+                Result.Error(ApiException(409, "This decision targets a stale action"), "stale")
+
+            delegate.onPendingAction(toolApproval().copy(expiresAt = 5_000L))
+            now = 6_000L
+            delegate.submitAnswer("my answer")
+
+            assertThat(flow.value.pendingAction).isNull()
+            assertThat(flow.value.error).isEqualTo(EXPIRED_COPY)
+            // The words still come back — expiry must not eat the typed answer.
+            assertThat(restored).containsExactly("my answer")
+        }
+
+    @Test
+    fun `a 409 before the expiry keeps the generic retryable handling`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, flow) = delegateWith(this, nowMillis = { 1_000L })
+            coEvery { chatRepository.resumeChat(any()) } returns
+                Result.Error(ApiException(409, "conflict"), "conflict")
+
+            delegate.onPendingAction(toolApproval().copy(expiresAt = 60_000L))
+            delegate.submitAnswer("my answer")
+
+            assertThat(flow.value.pendingAction).isNotNull()
+            assertThat(flow.value.error).isEqualTo("conflict")
         }
 
     @Test
@@ -468,5 +718,7 @@ class PendingActionDelegateTest {
 
     private companion object {
         const val FINGERPRINT_REJECTED = "started with a different setup"
+
+        private const val EXPIRED_COPY = "expired copy"
     }
 }

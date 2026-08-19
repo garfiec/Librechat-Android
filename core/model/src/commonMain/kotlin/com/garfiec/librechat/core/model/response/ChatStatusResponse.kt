@@ -17,6 +17,12 @@ data class ChatStatusResponse(
     /** Job status — `"running"` | `"requires_action"` | terminal states. Absent when no job exists. */
     val status: String? = null,
     /**
+     * The live job's generation epoch (its creation timestamp). Echoed back as
+     * `generationCreatedAt` on `POST /chat/resume` so the server can fence the resume against a
+     * newer run that reused the same stream id (409 RUN_REPLACED on mismatch).
+     */
+    val createdAt: Long? = null,
+    /**
      * The live human-review prompt when the run is paused, as a client-safe projection.
      * Null when the run is streaming normally, when no job exists, or when the pause has
      * gone stale.

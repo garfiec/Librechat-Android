@@ -140,6 +140,44 @@ class AskUserQuestionRecordTest {
         assertThat(calls.withoutUnansweredQuestions().map { it.id }).containsExactly("t1")
     }
 
+    /**
+     * agents SDK <= 3.3.8 omits the pause's `tool_call_id`, but there is still exactly ONE live
+     * pause — dropping every unanswered ask collapses two parallel asks into one card.
+     */
+    @Test
+    fun `an unattributed pause suppresses only the ask it poses`() {
+        val calls = listOf(
+            ActiveToolCall(id = "t1", name = "ask_user_question", input = """{"question":"Which db?"}"""),
+            ActiveToolCall(id = "t2", name = "ask_user_question", input = """{"question":"Which region?"}"""),
+        )
+
+        val rendered = calls.withoutUnansweredQuestions(pausedQuestion = "Which region?")
+
+        assertThat(rendered.map { it.id }).containsExactly("t1")
+    }
+
+    @Test
+    fun `an unattributed pause with no question match suppresses the first ask only`() {
+        val calls = listOf(
+            ActiveToolCall(id = "t1", name = "ask_user_question", input = """{"question":"A?"}"""),
+            ActiveToolCall(id = "t2", name = "ask_user_question", input = """{"question":"B?"}"""),
+        )
+
+        assertThat(calls.withoutUnansweredQuestions().map { it.id }).containsExactly("t2")
+    }
+
+    @Test
+    fun `an attributed pause never hides the sibling ask`() {
+        val calls = listOf(
+            ActiveToolCall(id = "t1", name = "ask_user_question", input = """{"question":"A?"}"""),
+            ActiveToolCall(id = "t2", name = "ask_user_question", input = """{"question":"B?"}"""),
+        )
+
+        val rendered = calls.withoutUnansweredQuestions(pausedToolCallId = "t2")
+
+        assertThat(rendered.map { it.id }).containsExactly("t1")
+    }
+
     @Test
     fun `an answered question is rendered as its record`() {
         val calls = listOf(
@@ -160,5 +198,89 @@ class AskUserQuestionRecordTest {
         val calls = listOf(ActiveToolCall(id = "t1", name = "execute_code"))
 
         assertThat(calls.withoutUnansweredQuestions()).isEqualTo(calls)
+    }
+
+    // ── batched ask (v0.8.8) ────────────────────────────────────────
+
+    private val batchArgs = """
+        {"questions":[
+          {"id":"topic","header":"Subject","question":"Which topic?","description":"Sets the depth.",
+           "options":[{"label":"Kotlin","value":"kt"}]},
+          {"id":"depth","question":"How deep?","multiSelect":true}
+        ]}
+    """.trimIndent()
+
+    /**
+     * The batch shape carries no top-level `question`, so the single-question parse returns null
+     * for it — a card that fell back to it would render the answers map as the answer text.
+     */
+    @Test
+    fun `a batch is invisible to the single-question parse`() {
+        assertThat(parseAskUserQuestion(batchArgs)).isNull()
+    }
+
+    @Test
+    fun `parses every question of a batch with the id its answer is keyed by`() {
+        val batch = parseAskUserQuestionBatch(batchArgs)
+
+        assertThat(batch.map { it.id }).containsExactly("topic", "depth").inOrder()
+        assertThat(batch[0].header).isEqualTo("Subject")
+        assertThat(batch[0].question.question).isEqualTo("Which topic?")
+        assertThat(batch[0].question.description).isEqualTo("Sets the depth.")
+        assertThat(batch[0].question.options).containsExactly(AskUserQuestionOption("Kotlin", "kt"))
+        assertThat(batch[1].question.multiSelect).isTrue()
+    }
+
+    /** A single-question call must keep the single-question card; an empty batch is the switch. */
+    @Test
+    fun `a single-question call parses as no batch`() {
+        assertThat(parseAskUserQuestionBatch("""{"question":"Which database?"}""")).isEmpty()
+        assertThat(parseAskUserQuestionBatch("not json at all")).isEmpty()
+        assertThat(parseAskUserQuestionBatch(null as String?)).isEmpty()
+    }
+
+    /** An answer keyed by an id nothing asked cannot be shown, so the item is dropped. */
+    @Test
+    fun `a batch item with no usable id is dropped`() {
+        val batch = parseAskUserQuestionBatch(
+            """{"questions":[{"question":"No id here"},{"id":"depth","question":"How deep?"}]}""",
+        )
+
+        assertThat(batch.map { it.id }).containsExactly("depth")
+    }
+
+    @Test
+    fun `reads the answers a resolved batch stamps on its output`() {
+        val answers = parseAskUserAnswers("""{"answers":{"topic":"kt","depth":"deep"}}""")
+
+        assertThat(answers).containsExactly("topic", "kt", "depth", "deep")
+    }
+
+    /** Nothing is stamped until the pause resolves, and a stray shape must not throw in the card. */
+    @Test
+    fun `an unresolved or malformed output yields no answers`() {
+        assertThat(parseAskUserAnswers(null)).isEmpty()
+        assertThat(parseAskUserAnswers("")).isEmpty()
+        assertThat(parseAskUserAnswers("pg")).isEmpty()
+        assertThat(parseAskUserAnswers("""{"answers":"not a map"}""")).isEmpty()
+        assertThat(parseAskUserAnswers("""{"answers":{"topic":7}}""")).isEmpty()
+    }
+
+    /**
+     * Each answer reads back against its OWN question. Sharing one question's options across the
+     * batch would relabel an answer as a choice the user never made.
+     */
+    @Test
+    fun `each batch answer maps against its own question's options`() {
+        val batch = parseAskUserQuestionBatch(batchArgs)
+        val answers = parseAskUserAnswers("""{"answers":{"topic":"kt","depth":"as deep as it goes"}}""")
+
+        val topic = askAnswerDisplay(batch[0].question, answers.getValue("topic"))
+        val depth = askAnswerDisplay(batch[1].question, answers.getValue("depth"))
+
+        assertThat(topic.label).isEqualTo("Kotlin")
+        assertThat(topic.selectedValues).containsExactly("kt")
+        assertThat(depth.label).isEqualTo("as deep as it goes")
+        assertThat(depth.selectedValues).isEmpty()
     }
 }

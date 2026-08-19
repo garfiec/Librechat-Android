@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.usage.ContextUsage
 import com.garfiec.librechat.core.model.usage.TokenUsage
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.MessageNode
 
 enum class ChatScreenState { LANDING, LOADING, ACTIVE }
@@ -89,6 +90,16 @@ data class MessagesState(
     val pendingAction: PendingAction? = null,
     /** A decision for [pendingAction] is in flight; the resolve controls are disabled meanwhile. */
     val isResolvingPendingAction: Boolean = false,
+    /**
+     * Per-question answer drafts for a batched `ask_user_question` [pendingAction], keyed by the
+     * payload's own question ids.
+     *
+     * Hoisted out of the card because the card is not the only input: a composer send during the
+     * pause fills the first question that has no answer yet, and the card has to *show* that —
+     * both so the user can see what was recorded and so its Send enables once the rest are in.
+     * Cleared whenever the pause changes or dies; see `PendingActionDelegate`.
+     */
+    val askAnswerDrafts: Map<String, AskAnswerDraft> = emptyMap(),
 )
 
 @Immutable
