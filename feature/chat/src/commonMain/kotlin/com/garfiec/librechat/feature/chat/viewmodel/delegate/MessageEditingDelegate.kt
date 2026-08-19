@@ -106,6 +106,7 @@ class MessageEditingDelegate(
             parentMessageId = parentUserMessage.parentMessageId,
             overrideParentMessageId = parentUserMessage.messageId,
             files = parentUserMessage.files,
+            quotes = parentUserMessage.quotes,
             isEdited = true,
             isRegenerate = true,
             logLabel = "editAiMessage",
@@ -132,6 +133,7 @@ class MessageEditingDelegate(
             parentMessageId = parentUserMessage.parentMessageId,
             overrideParentMessageId = parentUserMessage.messageId,
             files = parentUserMessage.files,
+            quotes = parentUserMessage.quotes,
             isRegenerate = true,
             logLabel = "regenerateMessage",
         )
@@ -171,7 +173,11 @@ class MessageEditingDelegate(
      * [MessageTreeDelegate.anchorStreamTo]) and then supplies only the args that differ.
      *
      * Resubmits carry the original user turn's [files] so attachments survive an edit /
-     * regenerate / continue (the server otherwise loses them). The new-message send path
+     * regenerate / continue (the server otherwise loses them). Regenerate-shaped replays of
+     * the parent user turn also carry its persisted [quotes] (web's `overrideQuotes`): the
+     * server rebuilds the user message from `req.body.quotes` on a regenerate, so omitting
+     * them silently drops the quoted context while the chips stay visible. Continue sends
+     * none, matching web. The new-message send path
      * (`doSendWithSpec`) stays in `ChatViewModel`: it additionally carries an added-conversation
      * for comparison mode and a bespoke stream-terminated callback this helper deliberately omits.
      */
@@ -184,6 +190,7 @@ class MessageEditingDelegate(
         overrideParentMessageId: String? = null,
         responseMessageId: String? = null,
         files: List<FileReference>? = null,
+        quotes: List<String>? = null,
         isEdited: Boolean = false,
         isRegenerate: Boolean = false,
         isContinued: Boolean = false,
@@ -218,6 +225,7 @@ class MessageEditingDelegate(
                 isContinued = isContinued,
                 webSearch = webSearchEnabled,
                 files = files,
+                quotes = quotes,
                 ephemeralAgent = ephemeralAgent,
                 isTemporary = state.isTemporaryChat,
                 modelParams = requestBuilder.buildModelParams(),
