@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.model.content
 
 import com.garfiec.librechat.core.model.ContentType
+import com.garfiec.librechat.core.model.serializer.FlexibleTextSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -8,6 +9,10 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class MessageContentPart(
     val type: ContentType,
+    // String on the wire normally, but a part edited through PUT /api/messages persists its text
+    // as the annotated-object form `{value, annotations}` (upstream d920328bfa53) — the serializer
+    // normalizes both to the string so one edited part cannot reject the whole response decode.
+    @Serializable(with = FlexibleTextSerializer::class)
     val text: String? = null,
     val think: String? = null,
     val error: String? = null,
