@@ -57,6 +57,18 @@ data class PendingAction(
      */
     val isSingleAnswerAsk: Boolean
         get() = isAskUserQuestion && (payload?.questions == null || soleAskQuestionId != null)
+
+    /**
+     * True when the composer's send can make progress on this pause: a bare-answer ask, or a
+     * batch whose every question is answerable — the composer then fills them in order, one send
+     * per question, and the full map submits once the last one is in. A batch containing an
+     * unanswerable (blank-id) question can only be resolved from the card or expire, so routing
+     * composer text at it would consume words nothing can submit.
+     */
+    val isComposerAnswerableAsk: Boolean
+        get() = isAskUserQuestion && payload?.questions.let { questions ->
+            questions == null || (questions.isNotEmpty() && questions.all { it.isAnswerable })
+        }
 }
 
 /** Wire values of the `payload.type` discriminator. */

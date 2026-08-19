@@ -314,7 +314,10 @@ data class ChatUiState(
     val duringRunSendTarget: DuringRunSendTarget
         get() {
             val pause = renderablePendingAction
-            if (pause != null && pause.isSingleAnswerAsk && !isResolvingPendingAction) {
+            // Any composer-answerable ask claims the send — including a multi-question batch,
+            // which the composer resolves one question per send (v0.8.8-rc1 HITL5). Routing the
+            // text to steer/queue instead left the run paused while the send appeared to work.
+            if (pause != null && pause.isComposerAnswerableAsk && !isResolvingPendingAction) {
                 return DuringRunSendTarget.ANSWER_PAUSE
             }
             return when (effectiveDuringRunAction) {

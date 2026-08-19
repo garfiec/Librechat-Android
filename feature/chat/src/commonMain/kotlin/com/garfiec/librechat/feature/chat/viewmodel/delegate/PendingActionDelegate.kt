@@ -105,6 +105,14 @@ class PendingActionDelegate(
     /** Dismisses the card when [PendingAction.expiresAt] passes; see [scheduleExpiry]. */
     private var expiryJob: Job? = null
 
+    /**
+     * Composer-driven batch answers accumulated so far, keyed by question id; see
+     * [answerNextBatchQuestion]. Valid only for [batchDraftActionId] — a new pause never
+     * inherits a previous batch's words.
+     */
+    private val batchDrafts = linkedMapOf<String, String>()
+    private var batchDraftActionId: String? = null
+
     private data class PinnedTurnConfig(
         val endpoint: String,
         val endpointType: String?,
@@ -226,6 +234,7 @@ class PendingActionDelegate(
         // inside the timer's own coroutine is safe (the remaining writes are non-suspending).
         expiryJob?.cancel()
         expiryJob = null
+        reclaimBatchDrafts()
         pinnedTurn = null
         generationCreatedAt = null
         // Invalidate any in-flight resume: its continuation then restores the typed answer
@@ -247,6 +256,7 @@ class PendingActionDelegate(
     fun clear() {
         expiryJob?.cancel()
         expiryJob = null
+        reclaimBatchDrafts()
         pinnedTurn = null
         generationCreatedAt = null
         epoch++
@@ -285,6 +295,52 @@ class PendingActionDelegate(
         submit(answerText = answers.values.joinToString("\n\n")) { request ->
             request.copy(answers = answers)
         }
+    }
+
+    /**
+     * The composer's send during a batched pause: answers the FIRST question that has no draft
+     * yet, and submits the whole batch through [submitAnswers] once every question has one.
+     *
+     * There is deliberately no per-question resume: the route requires the answers map to cover
+     * every id and 400s a partial submission, so a batch can only ever go up whole. Until it
+     * does, the words live in [batchDrafts], and every way the pause can die without submitting —
+     * stream end, expiry, a different pause replacing this one — hands them back through
+     * [restoreAnswer] (see [reclaimBatchDrafts]); the same no-lost-words rule the single-answer
+     * path follows.
+     *
+     * The card's per-question editors stay authoritative: its Send resolves the batch from its
+     * own fields, and these drafts are then discarded by the success path clearing the pause.
+     */
+    fun answerNextBatchQuestion(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        val state = handle.state
+        if (state.isResolvingPendingAction) return
+        val action = state.pendingAction ?: return
+        val actionId = action.actionId ?: return
+        val questions = action.payload?.questions ?: return
+        if (questions.isEmpty() || questions.any { !it.isAnswerable }) return
+        if (batchDraftActionId != actionId) {
+            reclaimBatchDrafts()
+            batchDraftActionId = actionId
+        }
+        val target = questions.firstOrNull { batchDrafts[it.id].isNullOrBlank() } ?: return
+        batchDrafts[target.id] = trimmed
+        if (questions.all { !batchDrafts[it.id].isNullOrBlank() }) {
+            val complete = questions.associate { it.id to batchDrafts[it.id].orEmpty() }
+            batchDrafts.clear()
+            batchDraftActionId = null
+            submitAnswers(complete)
+        }
+    }
+
+    /** Hands unsubmitted batch drafts back to the composer; no-op when there are none. */
+    private fun reclaimBatchDrafts() {
+        if (batchDrafts.isNotEmpty()) {
+            restoreAnswer(batchDrafts.values.joinToString("\n\n"))
+        }
+        batchDrafts.clear()
+        batchDraftActionId = null
     }
 
     /**

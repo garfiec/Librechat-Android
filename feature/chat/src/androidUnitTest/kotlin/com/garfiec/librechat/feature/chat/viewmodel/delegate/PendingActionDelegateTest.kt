@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ResumePinStore
+import com.garfiec.librechat.core.model.AskUserQuestionItem
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.PendingActionPayload
 import com.garfiec.librechat.core.model.PendingActionTypes
@@ -142,6 +143,61 @@ class PendingActionDelegateTest {
 
         assertThat(request.captured.generationCreatedAt).isNull()
     }
+
+    private fun askBatch(vararg ids: String, actionId: String = "act-1") = PendingAction(
+        actionId = actionId,
+        conversationId = "conv-1",
+        payload = PendingActionPayload(
+            type = PendingActionTypes.ASK_USER_QUESTION,
+            questions = ids.map { AskUserQuestionItem(id = it, question = "Which $it?") },
+        ),
+    )
+
+    @Test
+    fun `batch drafts submit only once every question has an answer`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, _) = delegateWith(this)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.answerNextBatchQuestion("kotlin")
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+
+            delegate.answerNextBatchQuestion("very deep")
+
+            coVerify(exactly = 1) { chatRepository.resumeChat(any()) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+        }
+
+    @Test
+    fun `unsubmitted batch drafts come back when the pause dies`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The composer was cleared to record each draft, so the words exist nowhere else —
+            // the same no-lost-words rule every other failed resume path follows.
+            val (delegate, _) = delegateWith(this)
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.answerNextBatchQuestion("kotlin")
+            delegate.clear()
+
+            assertThat(restored).containsExactly("kotlin")
+        }
+
+    @Test
+    fun `a batch with an unanswerable question refuses composer answering`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, _) = delegateWith(this)
+
+            delegate.onPendingAction(askBatch("topic", ""))
+            delegate.answerNextBatchQuestion("kotlin")
+            delegate.clear()
+
+            // Nothing recorded, so nothing to reclaim — the send target never offered this.
+            assertThat(restored).isEmpty()
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+        }
 
     @Test
     fun `a pause announced already past its expiry dismisses with the expiry copy`() =

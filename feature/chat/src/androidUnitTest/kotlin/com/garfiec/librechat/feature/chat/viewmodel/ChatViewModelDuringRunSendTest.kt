@@ -324,23 +324,39 @@ class ChatViewModelDuringRunSendTest {
         }
 
     /**
-     * One field cannot cover ids it never showed, and a body missing any of them is a 400. So the
-     * composer must not claim the send for a real batch — the card is the only input that can
-     * resolve it, and the text keeps its ordinary during-run destination.
+     * A multi-question batch is answered from the composer one question per send, in payload
+     * order, and the resume goes up only once every id has an answer — a partial map is a 400
+     * ("Answers are required for every question"), so there is nothing to submit before that.
+     * Routing the text to the queue instead read as broken: the send appeared to work while the
+     * run stayed paused.
      */
     @Test
-    fun `a multi-question batch is not answerable from the composer`() =
+    fun `the composer answers a multi-question batch one question per send`() =
         duringRunTest(DuringRunAction.QUEUE) { vm ->
             resumedStream.emit(pendingBatch("topic", "depth"))
             runCurrent()
             assertThat(vm.uiState.value.pendingAction).isNotNull()
 
-            vm.onInputChanged(TEXT)
+            vm.onInputChanged("kotlin")
             vm.sendDuringRun()
             runCurrent()
 
+            // First answer recorded, nothing resumed, nothing queued — the run is still paused
+            // on the second question.
             coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
-            assertThat(vm.uiState.value.messageQueue.map { it.text }).containsExactly(TEXT)
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+            assertThat(vm.uiState.value.inputText).isEmpty()
+
+            vm.onInputChanged("very deep")
+            vm.sendDuringRun()
+            runCurrent()
+
+            val request = slot<ChatResumeRequest>()
+            coVerify(exactly = 1) { chatRepository.resumeChat(capture(request)) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+            assertThat(request.captured.answer).isNull()
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
         }
 
     @Test
