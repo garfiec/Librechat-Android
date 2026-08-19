@@ -12,6 +12,7 @@ import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
+import com.garfiec.librechat.core.model.response.FileUploadConfig
 import com.garfiec.librechat.core.model.response.pickerMimeTypes
 import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
@@ -148,9 +149,20 @@ class FilesViewModel(
 
     private val _transientState = MutableStateFlow(TransientState())
 
-    // Empty until the file config loads, so the picker is unrestricted for that first window
+    // Null until the file config loads, so the picker is unrestricted for that first window
     // rather than briefly hiding types the server actually accepts.
-    private val _pickerMimeTypes = MutableStateFlow<List<String>>(emptyList())
+    private val _fileConfig = MutableStateFlow<FileUploadConfig?>(null)
+
+    // Combined with the live detected version (not a one-shot read) so a backend-version
+    // detection that resolves after the config load still updates the version-gated entries
+    // (e.g. .potx at >= 0.8.8-rc1) — mirrors the chat side's reactive gates
+    // (FeatureGatesState.backendVersion).
+    private val pickerMimeTypes: Flow<List<String>> = combine(
+        _fileConfig,
+        configRepository.detectedBackendVersion,
+    ) { config, serverVersion ->
+        config?.pickerMimeTypes(serverVersion = serverVersion) ?: emptyList()
+    }
 
     /** Cache display data by fileId to avoid re-running formatFileSize on every emission. */
     private val displayDataCache = mutableMapOf<String, FileDisplayData>()
@@ -181,7 +193,7 @@ class FilesViewModel(
         displayList,
         _transientState,
         _viewMode,
-        _pickerMimeTypes,
+        pickerMimeTypes,
     ) { list, transient, mode, pickerMimeTypes ->
         FilesUiState(
             displayFiles = list.files,
@@ -221,10 +233,7 @@ class FilesViewModel(
         }
         viewModelScope.launch {
             // Best-effort: a config that fails to load just leaves the picker unrestricted.
-            val config = fileRepository.getFileConfig().getOrNull() ?: return@launch
-            _pickerMimeTypes.value = config.pickerMimeTypes(
-                serverVersion = configRepository.detectedBackendVersion.value,
-            )
+            _fileConfig.value = fileRepository.getFileConfig().getOrNull()
         }
         loadFiles()
     }

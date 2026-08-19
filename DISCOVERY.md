@@ -291,7 +291,8 @@ GET    /api/share?cursor&pageSize&sortBy&sortDirection&search   (NO isPublic —
 
 ### v0.8.7 known-deferred parity gaps (NOT built; tracked in proposal-v0.8.7.md)
 - `url_context` conversation toggle (Google URL Context) — no mobile param-sheet control yet.
-- per-message `quotes[]` round-trip (selected-text quote-reply context) — mobile neither sends nor renders.
+- per-message `quotes[]` round-trip (selected-text quote-reply context) — since BUILT (v0.8.8-rc1 sync);
+  Android-only capture, iOS deferred — see the Quotes block below.
 
 ### v0.8.8-line partial sync (untagged dev commit 6c97a7f4, 2026-07-23) — endpoint / shape changes
 These landed upstream on the post-v0.8.7 `dev` branch (package.json still reports 0.8.7; the
@@ -709,6 +710,10 @@ Quotes (v0.8.7 feature, capture newly built):
   leave them staged (server steers never carry quotes); regenerate/edit-assistant replay the parent
   user message's persisted quotes (web `overrideQuotes` parity); continue/edit-user send none;
   assistants endpoints are skipped. Gated `isCompatibleOrNewer(v, "0.8.7")`, fail-closed. (BUILT)
+- iOS capture is DEFERRED (deliberate): the chips display/removal plumbing is commonMain and renders
+  on iOS, but nothing stages a quote there — the capture affordance is the Android text-context-menu
+  provider (`AddToChatSelectionMenu.kt`), and CMP's iOS text-context-menu API surface differs and
+  needs its own investigation. Android-only until then; do not re-flag as a gap.
 
 Agent editor:
 - The unified tool picker now mirrors web `buildCatalog` gating (catalog.ts): generic plugins only

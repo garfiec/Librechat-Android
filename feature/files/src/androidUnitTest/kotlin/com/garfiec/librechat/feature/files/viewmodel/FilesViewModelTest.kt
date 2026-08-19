@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
+import com.garfiec.librechat.core.model.response.FileUploadConfig
 import com.garfiec.librechat.feature.files.platform.FileReader
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
@@ -30,8 +31,9 @@ class FilesViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private val fileRepository = mockk<FileRepository>(relaxed = true)
+    private val backendVersionFlow = MutableStateFlow<String?>(null)
     private val configRepository = mockk<ConfigRepository>(relaxed = true) {
-        every { detectedBackendVersion } returns MutableStateFlow<String?>(null)
+        every { detectedBackendVersion } returns backendVersionFlow
     }
     private val fileReader = mockk<FileReader>(relaxed = true)
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
@@ -541,5 +543,32 @@ class FilesViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.confirmSelection()).isEmpty()
+    }
+
+    @Test
+    fun `late backend-version detection updates picker mime types`() = runTest {
+        coEvery { fileRepository.getFileConfig() } returns Result.Success(
+            FileUploadConfig(
+                supportedMimeTypes = listOf(
+                    "^application/pdf$",
+                    "^application/vnd\\.openxmlformats-officedocument\\.presentationml\\.template$",
+                ),
+            ),
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Version still undetected: .potx is withheld, the rest of the allowlist is offered.
+        assertThat(viewModel.uiState.value.pickerMimeTypes).containsExactly("application/pdf")
+
+        // Detection resolving after the config load must widen the picker in place.
+        backendVersionFlow.value = "0.8.8-rc1"
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.pickerMimeTypes).containsExactly(
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.presentationml.template",
+        )
     }
 }
