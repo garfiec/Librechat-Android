@@ -162,6 +162,12 @@ sealed interface StreamEvent {
         val conversationId: String,
         val messageId: String,
         val parentMessageId: String,
+        /**
+         * The generation epoch from the start POST's envelope (v0.8.8-rc1), echoed back on
+         * `POST /chat/resume` to fence a stale resume. Null from the SSE `created` frame and on
+         * older servers — the resume is then sent unfenced, which stays legal.
+         */
+        val generationCreatedAt: Long? = null,
     ) : StreamEvent
 
     /**

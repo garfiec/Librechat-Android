@@ -72,6 +72,9 @@ class PendingActionDelegate(
      */
     private var pinnedTurn: PinnedTurnConfig? = null
 
+    /** The live run's generation epoch; see [onGenerationEpoch]. */
+    private var generationCreatedAt: Long? = null
+
     /**
      * The action id whose resume POST is in flight.
      *
@@ -136,6 +139,19 @@ class PendingActionDelegate(
         persistPin(conversationId)
     }
 
+    /**
+     * Records the run's generation epoch, echoed back as `generationCreatedAt` on the resume so
+     * the server can fence it against a newer run reusing the same stream id (v0.8.8-rc1,
+     * 409 RUN_REPLACED on mismatch). Sourced from the start POST's envelope
+     * ([com.garfiec.librechat.core.model.StreamEvent.Created]) and from `GET /chat/status`'s
+     * `createdAt` on the reconnect paths — the same two places web feeds its
+     * `activeGenerationCreatedAtByConvoId` atom. Null (older server / SSE-only created frame)
+     * sends the resume unfenced, which stays legal.
+     */
+    fun onGenerationEpoch(createdAt: Long?) {
+        generationCreatedAt = createdAt
+    }
+
     private fun persistPin(conversationId: String? = handle.state.conversationId) {
         val pin = pinnedTurn ?: return
         val id = conversationId ?: return
@@ -173,6 +189,7 @@ class PendingActionDelegate(
      */
     fun clear() {
         pinnedTurn = null
+        generationCreatedAt = null
         epoch++
         inFlightActionId = null
         if (handle.state.pendingAction == null && !handle.state.isResolvingPendingAction) return
@@ -252,6 +269,7 @@ class PendingActionDelegate(
                 ChatResumeRequest(
                     conversationId = conversationId,
                     actionId = actionId,
+                    generationCreatedAt = generationCreatedAt,
                     endpoint = turn.endpoint,
                     endpointType = turn.endpointType,
                     agentId = turn.agentId,

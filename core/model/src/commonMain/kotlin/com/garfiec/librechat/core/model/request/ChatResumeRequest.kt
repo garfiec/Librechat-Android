@@ -28,6 +28,15 @@ data class ChatResumeRequest(
     val conversationId: String,
     /** Identifies the paused action; a stale/mismatched id is rejected 409. */
     val actionId: String,
+    /**
+     * The generation epoch this resume targets — the `generationCreatedAt`/`createdAt` the server
+     * reported for the run (start POST / `GET /chat/status`). The resume route compares it against
+     * the live job's `createdAt` and answers 409 RUN_REPLACED on a mismatch, fencing a stale
+     * resume against a newer turn that reused the conversation-scoped stream id. Optional
+     * server-side: omitting it (null) stays legal but leaves the resume unfenced — web sends it
+     * always (mutations.ts).
+     */
+    val generationCreatedAt: Long? = null,
     val endpoint: String,
     val endpointType: String? = null,
     @SerialName("agent_id") val agentId: String? = null,

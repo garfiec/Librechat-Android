@@ -111,6 +111,7 @@ class ChatRepositoryImpl(
             conversationId = streamId,
             messageId = "",
             parentMessageId = "",
+            generationCreatedAt = startResponse.generationCreatedAt,
         ))
 
         // Phase 2: GET the SSE stream using the streamId

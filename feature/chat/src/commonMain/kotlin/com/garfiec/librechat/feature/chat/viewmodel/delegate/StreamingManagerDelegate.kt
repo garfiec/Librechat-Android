@@ -557,6 +557,7 @@ class StreamingManagerDelegate(
         // turn start, and it is precisely that chat which hands off to a different ViewModel
         // before its first human-review pause arrives.
         pendingActionDelegate.onConversationIdResolved(event.conversationId)
+        pendingActionDelegate.onGenerationEpoch(event.generationCreatedAt)
         completionDelegate.onConversationCreated(event.conversationId, isNewConversation(), streamOriginAccountId)
     }
 
@@ -1013,6 +1014,9 @@ class StreamingManagerDelegate(
      * the pause) and is harmlessly idempotent when the frame then repeats it.
      */
     private fun applyStatusPendingAction(status: ChatStatusResponse) {
+        // Before the pause check on purpose: a pause can arrive later on the resumed stream's
+        // sync frame, and the status read is this path's only source of the epoch.
+        pendingActionDelegate.onGenerationEpoch(status.createdAt)
         val pendingAction = status.pendingAction ?: return
         if (pendingAction.actionId.isNullOrBlank()) return
         pendingActionDelegate.onPendingAction(pendingAction)

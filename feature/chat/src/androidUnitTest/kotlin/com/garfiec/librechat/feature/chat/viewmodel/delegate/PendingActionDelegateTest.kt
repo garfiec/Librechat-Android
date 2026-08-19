@@ -110,6 +110,37 @@ class PendingActionDelegateTest {
         }
 
     @Test
+    fun `resume echoes the recorded generation epoch`() = runTest(UnconfinedTestDispatcher()) {
+        // v0.8.8-rc1: the server fences a resume against a newer run reusing the same stream id
+        // by comparing generationCreatedAt to the live job's createdAt (409 RUN_REPLACED).
+        val (delegate, _) = delegateWith(this)
+        val request = slot<ChatResumeRequest>()
+        coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+        delegate.onGenerationEpoch(1755400000123L)
+        delegate.onPendingAction(toolApproval())
+        delegate.submitAnswer("yes")
+
+        assertThat(request.captured.generationCreatedAt).isEqualTo(1755400000123L)
+    }
+
+    @Test
+    fun `an unknown generation epoch sends the resume unfenced`() = runTest(UnconfinedTestDispatcher()) {
+        // Older servers report no epoch; omitting the field stays legal and must not block the
+        // resume. clear() also resets it so a dead run's epoch cannot fence the next one.
+        val (delegate, _) = delegateWith(this)
+        val request = slot<ChatResumeRequest>()
+        coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+        delegate.onGenerationEpoch(42L)
+        delegate.clear()
+        delegate.onPendingAction(toolApproval())
+        delegate.submitAnswer("yes")
+
+        assertThat(request.captured.generationCreatedAt).isNull()
+    }
+
+    @Test
     fun `an accepted decision clears the pause`() = runTest(UnconfinedTestDispatcher()) {
         val (delegate, flow) = delegateWith(this)
         coEvery { chatRepository.resumeChat(any()) } returns Result.Success(ChatResumeResponse())
