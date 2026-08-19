@@ -62,7 +62,7 @@ class StreamingManagerDelegate(
      * Puts an early-aborted (never-persisted) turn's text back into the composer. Lives on the
      * ViewModel because streaming writes are scoped away from the composer slice.
      */
-    private val restoreUnsentInput: (String) -> Unit,
+    private val restoreUnsentInput: (String, List<String>) -> Unit,
     private val isNewConversation: () -> Boolean,
     private val isHandedOffNewChat: () -> Boolean,
 ) {
@@ -586,10 +586,11 @@ class StreamingManagerDelegate(
         // No completionDelegate.onFinal — there is no conversation save, cache, title, or TTS
         // for a turn that never existed.
         if (aborted && rawEvent.earlyAbort) {
-            val unsentText = currentTurnOptimisticUserMessageId
-                ?.let { id -> handle.state.messages.firstOrNull { it.messageId == id }?.text }
+            val unsent = currentTurnOptimisticUserMessageId
+                ?.let { id -> handle.state.messages.firstOrNull { it.messageId == id } }
             treeDelegate.unsendOptimisticTurn(currentTurnOptimisticUserMessageId)
-            unsentText?.takeIf { it.isNotBlank() }?.let(restoreUnsentInput)
+            unsent?.text?.takeIf { it.isNotBlank() }
+                ?.let { restoreUnsentInput(it, unsent.quotes.orEmpty()) }
             endStream(StreamEndReason.Finalized(aborted = true))
             return
         }
@@ -848,11 +849,10 @@ class StreamingManagerDelegate(
                 // those.
                 val unsentId = currentTurnOptimisticUserMessageId?.takeUnless { currentTurnCreated }
                 if (unsentId != null) {
-                    val unsentText = handle.state.messages
-                        .firstOrNull { it.messageId == unsentId }
-                        ?.text
+                    val unsent = handle.state.messages.firstOrNull { it.messageId == unsentId }
                     treeDelegate.unsendOptimisticTurn(unsentId)
-                    unsentText?.takeIf { it.isNotBlank() }?.let(restoreUnsentInput)
+                    unsent?.text?.takeIf { it.isNotBlank() }
+                        ?.let { restoreUnsentInput(it, unsent.quotes.orEmpty()) }
                 }
                 // Preserve partial content so users can read/copy what was received.
                 val partialContent = streamingBuffer.toString()

@@ -48,7 +48,7 @@ class StreamingManagerEndStreamTest {
     private val queueDelegate = mockk<MessageQueueDelegate>(relaxed = true)
     private val reloadConversation = mockk<(String) -> Unit>(relaxed = true)
     private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
-    private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
+    private val restoreUnsentInput = mockk<(String, List<String>) -> Unit>(relaxed = true)
 
     /**
      * Shared so a test can assert whether the connectivity observer was started — that is the only
@@ -273,7 +273,7 @@ class StreamingManagerEndStreamTest {
             runCurrent()
 
             verify(exactly = 1) { treeDelegate.unsendOptimisticTurn("u1") }
-            verify(exactly = 1) { restoreUnsentInput("text-u1") }
+            verify(exactly = 1) { restoreUnsentInput("text-u1", any()) }
             // The failure is still reported — un-sending is not the same as swallowing it.
             assertThat(flow.value.error).isEqualTo("Request failed (HTTP 302)")
 
@@ -300,7 +300,7 @@ class StreamingManagerEndStreamTest {
         runCurrent()
 
         verify(exactly = 0) { treeDelegate.unsendOptimisticTurn(any()) }
-        verify(exactly = 0) { restoreUnsentInput(any()) }
+        verify(exactly = 0) { restoreUnsentInput(any(), any()) }
 
         events.close()
         delegate.reset()
@@ -322,7 +322,7 @@ class StreamingManagerEndStreamTest {
         runCurrent()
 
         verify(exactly = 0) { treeDelegate.unsendOptimisticTurn(any()) }
-        verify(exactly = 0) { restoreUnsentInput(any()) }
+        verify(exactly = 0) { restoreUnsentInput(any(), any()) }
 
         events.close()
         delegate.reset()

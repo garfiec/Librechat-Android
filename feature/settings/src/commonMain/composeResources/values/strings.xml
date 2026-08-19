@@ -495,6 +495,7 @@
     <string name="cd_update_shared_link">Update shared link</string>
     <string name="dialog_title_update_shared_link">Update Shared Link</string>
     <string name="dialog_update_shared_link_message">This republishes "%1$s" with the conversation as it is now. The link stays the same, so anyone who already has it will see the updated content.</string>
+    <string name="dialog_update_shared_link_message_new_url">This republishes "%1$s" with the conversation as it is now. This server issues a new link, so anyone who already has the old one will lose access.</string>
     <string name="action_update_shared_link">Update</string>
     <string name="dialog_title_delete_shared_link">Delete Shared Link</string>
     <string name="dialog_delete_shared_link_message">This will remove the shared link for "%1$s". Anyone with the link will no longer be able to access it.</string>

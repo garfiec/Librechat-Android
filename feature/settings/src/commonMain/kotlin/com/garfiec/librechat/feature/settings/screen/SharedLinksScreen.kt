@@ -63,6 +63,8 @@ fun SharedLinksScreen(
     onLoadMore: () -> Unit,
     /** SHARED_LINKS CREATE. False hides the update action; delete stays available. */
     canUpdate: Boolean,
+    /** rc1+ keeps the link's id across a re-publish; earlier servers mint a new one. */
+    updateKeepsUrl: Boolean,
     onUpdateLink: (String) -> Unit,
     onDelete: (String) -> Unit,
     onNavigateBack: () -> Unit,
@@ -180,7 +182,12 @@ fun SharedLinksScreen(
             onDismissRequest = { updateTarget = null },
             title = { Text(stringResource(Res.string.dialog_title_update_shared_link)) },
             text = {
-                Text(stringResource(Res.string.dialog_update_shared_link_message, linkToUpdate.title))
+                val message = if (updateKeepsUrl) {
+                    Res.string.dialog_update_shared_link_message
+                } else {
+                    Res.string.dialog_update_shared_link_message_new_url
+                }
+                Text(stringResource(message, linkToUpdate.title))
             },
             confirmButton = {
                 TextButton(

@@ -122,8 +122,7 @@ data class ChatUiState(
 
     /** Web's `quotesSupported`: everything except the assistants endpoints. */
     val quotesSupportedOnEndpoint: Boolean
-        get() = !selectedEndpoint.equals("assistants", ignoreCase = true) &&
-            !selectedEndpoint.equals("azureAssistants", ignoreCase = true)
+        get() = quotesSupportedOn(selectedEndpoint)
 
     /**
      * True while picked files exist but are not yet in the attachment tray — mid-intake, or staged
@@ -524,3 +523,13 @@ enum class DuringRunSendTarget {
     /** Hold as a follow-up for after the run. */
     QUEUE,
 }
+
+/**
+ * Web's `quotesSupported`: the assistants endpoints bypass the server-side blockquote merge, so
+ * they take no quotes. Shared by the affordance gate ([ChatUiState.quotesSupportedOnEndpoint]) and
+ * the send-time take, which must agree — offering the chips and then dropping them at send is the
+ * failure this single spelling exists to prevent.
+ */
+internal fun quotesSupportedOn(endpoint: String?): Boolean =
+    !endpoint.equals("assistants", ignoreCase = true) &&
+        !endpoint.equals("azureAssistants", ignoreCase = true)

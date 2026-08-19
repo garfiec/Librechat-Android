@@ -215,17 +215,27 @@ class PendingActionDelegate(
      * Arms the expiry for a pause that carries [PendingAction.expiresAt] (v0.8.8: the server
      * treats the pause as stale past it and finalizes the run). When it passes, the card is
      * dismissed with the expiry copy instead of leaving controls up that can only 409 — the same
-     * shape [clear] gives every other way a pause dies. A pause announced already-expired (a
-     * stale status read) dismisses immediately. Re-announcements re-arm idempotently; a pause
-     * without the field never expires client-side, exactly as before.
+     * shape [clear] gives every other way a pause dies. Re-announcements re-arm idempotently; a
+     * pause without the field never expires client-side, exactly as before.
+     *
+     * **The wait is measured server-side whenever it can be.** Both timestamps are the server's,
+     * so `expiresAt - createdAt` is the TTL with the device clock subtracted out; comparing the
+     * server's `expiresAt` against the device's own clock instead makes every HITL card on a
+     * skewed device dismiss itself the moment it arrives, over a run that is genuinely paused and
+     * would still accept the answer. Erring late is the safe direction: a resume posted past the
+     * real expiry comes back 409 and is mapped to this same expiry copy. The cost is that a pause
+     * first seen long after it was created (a stale status read) now waits out its TTL rather
+     * than dismissing on sight — a card that 409s into the same copy on the first attempt.
      */
     private fun scheduleExpiry(pendingAction: PendingAction) {
         expiryJob?.cancel()
         expiryJob = null
         val expiresAt = pendingAction.expiresAt ?: return
         val actionId = pendingAction.actionId ?: return
+        val wait = pendingAction.createdAt
+            ?.let { createdAt -> expiresAt - createdAt }
+            ?: (expiresAt - nowMillis())
         expiryJob = handle.scope.launch {
-            val wait = expiresAt - nowMillis()
             if (wait > 0) delay(wait)
             expireNow(actionId)
         }
@@ -291,12 +301,15 @@ class PendingActionDelegate(
      * unknown question id", and anything it names but this omits is 400 "Answers are required for
      * every question".
      *
-     * Everything the user typed is joined into [answerText] for the restore-on-failure path, so a
-     * rejected multi-question submit hands back all of it rather than the first field.
+     * Nothing is re-homed on failure. A batch's words live in `askAnswerDrafts`, which the card
+     * renders and which a failed submit keeps, so handing them to the composer would duplicate
+     * text the user can still see — and would arm a composer send that `answerNextBatchQuestion`
+     * can only refuse (every question already answered), which is a send that silently does
+     * nothing. Retry stays on the card, which is what the failure branch keeps up.
      */
     fun submitAnswers(answers: Map<String, String>) {
         if (answers.isEmpty()) return
-        submit(answerText = answers.values.joinToString("\n\n")) { request ->
+        submit(answerText = null) { request ->
             request.copy(answers = answers)
         }
     }
@@ -355,7 +368,8 @@ class PendingActionDelegate(
      * 409 (someone else resolved it, or it expired), leave the run with no controls and no way
      * back to them — the card is the only route to a resume.
      *
-     * [answerText] is the user's prose for an `ask_user_question` pause, null for tool decisions.
+     * [answerText] is the user's prose for a SINGLE-question `ask_user_question` pause, null for
+     * tool decisions and for batches (whose words stay in `askAnswerDrafts`, on the card).
      * It is captured by the continuation rather than stored in a field precisely because [clear]
      * can run while this is in flight: the closure survives that, a field would have to be
      * cleaned up by the very code path that invalidates the pause.
@@ -423,8 +437,9 @@ class PendingActionDelegate(
                 }
                 is Result.Error -> {
                     Logger.w(result.exception) { "Failed to resume paused run: ${result.message}" }
-                    // The card stays up so a transient failure can be retried — but the composer
-                    // was emptied to send this, so the text has to come back either way.
+                    // The card stays up so a transient failure can be retried. A composer-origin
+                    // submit emptied the composer to send, so its text comes back; a batch passes
+                    // null because its drafts are still on the card (see [submitAnswers]).
                     answerText?.let(restoreAnswer)
                     val statusCode = (result.exception as? ApiException)?.statusCode
                     // A 409 arriving past the pause's own expiry is the expiry, not a retryable

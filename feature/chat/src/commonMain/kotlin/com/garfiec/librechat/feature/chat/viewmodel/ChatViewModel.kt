@@ -393,7 +393,7 @@ class ChatViewModel(
         fingerprintRejectedMessage = {
             "This paused response was started with a different setup, so it can't be answered here."
         },
-        restoreAnswer = ::restoreUnsentInput,
+        restoreAnswer = { text -> restoreUnsentInput(text) },
         resumePinStore = resumePinStore,
     )
 
@@ -892,9 +892,21 @@ class ChatViewModel(
      * Yields to anything the user has since typed — same rule as [restoreDraft] — and persists
      * as a draft so the restored text survives process death, same as [onInputChanged].
      */
-    private fun restoreUnsentInput(text: String) {
+    private fun restoreUnsentInput(text: String, quotes: List<String> = emptyList()) {
         _uiState.update {
-            if (it.inputText.isBlank()) it.copy(composer = it.composer.copy(inputText = text)) else it
+            if (it.inputText.isBlank()) {
+                it.copy(
+                    composer = it.composer.copy(
+                        inputText = text,
+                        // The chips were taken (and cleared) when the spec was minted, so an
+                        // un-send has to put them back or the retry silently loses the excerpts.
+                        // Anything staged since wins — same yield-to-the-user rule as the text.
+                        pendingQuotes = it.composer.pendingQuotes.ifEmpty { quotes },
+                    ),
+                )
+            } else {
+                it
+            }
         }
         if (_uiState.value.inputText != text) return
         val draftKey = _uiState.value.conversationId ?: NEW_CHAT_DRAFT_KEY
@@ -1367,9 +1379,7 @@ class ChatViewModel(
      * Regenerate/continue/edit never call this — those flows replay a prior turn.
      */
     private fun takePendingQuotes(endpoint: String): List<String> {
-        val assistants = endpoint.equals("assistants", ignoreCase = true) ||
-            endpoint.equals("azureAssistants", ignoreCase = true)
-        if (assistants) return emptyList()
+        if (!quotesSupportedOn(endpoint)) return emptyList()
         var taken: List<String> = emptyList()
         _uiState.update {
             taken = it.composer.pendingQuotes

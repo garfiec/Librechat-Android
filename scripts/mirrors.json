@@ -268,6 +268,34 @@
       },
       "why": "A generation reconciled away is rewritten to an ordinary `event: error` frame for protocol-v1 clients. `final: true` there is a writeEvent option consumed by telemetry, never a body field, and the genuine-error frame on the same route also carries generationProtocolVersion -- so this literal sentence is the only thing on the wire separating a benign reconciliation (the reply is saved; refetch it) from a real stream failure.",
       "failure_mode": "Upstream rewording the sentence makes every reconciliation read as a stream error again: the saved reply still loads, but under an alarming error banner, and the run is reported as failed when it was not. Nothing fails to decode."
+    },
+    {
+      "id": "stream-error-types",
+      "upstream": {
+        "file": "packages/data-provider/src/config.ts",
+        "symbol": "ErrorTypes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/error/StreamErrorType.kt",
+        "symbol": "StreamErrorType"
+      },
+      "why": "StreamErrorType transcribes the wire strings of upstream's ErrorTypes enum by hand -- the server never serves the table, it only sends one of its values on a stream-error payload. The enum lists only the codes with something actionable to say, so upstream ADDING a member is deliberately not drift; upstream RENAMING one of the listed values is, and nothing on this side can see it happen.",
+      "failure_mode": "A renamed value stops matching, so that error silently degrades to the generic message -- the user is told something went wrong instead of being told to reattach their files or pick another model. Nothing fails to decode and nothing errors."
+    },
+    {
+      "id": "mcp-error-codes",
+      "upstream": {
+        "file": "packages/api/src/mcp/errors.ts",
+        "symbol": "MCPErrorCodes",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/error/ServerErrorCode.kt",
+        "symbol": "ServerErrorCode.OAUTH_SECRET_REENTRY_REQUIRED"
+      },
+      "why": "The MCP save path branches on the literal `MCP_OAUTH_SECRET_REENTRY_REQUIRED` to turn a 400 into a re-enter-your-secret prompt rather than a generic failure. The wire value carries an `MCP_` prefix that upstream's TypeScript member name drops, so the copy cannot be derived from the member name and has to be transcribed.",
+      "failure_mode": "A renamed code makes the re-entry prompt unreachable: the save reports a plain 'could not save' and the user has no way to learn the stored secret is the thing that must be re-supplied, so the write keeps failing forever."
     }
   ]
 }

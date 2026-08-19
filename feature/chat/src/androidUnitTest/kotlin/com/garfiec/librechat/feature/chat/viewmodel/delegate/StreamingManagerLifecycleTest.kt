@@ -51,7 +51,7 @@ class StreamingManagerLifecycleTest {
     private val queueDelegate = mockk<MessageQueueDelegate>(relaxed = true)
     private val reloadConversation = mockk<(String) -> Unit>(relaxed = true)
     private val treeDelegate = mockk<MessageTreeDelegate>(relaxed = true)
-    private val restoreUnsentInput = mockk<(String) -> Unit>(relaxed = true)
+    private val restoreUnsentInput = mockk<(String, List<String>) -> Unit>(relaxed = true)
     private val steeringDelegate = mockk<SteeringDelegate>(relaxed = true)
 
     /**

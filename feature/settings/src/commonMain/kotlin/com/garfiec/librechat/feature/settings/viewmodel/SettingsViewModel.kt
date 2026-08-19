@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.settings.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
@@ -195,6 +196,10 @@ class SettingsViewModel(
                         allowAccountDeletion = config?.allowAccountDeletion ?: true,
                         buildInfo = config?.buildInfo,
                         serverVersion = version,
+                        // Fail-safe false: only a CONFIRMED rc1+ server keeps the shareId across
+                        // a re-publish, so an unresolved version warns instead of promising it.
+                        sharedLinkUpdateKeepsUrl = version != null &&
+                            BackendVersion.isCompatibleOrNewer(version, "0.8.8-rc1"),
                     )
                 }
             }

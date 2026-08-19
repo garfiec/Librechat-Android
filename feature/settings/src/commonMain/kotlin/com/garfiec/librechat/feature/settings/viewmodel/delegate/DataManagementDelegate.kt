@@ -180,9 +180,16 @@ class DataManagementDelegate(
     /**
      * Re-publishes a shared link against the conversation as it stands now.
      *
-     * The link's id and URL survive, so anything already handed out keeps working — this changes
-     * what is behind it, which is why the route now demands SHARED_LINKS CREATE and why the
-     * caller confirms first.
+     * On v0.8.8-rc1+ the link's id and URL survive, so anything already handed out keeps working;
+     * earlier servers mint a new id and orphan the old URL, which is what the confirmation copy
+     * is gated on. Either way this changes what is behind the link, which is why the route now
+     * demands SHARED_LINKS CREATE and why the caller confirms first.
+     *
+     * The response carries only `{_id, shareId, conversationId, targetMessageId}` — no title, no
+     * `createdAt`, no `isPublic` — on BOTH versions, so the row is patched rather than replaced.
+     * Rebuilding it from the response relabels every updated link "Untitled Conversation" and
+     * drops its date; adopting the returned `shareId` is what keeps a pre-rc1 row pointing at the
+     * link that now exists.
      */
     fun updateSharedLink(shareId: String) {
         stateHandle.scope.launch {
@@ -191,7 +198,11 @@ class DataManagementDelegate(
                     stateHandle.update {
                         copy(
                             sharedLinks = sharedLinks.map { link ->
-                                if (link.shareId == shareId) result.data.toDisplayData() else link
+                                if (link.shareId == shareId) {
+                                    link.copy(shareId = result.data.shareId ?: link.shareId)
+                                } else {
+                                    link
+                                }
                             },
                         )
                     }

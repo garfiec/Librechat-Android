@@ -230,6 +230,14 @@ data class SettingsUiState(
      */
     val sharedLinksUpdateEnabled: Boolean = true,
     /**
+     * Whether re-publishing keeps the link's id. v0.8.8-rc1's `updateSharedLink` writes no new
+     * `shareId`; every earlier server mints one with `nanoid()` and orphans the URL already handed
+     * out. Only the confirmation copy depends on this — the action itself is useful either way —
+     * and it is fail-safe FALSE on an unresolved version, so an unknown server warns rather than
+     * promising a guarantee it may not honour.
+     */
+    val sharedLinkUpdateKeepsUrl: Boolean = false,
+    /**
      * The last MCP server save was refused with `OAUTH_SECRET_REENTRY_REQUIRED` — the stored
      * client secret was bound to the OAuth endpoints it was issued for and one of them changed,
      * so the write keeps failing until the secret is supplied again.

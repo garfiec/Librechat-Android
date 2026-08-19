@@ -103,29 +103,32 @@ private class SelectionQuoteCapture(
         val copyItem = copyItem ?: return
         scope.launch {
             val previous = runCatching { clipboard.getClipEntry() }.getOrNull()
-            val previousText = previous?.firstText()
+            val startedAt = System.currentTimeMillis()
             with(copyItem) { session.onClick() }
-            // The copy lands on the clipboard asynchronously; bounded poll for it.
+            // The copy lands on the clipboard asynchronously; bounded poll for it. The write's own
+            // timestamp is what identifies it — comparing against the PREVIOUS TEXT cannot tell
+            // "the copy landed and happens to equal the old clip" from "the copy never landed",
+            // and resolving that ambiguity by staging whatever the clipboard holds at timeout
+            // quotes the user's unrelated previous clip (a password, an old snippet) into the
+            // chat. ClipDescription.getTimestamp is API 26, which is minSdk.
             var captured: String? = null
             for (attempt in 0 until CAPTURE_POLLS) {
                 delay(CAPTURE_POLL_MS)
-                val text = runCatching { clipboard.getClipEntry() }.getOrNull()?.firstText()
-                if (!text.isNullOrEmpty() && (previousText == null || text != previousText)) {
+                val entry = runCatching { clipboard.getClipEntry() }.getOrNull()
+                val text = entry?.firstText()
+                val writtenAt = entry?.clipData?.description?.timestamp ?: 0L
+                if (!text.isNullOrEmpty() && writtenAt >= startedAt) {
                     captured = text
                     break
                 }
             }
-            if (captured != null) {
-                onAddToChat(captured)
-                // Leave the user's clipboard the way we found it.
-                runCatching { clipboard.setClipEntry(previous) }
-                return@launch
-            }
-            // Timed out — most likely the selection EQUALS the previous clip (copying the same
-            // text writes an identical entry). Stage whatever the clipboard holds now; there is
-            // nothing to restore because nothing observably changed.
-            val fallback = runCatching { clipboard.getClipEntry() }.getOrNull()?.firstText()
-            if (!fallback.isNullOrEmpty()) onAddToChat(fallback)
+            // Timed out: the copy never observably landed, so there is nothing of the user's
+            // selection to stage. Staging the stale clip instead would quote text they never
+            // selected — say nothing rather than the wrong thing.
+            if (captured == null) return@launch
+            onAddToChat(captured)
+            // Leave the user's clipboard the way we found it.
+            runCatching { clipboard.setClipEntry(previous) }
         }
     }
 

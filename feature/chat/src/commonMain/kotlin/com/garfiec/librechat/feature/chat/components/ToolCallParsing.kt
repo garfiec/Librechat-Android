@@ -486,6 +486,18 @@ internal fun List<ActiveToolCall>.withoutUnansweredQuestions(
 }
 
 /**
+ * Drops EVERY unanswered `ask_user_question` call — for panes that host no `PendingActionCard`.
+ *
+ * [withoutUnansweredQuestions] deliberately leaves a second, un-paused ask visible because the
+ * primary thread renders the pause card beside it, so the user can see one question being asked
+ * while another is genuinely in flight. A comparison lane has no such card: an unanswered ask
+ * there renders as a Q&A record with an empty answer and no way to answer it, which is a dead end
+ * rather than a status. Suppressing all of them restores that pane's pre-v0.8.8 behaviour.
+ */
+internal fun List<ActiveToolCall>.withoutAnyUnansweredQuestions(): List<ActiveToolCall> =
+    filterNot { isAskUserQuestionToolCall(it.name.lowercase()) && it.output.isNullOrBlank() }
+
+/**
  * Parses `ask_user_question` arguments, which arrive as an object mid-stream and as a JSON string
  * on a persisted message.
  *
