@@ -220,13 +220,9 @@ object BackendVersion {
      * known NOT to, or can it not be placed at all?
      *
      * [supportsFeature] answers PRESENT-or-not, which is the right question only for a gate that
-     * treats "don't know" the same as "no". Most gates should not: the reported version is a
-     * FLOOR and never a ceiling for a [BackendBuildClass.DEV] build (upstream bumps package.json
-     * at rc prep, so an entire release cycle reports the previous version), and a null [detected]
-     * usually means a server built PAST this app's commit-map pin — newer than us, not older.
-     * Both of those land in `false` today, alongside the one server the gate was actually written
-     * for. Ask this instead whenever "unplaceable" deserves different handling than "too old" —
-     * in practice, whenever the feature can be discovered by probing for it.
+     * treats "don't know" the same as "no" — see [FeatureSupport] for why most gates should not.
+     * Ask this instead whenever "unplaceable" deserves different handling than "too old", in
+     * practice whenever the feature can be discovered by probing for it.
      *
      * How each state is reached:
      * - **PRESENT** — the reported version already meets [minVersion], or [landedDate] is given

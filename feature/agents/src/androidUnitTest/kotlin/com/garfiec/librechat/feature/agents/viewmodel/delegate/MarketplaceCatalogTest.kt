@@ -130,8 +130,8 @@ class MarketplaceCatalogTest {
 
     @Test
     fun `ask_user_question is hidden when its capability is disabled`() {
-        // The user-facing bug this pins: the server drops the tool at runtime when the
-        // capability is off, so offering the row produced agents whose tool "does not exist".
+        // The server drops the tool at runtime when the capability is off, so offering the row
+        // produces agents whose tool "does not exist".
         val catalog = state()
             .copy(
                 availableTools = state().availableTools + askPlugin(),

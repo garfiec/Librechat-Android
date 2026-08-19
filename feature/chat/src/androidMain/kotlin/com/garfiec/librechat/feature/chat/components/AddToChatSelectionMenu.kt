@@ -21,39 +21,28 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-/** Menu key for the appended item; also what tests can look it up by. */
 object AddToChatMenuKey
 
 /**
  * Adds an "Add to chat" item to the selection toolbar of every text below this modifier (v0.8.7
  * quotes, upstream #13868): tapping it stages the selected excerpt as a pending quote chip.
  *
- * **A modifier, not a provider wrapper.** Foundation builds a menu's data by walking the toolbar
- * handler's ANCESTORS (`collectTextContextMenuData` → `traverseAncestors`), and every
- * `SelectionContainer` installs the platform toolbar provider *inside itself*
- * (`CommonContextMenuArea` → `ProvideDefaultPlatformTextContextMenuProviders`). So a
- * `LocalTextContextMenuToolbarProvider` published above the thread is both null when read there
- * and shadowed if written — which is why the earlier wrapper stood down silently and the item
- * never reached the stock floating toolbar. Contributing components from an ancestor is the
- * supported seam, and it leaves the platform's own toolbar (and its text-classification items)
- * exactly as they are.
+ * **Must stay a modifier, not a provider wrapper.** Foundation collects a menu's components by
+ * walking the toolbar handler's ANCESTORS (`collectTextContextMenuData` → `traverseAncestors`),
+ * and every `SelectionContainer` installs the platform toolbar provider *inside itself*
+ * (`CommonContextMenuArea` → `ProvideDefaultPlatformTextContextMenuProviders`) — so a
+ * `LocalTextContextMenuToolbarProvider` published above the thread is null when read there and
+ * shadowed if written, and the item silently never reaches the toolbar.
  *
- * The item needs the SELECTED TEXT, and foundation exposes no public read of a
- * `SelectionContainer`'s selection (the hoisting overload carries anchors, not text). The one
- * public conduit is the built-in Copy item's own onClick, so the appended item drives that and
- * lifts the text off the clipboard: snapshot the previous clip, invoke Copy (which also dismisses
- * the toolbar), poll briefly for the write to land — the selection machinery performs it
- * asynchronously — then stage the excerpt and restore the previous clip so the user's clipboard
- * is left untouched.
- *
- * Reaching Copy is what the filter is for: the builder cannot read the components already
- * collected, but a filter is handed each of them. It runs after every builder has contributed, so
- * the reset lives in the builder and the item is dropped from any menu that turns out to have no
- * Copy — a text field's paste-only menu, where there is no selection to stage and a stale capture
- * would otherwise quote whatever the clipboard happened to hold.
+ * The item needs the SELECTED TEXT, which foundation exposes nowhere public (the hoisting overload
+ * carries anchors, not text). The only conduit is the built-in Copy item's own onClick, so the
+ * appended item drives that and lifts the text off the clipboard, restoring the previous clip
+ * afterwards. The filter is how Copy is reached — a builder cannot read what has already been
+ * collected — and it drops the item from any menu that has no Copy, so a text field's paste-only
+ * menu cannot stage a stale clipboard.
  *
  * When [enabled] is false (pre-0.8.7 server, unknown version, assistants endpoint) nothing is
- * added and the platform toolbar is left exactly as it was.
+ * added.
  */
 @Composable
 internal fun Modifier.addToChatSelectionItem(
@@ -91,7 +80,6 @@ private class SelectionQuoteCapture(
     private val clipboard: Clipboard,
     private val scope: CoroutineScope,
 ) {
-    /** The Copy item of the menu being built, or null if this menu has none. */
     var copyItem: TextContextMenuItem? = null
 
     /** Called once per menu build, before the filters see anything. */
@@ -127,7 +115,6 @@ private class SelectionQuoteCapture(
             // selected — say nothing rather than the wrong thing.
             if (captured == null) return@launch
             onAddToChat(captured)
-            // Leave the user's clipboard the way we found it.
             runCatching { clipboard.setClipEntry(previous) }
         }
     }

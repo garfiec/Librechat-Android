@@ -376,14 +376,10 @@ internal fun buildToolsList(state: AgentEditorUiState): List<String> {
     if (state.webSearchEnabled && state.isWebSearchAvailable) tools.add(ToolConstants.WEB_SEARCH)
     if (state.fileContextEnabled) tools.add("context")
 
-    // Add MCP server markers for each selected MCP tool.
-    //
-    // The server-name half of the key is NORMALIZED (`normalizeMcpServerName`), because that is
-    // how the tool cache and the registry inspector build the keys they resolve against, while
-    // `GET /api/mcp/servers` still advertises the raw configured name. Writing the raw name into
-    // a key for a server called `Google Workspace` produces `..._mcp_Google Workspace`, which no
-    // producer honours — the tool is "not found" at execution and every per-tool option on it is
-    // silently inert. Normalizing is a no-op for any name that already worked.
+    // Add MCP server markers for each selected MCP tool. The server-name half of the key must be
+    // NORMALIZED — `GET /api/mcp/servers` advertises the raw configured name, but the tool cache
+    // resolves against the normalized one, so a raw name produces a key no producer honours. See
+    // `normalizeMcpServerName`.
     for (mcpToolName in state.selectedMcpTools) {
         // Check if this is a server name or a tool name by looking at available MCP tools
         val matchingTool = state.mcpTools.find { it.name == mcpToolName }

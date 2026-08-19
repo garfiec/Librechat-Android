@@ -222,10 +222,9 @@ class NavHostViewModel(
                 // keeps the old set on any non-404 error, so without this drop a flaky incoming
                 // server would keep rendering the previous account's pins in the tool picker.
                 toolFavoritesRepository.clear()
-                // Same singleton-state hazard, one repository over: the usage-hold probe verdict
-                // describes the server being left. A 404 discovered there would otherwise suppress
-                // the queued-attachment TTL touch on the incoming server, whose files the reaper
-                // then collects out from under a queued send.
+                // Same singleton-state hazard: the usage-hold probe verdict describes the server
+                // being left, and carrying its 404 over suppresses the queued-attachment TTL touch
+                // on the incoming one, whose files the reaper then collects out from under a send.
                 fileRepository.clear()
                 // A resume pin names another account's run; keeping it would replay that
                 // account's agent/tool config into a resume on this one.

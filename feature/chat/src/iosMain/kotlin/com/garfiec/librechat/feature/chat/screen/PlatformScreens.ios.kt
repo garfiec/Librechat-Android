@@ -180,9 +180,6 @@ actual fun ChatScreen(
     }
 
     // Show errors in snackbar (matches Android behavior)
-    // Resolved OUTSIDE the effect: stringResource is a composable read, and the effect body is
-    // not a composable scope. Passing through anything that is not a typed marker, so the value
-    // is identical to uiState.error for every error that is not one.
     val errorMessage = uiState.error?.let { localizedStreamError(it) }
     LaunchedEffect(errorMessage) {
         if (errorMessage != null) {

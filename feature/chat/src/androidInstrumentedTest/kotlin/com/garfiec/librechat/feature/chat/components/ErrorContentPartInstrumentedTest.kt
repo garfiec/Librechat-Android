@@ -18,11 +18,9 @@ import org.junit.runner.RunWith
 /**
  * The in-band half of the typed-error contract, driven through the real render path.
  *
- * `StreamErrorTypeTest` pins the classifier, but the defect was never in the classifier — it
- * matched this payload all along. It was that only the stream-end path called it, so the same
- * failure produced an actionable sentence on the snackbar and raw provider JSON in the thread.
- * Only rendering an `error` content part can catch that, which is why this is here rather than
- * beside the classifier's own tests.
+ * `StreamErrorTypeTest` pins the classifier; a classifier that matches the payload proves nothing
+ * about whether the render path calls it. Only rendering an `error` content part shows that the
+ * thread and the snackbar say the same thing about the same failure.
  */
 @RunWith(AndroidJUnit4::class)
 class ErrorContentPartInstrumentedTest {

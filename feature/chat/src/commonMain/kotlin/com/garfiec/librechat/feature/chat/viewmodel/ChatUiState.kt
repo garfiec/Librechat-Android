@@ -329,8 +329,8 @@ data class ChatUiState(
      * the first question the card still has no answer for, into the same [askAnswerDrafts] the
      * card's own editors write, and the batch goes up whole once the last one is in. The resume
      * route wants one answer per id and 400s a body missing any of them, so there is no
-     * per-question submit to route to — but there is progress to make, and routing the text to
-     * steer/queue instead left the run paused while the send appeared to work.
+     * per-question submit to route to — but there is progress to make, and steer/queue would
+     * leave the run paused while the send appeared to work.
      */
     val duringRunSendTarget: DuringRunSendTarget
         get() {

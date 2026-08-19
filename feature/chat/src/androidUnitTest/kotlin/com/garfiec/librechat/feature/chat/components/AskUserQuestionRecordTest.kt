@@ -142,7 +142,7 @@ class AskUserQuestionRecordTest {
 
     /**
      * agents SDK <= 3.3.8 omits the pause's `tool_call_id`, but there is still exactly ONE live
-     * pause — dropping every unanswered ask collapsed two parallel asks into one card.
+     * pause — dropping every unanswered ask collapses two parallel asks into one card.
      */
     @Test
     fun `an unattributed pause suppresses only the ask it poses`() {
@@ -212,7 +212,7 @@ class AskUserQuestionRecordTest {
 
     /**
      * The batch shape carries no top-level `question`, so the single-question parse returns null
-     * for it — which is exactly why the record card rendered the answers map as the answer text.
+     * for it — a card that fell back to it would render the answers map as the answer text.
      */
     @Test
     fun `a batch is invisible to the single-question parse`() {

@@ -3,11 +3,10 @@ package com.garfiec.librechat.core.common
 /**
  * What the detected backend identity actually tells us about one gated feature.
  *
- * Version gating used to answer this with a `Boolean`, which forced two different situations
- * into the same `false`: a server we KNOW predates the feature, and a server we simply could
- * not place. Those want opposite handling — the first must never be called, the second is
- * usually a server built PAST this app's commit-map pin, i.e. the population most likely to
- * HAVE the feature — so collapsing them makes every gate wrong for somebody.
+ * A `Boolean` cannot carry this: it folds a server we KNOW predates the feature together with one
+ * we could not place at all, and those want opposite handling — the first must never be called,
+ * the second is usually a server built PAST this app's commit-map pin, i.e. the population most
+ * likely to HAVE the feature.
  *
  * See `BackendVersion.featureSupport` for how each state is derived, and `VERSION_GATES.md`
  * for the per-gate rules on which state gets which behaviour.
@@ -37,7 +36,6 @@ enum class FeatureSupport {
     UNKNOWN,
     ;
 
-    /** The server is known to carry the feature. */
     val isPresent: Boolean get() = this == PRESENT
 
     /** The route is known to be missing — the only state in which suppressing a call is free. */

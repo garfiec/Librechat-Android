@@ -304,7 +304,7 @@ class ChatViewModelDuringRunSendTest {
      * `answer` outright, so a composer send that took the single-question path here would 400 and
      * leave the run paused with Stop as the only escape.
      *
-     * Driven through `sendDuringRun` rather than the delegate: the defect was in the ROUTING, and
+     * Driven through `sendDuringRun` rather than the delegate: the routing is the subject, and
      * `PendingActionDelegate` submits whichever channel it is handed.
      */
     @Test
@@ -329,13 +329,13 @@ class ChatViewModelDuringRunSendTest {
      * A multi-question batch is answered from the composer one question per send, in payload
      * order, and the resume goes up only once every id has an answer — a partial map is a 400
      * ("Answers are required for every question"), so there is nothing to submit before that.
-     * Routing the text to the queue instead read as broken: the send appeared to work while the
-     * run stayed paused.
+     * Routing the text to the queue instead reads as broken: the send appears to work while the
+     * run stays paused.
      *
-     * The draft assertions are the half that failed on a device while this test passed: the
-     * answer was recorded where only the delegate could see it, so the card's first field stayed
-     * empty, its Send stayed disabled, and nothing ever went up. It is the same map the card
-     * renders from, which is why asserting on it here is asserting on what is on screen.
+     * The draft assertions are the half a routing-only test cannot see. An answer recorded where
+     * only the delegate can read it leaves the card's field empty and its Send disabled, and
+     * nothing goes up — so asserting on the same map the card renders from is asserting on what
+     * is on screen.
      */
     @Test
     fun `the composer answers a multi-question batch one question per send`() =
@@ -377,8 +377,8 @@ class ChatViewModelDuringRunSendTest {
 
     /**
      * The card is the other writer of the same drafts, and the composer must not fight it: a send
-     * fills the first field the CARD has left blank. Reading a private copy instead made the two
-     * disagree about which question was still open.
+     * fills the first field the CARD has left blank. A private copy on either side leaves the two
+     * disagreeing about which question is still open.
      */
     @Test
     fun `a composer send fills the question the card has not answered`() =

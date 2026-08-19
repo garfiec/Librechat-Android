@@ -40,12 +40,11 @@ interface AgentRepository {
      * no list answer for it.
      *
      * The field is stamped by `getListAgents` alone; neither `GET /api/agents/:id` nor `/expanded`
-     * reports it, so a screen holding a single agent cannot read it off that agent no matter which
-     * endpoint fetched it. This carries the list's answer to those screens, remembered as list rows
-     * arrive and dropped whenever an agent mutation invalidates the cache.
+     * reports it, so a screen holding a single agent cannot read it off that agent. Remembered as
+     * list rows arrive and dropped whenever an agent mutation invalidates the cache.
      *
-     * **Null means unknown, not permitted.** Every server that predates the field answers null for
-     * every agent, so a caller must use this only to NARROW a verdict it reached some other way.
+     * **Null means unknown, not permitted** ([Agent.isEditable]): use it only to NARROW a verdict
+     * reached some other way.
      */
     suspend fun listedEditVerdict(id: String): Boolean?
 

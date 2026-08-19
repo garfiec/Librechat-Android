@@ -27,8 +27,7 @@ enum class StreamErrorType(val wire: String) {
      * Required CodeAPI files could not be restored before the model ran.
      *
      * Recoverable only by the user: the files behind the run are gone, so retrying the same turn
-     * fails identically until they are attached again. Previously the run continued with stale
-     * image URLs reaching the provider, which is the failure this replaced.
+     * fails identically until they are attached again.
      */
     RESOURCE_RECOVERY_REQUIRED("resource_recovery_required"),
 

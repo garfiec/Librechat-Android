@@ -40,11 +40,9 @@ class ShareApi constructor(
     /**
      * PATCH /api/share/:shareId — re-publishes the link against the conversation's current state.
      *
-     * **Not a visibility toggle, and no longer a refresh.** It used to mint a new `shareId`, so
-     * the old name `toggleShareVisibility` described neither what it did nor what it does now:
-     * the id is stable across re-publishes and the link keeps working (upstream renamed the
-     * action "Refresh link" → "Update link" and added a confirmation step for exactly that
-     * reason). What it changes is the content behind the link.
+     * **Not a visibility toggle, and not a refresh.** From v0.8.8-rc1 the `shareId` is stable
+     * across a re-publish and the link keeps working; what changes is the content behind it.
+     * Earlier servers mint a new id and orphan the URL already handed out.
      *
      * Requires the **SHARED_LINKS CREATE** permission — re-scoping a link re-publishes
      * conversation content, so revoking CREATE has to stop updates too. `DELETE` on this route

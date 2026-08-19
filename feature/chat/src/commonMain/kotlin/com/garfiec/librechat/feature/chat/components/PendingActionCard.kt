@@ -248,9 +248,8 @@ private fun AskUserQuestionSection(
  * Answers are keyed by the payload's own question ids, never by field order.
  *
  * The editors are **hoisted** ([drafts] / [onDraftChange], owned by `PendingActionDelegate`)
- * rather than remembered here: a composer send during the pause answers the first question that
- * is still blank, and it has to land in that question's field. Local state made that answer
- * invisible — the field stayed empty and Send stayed disabled over words the ViewModel held.
+ * rather than remembered here: a composer send during the pause answers the first still-blank
+ * question and has to land in that question's field. See `MessagesState.askAnswerDrafts`.
  */
 @Composable
 private fun AskUserQuestionBatchSection(
@@ -311,9 +310,7 @@ private fun AskUserQuestionBatchSection(
  * One question of a batch: its own chips and free-text box, driven by the hoisted [draft].
  *
  * Nothing is remembered locally — the card is a LazyColumn item, so scrolling it away would drop
- * anything held here, and the only symptom of losing a half-written answer is Send quietly going
- * back to disabled. Keeping the draft in the ViewModel survives that AND is what lets a composer
- * send fill this field.
+ * a half-written answer, whose only symptom is Send quietly going back to disabled.
  */
 @Composable
 private fun AskUserQuestionBatchItem(

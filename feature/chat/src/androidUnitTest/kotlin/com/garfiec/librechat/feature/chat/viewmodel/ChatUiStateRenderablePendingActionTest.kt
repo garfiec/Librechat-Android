@@ -136,7 +136,7 @@ class ChatUiStateRenderablePendingActionTest {
     fun `a multi-question batch claims the composer's send`() {
         // v0.8.8-rc1 HITL5: the composer answers the batch one question per send (the delegate
         // accumulates drafts and submits the full map once every id has one). Routing to the
-        // queue instead read as broken — the send appeared to work while the run stayed paused.
+        // queue instead reads as broken — the send appears to work while the run stays paused.
         val target = pausedState(askUserQuestions("topic", "depth")).duringRunSendTarget
         assertThat(target).isEqualTo(DuringRunSendTarget.ANSWER_PAUSE)
     }

@@ -60,8 +60,8 @@ class GateProbeDeviceTest {
     private fun client(token: String?) = HttpClient(OkHttp) {
         install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
         // Mirrors LibreChatHttpClient's validator. Without it Ktor hands a 404 back as an
-        // ordinary response, the repository reads it as a SUCCESSFUL touch, and the latch this
-        // test exists to prove can never fire - the harness would be testing its own omission.
+        // ordinary response and the repository reads it as a SUCCESSFUL touch, so the latch
+        // never fires.
         HttpResponseValidator {
             validateResponse { response ->
                 if (!response.status.isSuccess()) {
@@ -79,7 +79,7 @@ class GateProbeDeviceTest {
             token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
             // The production client sets this in its own defaultRequest; without it a POST
             // carrying a serialized body fails inside ContentNegotiation and never reaches the
-            // network, which silently turns "the gate issued a call" into an unobservable no-op.
+            // network, so a call the gate did issue is unobservable here.
             contentType(ContentType.Application.Json)
         }
     }
@@ -102,8 +102,8 @@ class GateProbeDeviceTest {
 
     /**
      * Counts gated-route RESPONSES, not requests. A request that dies client-side still fires
-     * onRequest, so counting intentions would let "the call never left the device" pass as "the
-     * call was made" - which is exactly what happened the first time this test ran green.
+     * onRequest, so counting intentions lets "the call never left the device" pass as "the call
+     * was made".
      */
     private fun countingClient(token: String) = client(token).config {
         install(
@@ -182,7 +182,6 @@ class GateProbeDeviceTest {
 
         val result = repo.markFilesUsed(listOf("probe-file-id"))
 
-        // The whole point: this identity used to be treated as too old and skipped.
         assertThat(requests.get()).isEqualTo(1)
         // 200 proves the route is really there and really answered - not that the request was
         // merely attempted.

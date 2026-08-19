@@ -22,10 +22,10 @@ import org.junit.Test
 /**
  * The `.sh` upload defect lives on the wire, not in the router.
  *
- * `UploadRoutingTest` pins `uploadMimeType` as a function, but the failure was that the multipart
- * part carried whatever Android's `DocumentsProvider` reported — `text/x-sh`, which upstream lists
- * nowhere — and rc1 answered 415 `Unsupported file type: text/x-sh`. Only reading the outgoing
- * body proves the rewrite reaches the header the server actually reads.
+ * `UploadRoutingTest` pins `uploadMimeType` as a function, which says nothing about what the
+ * multipart part carries. A part left with whatever Android's `DocumentsProvider` reported —
+ * `text/x-sh`, which upstream lists nowhere — is answered 415 `Unsupported file type: text/x-sh`,
+ * so only reading the outgoing body proves the rewrite reaches the header the server reads.
  */
 class FilesApiMimeNormalizationTest {
 

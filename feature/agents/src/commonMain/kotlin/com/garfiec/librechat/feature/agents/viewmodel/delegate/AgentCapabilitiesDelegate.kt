@@ -84,10 +84,9 @@ class AgentCapabilitiesDelegate(
                 val chainAvailable = "chain" in agentsCapabilities
                 // Web gates the generic plugin list on the `tools` capability and the ask tool on
                 // its OWN capability (catalog.ts buildCatalog); both fail-open on empty here per
-                // the sibling gates above. The user-visible failure this fixes: a server with the
-                // ask capability disabled still showed the row, the agent saved with a tool the
-                // server drops at runtime (ToolService checkCapability), and the agent then
-                // reported the tool does not exist.
+                // the sibling gates above. Offering a row the capability forbids saves an agent
+                // with a tool the server drops at runtime (ToolService checkCapability), and the
+                // agent then reports that the tool does not exist.
                 val genericToolsAvailable = agentsCapabilities.isEmpty() || "tools" in agentsCapabilities
                 val askAvailable = agentsCapabilities.isEmpty() ||
                     ToolConstants.ASK_USER_QUESTION in agentsCapabilities

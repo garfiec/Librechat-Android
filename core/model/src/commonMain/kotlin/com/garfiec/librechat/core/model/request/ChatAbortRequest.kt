@@ -9,9 +9,8 @@ data class ChatAbortRequest(
      *
      * The abort route validates every target field before resolving anything: a value that is
      * `!= null` but zero-length (or over 512 chars) is rejected outright with 400
-     * `INVALID_ABORT_TARGET`. Mobile used to send `streamId.orEmpty()` here and relied on the
-     * empty string being falsy server-side, which is exactly the input that now hard-fails —
-     * so an unknown id must OMIT this field and say so through [conversationId] instead.
+     * `INVALID_ABORT_TARGET` — the empty string is no longer falsy here. An unknown id must OMIT
+     * this field and say so through [conversationId] instead.
      */
     val abortKey: String? = null,
     /**

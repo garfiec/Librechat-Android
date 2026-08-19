@@ -75,12 +75,9 @@ class ChatApi constructor(
      * route's user-scoped fallback, which aborts one of the caller's active jobs. That is what
      * makes Stop work before the `created` event has assigned a conversation id.
      *
-     * It must NOT be sent as an empty `abortKey`, which is what this used to do. The route now
-     * validates targets before resolving them and rejects any present-but-zero-length value with
-     * 400 `INVALID_ABORT_TARGET`, and the fallback is gated on the literal `"new"` appearing in
-     * `streamId`/`conversationId` — so the old spelling both fails validation and, were it to
-     * pass, would resolve nothing. `"new"` is equally correct against older servers: they skipped
-     * it when choosing a job id and then took the same fallback unconditionally.
+     * It must NOT be sent as an empty `abortKey` — see [ChatAbortRequest.abortKey]. `"new"` is
+     * equally correct against older servers: they skipped it when choosing a job id and then took
+     * the same fallback unconditionally.
      */
     suspend fun abortChat(streamId: String?, isTemporary: Boolean): ChatAbortResponse =
         client.post {

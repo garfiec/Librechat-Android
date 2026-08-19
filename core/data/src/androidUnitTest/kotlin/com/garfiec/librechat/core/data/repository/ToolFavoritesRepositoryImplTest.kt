@@ -57,7 +57,7 @@ class ToolFavoritesRepositoryImplTest {
     @Test
     fun `a dev build reporting the previous release is asked rather than assumed`() = runTest {
         // Upstream bumps package.json at rc prep, so a 0.8.8-cycle dev build still says "0.8.7".
-        // A plain version compare read that as "too old" and rendered the picker with no star
+        // A plain version compare reads that as "too old" and renders the picker with no star
         // column at all on the self-hosted servers most likely to have the routes.
         coEvery { api.getToolFavorites() } returns
             listOf(ToolFavorite(ToolFavoriteItemType.MCP, "jira"))

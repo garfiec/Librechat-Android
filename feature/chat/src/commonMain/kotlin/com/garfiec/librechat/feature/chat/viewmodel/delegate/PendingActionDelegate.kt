@@ -328,10 +328,8 @@ class PendingActionDelegate(
      * There is deliberately no per-question resume: the route requires the answers map to cover
      * every id and 400s a partial submission, so a batch can only ever go up whole. Until it
      * does, the words live in the same `askAnswerDrafts` the CARD reads and writes — that is the
-     * point of hoisting them. A draft the card could not see left its field empty and its Send
-     * disabled over an answer that had, as far as the ViewModel was concerned, been given; and
-     * because those invisible words then had to be handed back somewhere, every swallowed send
-     * reappeared in the composer once the batch finally resolved.
+     * point of hoisting them, and a store the card cannot see leaves its field empty and its Send
+     * disabled over an answer already recorded.
      *
      * Returns false when it could take nothing — a blank send, a resolve already in flight, a
      * pause that is not an answerable batch, or a batch that is already fully answered (the card

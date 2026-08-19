@@ -113,10 +113,10 @@ data class PendingActionPayload(
     /**
      * The ask tool call that raised this interrupt.
      *
-     * Present from `@librechat/agents` > 3.3.8. Attribution used to be positional, which put the
-     * wrong question on screen when a model emitted several ask calls in one turn, and the resume
-     * then failed 400 `INVALID_TOOL_RESULTS`. Match on this when it is there; fall back to
-     * position only when it is not.
+     * Present from `@librechat/agents` > 3.3.8. Match on this when it is there; fall back to
+     * position only when it is not — positional attribution puts the wrong question on screen
+     * when a model emits several ask calls in one turn, and the resume then fails 400
+     * `INVALID_TOOL_RESULTS`.
      */
     @SerialName("tool_call_id") val toolCallId: String? = null,
 )

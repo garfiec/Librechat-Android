@@ -464,7 +464,7 @@ internal fun isAskUserQuestionToolCall(toolNameLower: String): Boolean =
  * When the field is absent (agents SDK <= 3.3.8) there is still exactly ONE live pause, so
  * exactly one call is suppressed: the one whose args pose [pausedQuestion], falling back to the
  * first unanswered ask (positional, the order the server paused them in). Dropping *every*
- * unanswered ask here — the old fallback — collapsed two parallel asks into one card.
+ * unanswered ask instead collapses two parallel asks into one card.
  */
 internal fun List<ActiveToolCall>.withoutUnansweredQuestions(
     pausedToolCallId: String? = null,

@@ -1614,13 +1614,7 @@ class ChatViewModel(
     fun answerPendingQuestions(answers: Map<String, String>) =
         pendingActionDelegate.submitAnswers(answers)
 
-    /**
-     * One batched question's editor state, hoisted out of `PendingActionCard`.
-     *
-     * The card is not the only writer: a composer send during the pause fills the first question
-     * that has no answer yet, and the card has to show it. Two independent stores would leave the
-     * field blank over an answer the ViewModel had already recorded.
-     */
+    /** One batched question's editor state, hoisted out of `PendingActionCard`. */
     fun updateAskAnswerDraft(questionId: String, draft: AskAnswerDraft) =
         pendingActionDelegate.updateAskAnswerDraft(questionId, draft)
 

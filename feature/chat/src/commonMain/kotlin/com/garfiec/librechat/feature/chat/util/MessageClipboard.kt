@@ -15,9 +15,9 @@ import kotlinx.serialization.json.JsonPrimitive
  * (`client/src/hooks/Messages/useCopyToClipboard.ts` + `formatMessageContent` in
  * `client/src/hooks/Conversations/format.ts`, upstream d920328bfa53).
  *
- * Copy used to extract only TEXT/THINK parts, so an agent turn whose substance is tool calls
- * copied as a fragment — or nothing. Every part now serializes as a `label:\nvalue` block
- * (label-less for plain text), joined by single newlines like web's clipboard path. The labels
+ * EVERY part serializes, as a `label:\nvalue` block (label-less for plain text) joined by single
+ * newlines like web's clipboard path — a text-parts-only copy reduces an agent turn whose
+ * substance is tool calls to a fragment, or to nothing at all. The labels
  * are web's own English export strings; mobile ViewModel-layer copy has no localization channel,
  * matching the rest of this layer's user-facing strings.
  *

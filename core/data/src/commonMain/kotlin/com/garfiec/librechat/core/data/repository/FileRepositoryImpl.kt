@@ -153,9 +153,7 @@ class FileRepositoryImpl(
     /**
      * What a single 404 from `POST /api/files/usage` taught us, on a server the version gate could
      * not place. `null` until the first such touch settles; false latches the route off for the
-     * rest of this server session, true confirms it. Reset by [clear] on account/server switch —
-     * this repository is an app-wide singleton, so a verdict from the outgoing server would
-     * otherwise decide for the incoming one.
+     * rest of this server session, true confirms it. Reset by [clear] on account/server switch.
      */
     @Volatile
     private var usageHoldProbeVerdict: Boolean? = null
@@ -164,20 +162,15 @@ class FileRepositoryImpl(
      * True only when the route is KNOWN to be missing — a build commit that resolved to a tag
      * below v0.8.8-rc1, or a probe that already 404'd. An unplaceable server is not ruled out.
      *
-     * Suppressing the touch is not free of consequence in either direction, which is why this
-     * distinguishes the two. Calling a server that lacks the route costs more than a bare 404:
-     * pre-0.8.8 servers apply `fileUploadIpLimiter` + `fileUploadUserLimiter` to every POST under
-     * `/api/files` except `/speech` — the `/usage` exemption is part of the same 0.8.8-line change
-     * that added the route — so the call spends real upload quota (plus a violation score) to
-     * accomplish nothing. But NOT calling a server that has it lets the upload-window reaper
-     * collect an attachment out from under a queued message, and the send then references a file
-     * the server has deleted. The first costs one request; the second loses the attachment.
+     * Both directions cost something, which is why proof and doubt are separated. Calling a
+     * server that lacks the route is not a free 404: pre-0.8.8 servers apply `fileUploadIpLimiter`
+     * + `fileUploadUserLimiter` to every POST under `/api/files` except `/speech` (the `/usage`
+     * exemption arrived with the route), so it spends real upload quota and a violation score. But
+     * NOT calling a server that has it lets the upload-window reaper collect an attachment out
+     * from under a queued message, and the send then references a file the server has deleted.
      *
-     * So: rule the route out on proof, probe on doubt. A dev build reports the PREVIOUS release
-     * (upstream bumps package.json at rc prep) and a server past this app's commit-map pin
-     * resolves to nothing at all, and both of those populations are more likely to HAVE the route
-     * than to lack it. They each get exactly one touch, and its 404 — the route's own definitive
-     * answer — latches the suppression that a version compare was guessing at.
+     * So: rule the route out on proof, probe on doubt. A server the gate cannot place gets exactly
+     * one touch, and its 404 latches the suppression.
      */
     private fun usageHoldRuledOut(): Boolean =
         usageHoldProbeVerdict == false || usageHoldSupport().isRuledOut
@@ -206,8 +199,8 @@ class FileRepositoryImpl(
             if (result is Result.Error) {
                 if (probing && (result.exception as? ApiException)?.statusCode == HTTP_NOT_FOUND) {
                     usageHoldProbeVerdict = false
-                    // The touch has always been best-effort with send-time marking behind it, so a
-                    // server that simply lacks the route is not a failure to report upward.
+                    // Best-effort by contract (see [markFilesUsed]): a missing route is not a
+                    // failure to report upward.
                     return Result.Success(Unit)
                 }
                 return result

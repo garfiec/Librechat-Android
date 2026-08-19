@@ -72,7 +72,6 @@ class MessageSelectionInstrumentedTest {
     private lateinit var clipboard: RecordingClipboard
     private lateinit var uriHandler: RecordingUriHandler
 
-    /** Excerpts the "Add to chat" item staged as pending quotes. */
     private val staged = mutableListOf<String>()
 
     @Before
@@ -190,8 +189,7 @@ class MessageSelectionInstrumentedTest {
                     }
                     // Mirrors production's placement: the item is contributed by an ANCESTOR of
                     // the message list, because that is where foundation collects a selection
-                    // menu's components from. Left out entirely when the parameter is null, so
-                    // the selection tests below see exactly the tree they always did.
+                    // menu's components from. Left out entirely when the parameter is null.
                     if (quoteCaptureEnabled == null) {
                         list()
                     } else {
@@ -416,10 +414,9 @@ class MessageSelectionInstrumentedTest {
 
     /**
      * The v0.8.7 quote item has to reach the toolbar the platform actually shows, and that
-     * toolbar's components are collected from the handler's ANCESTORS. Publishing a wrapped
-     * `LocalTextContextMenuToolbarProvider` above the thread instead compiled, shipped, and did
-     * nothing: `.current` was null there (every SelectionContainer installs the platform provider
-     * inside itself), so the wrapper stood down and the device only ever saw Copy / Select all.
+     * toolbar's components are collected from the handler's ANCESTORS — a wrapped
+     * `LocalTextContextMenuToolbarProvider` above the thread compiles and silently does nothing,
+     * so only driving the real selection stack can catch it.
      */
     @Test
     fun addToChatItemReachesTheSelectionToolbar() {

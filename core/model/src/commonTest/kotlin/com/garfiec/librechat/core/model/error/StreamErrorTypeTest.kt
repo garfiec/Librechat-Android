@@ -21,8 +21,8 @@ class StreamErrorTypeTest {
         // The failure reaches the user twice over: as the reason the run ended, and as an `error`
         // content part on the persisted assistant message. rc1 persists that message with
         // `error: false` and no text, so on a reopened conversation the part is the ONLY record
-        // of it — and it was rendering the raw payload above while the snackbar showed the
-        // actionable sentence for the very same error.
+        // of it. Classify at one site only and the thread renders the raw payload above while the
+        // snackbar shows the actionable sentence for the very same error.
         assertEquals(StreamErrorType.MODEL_NOT_FOUND, StreamErrorType.parse(modelNotFoundInBand))
         assertEquals(StreamErrorType.MODEL_NOT_FOUND.marker, StreamErrorType.markerOrText(modelNotFoundInBand))
     }

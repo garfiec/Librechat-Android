@@ -152,9 +152,8 @@ class McpViewModel(
         oauth: McpOAuthConfig? = null,
     ) {
         viewModelScope.launch {
-            // An edit addresses the stored server (PATCH), a new one does not (POST). Only the
-            // update route re-binds the OAuth client secret to the endpoints being saved, so
-            // sending an edit as a create skips that check and collides with the existing name.
+            // An edit addresses the stored server (PATCH), a new one does not (POST); see
+            // McpRepository.updateServer for why an edit must not be sent as a create.
             val editing = _uiState.value.editingServer?.name
             _uiState.value = _uiState.value.copy(oauthSecretReentryRequired = false)
             val result = if (editing != null) {
@@ -184,10 +183,8 @@ class McpViewModel(
                     loadConnectionStatus()
                 }
                 is Result.Error -> {
-                    // The stored OAuth client secret is bound to the endpoints it was issued for,
-                    // so editing authorization_url or token_url invalidates it and the write keeps
-                    // failing until the secret is re-entered. Retrying the same body never works,
-                    // which is exactly what a generic save error invites the user to do.
+                    // A rejected secret binding is a prompt-for-input outcome, never a retry: the
+                    // same body can only be refused again. See [oauthSecretReentryRequired].
                     val exception = result.exception as? ApiException
                     val reentry = exception?.statusCode == HTTP_BAD_REQUEST &&
                         ServerErrorCode.from(exception.body) == ServerErrorCode.OAUTH_SECRET_REENTRY_REQUIRED

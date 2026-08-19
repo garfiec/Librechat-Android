@@ -7,10 +7,8 @@ import com.garfiec.librechat.core.model.AskUserQuestionOption
 /**
  * One question's in-progress answer inside a batched `ask_user_question` pause.
  *
- * Held in `MessagesState.askAnswerDrafts` rather than in the card's own `remember`, because two
- * inputs write the same answer: the card's per-question editor and the composer's send, which
- * fills the first still-unanswered question. A draft the composer could not see left the card's
- * field visibly empty and its Send disabled over words the ViewModel was already holding.
+ * Held in `MessagesState.askAnswerDrafts`, not in the card's own `remember` — the card's editor
+ * and the composer's send both write the same answer; see that field.
  *
  * Deliberately not saveable across process death — the pause itself is re-read from the server on
  * a cold open, so there is nothing for a restored draft to attach to.

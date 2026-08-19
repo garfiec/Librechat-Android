@@ -25,9 +25,8 @@ import org.junit.Test
  *
  * The two are the same subject: `MCP_OAUTH_SECRET_REENTRY_REQUIRED` is raised by the UPDATE route
  * alone (`ServerConfigsDB.update`, reachable only through `PATCH /api/mcp/servers/:serverName`), so
- * an edit sent as a create can never produce it — the re-entry prompt was unreachable for exactly
- * as long as edit mode posted a create. A test that stubs the error and asserts the prompt would
- * pass on that build; asserting the route is what makes it real.
+ * an edit sent as a create can never produce it. A test that stubs the error and asserts the
+ * prompt passes against a build that posts a create; asserting the route is what makes it real.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class McpViewModelSaveRouteTest {

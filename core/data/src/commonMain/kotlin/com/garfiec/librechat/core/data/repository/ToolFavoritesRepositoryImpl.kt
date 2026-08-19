@@ -41,12 +41,11 @@ class ToolFavoritesRepositoryImpl(
      * True only when the routes are KNOWN absent: a build commit that resolved to a tag below
      * v0.8.8-rc1 (#13952), or a probe that already 404'd.
      *
-     * A server the version gate cannot place is NOT ruled out, and that is the change from a
-     * plain version compare. Support here is discoverable by asking — one GET, no rate limiter,
-     * a 404 that means exactly one thing — so a dev build reporting the previous release, or a
-     * server built past this app's commit-map pin, gets asked instead of assumed. Guessing wrong
-     * in the old direction cost a working feature: the picker rendered with no star column at all
-     * on the self-hosted servers most likely to have it.
+     * A server the version gate cannot place is NOT ruled out: support here is discoverable by
+     * asking — one GET, no rate limiter, a 404 that means exactly one thing — so a dev build
+     * reporting the previous release, or a server built past this app's commit-map pin, gets
+     * asked instead of assumed. Assuming absence there renders the picker with no star column at
+     * all on the self-hosted servers most likely to have the routes.
      */
     private fun favoritesRuledOut(): Boolean =
         routeMissingByProbe ||
@@ -134,8 +133,8 @@ class ToolFavoritesRepositoryImpl(
     override fun clear() {
         _favorites.value = emptySet()
         _isSupported.value = false
-        // The verdict belonged to the server being left. Keeping it would carry one server's 404
-        // onto the next account, which is the same singleton-state bug the pins above have.
+        // The verdict belonged to the server being left; keeping it carries one server's 404 onto
+        // the next account.
         routeMissingByProbe = false
     }
 

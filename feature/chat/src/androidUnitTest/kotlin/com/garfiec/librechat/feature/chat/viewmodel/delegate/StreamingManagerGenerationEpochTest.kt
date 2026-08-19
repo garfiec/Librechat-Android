@@ -41,9 +41,10 @@ import org.junit.Test
  * through [StreamingManagerDelegate] with a REAL [PendingActionDelegate] wired in.
  *
  * The wire order this replays is what every fresh send produces: ChatRepositoryImpl emits a
- * synthetic [StreamEvent.Created] carrying the start POST envelope's epoch, then the server's
- * own SSE `created` frame arrives — which never carries one. Delegate-only tests missed that
- * the second frame used to null the recorded epoch, sending every live-run resume unfenced.
+ * synthetic [StreamEvent.Created] carrying the start POST envelope's epoch, then the server's own
+ * SSE `created` frame arrives — which never carries one. A delegate-only test cannot see that
+ * second frame at all, and a build that lets it null the epoch sends every live-run resume
+ * unfenced.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StreamingManagerGenerationEpochTest {

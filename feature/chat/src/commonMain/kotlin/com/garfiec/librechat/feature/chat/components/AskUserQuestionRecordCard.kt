@@ -218,7 +218,7 @@ internal fun AskUserQuestionRecordCard(
  *
  * The single-question record cannot stand in for this. A batch's arguments carry no top-level
  * `question` and its output is a `{"answers": {…}}` map rather than a sentence, so that card
- * rendered an unlabeled exchange whose answer was the raw JSON — on every reload, permanently.
+ * renders an unlabeled exchange whose answer is the raw JSON — on every reload, permanently.
  *
  * A question the answers map does not name reads as unanswered rather than borrowing a neighbour's
  * words, matching upstream `AskUserQuestionCall`: the two are joined by id, and a batch resolved

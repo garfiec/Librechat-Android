@@ -27,9 +27,8 @@ class AgentRepositoryImpl(
     // Account-keyed in-memory cache: the only isolation tier for agents (no Room/accountId scoping).
     private val cache = AccountKeyedCache<List<Agent>>(activeAccountProvider)
 
-    // The EDIT verdicts the list routes stamp per row, kept because nothing else carries them:
-    // neither `GET /api/agents/:id` nor `/expanded` reports `isEditable`, so a screen that only
-    // reads one agent can never learn the answer the list already gave.
+    // The EDIT verdicts the list routes stamp per row; nothing else carries them (see
+    // [listedEditVerdict]).
     private val editVerdicts = AgentEditVerdicts(activeAccountProvider)
 
     private val _revision = MutableStateFlow(0L)

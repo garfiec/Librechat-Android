@@ -55,10 +55,6 @@ internal fun ChatOptionsSheetHost(
         }
     }
 
-    // Resolved here, like both snackbar surfaces: `error` carries typed stream markers as well as
-    // sentences, and the model-related codes are precisely the ones that send a user to the selector
-    // page while the snackbar holding the same value is still up. Anything that is not a marker
-    // passes through unchanged.
     val error = uiState.error?.let { localizedStreamError(it) }
 
     ChatOptionsBottomSheet(
