@@ -58,6 +58,18 @@ object OpenApiSpecParser {
         val domain = extractDomain(root)
         if (domain.isBlank()) {
             errors.add("No server URL found. Add a 'servers' array with at least one entry.")
+        } else if (!hasServersArray(root)) {
+            // The Swagger-2.0 fallback below SYNTHESIZES a domain from `host` + `basePath`, and
+            // mobile is the only client that does. The server never sees it: it validates the
+            // spec first, and `validateAndParseOpenAPISpec` rejects anything without a `servers`
+            // array before `validateActionDomain` is reached at all. So a spec that gets this far
+            // is one the user can fill in an entire action editor against and only then be told
+            // "Could not find a valid URL in `servers`" — a message about a field their spec was
+            // never going to have. Say so here, while the spec is still the thing on screen.
+            errors.add(
+                "This is a Swagger 2.0 specification. The server requires an OpenAPI 3 " +
+                    "'servers' array — convert the spec, or add 'servers' with the full base URL.",
+            )
         }
 
         // Validate it looks like an OpenAPI spec
@@ -170,6 +182,29 @@ object OpenApiSpecParser {
         return infos
     }
 
+    /** Whether the spec carries the OpenAPI 3 `servers` array the server insists on. */
+    private fun hasServersArray(root: JsonObject): Boolean {
+        val servers = try { root["servers"]?.jsonArray } catch (_: Exception) { null }
+        if (servers.isNullOrEmpty()) return false
+        val url = try {
+            servers[0].jsonObject["url"]?.jsonPrimitive?.content
+        } catch (_: Exception) {
+            null
+        }
+        return !url.isNullOrBlank()
+    }
+
+    /**
+     * The action's `domain`, posted verbatim as `metadata.domain`.
+     *
+     * Taken from `servers[0].url` unchanged apart from a trailing slash, which is what keeps it
+     * validating server-side: `validateActionDomain` compares it against that same string and,
+     * since a newer server also binds it to the spec's effective port, any rewriting here — a
+     * host-only reduction, a normalized default port — would turn a valid spec into a
+     * "Domain mismatch" or "Port mismatch" the user cannot diagnose. An explicit default port
+     * (`https://h:443/v1`) validates: WHATWG strips it from both sides and the port check then
+     * compares 443 against the protocol's default.
+     */
     private fun extractDomain(root: JsonObject): String {
         val servers = try { root["servers"]?.jsonArray } catch (_: Exception) { null }
         if (servers != null && servers.isNotEmpty()) {
