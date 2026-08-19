@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.model.response.SharedLinksResponse
 interface ShareRepository {
     suspend fun createShareLink(conversationId: String): Result<String>
     suspend fun getSharedLinksPaginated(cursor: String? = null): Result<SharedLinksResponse>
+
     /**
      * Re-publishes a shared link against the conversation's current state.
      *

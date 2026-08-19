@@ -6,5 +6,5 @@
 #          version.properties' backendTargetVersion carries a +dev.<sha> suffix pinning it.
 #          Diffs for the next sync are computed from commit=, not tag=.
 tag=v0.8.7
-commit=91adcf3f2c3a16266d29e4cee7916518e807f9b3
-date=2026-07-29
+commit=db431210733e75391867ce69b1a70510cce2bbd5
+date=2026-08-14

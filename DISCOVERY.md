@@ -555,6 +555,94 @@ Continues the range above; `package.json` still reports 0.8.7 and the commit is 
   sync frame). Contract-identical for the client and requires no change — recorded because it
   is the kind of thing that would look like the cause of a future resume bug.
 
+### v0.8.8-line partial sync (untagged dev commit db431210, 2026-08-12) — generation protocol, HITL, MCP
+Continues the range above; `package.json` still reports 0.8.7 and the commit is still untagged.
+
+**Generation routes (`/api/agents/chat/*`).**
+- `POST /chat/abort` validates its targets BEFORE resolving one: any of `streamId` /
+  `conversationId` / `abortKey` that is present but zero-length or over 512 chars is
+  **400 `INVALID_ABORT_TARGET`**. The user-scoped fallback is now gated on the literal `"new"`
+  appearing in `streamId` or `conversationId` — an `abortKey` of `"new"` does NOT reach it. So an
+  unknown conversation id must be sent as `conversationId: "new"`, never as an empty `abortKey`.
+  Correct against older servers too: they skipped `"new"` when choosing a job id and then took the
+  same fallback unconditionally. New codes on the route: `RUN_STILL_ACTIVE` (409 + `Retry-After: 1`,
+  retryable), `RUN_REPLACED`, `AMBIGUOUS_ACTIVE_RUN`, `ABORT_PERSISTENCE_FAILED`. (BUILT)
+- `GET /chat/status/:conversationId` can answer **503 `SERVER_NOT_READY` + `Retry-After: 1`**,
+  regardless of negotiated protocol, while the route re-reads the job (up to 3×) to verify the
+  resume snapshot's generation epoch, or while `terminalPersistencePending` is true. A transient
+  race, explicitly retryable — treating it as "the run is gone" abandons a live run. (BUILT)
+- `POST /chat/{endpoint}` start envelope gained `generationCreatedAt` and
+  `generationProtocolVersion`, plus statuses `resumed` / `replaced` / `settled` (**no `streamId`**)
+  / `predecessor_mismatch`. New **409 with no `code`** when the request's `parentMessageId` is a
+  still-unsaved preliminary id ("Cannot submit a follow-up while the selected parent response is
+  still being saved") — reachable by an ordinary send right after an abort, and retryable. Every
+  OTHER 409 on that route is coded (`RESOURCE_RECOVERY_REQUIRED`, `RUN_REPLACED`,
+  `GENERATION_PREDECESSOR_MISMATCH`, `RECOVERY_PAYLOAD_MISMATCH`) and must NOT be retried; the
+  absence of a `code` is the discriminator. (BUILT)
+- Generation protocol negotiation (`x-librechat-generation-protocol`, body and query markers; the
+  **lower** wins). This client advertises nothing and stays on v1 deliberately. Consequence worth
+  knowing: a v1 client is rewritten a `{final:true, reconcile:true, …}` frame into an ordinary
+  `event: error` carrying only the sentence *"Generation state changed; reconnect to load the saved
+  response."* and `generationProtocolVersion`. `final: true` there is a `writeEvent` OPTION consumed
+  by telemetry, never a body field — and the genuine-error frame on the same route also carries
+  `generationProtocolVersion`, so **the literal message is the only signal** separating a benign
+  reconciliation (the reply is durable; refetch it) from a real failure. Registered as a mirror.
+  Related: `TERMINAL_PUBLICATION_RECONNECT_ERROR` `res.destroy()`s the socket with no error frame at
+  all, relying on the client treating an abrupt close as reconnectable — `SseClient`'s existing
+  retry ladder already does. (BUILT)
+
+**HITL (`ask_user_question`).**
+- The interrupt payload gained `questions[]` (1–4 items; ids `/^[A-Za-z][A-Za-z0-9_-]{0,63}$/`,
+  optional 80-char `header`) and `tool_call_id`. **`questions` alone selects the resume channel:**
+  where it is an array the route requires `answers` covering every id exactly (a missing id, an
+  empty answer, or an unknown id is 400) and rejects a bare `answer`; where it is absent only
+  `answer` is accepted. `question` stays populated with the first item as a display fallback even on
+  a batch, so branching on it renders one question and submits a body the route rejects.
+  `MAX_ASK_ANSWER_LENGTH` is 16000. `moderateText` and the PII filter now scan `answers`. (BUILT)
+
+**Content parts.**
+- `activity_label` gained `activity_label_type` (**absent = the per-batch label**, `"phase"` = a
+  parent phase), `activity_start_index`, `activity_count`, `agent_ids`. A phase part is APPENDED AT
+  THE END of the content array while `activity_start_index` names where the phase began, so its
+  position carries no scope — a renderer that treats any filled label as a batch header lets it
+  claim the reply's tail. TEXT parts and run-step `message_creation` gained
+  `phase?: 'commentary' | 'final_answer'`. (BUILT — phase labels are skipped in grouping; nested
+  phase groups deferred, upstream re-anchored the bounds twice in #14729/#14741.)
+
+**Permissions and keys.**
+- `PATCH /api/share/:shareId` now carries the SHARED_LINKS **CREATE** permission (updating
+  re-publishes conversation content). `DELETE` stays ungated. The route also no longer mints a new
+  `shareId` — the link is stable across a re-publish. (BUILT)
+- MCP tool keys embed `normalizeServerName(server)` (non-`[a-zA-Z0-9_.-]` → `_`, ends trimmed,
+  hashed to `server_<n>` if nothing survives), but `GET /api/mcp/servers` still reports the RAW
+  configured name. Registered as a mirror. (BUILT)
+- MCP server create/update can answer **400 `OAUTH_SECRET_REENTRY_REQUIRED`**: the stored client
+  secret is bound to the authorization/token endpoint it was issued for, so changing either
+  invalidates it and every retry of the same body fails identically. (BUILT)
+
+**Additive decode surface.** `isShared` on list-fetched conversations (derived per request, never
+persisted, absent from single-conversation payloads — so null means *unknown*); `adminPanelURL`
+(admin-gated, so its PRESENCE is the admin signal and it must never be cached across accounts) plus
+`langfuseFanoutEnabled` / `langfuseConnectionAccess` on `/api/config`; `isEditable` on agent list
+rows (upstream documents fail-OPEN, this client applies it fail-CLOSED — it only narrows the
+existing per-agent EDIT probe); `owner_contact` **no longer carries `email`** (security advisory);
+`flowId` / `oauthTimeout` / `failureReason` / `missingUserVars` / `authorizationState` on the MCP
+reinitialize response. (BUILT)
+
+**Typed errors.** `ErrorTypes` gained `resource_recovery_required` (required CodeAPI files could not
+be restored before the model ran — user must reattach; previously the run continued on stale image
+URLs). Separately, a LangChain `MODEL_NOT_FOUND` documentation URL in provider prose is matched by
+regex — `/langchain\.com\/.*\/MODEL_NOT_FOUND(?:\/|\b)/i` — and replaced with localized guidance;
+it is NOT an `ErrorTypes` value. (BUILT)
+
+**Verified non-changes, recorded so they are not re-discovered.** A Swagger 2.0 action spec is
+rejected by `validateAndParseOpenAPISpec` (no `servers` array) *before* `validateActionDomain` runs,
+so a synthesized `host`+`basePath` domain is never compared. `validateActionDomain`'s new port check
+compares `getExplicitPort(clientDomain)` against `specUrl.port || protocol default`, so posting
+`servers[0].url` verbatim can never mismatch — including an explicit default port, which WHATWG
+strips from both sides. The actions route LOGS `Port mismatch:` / `Domain mismatch:` and returns a
+fixed generic sentence, so that text never reaches a client.
+
 ### Other
 ```
 GET/POST/DELETE /api/presets

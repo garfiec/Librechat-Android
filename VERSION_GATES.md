@@ -112,6 +112,27 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
   day-granular gate cannot exclude them; erring the other way costs at most one 404. Drop the
   `landedDate` and switch to plain `isCompatibleOrNewer(version, "0.8.8-rc1")`
   once the **v0.8.8-rc1** tag ships.
+- **v0.8.8-line partial sync (untagged dev commit `db431210`, 2026-08-12): ZERO new gates.** Every item in
+  that sync is self-proving, permission-driven, or an extra request field older servers ignore, so none of
+  them meets the bar in the rule above ("gate only when the client would otherwise call a route the server
+  may not have"). Written down because the absence is a decision, not an omission:
+  - **Self-proving on a received payload.** The batched `ask_user_question` form renders only when the
+    pause the server pushed carries `questions[]`; the phase-label skip keys on `activity_label_type`
+    being `"phase"` on a part that arrived; the reconcile handling triggers on a frame that was sent.
+    A version gate here could only *disagree* with the payload in hand.
+  - **Self-proving on a status code.** The abort/status/send retries branch on a 409/503 plus its code —
+    an older server never emits them, so the retry paths are unreachable rather than suppressed.
+  - **Correct on every server.** `conversationId: "new"` on abort (the old route skipped `"new"` and took
+    the same user-scoped fallback unconditionally) and `normalizeMcpServerName` on MCP tool keys (a name
+    of safe characters is returned unchanged, which is every name that ever worked) are not new
+    behaviour to gate — they are the spelling that was always right.
+  - **Permission-driven, not version-driven.** The shared-link update gate reads SHARED_LINKS CREATE and
+    is permissive on unknown, exactly as `canCreateSharedLinks` already was.
+  - **Decode surface.** `isShared`, `isEditable`, `adminPanelURL`, the `langfuse*` keys and the five MCP
+    reinitialize fields are all absent-means-unknown; `isEditable` additionally fails **closed** here
+    (it only narrows the existing per-agent EDIT probe) even though upstream documents fail-open.
+  The one item that WOULD have needed a gate — `POST /api/agents/chat/steer/arm`, a genuinely new route —
+  is in the deferred P2 set and was not built.
 - **Why steering is gated and HITL pauses are not** — the two 0.8.8 rows look contradictory and are not. A
   pause is *received*: it can only be in state because the server pushed it, which is itself proof of the
   feature, and hiding the card would strand the user on a live cursor that never advances. Steering must be

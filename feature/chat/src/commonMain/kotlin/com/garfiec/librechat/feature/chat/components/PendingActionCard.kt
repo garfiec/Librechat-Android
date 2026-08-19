@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -326,7 +327,12 @@ private fun AskUserQuestionBatchItem(
     // Reported through an effect rather than during composition: writing a parent's snapshot map
     // from a child's composition body is a write-during-read of the same state the parent reads
     // to decide whether Send is enabled.
-    LaunchedEffect(stateKey, answer) { onAnswerChange(answer) }
+    //
+    // Captured through rememberUpdatedState so the effect restarts only when the ANSWER changes.
+    // Referencing the lambda directly would make a new lambda instance re-run the effect, and
+    // re-running it would rewrite the same value into the parent's map on every recomposition.
+    val currentOnAnswerChange by rememberUpdatedState(onAnswerChange)
+    LaunchedEffect(stateKey, answer) { currentOnAnswerChange(answer) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item.header?.takeIf { it.isNotBlank() }?.let { header ->
