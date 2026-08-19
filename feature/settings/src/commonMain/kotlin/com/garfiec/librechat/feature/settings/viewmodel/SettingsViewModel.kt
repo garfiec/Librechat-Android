@@ -165,6 +165,14 @@ class SettingsViewModel(
                         serverMemoriesEnabled = role.hasAccessOrPermissive(PermissionType.MEMORIES, Permission.USE),
                         remoteAgentsEnabled = role.hasAccessOrPermissive(PermissionType.REMOTE_AGENTS, Permission.USE),
                         remoteAgentsCreateEnabled = role.hasAccessOrPermissive(PermissionType.REMOTE_AGENTS, Permission.CREATE),
+                        // PATCH /api/share/:shareId now carries the SHARED_LINKS CREATE
+                        // permission — updating a link re-publishes conversation content, so
+                        // revoking CREATE has to stop updates too. DELETE stays ungated, which is
+                        // why only this one affordance is gated and the row's delete is not.
+                        // Permissive on unknown: an older server emits no such permission and
+                        // still accepts the call, and the server enforces with 403 either way.
+                        sharedLinksUpdateEnabled =
+                            role.hasAccessOrPermissive(PermissionType.SHARED_LINKS, Permission.CREATE),
                     )
                 }
             }
@@ -435,7 +443,7 @@ class SettingsViewModel(
     fun dismissExportComingSoon() = dataDelegate.dismissExportComingSoon()
     fun loadSharedLinks() = dataDelegate.loadSharedLinks()
     fun loadMoreSharedLinks() = dataDelegate.loadMoreSharedLinks()
-    fun toggleSharedLinkVisibility(shareId: String) = dataDelegate.toggleSharedLinkVisibility(shareId)
+    fun updateSharedLink(shareId: String) = dataDelegate.updateSharedLink(shareId)
     fun deleteSharedLink(shareId: String) = dataDelegate.deleteSharedLink(shareId)
     fun clearCache() = dataDelegate.clearCache()
     fun revokeAllKeys() = dataDelegate.revokeAllKeys()

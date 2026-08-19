@@ -20,8 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,7 +61,9 @@ fun SharedLinksScreen(
     hasNextPage: Boolean,
     serverUrl: String,
     onLoadMore: () -> Unit,
-    onToggleVisibility: (String) -> Unit,
+    /** SHARED_LINKS CREATE. False hides the update action; delete stays available. */
+    canUpdate: Boolean,
+    onUpdateLink: (String) -> Unit,
     onDelete: (String) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -70,6 +71,7 @@ fun SharedLinksScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     var deleteTarget by remember { mutableStateOf<SharedLinkDisplayData?>(null) }
+    var updateTarget by remember { mutableStateOf<SharedLinkDisplayData?>(null) }
     val currentOnLoadMore by rememberUpdatedState(onLoadMore)
 
     // Pagination: load more when near the end
@@ -147,11 +149,8 @@ fun SharedLinksScreen(
                             onCopy = { url ->
                                 copyToClipboard(url, "Share Link")
                             },
-                            onToggleVisibility = {
-                                if (link.shareId.isNotEmpty()) {
-                                    onToggleVisibility(link.shareId)
-                                }
-                            },
+                            canUpdate = canUpdate,
+                            onUpdateLink = { updateTarget = link },
                             onDelete = { deleteTarget = link },
                         )
                     }
@@ -170,6 +169,37 @@ fun SharedLinksScreen(
                 }
             }
         }
+    }
+
+    // Update confirmation. Upstream added one for the same reason: the action re-publishes the
+    // conversation as it now stands behind a URL that has already been handed out, and the link
+    // keeps working either way — so nothing about the outcome is visible enough to undo.
+    val linkToUpdate = updateTarget
+    if (linkToUpdate != null) {
+        AlertDialog(
+            onDismissRequest = { updateTarget = null },
+            title = { Text(stringResource(Res.string.dialog_title_update_shared_link)) },
+            text = {
+                Text(stringResource(Res.string.dialog_update_shared_link_message, linkToUpdate.title))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (linkToUpdate.shareId.isNotEmpty()) {
+                            onUpdateLink(linkToUpdate.shareId)
+                        }
+                        updateTarget = null
+                    },
+                ) {
+                    Text(stringResource(Res.string.action_update_shared_link))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { updateTarget = null }) {
+                    Text(stringResource(Res.string.action_cancel))
+                }
+            },
+        )
     }
 
     // Delete confirmation
@@ -210,7 +240,8 @@ private fun SharedLinkItem(
     link: SharedLinkDisplayData,
     serverUrl: String,
     onCopy: (String) -> Unit,
-    onToggleVisibility: () -> Unit,
+    canUpdate: Boolean,
+    onUpdateLink: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -264,17 +295,18 @@ private fun SharedLinkItem(
                     modifier = Modifier.align(Alignment.CenterVertically),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                // Toggle visibility
-                IconButton(onClick = onToggleVisibility, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        imageVector = if (link.isPublic) {
-                            Icons.Default.Visibility
-                        } else {
-                            Icons.Default.VisibilityOff
-                        },
-                        contentDescription = stringResource(if (link.isPublic) Res.string.cd_make_private else Res.string.cd_make_public),
-                        modifier = Modifier.size(18.dp),
-                    )
+                // Update (re-publish) the link. Hidden — not disabled — for a role without
+                // SHARED_LINKS CREATE: the other two actions stay live, so a greyed-out third
+                // icon reads as a transient state rather than as a permission the user does not
+                // have and cannot obtain from here.
+                if (canUpdate) {
+                    IconButton(onClick = onUpdateLink, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(Res.string.cd_update_shared_link),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
                 // Copy link
                 IconButton(

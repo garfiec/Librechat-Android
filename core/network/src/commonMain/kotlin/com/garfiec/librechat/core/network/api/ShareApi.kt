@@ -37,7 +37,24 @@ class ShareApi constructor(
             setBody(CreateShareRequest(targetMessageId = targetMessageId))
         }.body()
 
-    suspend fun toggleShareVisibility(shareId: String): SharedLink =
+    /**
+     * PATCH /api/share/:shareId — re-publishes the link against the conversation's current state.
+     *
+     * **Not a visibility toggle, and no longer a refresh.** It used to mint a new `shareId`, so
+     * the old name `toggleShareVisibility` described neither what it did nor what it does now:
+     * the id is stable across re-publishes and the link keeps working (upstream renamed the
+     * action "Refresh link" → "Update link" and added a confirmation step for exactly that
+     * reason). What it changes is the content behind the link.
+     *
+     * Requires the **SHARED_LINKS CREATE** permission — re-scoping a link re-publishes
+     * conversation content, so revoking CREATE has to stop updates too. `DELETE` on this route
+     * stays ungated, so a role that may no longer re-publish may still revoke. A role with
+     * `SHARED_LINKS.USE` but not `CREATE` gets 403 here where it previously succeeded.
+     *
+     * Sends no body deliberately. The route would also accept `targetMessageId` (non-empty
+     * string) and `snapshotFiles` (boolean), each 400 on a wrong type.
+     */
+    suspend fun updateShareLink(shareId: String): SharedLink =
         client.patch {
             url { path("api/share/$shareId") }
         }.body()

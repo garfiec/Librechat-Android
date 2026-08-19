@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.settings.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
@@ -176,9 +177,16 @@ class DataManagementDelegate(
         }
     }
 
-    fun toggleSharedLinkVisibility(shareId: String) {
+    /**
+     * Re-publishes a shared link against the conversation as it stands now.
+     *
+     * The link's id and URL survive, so anything already handed out keeps working — this changes
+     * what is behind it, which is why the route now demands SHARED_LINKS CREATE and why the
+     * caller confirms first.
+     */
+    fun updateSharedLink(shareId: String) {
         stateHandle.scope.launch {
-            when (val result = shareRepository.toggleShareVisibility(shareId)) {
+            when (val result = shareRepository.updateShareLink(shareId)) {
                 is Result.Success -> {
                     stateHandle.update {
                         copy(
@@ -189,7 +197,20 @@ class DataManagementDelegate(
                     }
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = result.message ?: "Failed to toggle visibility") }
+                    // 403 is now a distinct, permanent outcome rather than a transient failure:
+                    // the role may still hold SHARED_LINKS.USE (and may still DELETE), so a
+                    // generic "failed" reads as something worth retrying when it never will be.
+                    val forbidden = (result.exception as? ApiException)?.statusCode == HTTP_FORBIDDEN
+                    stateHandle.update {
+                        copy(
+                            error = if (forbidden) {
+                                "You don't have permission to update shared links. " +
+                                    "You can still delete this link."
+                            } else {
+                                result.message ?: "Failed to update the shared link"
+                            },
+                        )
+                    }
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -267,6 +288,9 @@ class DataManagementDelegate(
         }
     }
 }
+
+/** The route answers 403 when the caller's role lost SHARED_LINKS CREATE. */
+private const val HTTP_FORBIDDEN = 403
 
 private fun SharedLink.toDisplayData() = SharedLinkDisplayData(
     shareId = shareId ?: "",

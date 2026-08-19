@@ -222,6 +222,13 @@ data class SettingsUiState(
     val serverMemoriesEnabled: Boolean = true,
     val remoteAgentsEnabled: Boolean = true,
     val remoteAgentsCreateEnabled: Boolean = true,
+    /**
+     * SHARED_LINKS/CREATE, which `PATCH /api/share/:shareId` now requires — updating a link
+     * re-publishes the conversation, so revoking CREATE stops updates as well as creates.
+     * Scoped to the update action only: DELETE is deliberately ungated server-side, so a role
+     * that may no longer re-publish may still revoke.
+     */
+    val sharedLinksUpdateEnabled: Boolean = true,
 )
 
 internal fun User.toDisplayData() = UserDisplayData(

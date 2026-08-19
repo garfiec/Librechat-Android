@@ -118,7 +118,8 @@ fun EntryProviderScope<NavKey>.settingsEntries(
             hasNextPage = uiState.value.sharedLinksHasNextPage,
             serverUrl = uiState.value.serverUrl,
             onLoadMore = viewModel::loadMoreSharedLinks,
-            onToggleVisibility = viewModel::toggleSharedLinkVisibility,
+            canUpdate = uiState.value.sharedLinksUpdateEnabled,
+            onUpdateLink = viewModel::updateSharedLink,
             onDelete = viewModel::deleteSharedLink,
             onNavigateBack = onBack,
         )

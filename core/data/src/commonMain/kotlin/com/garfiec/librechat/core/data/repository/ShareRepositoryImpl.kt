@@ -47,9 +47,9 @@ class ShareRepositoryImpl(
         }
     }
 
-    override suspend fun toggleShareVisibility(shareId: String): Result<SharedLink> {
+    override suspend fun updateShareLink(shareId: String): Result<SharedLink> {
         return safeApiCall {
-            shareApi.toggleShareVisibility(shareId)
+            shareApi.updateShareLink(shareId)
         }
     }
 
