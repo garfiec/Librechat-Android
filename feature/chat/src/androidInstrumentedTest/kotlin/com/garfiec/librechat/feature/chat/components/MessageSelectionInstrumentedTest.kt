@@ -1,14 +1,18 @@
 package com.garfiec.librechat.feature.chat.components
 
 import android.content.ClipboardManager
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuItem
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuKeys
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuSession
 import androidx.compose.foundation.text.contextmenu.provider.LocalTextContextMenuToolbarProvider
 import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuDataProvider
 import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuProvider
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.LocalClipboard
@@ -32,6 +36,7 @@ import kotlinx.coroutines.awaitCancellation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -67,11 +72,15 @@ class MessageSelectionInstrumentedTest {
     private lateinit var clipboard: RecordingClipboard
     private lateinit var uriHandler: RecordingUriHandler
 
+    /** Excerpts the "Add to chat" item staged as pending quotes. */
+    private val staged = mutableListOf<String>()
+
     @Before
     fun setUp() {
         menuProvider = RecordingContextMenuProvider()
         clipboard = RecordingClipboard()
         uriHandler = RecordingUriHandler()
+        staged.clear()
     }
 
     // ─── Harness ────────────────────────────────────────────────────
@@ -154,6 +163,7 @@ class MessageSelectionInstrumentedTest {
         vararg messages: Message,
         isStreaming: Boolean = false,
         streamingContent: String = "",
+        quoteCaptureEnabled: Boolean? = null,
     ) {
         composeRule.setContent {
             // ParsedMarkdownCache is normally provided by ChatRoot; the harness renders
@@ -166,16 +176,34 @@ class MessageSelectionInstrumentedTest {
                 LocalParsedMarkdownCache provides markdownCache,
             ) {
                 LibreChatTheme {
-                    MessageList(
-                        displayMessages = messages.map { MessageNode(it, emptyList(), 0, 1) },
-                        isStreaming = isStreaming,
-                        streamingContent = streamingContent,
-                        onSiblingNavigation = { _, _ -> },
-                        onEditMessage = {},
-                        onRegenerateMessage = {},
-                        onCopyMessage = {},
-                        userName = USER_NAME,
-                    )
+                    val list: @Composable () -> Unit = {
+                        MessageList(
+                            displayMessages = messages.map { MessageNode(it, emptyList(), 0, 1) },
+                            isStreaming = isStreaming,
+                            streamingContent = streamingContent,
+                            onSiblingNavigation = { _, _ -> },
+                            onEditMessage = {},
+                            onRegenerateMessage = {},
+                            onCopyMessage = {},
+                            userName = USER_NAME,
+                        )
+                    }
+                    // Mirrors production's placement: the item is contributed by an ANCESTOR of
+                    // the message list, because that is where foundation collects a selection
+                    // menu's components from. Left out entirely when the parameter is null, so
+                    // the selection tests below see exactly the tree they always did.
+                    if (quoteCaptureEnabled == null) {
+                        list()
+                    } else {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .addToChatSelectionItem(
+                                    enabled = quoteCaptureEnabled,
+                                    onAddToChat = { staged += it },
+                                ),
+                        ) { list() }
+                    }
                 }
             }
         }
@@ -384,6 +412,42 @@ class MessageSelectionInstrumentedTest {
             composeRule.waitUntil(timeoutMillis = 3_000) { menuProvider.shownCount > 0 }
         }.isSuccess
         assertFalse("selection toolbar must not appear on the streaming bubble", toolbarAppeared)
+    }
+
+    /**
+     * The v0.8.7 quote item has to reach the toolbar the platform actually shows, and that
+     * toolbar's components are collected from the handler's ANCESTORS. Publishing a wrapped
+     * `LocalTextContextMenuToolbarProvider` above the thread instead compiled, shipped, and did
+     * nothing: `.current` was null there (every SelectionContainer installs the platform provider
+     * inside itself), so the wrapper stood down and the device only ever saw Copy / Select all.
+     */
+    @Test
+    fun addToChatItemReachesTheSelectionToolbar() {
+        setChat(assistantMessage("m1", "Alpha beta gamma delta epsilon."), quoteCaptureEnabled = true)
+
+        longPressText("beta gamma")
+        awaitSelectionMenu()
+
+        invokeMenuItem(AddToChatMenuKey, "add to chat")
+        composeRule.waitUntil(timeoutMillis = 5_000) { staged.isNotEmpty() }
+
+        val quoted = staged.single().trim()
+        assertTrue(
+            "expected a word from the prose, got \"$quoted\"",
+            "Alpha beta gamma delta epsilon.".contains(quoted) && isWordLike(quoted),
+        )
+    }
+
+    @Test
+    fun addToChatItemIsAbsentWhenQuoteCaptureIsGatedOff() {
+        // Pre-0.8.7 servers drop the request field silently, so the affordance must not appear.
+        setChat(assistantMessage("m1", "Alpha beta gamma delta epsilon."), quoteCaptureEnabled = false)
+
+        longPressText("beta gamma")
+        awaitSelectionMenu()
+
+        assertNull("gated-off build still offered an add-to-chat action", menuProvider.item(AddToChatMenuKey))
+        assertNotNull("copy must stay available", menuProvider.item(TextContextMenuKeys.CopyKey))
     }
 
     @Test

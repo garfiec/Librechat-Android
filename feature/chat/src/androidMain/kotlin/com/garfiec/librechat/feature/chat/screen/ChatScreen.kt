@@ -76,6 +76,7 @@ import com.garfiec.librechat.feature.chat.components.ChatRoot
 import com.garfiec.librechat.feature.chat.components.ChatOptionsPage
 import com.garfiec.librechat.feature.chat.components.ChatToolsSheetContent
 import com.garfiec.librechat.feature.chat.components.UploadRoutingSheet
+import com.garfiec.librechat.feature.chat.components.addToChatSelectionItem
 import com.garfiec.librechat.feature.chat.components.rememberChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.rememberChatAttachmentActions
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
@@ -455,7 +456,16 @@ actual fun ChatScreen(
             )
 
             Column(
-                modifier = Modifier.fillMaxSize(),
+                // "Add to chat" on the selection toolbar (v0.8.7 quotes), contributed from above
+                // every message's SelectionContainer — which is where foundation collects a
+                // menu's components from. Gated: a pre-0.8.7 server ignores the request field and
+                // would silently drop the excerpts.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .addToChatSelectionItem(
+                        enabled = uiState.quoteCaptureAvailable,
+                        onAddToChat = viewModel::addPendingQuote,
+                    ),
             ) {
                 ChatContent(
                     listPullUpModifier = pullUpListModifier,

@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.ui.components.LoadingIndicator
-import com.garfiec.librechat.feature.chat.components.AddToChatSelectionMenu
 import com.garfiec.librechat.feature.chat.components.LandingContent
 import com.garfiec.librechat.feature.chat.components.MessageList
 import com.garfiec.librechat.feature.chat.components.MessagesUnavailable
@@ -62,12 +61,6 @@ internal fun ColumnScope.ChatContent(
     val topInsetModifier = Modifier
         .weight(1f)
         .padding(top = topContentPadding)
-    // "Add to chat" on the selection toolbar (v0.8.7 quotes). Gated: a pre-0.8.7 server ignores
-    // the request field and would silently drop the excerpts.
-    AddToChatSelectionMenu(
-        enabled = uiState.quoteCaptureAvailable,
-        onAddToChat = viewModel::addPendingQuote,
-    ) {
     when (uiState.screenState) {
         ChatScreenState.LANDING -> {
             LandingContent(
@@ -148,7 +141,6 @@ internal fun ColumnScope.ChatContent(
                 )
             }
         }
-    }
     }
 }
 

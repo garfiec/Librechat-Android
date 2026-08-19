@@ -1,17 +1,17 @@
 package com.garfiec.librechat.feature.chat.components
 
-import androidx.compose.foundation.text.contextmenu.data.TextContextMenuData
+import androidx.compose.foundation.text.contextmenu.builder.item
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuItem
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuKeys
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuSession
-import androidx.compose.foundation.text.contextmenu.provider.LocalTextContextMenuToolbarProvider
-import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuDataProvider
-import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuProvider
+import androidx.compose.foundation.text.contextmenu.modifier.appendTextContextMenuComponents
+import androidx.compose.foundation.text.contextmenu.modifier.filterTextContextMenuComponents
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.LocalClipboard
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -25,71 +25,82 @@ import org.jetbrains.compose.resources.stringResource
 object AddToChatMenuKey
 
 /**
- * Adds an "Add to chat" item to the selection toolbar of every [content] descendant (v0.8.7
+ * Adds an "Add to chat" item to the selection toolbar of every text below this modifier (v0.8.7
  * quotes, upstream #13868): tapping it stages the selected excerpt as a pending quote chip.
  *
- * Wraps the platform [TextContextMenuProvider] rather than using
- * `Modifier.appendTextContextMenuComponents` because the appended item needs the SELECTED TEXT,
- * and foundation exposes no public read of a `SelectionContainer`'s selection (the hoisting
- * overload and `Selection` itself are internal as of CMP 1.11.0-beta03). The one public conduit
- * is the built-in Copy item's own onClick, so the appended item drives that and lifts the text
- * off the clipboard: snapshot the previous clip, invoke Copy (which also dismisses the toolbar),
- * poll briefly for the write to land — the selection machinery performs it asynchronously — then
- * stage the excerpt and restore the previous clip so the user's clipboard is left untouched.
+ * **A modifier, not a provider wrapper.** Foundation builds a menu's data by walking the toolbar
+ * handler's ANCESTORS (`collectTextContextMenuData` → `traverseAncestors`), and every
+ * `SelectionContainer` installs the platform toolbar provider *inside itself*
+ * (`CommonContextMenuArea` → `ProvideDefaultPlatformTextContextMenuProviders`). So a
+ * `LocalTextContextMenuToolbarProvider` published above the thread is both null when read there
+ * and shadowed if written — which is why the earlier wrapper stood down silently and the item
+ * never reached the stock floating toolbar. Contributing components from an ancestor is the
+ * supported seam, and it leaves the platform's own toolbar (and its text-classification items)
+ * exactly as they are.
  *
- * When [enabled] is false (pre-0.8.7 server, unknown version, assistants endpoint) the platform
- * toolbar is left exactly as it was.
+ * The item needs the SELECTED TEXT, and foundation exposes no public read of a
+ * `SelectionContainer`'s selection (the hoisting overload carries anchors, not text). The one
+ * public conduit is the built-in Copy item's own onClick, so the appended item drives that and
+ * lifts the text off the clipboard: snapshot the previous clip, invoke Copy (which also dismisses
+ * the toolbar), poll briefly for the write to land — the selection machinery performs it
+ * asynchronously — then stage the excerpt and restore the previous clip so the user's clipboard
+ * is left untouched.
+ *
+ * Reaching Copy is what the filter is for: the builder cannot read the components already
+ * collected, but a filter is handed each of them. It runs after every builder has contributed, so
+ * the reset lives in the builder and the item is dropped from any menu that turns out to have no
+ * Copy — a text field's paste-only menu, where there is no selection to stage and a stale capture
+ * would otherwise quote whatever the clipboard happened to hold.
+ *
+ * When [enabled] is false (pre-0.8.7 server, unknown version, assistants endpoint) nothing is
+ * added and the platform toolbar is left exactly as it was.
  */
 @Composable
-internal fun AddToChatSelectionMenu(
+internal fun Modifier.addToChatSelectionItem(
     enabled: Boolean,
     onAddToChat: (String) -> Unit,
-    content: @Composable () -> Unit,
-) {
-    val platform = LocalTextContextMenuToolbarProvider.current
-    if (!enabled || platform == null) {
-        content()
-        return
-    }
+): Modifier {
+    if (!enabled) return this
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val label = stringResource(Res.string.selection_add_to_chat)
-    val currentOnAdd = rememberUpdatedState(onAddToChat)
-    val wrapper = remember(platform, clipboard, label) {
-        AddToChatMenuProvider(platform, clipboard, scope, label) { currentOnAdd.value(it) }
-    }
-    CompositionLocalProvider(LocalTextContextMenuToolbarProvider provides wrapper, content = content)
+    val currentOnAdd by rememberUpdatedState(onAddToChat)
+    val capture = remember(clipboard, scope) { SelectionQuoteCapture(clipboard, scope) }
+    return this
+        .appendTextContextMenuComponents {
+            capture.onMenuRebuilt()
+            item(key = AddToChatMenuKey, label = label) {
+                capture.stageSelection(this) { currentOnAdd(it) }
+            }
+        }
+        .filterTextContextMenuComponents { component ->
+            when {
+                component !is TextContextMenuItem -> true
+                component.key == TextContextMenuKeys.CopyKey -> {
+                    capture.copyItem = component
+                    true
+                }
+                component.key == AddToChatMenuKey -> capture.copyItem != null
+                else -> true
+            }
+        }
 }
 
-private class AddToChatMenuProvider(
-    private val platform: TextContextMenuProvider,
+/** Lifts the current selection off the clipboard by driving the menu's own Copy item. */
+private class SelectionQuoteCapture(
     private val clipboard: Clipboard,
     private val scope: CoroutineScope,
-    private val label: String,
-    private val onAddToChat: (String) -> Unit,
-) : TextContextMenuProvider {
+) {
+    /** The Copy item of the menu being built, or null if this menu has none. */
+    var copyItem: TextContextMenuItem? = null
 
-    override suspend fun showTextContextMenu(dataProvider: TextContextMenuDataProvider) {
-        platform.showTextContextMenu(
-            object : TextContextMenuDataProvider by dataProvider {
-                override fun data(): TextContextMenuData = augment(dataProvider.data())
-            },
-        )
+    /** Called once per menu build, before the filters see anything. */
+    fun onMenuRebuilt() {
+        copyItem = null
     }
 
-    private fun augment(data: TextContextMenuData): TextContextMenuData {
-        // No Copy item means no selection to lift (an editable field's cut-only menu, or a menu
-        // this provider has already augmented elsewhere) — leave the data untouched.
-        val copyItem = data.components.filterIsInstance<TextContextMenuItem>()
-            .firstOrNull { it.key == TextContextMenuKeys.CopyKey }
-            ?: return data
-        val addToChat = TextContextMenuItem(key = AddToChatMenuKey, label = label) {
-            captureSelection(copyItem, this)
-        }
-        return TextContextMenuData(data.components + addToChat)
-    }
-
-    private fun captureSelection(copyItem: TextContextMenuItem, session: TextContextMenuSession) {
+    fun stageSelection(session: TextContextMenuSession, onAddToChat: (String) -> Unit) {
+        val copyItem = copyItem ?: return
         scope.launch {
             val previous = runCatching { clipboard.getClipEntry() }.getOrNull()
             val previousText = previous?.firstText()
