@@ -6,6 +6,7 @@ import com.garfiec.librechat.core.model.request.DeleteFilesRequest
 import com.garfiec.librechat.core.model.response.FileDownloadURLResponse
 import com.garfiec.librechat.core.model.response.FilePreviewResponse
 import com.garfiec.librechat.core.model.response.FileUploadConfig
+import com.garfiec.librechat.core.model.response.uploadMimeType
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.onUpload
@@ -61,8 +62,14 @@ class FilesApi constructor(
         height: Int? = null,
         onProgress: ((Float) -> Unit)? = null,
     ): FileObject {
+        // The one place the part's Content-Type is written, so the one place a platform spelling
+        // the server has never heard of can be rewritten. Android reports `.sh` as `text/x-sh`,
+        // which upstream lists nowhere and the upload gate answers 415 for; see `uploadMimeType`
+        // for why this is NOT the mirrored alias table.
+        val wireType = uploadMimeType(type) ?: type
         Logger.d("FilesApi") {
-            "uploadFile: filename=$filename, type=$type, size=${bytes.size} bytes, fileId=$fileId, " +
+            val reported = if (wireType != type) " (platform reported $type)" else ""
+            "uploadFile: filename=$filename, type=$wireType$reported, size=${bytes.size} bytes, fileId=$fileId, " +
                 "endpoint=$endpoint, model=$model, agentId=$agentId, messageFile=$messageFile, width=$width, height=$height"
         }
 
@@ -70,7 +77,7 @@ class FilesApi constructor(
             formData {
                 append("file", bytes, Headers.build {
                     append(HttpHeaders.ContentDisposition, "filename=\"${encodeFilename(filename)}\"")
-                    append(HttpHeaders.ContentType, type)
+                    append(HttpHeaders.ContentType, wireType)
                 })
                 append("file_id", fileId)
                 if (endpoint != null) append("endpoint", endpoint)
