@@ -132,16 +132,13 @@ class ChatUiStateRenderablePendingActionTest {
         ),
     )
 
-    /**
-     * One field cannot answer questions it never showed. The batched resume branch requires an
-     * answer per id and 400s on a body missing any of them, so claiming the send here would swap
-     * a message delivered late for a rejection the user cannot act on — the card is the only input
-     * that can resolve this pause.
-     */
     @Test
-    fun `a multi-question batch leaves the composer queueing`() {
+    fun `a multi-question batch claims the composer's send`() {
+        // v0.8.8-rc1 HITL5: the composer answers the batch one question per send (the delegate
+        // accumulates drafts and submits the full map once every id has one). Routing to the
+        // queue instead read as broken — the send appeared to work while the run stayed paused.
         val target = pausedState(askUserQuestions("topic", "depth")).duringRunSendTarget
-        assertThat(target).isEqualTo(DuringRunSendTarget.QUEUE)
+        assertThat(target).isEqualTo(DuringRunSendTarget.ANSWER_PAUSE)
     }
 
     /** A batch of one is answerable from a single field — as `answers`, never as a bare answer. */
