@@ -30,15 +30,12 @@ class ToolFavoritesRepositoryImpl(
     private val writeMutex = Mutex()
 
     override suspend fun refresh(): Result<Set<ToolFavorite>> {
-        // The routes landed on the untagged 0.8.8 line (#13952), so the version alone cannot
-        // decide: a dev build carrying them still reports 0.8.7. The date fallback covers that.
-        // Landing day itself rather than the day after — a same-day predecessor misread as
-        // having the routes costs one 404 that the branch below turns into "unsupported",
-        // whereas rounding up would hide the feature from a day's worth of real 0.8.8 servers.
+        // The routes shipped in v0.8.8-rc1 (#13952), so a plain version compare decides. Fails
+        // closed on an unresolved server (null DetectedBackend): no probe, no stars — the 404
+        // fallback below still covers a server the commit map cannot classify.
         if (!BackendVersion.supportsFeature(
                 configRepository.detectedBackend.value,
                 minVersion = "0.8.8-rc1",
-                landedDate = "2026-07-05",
             )
         ) {
             _isSupported.value = false

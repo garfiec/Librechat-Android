@@ -26,15 +26,15 @@ class ToolFavoritesRepositoryImplTest {
         return ToolFavoritesRepositoryImpl(api, configRepository)
     }
 
-    private fun devBackend(commitDate: String) =
-        DetectedBackend("0.8.7", BackendBuildClass.DEV, commitDate)
+    private fun rcBackend() =
+        DetectedBackend("0.8.8-rc1", BackendBuildClass.RC, "2026-08-14")
 
     @Test
-    fun `a dev build from the landing day probes the routes`() = runTest {
+    fun `an rc1 server probes the routes`() = runTest {
         coEvery { api.getToolFavorites() } returns
             listOf(ToolFavorite(ToolFavoriteItemType.MCP, "jira"))
 
-        val repository = repository(devBackend("2026-07-05"))
+        val repository = repository(rcBackend())
         repository.refresh()
 
         assertThat(repository.isSupported.value).isTrue()
@@ -43,7 +43,7 @@ class ToolFavoritesRepositoryImplTest {
 
     @Test
     fun `a build predating the routes never calls them`() = runTest {
-        val repository = repository(devBackend("2026-07-04"))
+        val repository = repository(DetectedBackend("0.8.7", BackendBuildClass.DEV, "2026-07-04"))
 
         val result = repository.refresh()
 
@@ -56,7 +56,7 @@ class ToolFavoritesRepositoryImplTest {
     fun `a 404 turns pinning off rather than reporting a failure to the user`() = runTest {
         coEvery { api.getToolFavorites() } throws ApiException(404, "Not Found")
 
-        val repository = repository(devBackend("2026-07-06"))
+        val repository = repository(rcBackend())
         repository.refresh()
 
         assertThat(repository.isSupported.value).isFalse()
@@ -65,7 +65,7 @@ class ToolFavoritesRepositoryImplTest {
     @Test
     fun `a transient failure leaves support alone`() = runTest {
         coEvery { api.getToolFavorites() } returns emptyList()
-        val repository = repository(devBackend("2026-07-06"))
+        val repository = repository(rcBackend())
         repository.refresh()
         assertThat(repository.isSupported.value).isTrue()
 
@@ -80,7 +80,7 @@ class ToolFavoritesRepositoryImplTest {
     @Test
     fun `a failed pin rolls the optimistic star back`() = runTest {
         coEvery { api.addToolFavorite(any(), any()) } throws ApiException(500, "Server error")
-        val repository = repository(devBackend("2026-07-06"))
+        val repository = repository(rcBackend())
 
         val result = repository.toggle(ToolFavoriteItemType.TOOL, "wolfram")
 
@@ -90,7 +90,7 @@ class ToolFavoritesRepositoryImplTest {
 
     @Test
     fun `a second toggle unpins`() = runTest {
-        val repository = repository(devBackend("2026-07-06"))
+        val repository = repository(rcBackend())
 
         repository.toggle(ToolFavoriteItemType.TOOL, "wolfram")
         assertThat(repository.favorites.value.map { it.itemKey }).containsExactly("tool:wolfram")
@@ -105,7 +105,7 @@ class ToolFavoritesRepositoryImplTest {
     fun `clear drops both the pins and the discovered support`() = runTest {
         coEvery { api.getToolFavorites() } returns
             listOf(ToolFavorite(ToolFavoriteItemType.MCP, "jira"))
-        val repository = repository(devBackend("2026-07-06"))
+        val repository = repository(rcBackend())
         repository.refresh()
 
         repository.clear()
@@ -118,7 +118,7 @@ class ToolFavoritesRepositoryImplTest {
 
     @Test
     fun `the cap is enforced before the write, not after the server rejects it`() = runTest {
-        val repository = repository(devBackend("2026-07-06"))
+        val repository = repository(rcBackend())
         repeat(100) { repository.toggle(ToolFavoriteItemType.TOOL, "tool-$it") }
 
         val result = repository.toggle(ToolFavoriteItemType.TOOL, "one-too-many")

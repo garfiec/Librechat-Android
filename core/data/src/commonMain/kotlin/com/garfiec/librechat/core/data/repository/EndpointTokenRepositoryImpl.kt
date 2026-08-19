@@ -33,22 +33,15 @@ class EndpointTokenRepositoryImpl(
     override suspend fun getContextProjection(
         request: ContextProjectionRequest,
     ): Result<ContextUsage?> {
-        // Upstream #13953 (0.8.8 line) REMOVED POST /api/endpoints/context-projection and
+        // Upstream #13953 (v0.8.8-rc1) REMOVED POST /api/endpoints/context-projection and
         // moved the gauge to a client-side / SSE-seeded computation. On such a server the POST 404s,
         // so skip it there and let the live `on_context_usage` SSE + token-config seed own the gauge
         // (a null result leaves any existing reading in place). This inverts the earlier gate that
-        // enabled the projection at >= 0.8.7. Date fallback covers untagged dev builds that still
-        // report 0.8.7 (see BackendVersion.supportsFeature).
-        //
-        // landedDate is the day AFTER the removal (which landed 2026-06-25), not the removal's own
-        // day: the date gate has day granularity, so three commits sharing 2026-06-25 precede the
-        // removal and would be wrongly classified as post-removal. Rounding up misclassifies the
-        // other way instead — same-day post-removal builds still issue the POST and get a 404,
-        // which safeApiCall turns into an error the caller ignores. That is the harmless direction.
+        // enabled the projection at >= 0.8.7. Plain version compare since the rc1 tag shipped; on
+        // an unresolved server the POST is still issued and its 404 is discarded by the caller.
         if (BackendVersion.supportsFeature(
                 configRepository.detectedBackend.value,
                 minVersion = "0.8.8-rc1",
-                landedDate = "2026-06-26",
             )
         ) {
             return Result.Success(null)

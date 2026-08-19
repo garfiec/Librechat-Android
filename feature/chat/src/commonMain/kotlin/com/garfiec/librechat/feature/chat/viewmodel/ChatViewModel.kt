@@ -593,17 +593,15 @@ class ChatViewModel(
             }
         }
 
-        // Mid-run steering (v0.8.8). Version-gated rather than self-proving: unlike a HITL pause,
-        // which the server pushes, steering has to be OFFERED before any server has said anything
-        // about it. Date-gated on top of the version because the 0.8.8 line is untagged — a dev
-        // build still reports 0.8.7 (see BackendVersion.supportsFeature). Failing closed here
+        // Mid-run steering (v0.8.8-rc1). Version-gated rather than self-proving: unlike a HITL
+        // pause, which the server pushes, steering has to be OFFERED before any server has said
+        // anything about it. Plain version compare since the rc1 tag shipped. Failing closed here
         // just leaves the composer queueing mid-run, which every supported server handles.
         viewModelScope.launch {
             configRepository.detectedBackend.collect { detected ->
                 val supported = BackendVersion.supportsFeature(
                     detected = detected,
                     minVersion = "0.8.8-rc1",
-                    landedDate = "2026-07-14",
                 )
                 _uiState.update { it.copy(gates = it.gates.copy(steeringSupported = supported)) }
             }
