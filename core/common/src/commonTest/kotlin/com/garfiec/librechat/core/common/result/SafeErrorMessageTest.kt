@@ -115,7 +115,7 @@ class SafeErrorMessageTest {
      * screen exists to stop.
      */
     @Test
-    fun `app-authored text is never screened, however long`() {
+    fun `app-authored text is never screened however long it is`() {
         val longAppMessage = "Server returned an unexpected response when starting the chat. " +
             "This usually indicates a backend version incompatibility — please check that the " +
             "server is running a supported LibreChat release, and that no proxy is rewriting it."
