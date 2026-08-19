@@ -180,6 +180,11 @@ fun MessageList(
     // follower's own mid-growth scroll as intent and latches, silently killing the follow.
     var programmaticScroll by remember { mutableStateOf(false) }
 
+    // Read through updated state, not the captured parameter: the follower below runs for a whole
+    // run inside one LaunchedEffect, so a plain capture would keep reporting whatever was true on
+    // the frame the run started — which is always "no pause".
+    val isAwaitingHumanReview by rememberUpdatedState(pendingAction != null)
+
     val isNearBottom by remember {
         derivedStateOf {
             val info = listState.layoutInfo
@@ -232,8 +237,9 @@ fun MessageList(
     //    run, easing a fraction of the remaining distance-to-bottom each
     //    frame from live layout. It is deliberately NOT driven off
     //    streamingContent. It yields to the user on a finger-down
-    //    (isTouching) or once the scroll-away latch is set; see the loop
-    //    itself for the invariants it rests on.
+    //    (isTouching), once the scroll-away latch is set, or while the
+    //    run is paused for human review; see the loop itself for the
+    //    invariants it rests on.
     //
     // 4. POST-STREAMING — When streaming ends, a 300ms delay lets the
     //    Room observer replace the streaming bubble with the real AI
@@ -330,7 +336,17 @@ fun MessageList(
         if (pendingAction?.actionId != null) {
             userScrolledUp = false
             val total = listState.layoutInfo.totalItemsCount
-            if (total > 0) listState.animateScrollToItem(total - 1, scrollOffset = Int.MAX_VALUE)
+            // Flagged like the follower's own scrolls: this one animates from above the tail, so
+            // every frame of it reads to the scroll-away detector as a user dragging away from
+            // the bottom — the one thing that would latch the follower off for the rest of the run.
+            if (total > 0) {
+                programmaticScroll = true
+                try {
+                    listState.animateScrollToItem(total - 1, scrollOffset = Int.MAX_VALUE)
+                } finally {
+                    programmaticScroll = false
+                }
+            }
         }
     }
 
@@ -354,7 +370,14 @@ fun MessageList(
                     // A finger down, or a deliberate scroll away, hands control back to the user.
                     // isScrollInProgress is NOT consulted: our own scroll below sets it, so gating
                     // on it would stop the follower on its own first frame.
-                    if (isTouching || userScrolledUp) {
+                    //
+                    // A pause for human review hands it back too. The run stays open across the
+                    // pause, so isStreaming alone keeps this loop pinning the tail every frame
+                    // while the one thing it exists to follow — output — has stopped. The card is
+                    // brought into view once by its own effect above; after that the list is the
+                    // user's, to read a long question or reach a field, and a follower still
+                    // running would undo every scroll the instant their finger lifts.
+                    if (isTouching || userScrolledUp || isAwaitingHumanReview) {
                         programmaticScroll = false
                         continue
                     }
