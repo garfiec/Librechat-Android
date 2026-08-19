@@ -62,6 +62,7 @@ class PendingActionDelegateTest {
         scope: TestScope,
         state: ChatUiState = pausedState(),
         store: ResumePinStore = pinStore,
+        nowMillis: () -> Long = { 0L },
     ): Pair<PendingActionDelegate, MutableStateFlow<ChatUiState>> {
         val flow = MutableStateFlow(state)
         val root = ChatStateHandle(flow, scope)
@@ -73,6 +74,8 @@ class PendingActionDelegateTest {
             fingerprintRejectedMessage = { FINGERPRINT_REJECTED },
             restoreAnswer = { restored += it },
             resumePinStore = store,
+            pauseExpiredMessage = { EXPIRED_COPY },
+            nowMillis = nowMillis,
         )
         return delegate to flow
     }
@@ -139,6 +142,79 @@ class PendingActionDelegateTest {
 
         assertThat(request.captured.generationCreatedAt).isNull()
     }
+
+    @Test
+    fun `a pause announced already past its expiry dismisses with the expiry copy`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, flow) = delegateWith(this, nowMillis = { 2_000L })
+
+            delegate.onPendingAction(toolApproval().copy(expiresAt = 1_000L))
+
+            assertThat(flow.value.pendingAction).isNull()
+            assertThat(flow.value.error).isEqualTo(EXPIRED_COPY)
+        }
+
+    @Test
+    fun `a pause expires in place when its deadline passes`() = runTest {
+        var now = 0L
+        val (delegate, flow) = delegateWith(this, nowMillis = { now })
+
+        delegate.onPendingAction(toolApproval().copy(expiresAt = 60_000L))
+        runCurrent()
+        assertThat(flow.value.pendingAction).isNotNull()
+
+        now = 60_000L
+        testScheduler.advanceTimeBy(60_001L)
+        runCurrent()
+
+        assertThat(flow.value.pendingAction).isNull()
+        assertThat(flow.value.error).isEqualTo(EXPIRED_COPY)
+    }
+
+    @Test
+    fun `a pause without an expiry never expires client-side`() = runTest {
+        val (delegate, flow) = delegateWith(this)
+
+        delegate.onPendingAction(toolApproval())
+        testScheduler.advanceTimeBy(86_400_000L)
+        runCurrent()
+
+        assertThat(flow.value.pendingAction).isNotNull()
+    }
+
+    @Test
+    fun `a 409 past the expiry reads as the expiry, not a retryable failure`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Clock skew: the server expires the pause before the local timer does, so the 409
+            // arrives while the card is still up. Checked at failure time against a moved clock.
+            var now = 4_000L
+            val (delegate, flow) = delegateWith(this, nowMillis = { now })
+            coEvery { chatRepository.resumeChat(any()) } returns
+                Result.Error(ApiException(409, "This decision targets a stale action"), "stale")
+
+            delegate.onPendingAction(toolApproval().copy(expiresAt = 5_000L))
+            now = 6_000L
+            delegate.submitAnswer("my answer")
+
+            assertThat(flow.value.pendingAction).isNull()
+            assertThat(flow.value.error).isEqualTo(EXPIRED_COPY)
+            // The words still come back — expiry must not eat the typed answer.
+            assertThat(restored).containsExactly("my answer")
+        }
+
+    @Test
+    fun `a 409 before the expiry keeps the generic retryable handling`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, flow) = delegateWith(this, nowMillis = { 1_000L })
+            coEvery { chatRepository.resumeChat(any()) } returns
+                Result.Error(ApiException(409, "conflict"), "conflict")
+
+            delegate.onPendingAction(toolApproval().copy(expiresAt = 60_000L))
+            delegate.submitAnswer("my answer")
+
+            assertThat(flow.value.pendingAction).isNotNull()
+            assertThat(flow.value.error).isEqualTo("conflict")
+        }
 
     @Test
     fun `an accepted decision clears the pause`() = runTest(UnconfinedTestDispatcher()) {
@@ -499,5 +575,7 @@ class PendingActionDelegateTest {
 
     private companion object {
         const val FINGERPRINT_REJECTED = "started with a different setup"
+
+        private const val EXPIRED_COPY = "expired copy"
     }
 }

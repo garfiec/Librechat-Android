@@ -14,9 +14,12 @@ import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
 import com.garfiec.librechat.feature.chat.viewmodel.PendingActionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlin.time.Clock
 
 /**
  * Owns the human-in-the-loop pause (v0.8.8): holding the live [PendingAction] and resolving it
@@ -57,6 +60,16 @@ class PendingActionDelegate(
      * conversation — and neither can rebuild the config from the conversation record.
      */
     private val resumePinStore: ResumePinStore,
+    /**
+     * Copy for a pause that expired before it was answered ([PendingAction.expiresAt] passed).
+     * Distinct from [resumeFailureMessage]: the server has finalized the run, so "try again" is
+     * exactly the wrong advice — there is nothing left to answer.
+     */
+    private val pauseExpiredMessage: () -> String = {
+        "This request for input expired, so the response was finalized without it."
+    },
+    /** Injectable clock for the expiry check; production uses the system clock. */
+    private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
 
     /**
@@ -88,6 +101,9 @@ class PendingActionDelegate(
 
     /** Bumped whenever the pause state is invalidated ([clear]), so a stale POST can tell. */
     private var epoch: Int = 0
+
+    /** Dismisses the card when [PendingAction.expiresAt] passes; see [scheduleExpiry]. */
+    private var expiryJob: Job? = null
 
     private data class PinnedTurnConfig(
         val endpoint: String,
@@ -180,6 +196,47 @@ class PendingActionDelegate(
             this.pendingAction = pendingAction
             if (!isSameActionMidSubmit) isResolvingPendingAction = false
         }
+        scheduleExpiry(pendingAction)
+    }
+
+    /**
+     * Arms the expiry for a pause that carries [PendingAction.expiresAt] (v0.8.8: the server
+     * treats the pause as stale past it and finalizes the run). When it passes, the card is
+     * dismissed with the expiry copy instead of leaving controls up that can only 409 — the same
+     * shape [clear] gives every other way a pause dies. A pause announced already-expired (a
+     * stale status read) dismisses immediately. Re-announcements re-arm idempotently; a pause
+     * without the field never expires client-side, exactly as before.
+     */
+    private fun scheduleExpiry(pendingAction: PendingAction) {
+        expiryJob?.cancel()
+        expiryJob = null
+        val expiresAt = pendingAction.expiresAt ?: return
+        val actionId = pendingAction.actionId ?: return
+        expiryJob = handle.scope.launch {
+            val wait = expiresAt - nowMillis()
+            if (wait > 0) delay(wait)
+            expireNow(actionId)
+        }
+    }
+
+    /** Dismisses the pause as expired. Mirrors [clear]'s invalidation, plus the expiry copy. */
+    private fun expireNow(actionId: String) {
+        if (handle.state.pendingAction?.actionId != actionId) return
+        // Also reached from the 409 mapping while the timer is still armed; cancelling from
+        // inside the timer's own coroutine is safe (the remaining writes are non-suspending).
+        expiryJob?.cancel()
+        expiryJob = null
+        pinnedTurn = null
+        generationCreatedAt = null
+        // Invalidate any in-flight resume: its continuation then restores the typed answer
+        // (unless the POST actually landed) instead of re-arming a card that no longer exists.
+        epoch++
+        inFlightActionId = null
+        handle.update {
+            pendingAction = null
+            isResolvingPendingAction = false
+            error = pauseExpiredMessage()
+        }
     }
 
     /**
@@ -188,6 +245,8 @@ class PendingActionDelegate(
      * the card up would offer controls that can only 409.
      */
     fun clear() {
+        expiryJob?.cancel()
+        expiryJob = null
         pinnedTurn = null
         generationCreatedAt = null
         epoch++
@@ -305,7 +364,17 @@ class PendingActionDelegate(
                     // The card stays up so a transient failure can be retried — but the composer
                     // was emptied to send this, so the text has to come back either way.
                     answerText?.let(restoreAnswer)
-                    val fingerprintRejected = (result.exception as? ApiException)?.statusCode == HTTP_FORBIDDEN
+                    val statusCode = (result.exception as? ApiException)?.statusCode
+                    // A 409 arriving past the pause's own expiry is the expiry, not a retryable
+                    // failure: the server has finalized the run (clock skew can land this before
+                    // the local timer). Dismiss with the expiry copy — retrying can only 409.
+                    val expiredNow = statusCode == HTTP_CONFLICT &&
+                        action.expiresAt?.let { nowMillis() >= it } == true
+                    if (expiredNow) {
+                        expireNow(actionId)
+                        return@launch
+                    }
+                    val fingerprintRejected = statusCode == HTTP_FORBIDDEN
                     handle.update {
                         isResolvingPendingAction = false
                         error = if (fingerprintRejected) {
@@ -377,5 +446,6 @@ class PendingActionDelegate(
 
         /** The resume route's answer to a request fingerprint that does not match the paused run. */
         const val HTTP_FORBIDDEN = 403
+        const val HTTP_CONFLICT = 409
     }
 }
