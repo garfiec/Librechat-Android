@@ -616,9 +616,10 @@ Continues the range above; `package.json` still reports 0.8.7 and the commit is 
 - MCP tool keys embed `normalizeServerName(server)` (non-`[a-zA-Z0-9_.-]` → `_`, ends trimmed,
   hashed to `server_<n>` if nothing survives), but `GET /api/mcp/servers` still reports the RAW
   configured name. Registered as a mirror. (BUILT)
-- MCP server create/update can answer **400 `OAUTH_SECRET_REENTRY_REQUIRED`**: the stored client
+- MCP server create/update can answer **400 `MCP_OAUTH_SECRET_REENTRY_REQUIRED`**: the stored client
   secret is bound to the authorization/token endpoint it was issued for, so changing either
-  invalidates it and every retry of the same body fails identically. (BUILT)
+  invalidates it and every retry of the same body fails identically. `handleMCPError` puts the code
+  under **`error`**, not `code` as the generation routes do. (BUILT)
 
 **Additive decode surface.** `isShared` on list-fetched conversations (derived per request, never
 persisted, absent from single-conversation payloads — so null means *unknown*); `adminPanelURL`
@@ -627,7 +628,8 @@ persisted, absent from single-conversation payloads — so null means *unknown*)
 rows (upstream documents fail-OPEN, this client applies it fail-CLOSED — it only narrows the
 existing per-agent EDIT probe); `owner_contact` **no longer carries `email`** (security advisory);
 `flowId` / `oauthTimeout` / `failureReason` / `missingUserVars` / `authorizationState` on the MCP
-reinitialize response. (BUILT)
+reinitialize response, plus `authorizationState` per server and `oauthTimeout` on the envelope of
+`GET /api/mcp/connection/status`. (BUILT)
 
 **Typed errors.** `ErrorTypes` gained `resource_recovery_required` (required CodeAPI files could not
 be restored before the model ran — user must reattach; previously the run continued on stale image

@@ -112,6 +112,35 @@ private fun partitionTools(
 }
 
 /**
+ * Re-resolves the server names in [AgentEditorUiState.selectedMcpTools] against a now-loaded
+ * MCP server list, given the agent's raw [rawTools].
+ *
+ * [applyAgentData] can only resolve a stored (normalized) server name back to its raw configured
+ * form if the MCP tools have already arrived — and they are fetched by an independent, concurrent
+ * request, so roughly half the time the agent wins and the normalized name is kept as if it were
+ * the raw one. The row then renders as OFF against the raw-named server, and toggling it stores
+ * BOTH spellings, which write the same marker key twice on save.
+ *
+ * Only entries that came from a server marker are rewritten, and only when the resolution actually
+ * changes them, so a name the user has since toggled is left alone. This is the MCP counterpart of
+ * `AgentFilesDelegate.remergeLoadedFiles`.
+ */
+internal fun AgentEditorUiState.remergeMcpServerNames(rawTools: List<String>?): AgentEditorUiState {
+    if (rawTools.isNullOrEmpty() || selectedMcpTools.isEmpty()) return this
+    val knownServerNames = mcpTools.mapNotNull { it.serverName }.distinct()
+    if (knownServerNames.isEmpty()) return this
+
+    val resolved = rawTools.asSequence()
+        .filter { it.contains(MCP_TOOL_SEPARATOR) && it.substringBefore(MCP_TOOL_SEPARATOR) == MCP_SERVER_MARKER }
+        .map { it.substringAfter(MCP_TOOL_SEPARATOR) }
+        .associateWith { resolveRawMcpServerName(it, knownServerNames) }
+        .filter { (stored, raw) -> stored != raw && stored in selectedMcpTools }
+    if (resolved.isEmpty()) return this
+
+    return copy(selectedMcpTools = selectedMcpTools.map { resolved[it] ?: it }.toSet())
+}
+
+/**
  * Applies agent data to the UI state using the copy() function.
  * Returns a new AgentEditorUiState with all agent fields populated.
  * This is the single source of truth for mapping agent API response data

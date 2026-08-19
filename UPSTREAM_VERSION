@@ -7,4 +7,4 @@
 #          Diffs for the next sync are computed from commit=, not tag=.
 tag=v0.8.7
 commit=db431210733e75391867ce69b1a70510cce2bbd5
-date=2026-08-14
+date=2026-08-12

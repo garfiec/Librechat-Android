@@ -48,22 +48,32 @@ object ServerErrorCode {
      * bound to the authorization/token endpoint it was issued for. Changing either endpoint
      * invalidates the secret, and the write keeps failing until the user re-enters it — so this
      * is a prompt-for-input outcome, not a retry-or-report one.
+     *
+     * The wire value carries the `MCP_` prefix that upstream's TypeScript member name
+     * (`MCPErrorCodes.OAUTH_SECRET_REENTRY_REQUIRED`) drops — see `packages/api/src/mcp/errors.ts`.
      */
-    const val OAUTH_SECRET_REENTRY_REQUIRED = "OAUTH_SECRET_REENTRY_REQUIRED"
+    const val OAUTH_SECRET_REENTRY_REQUIRED = "MCP_OAUTH_SECRET_REENTRY_REQUIRED"
 
     private val parser = Json { ignoreUnknownKeys = true; isLenient = true }
 
     /**
-     * Reads the `code` field off a raw error-response body, or null when the body is absent, not
-     * a JSON object, or carries no string `code`.
+     * Reads the machine-readable code off a raw error-response body, or null when the body is
+     * absent, not a JSON object, or carries no string code.
+     *
+     * Two keys, because the backend has two conventions: the generation routes answer
+     * `{ "code": ... }`, while the MCP controller's `handleMCPError` answers
+     * `{ "error": <code>, "message": ... }` (`api/server/controllers/mcp.js`). `code` wins when
+     * both are present, so a body that puts a human sentence in `error` next to a real `code`
+     * still reads correctly.
      *
      * Safe-casts rather than using the `.jsonPrimitive` extension, which throws on an object or
-     * array value — a server that answers `{"code":{...}}` must degrade, not crash the caller.
+     * array value — a server that answers `{"error":{...}}` must degrade, not crash the caller.
      */
     fun from(body: String?): String? {
         if (body.isNullOrBlank()) return null
         val element = runCatching { parser.parseToJsonElement(body) }.getOrNull() ?: return null
         val obj = element as? JsonObject ?: return null
         return (obj["code"] as? JsonPrimitive)?.contentOrNull
+            ?: (obj["error"] as? JsonPrimitive)?.contentOrNull
     }
 }

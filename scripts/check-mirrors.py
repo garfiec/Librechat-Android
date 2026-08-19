@@ -22,6 +22,7 @@ constants change when upstream moves, and upstream only moves at a sync.
     scripts/check-mirrors.py --from v0.8.6 --to v0.8.7
     scripts/check-mirrors.py --diff                # show what actually changed
     scripts/check-mirrors.py --list                # print the registry, check nothing
+    scripts/check-mirrors.py --self-test           # check the extractor, needs no submodule
 
 Exit status is 0 only when every watched region is byte-identical across the two
 revisions. Any change, and any region that could not be located, exits 1 -- a missing
@@ -242,11 +243,52 @@ def _function_body_start(masked: str, after_name: int) -> int | None:
     return brace if brace != -1 else None
 
 
+def _callable_body_start(masked: str, init: int) -> int | None:
+    """Index where a function-valued initializer's body starts, or None if it isn't one.
+
+    `const onDone = (event) => { … }` is the same trap `function` declarations have: the
+    parameter list opens and closes a bracket pair before the body does, so counting from the
+    `=` balances on the arrow's arguments and yields a one-line "block" that compares equal
+    across every revision. Recognises the three forms upstream writes -- `function (…) {…}`,
+    `(…) => {…}` and `arg => {…}`, each optionally `async` -- and returns the index at which
+    the caller should start counting. A concise arrow body (`(a) => a.map(…)`) has no brace, so
+    counting starts just past the `=>`, which is still the value rather than the signature.
+    """
+    i = re.compile(r"\s*(?:async\s+)?").match(masked, init).end()
+
+    kw = re.compile(r"function\b").match(masked, i)
+    if kw:
+        return _function_body_start(masked, kw.end())
+
+    bare = re.compile(r"[A-Za-z_$][\w$]*\s*=>\s*").match(masked, i)
+    if bare:
+        return bare.end()
+
+    if masked[i:i + 1] != "(":
+        return None
+
+    depth, n = 0, len(masked)
+    while i < n:
+        if masked[i] == "(":
+            depth += 1
+        elif masked[i] == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    if i >= n:
+        return None
+
+    arrow = re.compile(r"\s*=>\s*").match(masked, i + 1)
+    return arrow.end() if arrow else None
+
+
 def extract_block(text: str, symbol: str) -> str | None:
     """The full declaration of `symbol`, from its keyword to its closing delimiter.
 
-    Handles `export const X = [...]`, `= new Set([...])`, `= {...}`, `export enum X {}`
-    and `export function X(...) {}`.
+    Handles `export const X = [...]`, `= new Set([...])`, `= {...}`, `export enum X {}`,
+    `export function X(...) {}` and a function assigned to a binding
+    (`const X = (a) => {...}`, `const X = function (a) {...}`).
     Returns None when the symbol is not declared here -- upstream renamed or moved it,
     which the caller reports as MISSING rather than passing over.
     """
@@ -277,6 +319,10 @@ def extract_block(text: str, symbol: str) -> str | None:
         # counting those would close the block at the end of the signature line -- yielding a
         # one-line "block" that then compares equal across every revision.
         scan = _first_assignment(masked, m.start())
+        if scan != m.start():
+            # A function-valued initializer has the same trap one step in: its parameter list
+            # balances before its body does. Count from the body instead when there is one.
+            scan = _callable_body_start(masked, scan) or scan
     depth, i, opened = 0, scan, False
 
     while i < len(masked):
@@ -342,6 +388,98 @@ def check(entry: dict, upstream: Path, rev_from: str, rev_to: str) -> Result:
     return res(CHANGED, ident, block_from, block_to)
 
 
+# ----------------------------------------------------------------------------- self-test
+
+# Declaration forms taken from the files this registry actually watches, each paired with the
+# number of lines its block must span. The count is the point: every way this extractor fails
+# fails the SAME way -- it balances on a bracket pair in the signature and returns a one-line
+# "block" that is byte-identical at every revision, so the mirror reports `ok` forever while the
+# region it was registered to watch moves underneath it. Asserting "more than one line" catches
+# that; asserting the exact text would only re-encode today's upstream.
+_SELF_TEST_CASES: list[tuple[str, str, int]] = [
+    ("arrow assigned to a const (api/server/routes/agents/index.js:onDone)", """
+  const onDone = (event) => {
+    writeEvent({ error: 'Generation state changed; reconnect.' }, { final: true });
+    res.end();
+  };
+""", 4),
+    ("async arrow with a destructured parameter", """
+const handler = async ({ req, res }) => {
+  await run(req);
+};
+""", 3),
+    ("single bare parameter, no parentheses", """
+const onError = error => {
+  logger.error(error);
+};
+""", 3),
+    ("function expression assigned to a const", """
+const onAbort = function (signal = { force: true }) {
+  stop(signal);
+};
+""", 3),
+    ("function declaration", """
+export function normalizeServerName(serverName) {
+  return serverName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
+""", 3),
+    ("annotated array literal", """
+export const FEEDBACK_TAGS: TFeedbackTag[] = [
+  { key: 'not_matched' },
+  { key: 'inaccurate' },
+];
+""", 4),
+    ("Set built from a call", """
+export const textualApplicationTypes = new Set([
+  'application/json',
+  'application/xml',
+]);
+""", 4),
+    ("object literal", """
+export const MCPErrorCodes = {
+  OAUTH_SECRET_REENTRY_REQUIRED: 'MCP_OAUTH_SECRET_REENTRY_REQUIRED',
+} as const;
+""", 3),
+    ("interface body", """
+export interface MCPServerStatus {
+  requiresOAuth: boolean;
+  connectionState: 'disconnected' | 'connected';
+}
+""", 4),
+]
+
+
+def self_test() -> int:
+    """Checks extract_block against the declaration forms the registry relies on."""
+    failures = 0
+    for label, source, min_lines in _SELF_TEST_CASES:
+        symbol = re.search(r"(?:const|function|interface)\s+(\w+)", source).group(1)
+        block = extract_block(source, symbol)
+        if block is None:
+            print(f"  FAIL  {label}: {symbol} not found")
+            failures += 1
+            continue
+        lines = len(block.splitlines())
+        if lines < min_lines:
+            print(f"  FAIL  {label}: block is {lines} line(s), expected >= {min_lines}")
+            print(f"        extracted: {block!r}")
+            failures += 1
+            continue
+        print(f"  ok    {label} ({lines} lines)")
+
+    if extract_block("const other = 1;\n", "missing") is not None:
+        print("  FAIL  an absent symbol must extract to None")
+        failures += 1
+
+    print()
+    if failures:
+        print(f"{failures} extraction case(s) failed — a mirror registered on such a symbol")
+        print("  would report `ok` no matter what upstream did to it.")
+        return 1
+    print(f"All {len(_SELF_TEST_CASES)} extraction cases pass.")
+    return 0
+
+
 # -------------------------------------------------------------------------------- output
 
 def print_list(entries: list[dict]) -> None:
@@ -381,7 +519,12 @@ def main() -> int:
                    help="path to the upstream checkout (default: ./upstream)")
     p.add_argument("--diff", action="store_true", help="show what changed in each region")
     p.add_argument("--list", action="store_true", help="print the registry and exit")
+    p.add_argument("--self-test", action="store_true",
+                   help="check the block extractor against known declaration forms and exit")
     args = p.parse_args()
+
+    if args.self_test:
+        return self_test()
 
     try:
         registry = json.loads(REGISTRY.read_text())
