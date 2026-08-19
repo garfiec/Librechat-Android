@@ -24,6 +24,7 @@ import com.garfiec.librechat.core.model.request.SteerRequest
 import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.model.response.SteerResponse
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformFileHandler
 import com.google.common.truth.Truth.assertThat
@@ -330,6 +331,11 @@ class ChatViewModelDuringRunSendTest {
      * ("Answers are required for every question"), so there is nothing to submit before that.
      * Routing the text to the queue instead read as broken: the send appeared to work while the
      * run stayed paused.
+     *
+     * The draft assertions are the half that failed on a device while this test passed: the
+     * answer was recorded where only the delegate could see it, so the card's first field stayed
+     * empty, its Send stayed disabled, and nothing ever went up. It is the same map the card
+     * renders from, which is why asserting on it here is asserting on what is on screen.
      */
     @Test
     fun `the composer answers a multi-question batch one question per send`() =
@@ -342,11 +348,14 @@ class ChatViewModelDuringRunSendTest {
             vm.sendDuringRun()
             runCurrent()
 
-            // First answer recorded, nothing resumed, nothing queued — the run is still paused
-            // on the second question.
+            // First answer recorded and visible in the card, nothing resumed, nothing queued or
+            // steered — the run is still paused on the second question.
             coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+            coVerify(exactly = 0) { chatRepository.steerChat(any()) }
             assertThat(vm.uiState.value.messageQueue).isEmpty()
             assertThat(vm.uiState.value.inputText).isEmpty()
+            assertThat(vm.uiState.value.askAnswerDrafts)
+                .containsExactly("topic", AskAnswerDraft(freeText = "kotlin"))
 
             vm.onInputChanged("very deep")
             vm.sendDuringRun()
@@ -357,6 +366,55 @@ class ChatViewModelDuringRunSendTest {
             assertThat(request.captured.answers)
                 .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
             assertThat(request.captured.answer).isNull()
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+
+            // The accepted resume clears the pause, and nothing hands the consumed sends back:
+            // the composer stays empty instead of refilling with every answer already submitted.
+            assertThat(vm.uiState.value.pendingAction).isNull()
+            assertThat(vm.uiState.value.askAnswerDrafts).isEmpty()
+            assertThat(vm.uiState.value.inputText).isEmpty()
+        }
+
+    /**
+     * The card is the other writer of the same drafts, and the composer must not fight it: a send
+     * fills the first field the CARD has left blank. Reading a private copy instead made the two
+     * disagree about which question was still open.
+     */
+    @Test
+    fun `a composer send fills the question the card has not answered`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic", "depth"))
+            runCurrent()
+
+            vm.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
+            vm.onInputChanged("very deep")
+            vm.sendDuringRun()
+            runCurrent()
+
+            val request = slot<ChatResumeRequest>()
+            coVerify(exactly = 1) { chatRepository.resumeChat(capture(request)) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+        }
+
+    /**
+     * Nothing left to answer means nothing to take: the send is refused and the words stay in the
+     * composer rather than being cleared into a batch that is already on its way up.
+     */
+    @Test
+    fun `a send against an already-answered batch keeps the composer text`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic", "depth"))
+            runCurrent()
+
+            vm.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
+            vm.updateAskAnswerDraft("depth", AskAnswerDraft(freeText = "very deep"))
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+            assertThat(vm.uiState.value.inputText).isEqualTo(TEXT)
             assertThat(vm.uiState.value.messageQueue).isEmpty()
         }
 

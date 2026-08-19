@@ -14,6 +14,7 @@ import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.ui.components.ModelParameters
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -172,15 +173,18 @@ class PendingActionDelegateTest {
     @Test
     fun `batch drafts submit only once every question has an answer`() =
         runTest(UnconfinedTestDispatcher()) {
-            val (delegate, _) = delegateWith(this)
+            val (delegate, state) = delegateWith(this)
             val request = slot<ChatResumeRequest>()
             coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
 
             delegate.onPendingAction(askBatch("topic", "depth"))
-            delegate.answerNextBatchQuestion("kotlin")
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isTrue()
             coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+            // The card reads this map, so the answer is on screen in the first question's field
+            // — the whole reason the drafts are not private to this delegate.
+            assertThat(state.value.askAnswerDrafts["topic"]).isEqualTo(AskAnswerDraft(freeText = "kotlin"))
 
-            delegate.answerNextBatchQuestion("very deep")
+            assertThat(delegate.answerNextBatchQuestion("very deep")).isTrue()
 
             coVerify(exactly = 1) { chatRepository.resumeChat(any()) }
             assertThat(request.captured.answers)
@@ -188,31 +192,98 @@ class PendingActionDelegateTest {
         }
 
     @Test
-    fun `unsubmitted batch drafts come back when the pause dies`() =
+    fun `a composer send skips questions the card already answered`() =
         runTest(UnconfinedTestDispatcher()) {
-            // The composer was cleared to record each draft, so the words exist nowhere else —
-            // the same no-lost-words rule every other failed resume path follows.
             val (delegate, _) = delegateWith(this)
+            val request = slot<ChatResumeRequest>()
+            coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
 
             delegate.onPendingAction(askBatch("topic", "depth"))
-            delegate.answerNextBatchQuestion("kotlin")
-            delegate.clear()
+            delegate.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
 
-            assertThat(restored).containsExactly("kotlin")
+            // One send, and the batch completes: the composer fills the one question left rather
+            // than overwriting the field the user typed into.
+            assertThat(delegate.answerNextBatchQuestion("very deep")).isTrue()
+
+            coVerify(exactly = 1) { chatRepository.resumeChat(any()) }
+            assertThat(request.captured.answers)
+                .isEqualTo(mapOf("topic" to "kotlin", "depth" to "very deep"))
+        }
+
+    @Test
+    fun `an emptied field still counts as unanswered`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The card writes a draft on every keystroke, so a question the user typed into and
+            // then cleared HAS a draft and no answer. Targeting on "has a draft" rather than on
+            // the composed answer skips it, leaving a blank field the batch can never submit.
+            val (delegate, state) = delegateWith(this)
+            coEvery { chatRepository.resumeChat(any()) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "  "))
+
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isTrue()
+
+            assertThat(state.value.askAnswerDrafts["topic"]).isEqualTo(AskAnswerDraft(freeText = "kotlin"))
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+        }
+
+    @Test
+    fun `a fully answered batch refuses the composer instead of swallowing the text`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val (delegate, _) = delegateWith(this)
+            coEvery { chatRepository.resumeChat(any()) } returns Result.Success(ChatResumeResponse())
+
+            delegate.onPendingAction(askBatch("topic"))
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isTrue()
+
+            // The batch went up on that send; a second one has nowhere to go, and the caller
+            // keeps the composer's text rather than the delegate dropping it.
+            assertThat(delegate.answerNextBatchQuestion("more")).isFalse()
         }
 
     @Test
     fun `a batch with an unanswerable question refuses composer answering`() =
         runTest(UnconfinedTestDispatcher()) {
-            val (delegate, _) = delegateWith(this)
+            val (delegate, state) = delegateWith(this)
 
             delegate.onPendingAction(askBatch("topic", ""))
+
+            assertThat(delegate.answerNextBatchQuestion("kotlin")).isFalse()
+            assertThat(state.value.askAnswerDrafts).isEmpty()
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
+        }
+
+    @Test
+    fun `a new pause starts with empty drafts and a re-announcement keeps them`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // The same pause is replayed on every reconnect sync frame; wiping the drafts there
+            // would erase whatever the user had typed into the card mid-run.
+            val (delegate, state) = delegateWith(this)
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            delegate.updateAskAnswerDraft("topic", AskAnswerDraft(freeText = "kotlin"))
+            delegate.onPendingAction(askBatch("topic", "depth"))
+            assertThat(state.value.askAnswerDrafts).containsKey("topic")
+
+            delegate.onPendingAction(askBatch("topic", "depth", actionId = "act-2"))
+            assertThat(state.value.askAnswerDrafts).isEmpty()
+        }
+
+    @Test
+    fun `clearing the pause drops the drafts without re-homing them`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // They were never invisible: the card showed them, so putting them back in the
+            // composer would duplicate text the user can still see (and, once the batch resolved
+            // from the card, resurrect every composer send it had already consumed).
+            val (delegate, state) = delegateWith(this)
+
+            delegate.onPendingAction(askBatch("topic", "depth"))
             delegate.answerNextBatchQuestion("kotlin")
             delegate.clear()
 
-            // Nothing recorded, so nothing to reclaim — the send target never offered this.
+            assertThat(state.value.askAnswerDrafts).isEmpty()
             assertThat(restored).isEmpty()
-            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
         }
 
     @Test

@@ -57,6 +57,7 @@ import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactType
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.SearchFocusRequest
@@ -140,6 +141,8 @@ fun MessageList(
     onSubmitToolDecisions: (List<ToolApprovalResolution>) -> Unit = {},
     onSubmitPendingAnswer: (String) -> Unit = {},
     onSubmitPendingAnswers: (Map<String, String>) -> Unit = {},
+    askAnswerDrafts: Map<String, AskAnswerDraft> = emptyMap(),
+    onAskAnswerDraftChange: (String, AskAnswerDraft) -> Unit = { _, _ -> },
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -674,6 +677,8 @@ fun MessageList(
                             onSubmitAnswer = onSubmitPendingAnswer,
                             onSubmitAnswers = onSubmitPendingAnswers,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            askAnswerDrafts = askAnswerDrafts,
+                            onAskAnswerDraftChange = onAskAnswerDraftChange,
                         )
                     }
                 }

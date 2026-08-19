@@ -236,6 +236,8 @@ private fun ChatMessageListPane(
         onSubmitToolDecisions = viewModel::resolveToolApproval,
         onSubmitPendingAnswer = viewModel::answerPendingQuestion,
         onSubmitPendingAnswers = viewModel::answerPendingQuestions,
+        askAnswerDrafts = uiState.askAnswerDrafts,
+        onAskAnswerDraftChange = viewModel::updateAskAnswerDraft,
         modifier = modifier,
     )
 }

@@ -29,6 +29,7 @@ import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.MessageNode
 
 /**
@@ -185,6 +186,7 @@ data class ChatUiState(
     val tokenUsage: TokenUsage? get() = content.tokenUsage
     val pendingAction: PendingAction? get() = content.pendingAction
     val isResolvingPendingAction: Boolean get() = content.isResolvingPendingAction
+    val askAnswerDrafts: Map<String, AskAnswerDraft> get() = content.askAnswerDrafts
     val memoryEnabled: Boolean get() = gates.memoryEnabled
     val conversationId: String? get() = conversation.conversationId
     val conversationTitle: String? get() = conversation.conversationTitle
@@ -324,18 +326,16 @@ data class ChatUiState(
      * Tool-approval pauses are excluded: they take decisions, not prose, so free text there is a
      * genuine follow-up.
      *
-     * So is a multi-question batch ([PendingAction.isSingleAnswerAsk]): the resume route wants one
-     * answer per question id there and rejects a body missing any of them, so the composer's lone
-     * field cannot resolve that pause however it is routed. Claiming the send for it would trade
-     * the wrong-destination bug for a 400 the user cannot act on — the card, which renders a field
-     * per question, stays the only way through, and the composer keeps steering/queueing.
+     * A multi-question batch ([PendingAction.isComposerAnswerableAsk]) is included: the send fills
+     * the first question the card still has no answer for, into the same [askAnswerDrafts] the
+     * card's own editors write, and the batch goes up whole once the last one is in. The resume
+     * route wants one answer per id and 400s a body missing any of them, so there is no
+     * per-question submit to route to — but there is progress to make, and routing the text to
+     * steer/queue instead left the run paused while the send appeared to work.
      */
     val duringRunSendTarget: DuringRunSendTarget
         get() {
             val pause = renderablePendingAction
-            // Any composer-answerable ask claims the send — including a multi-question batch,
-            // which the composer resolves one question per send (v0.8.8-rc1 HITL5). Routing the
-            // text to steer/queue instead left the run paused while the send appeared to work.
             if (pause != null && pause.isComposerAnswerableAsk && !isResolvingPendingAction) {
                 return DuringRunSendTarget.ANSWER_PAUSE
             }

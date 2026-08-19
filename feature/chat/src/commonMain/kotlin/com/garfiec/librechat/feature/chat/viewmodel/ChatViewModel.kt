@@ -58,6 +58,7 @@ import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
@@ -1050,17 +1051,18 @@ class ChatViewModel(
             DuringRunSendTarget.ANSWER_PAUSE -> {
                 val answer = state.inputText.trim()
                 if (answer.isEmpty()) return
-                clearComposer()
                 // A batched pause (one question or many) resolves through the batched channel:
                 // the route reads the PAYLOAD to pick which body it accepts, and a pause carrying
-                // `questions` rejects a bare `answer`. The delegate fills the batch first-
-                // unanswered-first and submits the full map once every question has an answer —
+                // `questions` rejects a bare `answer`. The delegate fills the first question the
+                // CARD still has no answer for — the drafts are shared state, so the answer shows
+                // up in that question's field — and submits the full map once the last one is in;
                 // a partial map is 400 "Answers are required for every question", so there is no
-                // per-question submit to route to. The card's own editors stay authoritative:
-                // its Send resolves the whole batch from its own fields regardless of drafts.
+                // per-question submit to route to. The composer is cleared only if the delegate
+                // took the text, so a send it cannot use leaves the words where the user put them.
                 if (state.renderablePendingAction?.payload?.questions != null) {
-                    pendingActionDelegate.answerNextBatchQuestion(answer)
+                    if (pendingActionDelegate.answerNextBatchQuestion(answer)) clearComposer()
                 } else {
+                    clearComposer()
                     answerPendingQuestion(answer)
                 }
             }
@@ -1601,6 +1603,16 @@ class ChatViewModel(
      */
     fun answerPendingQuestions(answers: Map<String, String>) =
         pendingActionDelegate.submitAnswers(answers)
+
+    /**
+     * One batched question's editor state, hoisted out of `PendingActionCard`.
+     *
+     * The card is not the only writer: a composer send during the pause fills the first question
+     * that has no answer yet, and the card has to show it. Two independent stores would leave the
+     * field blank over an answer the ViewModel had already recorded.
+     */
+    fun updateAskAnswerDraft(questionId: String, draft: AskAnswerDraft) =
+        pendingActionDelegate.updateAskAnswerDraft(questionId, draft)
 
     fun continueGeneration() {
         if (_uiState.value.isEditingQueued) return

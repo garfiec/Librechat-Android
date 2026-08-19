@@ -11,6 +11,9 @@ import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.EphemeralAgent
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
+import com.garfiec.librechat.feature.chat.util.askFreeTextBudget
+import com.garfiec.librechat.feature.chat.util.composeAskAnswer
 import com.garfiec.librechat.feature.chat.viewmodel.ChatRequestBuilder
 import com.garfiec.librechat.feature.chat.viewmodel.PendingActionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
@@ -105,14 +108,6 @@ class PendingActionDelegate(
     /** Dismisses the card when [PendingAction.expiresAt] passes; see [scheduleExpiry]. */
     private var expiryJob: Job? = null
 
-    /**
-     * Composer-driven batch answers accumulated so far, keyed by question id; see
-     * [answerNextBatchQuestion]. Valid only for [batchDraftActionId] — a new pause never
-     * inherits a previous batch's words.
-     */
-    private val batchDrafts = linkedMapOf<String, String>()
-    private var batchDraftActionId: String? = null
-
     private data class PinnedTurnConfig(
         val endpoint: String,
         val endpointType: String?,
@@ -205,9 +200,13 @@ class PendingActionDelegate(
         val isSameActionMidSubmit = handle.state.isResolvingPendingAction &&
             inFlightActionId != null &&
             inFlightActionId == pendingAction.actionId
+        // A re-announcement of the SAME pause must keep the drafts — the user may have been
+        // typing into the card through a reconnect. A different pause starts blank.
+        val isSameAction = handle.state.pendingAction?.actionId == pendingAction.actionId
         handle.update {
             this.pendingAction = pendingAction
             if (!isSameActionMidSubmit) isResolvingPendingAction = false
+            if (!isSameAction) askAnswerDrafts = emptyMap()
         }
         scheduleExpiry(pendingAction)
     }
@@ -239,7 +238,6 @@ class PendingActionDelegate(
         // inside the timer's own coroutine is safe (the remaining writes are non-suspending).
         expiryJob?.cancel()
         expiryJob = null
-        reclaimBatchDrafts()
         pinnedTurn = null
         generationCreatedAt = null
         // Invalidate any in-flight resume: its continuation then restores the typed answer
@@ -249,6 +247,7 @@ class PendingActionDelegate(
         handle.update {
             pendingAction = null
             isResolvingPendingAction = false
+            askAnswerDrafts = emptyMap()
             error = pauseExpiredMessage()
         }
     }
@@ -261,7 +260,6 @@ class PendingActionDelegate(
     fun clear() {
         expiryJob?.cancel()
         expiryJob = null
-        reclaimBatchDrafts()
         pinnedTurn = null
         generationCreatedAt = null
         epoch++
@@ -270,6 +268,7 @@ class PendingActionDelegate(
         handle.update {
             pendingAction = null
             isResolvingPendingAction = false
+            askAnswerDrafts = emptyMap()
         }
     }
 
@@ -302,50 +301,51 @@ class PendingActionDelegate(
         }
     }
 
+    /** The card's own per-question editor, writing the draft the whole batch is submitted from. */
+    fun updateAskAnswerDraft(questionId: String, draft: AskAnswerDraft) {
+        if (questionId.isEmpty()) return
+        if (handle.state.askAnswerDrafts[questionId] == draft) return
+        handle.update { askAnswerDrafts = askAnswerDrafts + (questionId to draft) }
+    }
+
     /**
-     * The composer's send during a batched pause: answers the FIRST question that has no draft
+     * The composer's send during a batched pause: fills the FIRST question that has no answer
      * yet, and submits the whole batch through [submitAnswers] once every question has one.
      *
      * There is deliberately no per-question resume: the route requires the answers map to cover
      * every id and 400s a partial submission, so a batch can only ever go up whole. Until it
-     * does, the words live in [batchDrafts], and every way the pause can die without submitting —
-     * stream end, expiry, a different pause replacing this one — hands them back through
-     * [restoreAnswer] (see [reclaimBatchDrafts]); the same no-lost-words rule the single-answer
-     * path follows.
+     * does, the words live in the same `askAnswerDrafts` the CARD reads and writes — that is the
+     * point of hoisting them. A draft the card could not see left its field empty and its Send
+     * disabled over an answer that had, as far as the ViewModel was concerned, been given; and
+     * because those invisible words then had to be handed back somewhere, every swallowed send
+     * reappeared in the composer once the batch finally resolved.
      *
-     * The card's per-question editors stay authoritative: its Send resolves the batch from its
-     * own fields, and these drafts are then discarded by the success path clearing the pause.
+     * Returns false when it could take nothing — a blank send, a resolve already in flight, a
+     * pause that is not an answerable batch, or a batch that is already fully answered (the card
+     * owns the submit from there). The caller keeps the composer's text in that case.
      */
-    fun answerNextBatchQuestion(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+    fun answerNextBatchQuestion(text: String): Boolean {
         val state = handle.state
-        if (state.isResolvingPendingAction) return
-        val action = state.pendingAction ?: return
-        val actionId = action.actionId ?: return
-        val questions = action.payload?.questions ?: return
-        if (questions.isEmpty() || questions.any { !it.isAnswerable }) return
-        if (batchDraftActionId != actionId) {
-            reclaimBatchDrafts()
-            batchDraftActionId = actionId
+        if (state.isResolvingPendingAction) return false
+        val action = state.pendingAction ?: return false
+        if (action.actionId == null) return false
+        val questions = action.payload?.questions ?: return false
+        if (questions.isEmpty() || questions.any { !it.isAnswerable }) return false
+        val drafts = state.askAnswerDrafts
+        val answers = questions.associate { question ->
+            question.id to composeAskAnswer(question.options, drafts[question.id] ?: AskAnswerDraft())
         }
-        val target = questions.firstOrNull { batchDrafts[it.id].isNullOrBlank() } ?: return
-        batchDrafts[target.id] = trimmed
-        if (questions.all { !batchDrafts[it.id].isNullOrBlank() }) {
-            val complete = questions.associate { it.id to batchDrafts[it.id].orEmpty() }
-            batchDrafts.clear()
-            batchDraftActionId = null
-            submitAnswers(complete)
+        val target = questions.firstOrNull { answers.getValue(it.id).isBlank() } ?: return false
+        val typed = text.trim().take(askFreeTextBudget(target.options, emptyList()))
+        if (typed.isEmpty()) return false
+        handle.update {
+            askAnswerDrafts = askAnswerDrafts + (target.id to AskAnswerDraft(freeText = typed))
         }
-    }
-
-    /** Hands unsubmitted batch drafts back to the composer; no-op when there are none. */
-    private fun reclaimBatchDrafts() {
-        if (batchDrafts.isNotEmpty()) {
-            restoreAnswer(batchDrafts.values.joinToString("\n\n"))
-        }
-        batchDrafts.clear()
-        batchDraftActionId = null
+        // Recomputed from what was just written rather than read back off the card, whose own
+        // report of the composed answer rides an effect that has not run yet.
+        val filled = answers + (target.id to composeAskAnswer(target.options, emptyList(), typed))
+        if (filled.values.all { it.isNotBlank() }) submitAnswers(filled)
+        return true
     }
 
     /**
@@ -418,6 +418,7 @@ class PendingActionDelegate(
                     handle.update {
                         pendingAction = null
                         isResolvingPendingAction = false
+                        askAnswerDrafts = emptyMap()
                     }
                 }
                 is Result.Error -> {

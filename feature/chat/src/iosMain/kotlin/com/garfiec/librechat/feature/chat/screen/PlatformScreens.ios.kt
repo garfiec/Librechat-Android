@@ -653,6 +653,8 @@ private fun IosChatBody(
                 onSubmitToolDecisions = viewModel::resolveToolApproval,
                 onSubmitPendingAnswer = viewModel::answerPendingQuestion,
                 onSubmitPendingAnswers = viewModel::answerPendingQuestions,
+                askAnswerDrafts = uiState.askAnswerDrafts,
+                onAskAnswerDraftChange = viewModel::updateAskAnswerDraft,
                 modifier = Modifier.fillMaxSize(),
             )
         }

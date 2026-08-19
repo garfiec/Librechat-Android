@@ -26,12 +26,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -42,7 +40,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.AskUserQuestionItem
 import com.garfiec.librechat.core.model.AskUserQuestionLimits
-import com.garfiec.librechat.core.model.AskUserQuestionOption
 import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.PendingActionPayload
@@ -51,6 +48,9 @@ import com.garfiec.librechat.core.model.ToolApprovalRequest
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
+import com.garfiec.librechat.feature.chat.util.askFreeTextBudget
+import com.garfiec.librechat.feature.chat.util.composeAskAnswer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -74,6 +74,8 @@ fun PendingActionCard(
     onSubmitAnswer: (String) -> Unit,
     onSubmitAnswers: (Map<String, String>) -> Unit,
     modifier: Modifier = Modifier,
+    askAnswerDrafts: Map<String, AskAnswerDraft> = emptyMap(),
+    onAskAnswerDraftChange: (String, AskAnswerDraft) -> Unit = { _, _ -> },
 ) {
     val payload = pendingAction.payload ?: return
     // The batch is bounded server-side and a batch outside 1..MAX_QUESTIONS is rejected as
@@ -94,9 +96,10 @@ fun PendingActionCard(
             // `question` populated with the first item as a display fallback even on a batch, so
             // branching on it would render one question and submit a body the route rejects.
             pendingAction.isAskUserQuestion && batch.isNotEmpty() -> AskUserQuestionBatchSection(
-                actionId = pendingAction.actionId.orEmpty(),
                 questions = batch,
                 isResolving = isResolving,
+                drafts = askAnswerDrafts,
+                onDraftChange = onAskAnswerDraftChange,
                 onSubmitAnswers = onSubmitAnswers,
             )
             pendingAction.isAskUserQuestion -> AskUserQuestionSection(
@@ -144,7 +147,7 @@ private fun AskUserQuestionSection(
         mutableStateOf(emptySet())
     }
     var freeText by rememberSaveable(actionId) { mutableStateOf("") }
-    val answer = composeAnswer(question.options, selected, freeText)
+    val answer = composeAskAnswer(question.options, selected, freeText)
 
     PendingActionColumn {
         PendingActionHeader(
@@ -190,7 +193,7 @@ private fun AskUserQuestionSection(
 
         OutlinedTextField(
             value = freeText,
-            onValueChange = { freeText = it.take(freeTextBudget(question.options, selected)) },
+            onValueChange = { freeText = it.take(askFreeTextBudget(question.options, selected)) },
             enabled = !isResolving,
             modifier = Modifier.fillMaxWidth(),
             label = {
@@ -243,18 +246,23 @@ private fun AskUserQuestionSection(
  * sentinel for each id — a purely local dismiss would leave the run paused until it expires.
  *
  * Answers are keyed by the payload's own question ids, never by field order.
+ *
+ * The editors are **hoisted** ([drafts] / [onDraftChange], owned by `PendingActionDelegate`)
+ * rather than remembered here: a composer send during the pause answers the first question that
+ * is still blank, and it has to land in that question's field. Local state made that answer
+ * invisible — the field stayed empty and Send stayed disabled over words the ViewModel held.
  */
 @Composable
 private fun AskUserQuestionBatchSection(
-    actionId: String,
     questions: List<AskUserQuestionItem>,
     isResolving: Boolean,
+    drafts: Map<String, AskAnswerDraft>,
+    onDraftChange: (String, AskAnswerDraft) -> Unit,
     onSubmitAnswers: (Map<String, String>) -> Unit,
 ) {
-    // Not rememberSaveable: the per-question editors below each save their own state keyed by
-    // question id, and this map is derived from them on every recomposition. Saving it too would
-    // give the same value two owners that restore independently.
-    val answers = remember(actionId) { mutableStateMapOf<String, String>() }
+    val answers = questions.associate { item ->
+        item.id to composeAskAnswer(item.options, drafts[item.id] ?: AskAnswerDraft())
+    }
 
     PendingActionColumn {
         PendingActionHeader(
@@ -266,10 +274,10 @@ private fun AskUserQuestionBatchSection(
         questions.forEachIndexed { index, item ->
             if (index > 0) HorizontalDivider()
             AskUserQuestionBatchItem(
-                actionId = actionId,
                 item = item,
                 isResolving = isResolving,
-                onAnswerChange = { answer -> answers[item.id] = answer },
+                draft = drafts[item.id] ?: AskAnswerDraft(),
+                onDraftChange = { draft -> onDraftChange(item.id, draft) },
             )
         }
 
@@ -290,12 +298,8 @@ private fun AskUserQuestionBatchSection(
                 Text(stringResource(Res.string.ask_user_question_skip))
             }
             Button(
-                onClick = {
-                    onSubmitAnswers(
-                        questions.associate { it.id to answers[it.id].orEmpty().trim() },
-                    )
-                },
-                enabled = !isResolving && questions.all { answers[it.id]?.isNotBlank() == true },
+                onClick = { onSubmitAnswers(answers) },
+                enabled = !isResolving && answers.values.all { it.isNotBlank() },
             ) {
                 Text(stringResource(Res.string.ask_user_question_send))
             }
@@ -304,35 +308,21 @@ private fun AskUserQuestionBatchSection(
 }
 
 /**
- * One question of a batch: its own chips and free-text box, reporting the composed answer up.
+ * One question of a batch: its own chips and free-text box, driven by the hoisted [draft].
  *
- * State is saveable and keyed by `actionId + id` for the same reason the single-question card's
- * is — the card is a LazyColumn item, so scrolling it away drops anything not saved, and the only
- * symptom of losing a half-written answer is Send quietly going back to disabled.
+ * Nothing is remembered locally — the card is a LazyColumn item, so scrolling it away would drop
+ * anything held here, and the only symptom of losing a half-written answer is Send quietly going
+ * back to disabled. Keeping the draft in the ViewModel survives that AND is what lets a composer
+ * send fill this field.
  */
 @Composable
 private fun AskUserQuestionBatchItem(
-    actionId: String,
     item: AskUserQuestionItem,
     isResolving: Boolean,
-    onAnswerChange: (String) -> Unit,
+    draft: AskAnswerDraft,
+    onDraftChange: (AskAnswerDraft) -> Unit,
 ) {
-    val stateKey = "$actionId/${item.id}"
-    var selected by rememberSaveable(stateKey, stateSaver = StringSetSaver) {
-        mutableStateOf(emptySet())
-    }
-    var freeText by rememberSaveable(stateKey) { mutableStateOf("") }
-    val answer = composeAnswer(item.options, selected, freeText)
-
-    // Reported through an effect rather than during composition: writing a parent's snapshot map
-    // from a child's composition body is a write-during-read of the same state the parent reads
-    // to decide whether Send is enabled.
-    //
-    // Captured through rememberUpdatedState so the effect restarts only when the ANSWER changes.
-    // Referencing the lambda directly would make a new lambda instance re-run the effect, and
-    // re-running it would rewrite the same value into the parent's map on every recomposition.
-    val currentOnAnswerChange by rememberUpdatedState(onAnswerChange)
-    LaunchedEffect(stateKey, answer) { currentOnAnswerChange(answer) }
+    val selected = draft.selectedOptions
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item.header?.takeIf { it.isNotBlank() }?.let { header ->
@@ -369,11 +359,12 @@ private fun AskUserQuestionBatchItem(
                         selected = isSelected,
                         enabled = !isResolving,
                         onClick = {
-                            selected = when {
-                                !item.multiSelect -> if (isSelected) emptySet() else setOf(option.value)
+                            val next = when {
+                                !item.multiSelect -> if (isSelected) emptyList() else listOf(option.value)
                                 isSelected -> selected - option.value
                                 else -> selected + option.value
                             }
+                            onDraftChange(draft.copy(selectedOptions = next))
                         },
                         label = { Text(option.label.ifBlank { option.value }) },
                     )
@@ -382,8 +373,10 @@ private fun AskUserQuestionBatchItem(
         }
 
         OutlinedTextField(
-            value = freeText,
-            onValueChange = { freeText = it.take(freeTextBudget(item.options, selected)) },
+            value = draft.freeText,
+            onValueChange = { typed ->
+                onDraftChange(draft.copy(freeText = typed.take(askFreeTextBudget(item.options, selected))))
+            },
             enabled = !isResolving,
             modifier = Modifier.fillMaxWidth(),
             label = {
@@ -400,43 +393,6 @@ private fun AskUserQuestionBatchItem(
             minLines = 2,
         )
     }
-}
-
-/**
- * Folds the chip selection and the free-text box into the single string the resume route takes.
- * Multi-select joins the selected option VALUES with ", " (upstream's rule); free text is appended
- * so a user can qualify a chip rather than having to choose between the two inputs.
- */
-private fun composeAnswer(
-    options: List<AskUserQuestionOption>,
-    selected: Set<String>,
-    freeText: String,
-): String {
-    val chosen = options.map { it.value }.filter { it in selected }
-    val typed = freeText.trim()
-    return (chosen + typed.takeIf { it.isNotEmpty() }.orEmpty().let { if (it.isEmpty()) emptyList() else listOf(it) })
-        .joinToString(ANSWER_SEPARATOR)
-        // The route rejects an over-length answer with 400 and the run stays paused, so an answer
-        // that cannot be sent is worse than a shortened one. [freeTextBudget] keeps the box inside
-        // the cap while typing; this closes the one gap it cannot — a chip selected after the box
-        // was already filled to the budget computed without it.
-        .take(AskUserQuestionLimits.MAX_ANSWER_LENGTH)
-}
-
-/** Upstream's join for a multi-select answer, and for a chip qualified by free text. */
-private const val ANSWER_SEPARATOR = ", "
-
-/**
- * How much free text an answer box may still hold without pushing the composed answer past the
- * server's `MAX_ASK_ANSWER_LENGTH`.
- *
- * Budgeted against the chips because they land in the same string. Conservative in the safe
- * direction: [composeAnswer] trims the typed half, which can only shorten it.
- */
-private fun freeTextBudget(options: List<AskUserQuestionOption>, selected: Set<String>): Int {
-    val chips = composeAnswer(options, selected, "").length
-    val separator = if (chips == 0) 0 else ANSWER_SEPARATOR.length
-    return (AskUserQuestionLimits.MAX_ANSWER_LENGTH - chips - separator).coerceAtLeast(0)
 }
 
 // ── tool_approval ─────────────────────────────────────────────────────────
