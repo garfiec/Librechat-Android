@@ -18,6 +18,8 @@ import com.garfiec.librechat.feature.agents.components.model.AgentVisibility
 import com.garfiec.librechat.feature.agents.components.model.SupportContactState
 import com.garfiec.librechat.feature.agents.components.model.buildAgentVersionList
 import com.garfiec.librechat.feature.agents.util.OpenApiSpecParser
+import com.garfiec.librechat.feature.agents.util.normalizeMcpServerName
+import com.garfiec.librechat.feature.agents.util.resolveRawMcpServerName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -68,6 +70,7 @@ private val EDGE_JSON = Json {
  */
 private fun partitionTools(
     rawTools: List<String>?,
+    knownServerNames: Collection<String>,
 ): Triple<List<String>, Set<String>, Set<String>> {
     if (rawTools == null) return Triple(emptyList(), emptySet(), emptySet())
 
@@ -87,8 +90,15 @@ private fun partitionTools(
                 // The sys__server__sys marker means the entire MCP server was
                 // toggled on -- we still track the server name for display.
                 if (toolName == MCP_SERVER_MARKER) {
-                    // Server-level toggle: store the server name
-                    val serverName = tool.substringAfter(MCP_TOOL_SEPARATOR)
+                    // Server-level toggle. The key holds the NORMALIZED server name, but every
+                    // display and match surface (the servers list, the marketplace rows) speaks
+                    // the raw configured one — so resolve it back, keeping the raw name in state
+                    // and normalizing again on the way out. Unresolvable names round-trip
+                    // unchanged, which is what a client with no server list loaded must do.
+                    val serverName = resolveRawMcpServerName(
+                        tool.substringAfter(MCP_TOOL_SEPARATOR),
+                        knownServerNames,
+                    )
                     mcpToolNames.add(serverName)
                 } else {
                     mcpToolNames.add(toolName)
@@ -108,7 +118,10 @@ private fun partitionTools(
  * to the editor UI, used by both loadAgent() and revertToVersion().
  */
 internal fun AgentEditorUiState.applyAgentData(agent: Agent): AgentEditorUiState {
-    val (regularTools, capabilityTools, mcpToolNames) = partitionTools(agent.tools)
+    val (regularTools, capabilityTools, mcpToolNames) = partitionTools(
+        agent.tools,
+        knownServerNames = mcpTools.mapNotNull { it.serverName }.distinct(),
+    )
     val parsedEdges = parseHandoffEdges(agent.edges)
     val versionBasis = AgentVersionBasis(
         name = agent.name,
@@ -334,7 +347,14 @@ internal fun buildToolsList(state: AgentEditorUiState): List<String> {
     if (state.webSearchEnabled && state.isWebSearchAvailable) tools.add(ToolConstants.WEB_SEARCH)
     if (state.fileContextEnabled) tools.add("context")
 
-    // Add MCP server markers for each selected MCP tool
+    // Add MCP server markers for each selected MCP tool.
+    //
+    // The server-name half of the key is NORMALIZED (`normalizeMcpServerName`), because that is
+    // how the tool cache and the registry inspector build the keys they resolve against, while
+    // `GET /api/mcp/servers` still advertises the raw configured name. Writing the raw name into
+    // a key for a server called `Google Workspace` produces `..._mcp_Google Workspace`, which no
+    // producer honours — the tool is "not found" at execution and every per-tool option on it is
+    // silently inert. Normalizing is a no-op for any name that already worked.
     for (mcpToolName in state.selectedMcpTools) {
         // Check if this is a server name or a tool name by looking at available MCP tools
         val matchingTool = state.mcpTools.find { it.name == mcpToolName }
@@ -342,13 +362,13 @@ internal fun buildToolsList(state: AgentEditorUiState): List<String> {
             val serverName = matchingTool.serverName
             if (serverName != null) {
                 // Store as "toolName_mcp_serverName" format
-                tools.add("${mcpToolName}${MCP_TOOL_SEPARATOR}$serverName")
+                tools.add("${mcpToolName}${MCP_TOOL_SEPARATOR}${normalizeMcpServerName(serverName)}")
             } else {
                 tools.add(mcpToolName)
             }
         } else {
             // May be a server name marker
-            tools.add("${MCP_SERVER_MARKER}${MCP_TOOL_SEPARATOR}$mcpToolName")
+            tools.add("${MCP_SERVER_MARKER}${MCP_TOOL_SEPARATOR}${normalizeMcpServerName(mcpToolName)}")
         }
     }
 

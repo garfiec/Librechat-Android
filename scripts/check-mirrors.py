@@ -210,15 +210,49 @@ def _first_assignment(masked: str, start: int) -> int:
     return start
 
 
+def _function_body_start(masked: str, after_name: int) -> int | None:
+    """Index of a function declaration's body `{`, given the index just past its name.
+
+    Walks the parameter list to its matching `)` before looking for the brace, so a default
+    value or a destructured parameter containing braces cannot be mistaken for the body.
+    Returns None when neither is found -- a declaration this cannot parse must report as
+    MISSING rather than silently watching the wrong region.
+    """
+    i, n = after_name, len(masked)
+    while i < n and masked[i] != "(":
+        if masked[i] == "{":
+            return i
+        i += 1
+    if i >= n:
+        return None
+
+    depth = 0
+    while i < n:
+        if masked[i] == "(":
+            depth += 1
+        elif masked[i] == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    if i >= n:
+        return None
+
+    brace = masked.find("{", i)
+    return brace if brace != -1 else None
+
+
 def extract_block(text: str, symbol: str) -> str | None:
     """The full declaration of `symbol`, from its keyword to its closing delimiter.
 
-    Handles `export const X = [...]`, `= new Set([...])`, `= {...}` and `export enum X {}`.
+    Handles `export const X = [...]`, `= new Set([...])`, `= {...}`, `export enum X {}`
+    and `export function X(...) {}`.
     Returns None when the symbol is not declared here -- upstream renamed or moved it,
     which the caller reports as MISSING rather than passing over.
     """
     anchor = re.compile(
-        rf"^[ \t]*(?:export\s+)?(?:const|let|var|enum|type|interface)\s+{re.escape(symbol)}\b",
+        rf"^[ \t]*(?:export\s+)?(?P<kw>const|let|var|enum|type|interface|function)"
+        rf"\s+{re.escape(symbol)}\b",
         re.MULTILINE,
     )
     m = anchor.search(text)
@@ -228,11 +262,21 @@ def extract_block(text: str, symbol: str) -> str | None:
     masked = _mask(text)
     start = m.start()
 
-    # Begin counting at the initializer, not the declaration keyword: a type annotation
-    # can carry its own brackets (`const FEEDBACK_TAGS: TFeedbackTag[] = [...]`), and
-    # counting those would close the block at the end of the signature line -- yielding a
-    # one-line "block" that then compares equal across every revision.
-    scan = _first_assignment(masked, m.start())
+    if m.group("kw") == "function":
+        # A function has no initializer, and its parameter list opens and closes a bracket
+        # pair before the body does -- so the generic scan would balance at the end of the
+        # signature and yield a one-line "block" that compares equal across every revision
+        # (the inert-watch trap this module exists to avoid). Count from the body brace
+        # instead, found by walking past a balanced parameter list.
+        scan = _function_body_start(masked, m.end())
+        if scan is None:
+            return None
+    else:
+        # Begin counting at the initializer, not the declaration keyword: a type annotation
+        # can carry its own brackets (`const FEEDBACK_TAGS: TFeedbackTag[] = [...]`), and
+        # counting those would close the block at the end of the signature line -- yielding a
+        # one-line "block" that then compares equal across every revision.
+        scan = _first_assignment(masked, m.start())
     depth, i, opened = 0, scan, False
 
     while i < len(masked):
