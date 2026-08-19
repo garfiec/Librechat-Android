@@ -26,8 +26,15 @@ class DetektConventionPlugin : Plugin<Project> {
             // Committed generated sources (e.g. BackendCommitMap) are machine-written; skip lint
             // (large packed literals trip formatting/line-length rules that don't apply to codegen).
             // Scoped to the specific codegen package so hand-written code elsewhere stays linted.
+            // Build-time codegen (KSP output such as Room *_Impl classes, picked up by the
+            // per-target detekt tasks) is machine-written too and excluded wholesale — by file
+            // path, because string patterns match relative to each source root and the codegen
+            // roots live under build/generated themselves.
             tasks.withType<Detekt>().configureEach {
                 exclude("**/com/garfiec/librechat/core/common/generated/**")
+                exclude { element ->
+                    element.file.invariantSeparatorsPath.contains("/build/generated/")
+                }
             }
 
             dependencies {
