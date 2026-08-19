@@ -372,4 +372,80 @@ class ContentSegmentsTest {
     fun outputToolCallIdsSkipsBlankAndNonToolParts() {
         assertEquals(listOf("n2"), outputToolCallIds(listOf(text("hi"), tool(""), tool("n2"))))
     }
+
+    // ─── parent activity phases (SYNC-05) ───────────────────────────
+
+    private fun phaseLabel(
+        text: String?,
+        startIndex: Int? = null,
+        count: Int? = null,
+    ) = MessageContentPart(
+        type = ContentType.ACTIVITY_LABEL,
+        activityLabel = text,
+        activityLabelType = "phase",
+        activityStartIndex = startIndex,
+        activityCount = count,
+    )
+
+    @Test
+    fun trailingPhaseLabelDoesNotClaimTheTailOfTheMessage() {
+        // The exact shape upstream emits: a phase label appended at the END of content, whose
+        // activity_start_index points back at where the phase began. Grouping must not read it as
+        // a batch header, or it claims the reply's own answer text.
+        val segment = onlySegment(
+            listOf(
+                think("planning"),
+                tool("t1"),
+                label("Searched the docs"),
+                text("Here is the answer."),
+                phaseLabel("Researching", startIndex = 0, count = 3),
+            ),
+        )
+        val groups = segment.groups
+        assertEquals(2, groups.size, "phase label must add no group of its own")
+        val activity = groups[0] as ContentGroup.Activity
+        assertEquals("Searched the docs", activity.labelText)
+        assertEquals(listOf(0, 1), activity.entries.map { it.index })
+        val answer = groups[1] as ContentGroup.Single
+        assertEquals(3, answer.entry.index, "the answer text must stay standalone, unclaimed")
+    }
+
+    @Test
+    fun phaseLabelRendersNothingEvenWhenItIsTheOnlyLabel() {
+        // With no per-batch label the block re-splits legacy-style. A phase label must not
+        // resurrect grouping, and must not render as a stray orphan line either.
+        val segment = onlySegment(listOf(tool("t1"), text("done"), phaseLabel("Researching")))
+        assertEquals(2, segment.groups.size)
+        assertTrue(segment.groups.all { it is ContentGroup.Single })
+    }
+
+    @Test
+    fun perBatchLabelIsUnaffectedByTheNewDiscriminator() {
+        // Guards the discriminator itself: absence of activity_label_type means per-batch, so an
+        // ordinary label must still claim its block. Break `isActivityPhaseLabel` to match every
+        // label and this fails.
+        val segment = onlySegment(listOf(think("planning"), tool("t1"), label("Searched")))
+        val activity = segment.groups.single() as ContentGroup.Activity
+        assertEquals("Searched", activity.labelText)
+        assertEquals(listOf(0, 1), activity.entries.map { it.index })
+    }
+
+    @Test
+    fun phaseLabelIsSkippedInAComparisonLaneToo() {
+        // A lane renders every part it is handed standalone, so a phase label reaching it would
+        // paint as a bare sentence under the pane.
+        val segments = groupContentParts(
+            listOf(text("lane text"), phaseLabel("Researching")),
+            groupActivity = false,
+        )
+        assertEquals(1, segments.single().groups.size)
+    }
+
+    @Test
+    fun emptyPhaseLabelIsSkippedBeforeItIsFilled() {
+        // A phase part is published empty and re-emitted filled, so the skip cannot key on
+        // activity_start_index or on the label text being present.
+        val segment = onlySegment(listOf(text("answer"), phaseLabel(null)))
+        assertEquals(1, segment.groups.size)
+    }
 }

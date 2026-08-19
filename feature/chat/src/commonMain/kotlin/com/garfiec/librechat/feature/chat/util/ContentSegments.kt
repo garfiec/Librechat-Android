@@ -44,6 +44,20 @@ fun groupContentParts(
     }
 
     parts.forEachIndexed { index, part ->
+        // A parent PHASE label is not a batch header and must never reach either concern.
+        //
+        // It is appended at the END of the content array while its own activity_start_index names
+        // where the phase began, so its position carries no scope. The grouping below treats any
+        // filled activity label as the header of everything before it that is unclaimed — so a
+        // trailing phase label would claim whatever is left, rendering as a stray sentence under
+        // the reply, or wrapping a span it does not describe. Dropping it here also keeps it out
+        // of a comparison lane, which renders every part it is given standalone.
+        //
+        // Nested phase groups are the parity fix and are deliberately not attempted here: the
+        // bounds were re-anchored twice after the original PR (#14729, #14741), so the shape to
+        // mirror is not yet settled. Skipping cannot misrender — it renders nothing extra, which
+        // is exactly what a server without the feature does.
+        if (part.isActivityPhaseLabel()) return@forEachIndexed
         // A steer renders as a full user turn inside the response, so whatever resumes after it
         // has to be re-attributed. The author is read BEFORE this part's own handoff is applied:
         // if the resume point IS an agent update, the pre-handoff author stands and the update
@@ -162,6 +176,20 @@ fun outputToolCallIds(parts: List<MessageContentPart>): List<String> {
 /** The label text an activity-label part carries, trimmed; empty when it is still a reservation. */
 fun MessageContentPart.activityLabelText(): String =
     if (type == ContentType.ACTIVITY_LABEL) activityLabel?.trim().orEmpty() else ""
+
+/**
+ * True for a PARENT PHASE label as opposed to the per-batch label grouping is built around.
+ *
+ * The discriminator is the wire's own: `activity_label_type` is absent on a per-batch label —
+ * upstream documents "missing means the legacy/per-batch activity label" — and `"phase"` on a
+ * phase one. Testing for the presence of `activity_start_index` instead would be wrong, since a
+ * phase part is first published EMPTY and filled by a later re-emission.
+ */
+fun MessageContentPart.isActivityPhaseLabel(): Boolean =
+    type == ContentType.ACTIVITY_LABEL && activityLabelType == ACTIVITY_LABEL_TYPE_PHASE
+
+/** Wire value of `activity_label_type` for a parent phase label. */
+private const val ACTIVITY_LABEL_TYPE_PHASE = "phase"
 
 /**
  * The user's words from a steer part.

@@ -7,6 +7,7 @@ import com.garfiec.librechat.feature.chat.components.artifact.Artifact
 import com.garfiec.librechat.feature.chat.components.artifact.ArtifactSegment
 import com.garfiec.librechat.feature.chat.components.artifact.detectArtifacts
 import com.garfiec.librechat.feature.chat.util.activityLabelText
+import com.garfiec.librechat.feature.chat.util.isActivityPhaseLabel
 import com.garfiec.librechat.feature.chat.util.steerText
 
 // Shared search-occurrence enumeration used by BOTH the ViewModel side
@@ -89,9 +90,15 @@ internal fun countPartOccurrences(part: MessageContentPart, query: String): Int 
     // The user's own mid-run steer renders as a turn inside the response, so it has to be
     // findable — it is the one thing in a reply they definitely wrote.
     ContentType.STEER -> countMarkdownOccurrences(part.steerText().orEmpty(), query)
-    // Only a label that renders counts: a blank reservation is invisible, and an orphan label is
-    // a bare line. A group header the search can reach is also how a collapsed group opens.
-    ContentType.ACTIVITY_LABEL -> countMarkdownOccurrences(part.activityLabelText(), query)
+    // Only a label that renders counts: a blank reservation is invisible, an orphan label is a
+    // bare line, and a parent PHASE label is dropped by the grouping pass entirely. A group header
+    // the search can reach is also how a collapsed group opens.
+    //
+    // This walk and the render walk must stay lockstep — a part counted here but not drawn shifts
+    // every later match's index, so the focused result lands on the wrong text. Whatever
+    // `groupContentParts` skips has to be skipped here in the same commit.
+    ContentType.ACTIVITY_LABEL ->
+        if (part.isActivityPhaseLabel()) 0 else countMarkdownOccurrences(part.activityLabelText(), query)
     else -> 0
 }
 
