@@ -641,6 +641,7 @@ private fun IosChatBody(
                 isResolvingPendingAction = uiState.isResolvingPendingAction,
                 onSubmitToolDecisions = viewModel::resolveToolApproval,
                 onSubmitPendingAnswer = viewModel::answerPendingQuestion,
+                onSubmitPendingAnswers = viewModel::answerPendingQuestions,
                 modifier = Modifier.fillMaxSize(),
             )
         }

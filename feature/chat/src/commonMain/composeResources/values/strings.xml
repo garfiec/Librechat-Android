@@ -461,6 +461,7 @@
     <string name="ask_user_question_send">Send</string>
     <string name="ask_user_question_skip">Skip</string>
     <string name="ask_user_question_multi_select_hint">Pick as many as apply</string>
+    <string name="ask_user_question_batch_subtitle">Answer all %1$d questions to continue</string>
     <!-- Durable record of a resolved ask_user_question, shown in place of its tool card -->
     <string name="ask_user_question_record_asked">Asked</string>
     <string name="ask_user_question_record_asking">Asking</string>

@@ -227,6 +227,7 @@ private fun ChatMessageListPane(
         isResolvingPendingAction = uiState.isResolvingPendingAction,
         onSubmitToolDecisions = viewModel::resolveToolApproval,
         onSubmitPendingAnswer = viewModel::answerPendingQuestion,
+        onSubmitPendingAnswers = viewModel::answerPendingQuestions,
         modifier = modifier,
     )
 }

@@ -1507,8 +1507,18 @@ class ChatViewModel(
     fun resolveToolApproval(decisions: List<ToolApprovalResolution>) =
         pendingActionDelegate.submitToolDecisions(decisions)
 
-    /** Answers the paused run's `ask_user_question` and lets it continue. */
+    /** Answers a single-question `ask_user_question` pause and lets the run continue. */
     fun answerPendingQuestion(answer: String) = pendingActionDelegate.submitAnswer(answer)
+
+    /**
+     * Answers a batched `ask_user_question` pause — one answer per question id.
+     *
+     * Separate from [answerPendingQuestion] because the resume route is: it selects the channel
+     * from the pause's payload, so a batch cannot be resolved with a joined string and a single
+     * question cannot be resolved with a map.
+     */
+    fun answerPendingQuestions(answers: Map<String, String>) =
+        pendingActionDelegate.submitAnswers(answers)
 
     fun continueGeneration() {
         if (_uiState.value.isEditingQueued) return

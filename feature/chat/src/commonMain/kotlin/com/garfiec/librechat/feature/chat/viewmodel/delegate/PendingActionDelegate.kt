@@ -187,9 +187,28 @@ class PendingActionDelegate(
         submit(answerText = null) { request -> request.copy(decisions = decisions) }
     }
 
-    /** Resolves an `ask_user_question` pause with the user's reply. */
+    /** Resolves a single-question `ask_user_question` pause with the user's reply. */
     fun submitAnswer(answer: String) {
         submit(answerText = answer) { request -> request.copy(answer = answer) }
+    }
+
+    /**
+     * Resolves a batched `ask_user_question` pause — one answer per question id.
+     *
+     * The route branches on the PAYLOAD, not on the body: a pause carrying `questions` rejects a
+     * bare `answer` and requires this map to cover every id exactly. So the caller must key it
+     * from the payload's own ids; anything the payload does not name is 400 "Answers contain an
+     * unknown question id", and anything it names but this omits is 400 "Answers are required for
+     * every question".
+     *
+     * Everything the user typed is joined into [answerText] for the restore-on-failure path, so a
+     * rejected multi-question submit hands back all of it rather than the first field.
+     */
+    fun submitAnswers(answers: Map<String, String>) {
+        if (answers.isEmpty()) return
+        submit(answerText = answers.values.joinToString("\n\n")) { request ->
+            request.copy(answers = answers)
+        }
     }
 
     /**

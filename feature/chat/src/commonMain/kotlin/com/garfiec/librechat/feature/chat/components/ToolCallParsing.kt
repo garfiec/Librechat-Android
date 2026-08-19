@@ -450,14 +450,25 @@ internal fun isAskUserQuestionToolCall(toolNameLower: String): Boolean =
 /**
  * The streaming tool-call cards to render.
  *
- * An `ask_user_question` call is dropped until its answer lands on it. While the run is paused,
- * [PendingActionCard] *is* the question — a second card restating it under a spinner (the call
- * cannot complete until the user replies) is both a duplicate and a lie about what is running.
- * Once the answer arrives the same call renders as the durable Q&A record, so the question is
- * never on screen twice and never absent after it is settled.
+ * An `ask_user_question` call is dropped while the pause card owns it. `PendingActionCard` *is*
+ * the question — a second card restating it under a spinner (the call cannot complete until the
+ * user replies) is both a duplicate and a lie about what is running. Once the answer arrives the
+ * same call renders as the durable Q&A record, so the question is never on screen twice and never
+ * absent after it is settled.
+ *
+ * [pausedToolCallId] is the pause payload's own `tool_call_id`, present from
+ * `@librechat/agents` > 3.3.8. When the server names the call, only that call is dropped — a model
+ * that emits two ask calls in one turn leaves the other genuinely in flight, and hiding it too
+ * would show the user nothing for work that is running. When the field is absent (older server)
+ * this falls back to dropping every unanswered ask call, which is what it always did.
  */
-internal fun List<ActiveToolCall>.withoutUnansweredQuestions(): List<ActiveToolCall> =
-    filterNot { isAskUserQuestionToolCall(it.name.lowercase()) && it.output.isNullOrBlank() }
+internal fun List<ActiveToolCall>.withoutUnansweredQuestions(
+    pausedToolCallId: String? = null,
+): List<ActiveToolCall> = filterNot { call ->
+    isAskUserQuestionToolCall(call.name.lowercase()) &&
+        call.output.isNullOrBlank() &&
+        (pausedToolCallId == null || call.id == pausedToolCallId)
+}
 
 /**
  * Parses `ask_user_question` arguments, which arrive as an object mid-stream and as a JSON string

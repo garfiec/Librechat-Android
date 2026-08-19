@@ -60,8 +60,33 @@ data class PendingActionPayload(
     @SerialName("action_requests") val actionRequests: List<ToolApprovalRequest> = emptyList(),
     /** `tool_approval`: per-call policy, joined to [actionRequests] by `tool_call_id`. */
     @SerialName("review_configs") val reviewConfigs: List<ToolReviewConfig> = emptyList(),
-    /** `ask_user_question`: the question to put to the user. */
+    /**
+     * `ask_user_question`: the question to put to the user.
+     *
+     * On a batched pause upstream keeps this populated with the FIRST item as a display
+     * fallback, so its presence does not mean the pause is single-question — [questions] does.
+     */
     val question: AskUserQuestionRequest? = null,
+    /**
+     * `ask_user_question`: present when the agent asked several related questions in one call.
+     *
+     * **This field alone decides which resume body is legal.** The resume route branches on
+     * `Array.isArray(payload.questions)`: when it is an array it requires
+     * [com.garfiec.librechat.core.model.request.ChatResumeRequest.answers] covering every id and
+     * rejects a bare `answer`; when it is absent only `answer` is accepted. An empty list is NOT
+     * the same as absence — upstream rejects a zero-length batch as invalid — so this must stay
+     * nullable rather than defaulting to `emptyList()`.
+     */
+    val questions: List<AskUserQuestionItem>? = null,
+    /**
+     * The ask tool call that raised this interrupt.
+     *
+     * Present from `@librechat/agents` > 3.3.8. Attribution used to be positional, which put the
+     * wrong question on screen when a model emitted several ask calls in one turn, and the resume
+     * then failed 400 `INVALID_TOOL_RESULTS`. Match on this when it is there; fall back to
+     * position only when it is not.
+     */
+    @SerialName("tool_call_id") val toolCallId: String? = null,
 )
 
 /**
@@ -116,6 +141,38 @@ data class AskUserQuestionRequest(
     /** When true the user may pick several options; the answer joins their values with ", ". */
     val multiSelect: Boolean = false,
 )
+
+/**
+ * One independently answerable question inside a batched `ask_user_question` pause.
+ *
+ * [id] is the join key for the resume body's answers map and the server validates it against
+ * `/^[A-Za-z][A-Za-z0-9_-]{0,63}$/`; an item whose id fails that pattern, or repeats an earlier
+ * one, invalidates the whole batch server-side. It defaults to the empty string only so a
+ * malformed payload decodes rather than throwing mid-stream — an empty id can never be answered,
+ * and [isAnswerable] is what keeps one off the form.
+ */
+@Serializable
+data class AskUserQuestionItem(
+    val id: String = "",
+    val question: String = "",
+    /** Optional short heading rendered above the question. Server caps it at 80 characters. */
+    val header: String? = null,
+    val description: String? = null,
+    val options: List<AskUserQuestionOption> = emptyList(),
+    val multiSelect: Boolean = false,
+) {
+    /** False for a batch item that arrived without a usable id, which cannot be submitted. */
+    val isAnswerable: Boolean get() = id.isNotEmpty()
+}
+
+/** Server-side limits on an `ask_user_question` batch, mirrored so the form can respect them. */
+object AskUserQuestionLimits {
+    /** `MAX_ASK_QUESTIONS`. A batch outside 1..4 is rejected as invalid. */
+    const val MAX_QUESTIONS = 4
+
+    /** `MAX_ASK_ANSWER_LENGTH`. Applies per answer on the batched path and to the bare answer. */
+    const val MAX_ANSWER_LENGTH = 16_000
+}
 
 /**
  * A steer message the user queued mid-run.

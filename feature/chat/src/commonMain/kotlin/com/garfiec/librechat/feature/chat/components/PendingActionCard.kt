@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.model.AskUserQuestionItem
+import com.garfiec.librechat.core.model.AskUserQuestionLimits
 import com.garfiec.librechat.core.model.AskUserQuestionOption
 import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.PendingAction
@@ -68,9 +71,17 @@ fun PendingActionCard(
     isResolving: Boolean,
     onSubmitToolDecisions: (List<ToolApprovalResolution>) -> Unit,
     onSubmitAnswer: (String) -> Unit,
+    onSubmitAnswers: (Map<String, String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val payload = pendingAction.payload ?: return
+    // The batch is bounded server-side and a batch outside 1..MAX_QUESTIONS is rejected as
+    // invalid, so render at most that many rather than growing the card without limit — and drop
+    // items with no usable id, which cannot be answered at all.
+    val batch = payload.questions
+        ?.filter { it.isAnswerable }
+        ?.take(AskUserQuestionLimits.MAX_QUESTIONS)
+        .orEmpty()
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -78,6 +89,15 @@ fun PendingActionCard(
         ),
     ) {
         when {
+            // `questions` — not `question` — is what selects the resume channel: upstream keeps
+            // `question` populated with the first item as a display fallback even on a batch, so
+            // branching on it would render one question and submit a body the route rejects.
+            pendingAction.isAskUserQuestion && batch.isNotEmpty() -> AskUserQuestionBatchSection(
+                actionId = pendingAction.actionId.orEmpty(),
+                questions = batch,
+                isResolving = isResolving,
+                onSubmitAnswers = onSubmitAnswers,
+            )
             pendingAction.isAskUserQuestion -> AskUserQuestionSection(
                 // Key the answer editor to the action so a second question in the same turn
                 // starts blank instead of inheriting the previous answer.
@@ -209,6 +229,170 @@ private fun AskUserQuestionSection(
                 Text(stringResource(Res.string.ask_user_question_send))
             }
         }
+    }
+}
+
+/**
+ * A clarification the agent asked as several related questions in one call.
+ *
+ * The submit is all-or-nothing because the server's is: `resolveAskUserQuestionResume` requires an
+ * answers map covering EVERY id in the payload and rejects both a partial map and an unknown id,
+ * so there is no "answer the ones you know" path to offer. Send therefore stays disabled until
+ * every question has something in it, and Skip resolves the whole batch by sending the declined
+ * sentinel for each id — a purely local dismiss would leave the run paused until it expires.
+ *
+ * Answers are keyed by the payload's own question ids, never by field order.
+ */
+@Composable
+private fun AskUserQuestionBatchSection(
+    actionId: String,
+    questions: List<AskUserQuestionItem>,
+    isResolving: Boolean,
+    onSubmitAnswers: (Map<String, String>) -> Unit,
+) {
+    // Not rememberSaveable: the per-question editors below each save their own state keyed by
+    // question id, and this map is derived from them on every recomposition. Saving it too would
+    // give the same value two owners that restore independently.
+    val answers = remember(actionId) { mutableStateMapOf<String, String>() }
+
+    PendingActionColumn {
+        PendingActionHeader(
+            title = stringResource(Res.string.ask_user_question_title),
+            subtitle = stringResource(Res.string.ask_user_question_batch_subtitle, questions.size),
+            icon = { Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(20.dp)) },
+        )
+
+        questions.forEachIndexed { index, item ->
+            if (index > 0) HorizontalDivider()
+            AskUserQuestionBatchItem(
+                actionId = actionId,
+                item = item,
+                isResolving = isResolving,
+                onAnswerChange = { answer -> answers[item.id] = answer },
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (isResolving) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            }
+            TextButton(
+                onClick = {
+                    onSubmitAnswers(questions.associate { it.id to ASK_USER_DECLINED_ANSWER })
+                },
+                enabled = !isResolving,
+            ) {
+                Text(stringResource(Res.string.ask_user_question_skip))
+            }
+            Button(
+                onClick = {
+                    onSubmitAnswers(
+                        questions.associate { it.id to answers[it.id].orEmpty().trim() },
+                    )
+                },
+                enabled = !isResolving && questions.all { answers[it.id]?.isNotBlank() == true },
+            ) {
+                Text(stringResource(Res.string.ask_user_question_send))
+            }
+        }
+    }
+}
+
+/**
+ * One question of a batch: its own chips and free-text box, reporting the composed answer up.
+ *
+ * State is saveable and keyed by `actionId + id` for the same reason the single-question card's
+ * is — the card is a LazyColumn item, so scrolling it away drops anything not saved, and the only
+ * symptom of losing a half-written answer is Send quietly going back to disabled.
+ */
+@Composable
+private fun AskUserQuestionBatchItem(
+    actionId: String,
+    item: AskUserQuestionItem,
+    isResolving: Boolean,
+    onAnswerChange: (String) -> Unit,
+) {
+    val stateKey = "$actionId/${item.id}"
+    var selected by rememberSaveable(stateKey, stateSaver = StringSetSaver) {
+        mutableStateOf(emptySet())
+    }
+    var freeText by rememberSaveable(stateKey) { mutableStateOf("") }
+    val answer = composeAnswer(item.options, selected, freeText)
+
+    // Reported through an effect rather than during composition: writing a parent's snapshot map
+    // from a child's composition body is a write-during-read of the same state the parent reads
+    // to decide whether Send is enabled.
+    LaunchedEffect(stateKey, answer) { onAnswerChange(answer) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item.header?.takeIf { it.isNotBlank() }?.let { header ->
+            Text(
+                text = header,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = item.question,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        item.description?.takeIf { it.isNotBlank() }?.let { description ->
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (item.options.isNotEmpty()) {
+            if (item.multiSelect) {
+                Text(
+                    text = stringResource(Res.string.ask_user_question_multi_select_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item.options.forEach { option ->
+                    val isSelected = option.value in selected
+                    FilterChip(
+                        selected = isSelected,
+                        enabled = !isResolving,
+                        onClick = {
+                            selected = when {
+                                !item.multiSelect -> if (isSelected) emptySet() else setOf(option.value)
+                                isSelected -> selected - option.value
+                                else -> selected + option.value
+                            }
+                        },
+                        label = { Text(option.label.ifBlank { option.value }) },
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = freeText,
+            onValueChange = { freeText = it },
+            enabled = !isResolving,
+            modifier = Modifier.fillMaxWidth(),
+            label = {
+                Text(
+                    stringResource(
+                        if (item.options.isEmpty()) {
+                            Res.string.ask_user_question_answer_hint
+                        } else {
+                            Res.string.ask_user_question_other_hint
+                        },
+                    ),
+                )
+            },
+            minLines = 2,
+        )
     }
 }
 
