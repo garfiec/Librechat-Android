@@ -434,6 +434,7 @@ data class ChatUiState(
             endpoint = selectedEndpoint,
             endpointType = endpointConfigs[selectedEndpoint]?.type,
             agentProvider = routingAgentProvider,
+            serverVersion = gates.backendVersion,
         )
     }
 
@@ -454,7 +455,7 @@ data class ChatUiState(
         if (!isFileContextAvailable) return false
         // A type the server cannot extract has exactly one usable mode however capable the
         // provider is: there is no second option to offer.
-        if (!isTextExtractable(mimeType)) return false
+        if (!isTextExtractable(mimeType, serverVersion = gates.backendVersion)) return false
         val endpointType = endpointConfigs[selectedEndpoint]?.type
         // An unresolved provider is not a *provider-only* file. Auto still routes it to PROVIDER —
         // guessing is what this feature refuses to do — but a user who asked to be asked every time
@@ -467,6 +468,7 @@ data class ChatUiState(
             endpoint = selectedEndpoint,
             endpointType = endpointType,
             agentProvider = routingAgentProvider,
+            serverVersion = gates.backendVersion,
         )
     }
 

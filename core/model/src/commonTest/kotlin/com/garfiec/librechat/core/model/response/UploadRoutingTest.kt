@@ -270,4 +270,57 @@ class UploadRoutingTest {
         assertFalse(isProviderCapable(txt, "ollama"))
         assertFalse(isProviderCapable(null, "anthropic"))
     }
+
+    // ------------------------------------- shell-script alias (v0.8.8-rc1, upstream 5e464bc9)
+
+    @Test
+    fun shellScriptVariantsRouteToTextOnAnRc1Server() {
+        // Chrome-on-Linux and libmagic spellings of `.sh`; the server aliases both to
+        // application/x-sh, which is textual and not provider-native on anthropic.
+        assertEquals(
+            UploadRoute.TEXT,
+            resolveUploadRoute("application/x-shellscript", "anthropic", serverVersion = "0.8.8-rc1"),
+        )
+        assertEquals(
+            UploadRoute.TEXT,
+            resolveUploadRoute("text/x-shellscript", "anthropic", serverVersion = "0.8.8"),
+        )
+        assertTrue(isTextExtractable("application/x-shellscript", serverVersion = "0.8.8-rc1"))
+    }
+
+    @Test
+    fun applicationShellScriptStaysOnTheProviderOnPreRc1AndUnknownServers() {
+        // A pre-rc1 server does not normalise this spelling, so treating it as textual there
+        // routes it to a path the server rejects. Unaliased it reads as an unknown application/*
+        // type and fails toward PROVIDER — the pre-alias behaviour.
+        assertEquals(
+            UploadRoute.PROVIDER,
+            resolveUploadRoute("application/x-shellscript", "anthropic", serverVersion = "0.8.7"),
+        )
+        assertEquals(
+            UploadRoute.PROVIDER,
+            resolveUploadRoute("application/x-shellscript", "anthropic", serverVersion = null),
+        )
+        assertFalse(isTextExtractable("application/x-shellscript"))
+    }
+
+    @Test
+    fun textShellScriptWasAlwaysTextualAndStaysSo() {
+        // The libmagic spelling sits in the text/ tree, which this router has always treated as
+        // extractable — the rc1 alias must not regress that on older servers. The alias only
+        // changes which canonical name later lookups see, not the outcome.
+        assertEquals(
+            UploadRoute.TEXT,
+            resolveUploadRoute("text/x-shellscript", "anthropic", serverVersion = null),
+        )
+        assertTrue(isTextExtractable("text/x-shellscript"))
+    }
+
+    @Test
+    fun preExistingAliasesAreNotVersionGated() {
+        // Only the two shell-script rows landed at rc1; the rest of the table has aliased on
+        // every supported server all along and must keep doing so with no version in hand —
+        // unaliased, `text/x-markdown` would miss Bedrock's native format table.
+        assertTrue(isProviderCapable("text/x-markdown", "bedrock"))
+    }
 }

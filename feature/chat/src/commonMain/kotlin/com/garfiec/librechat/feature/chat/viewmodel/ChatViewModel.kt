@@ -603,7 +603,14 @@ class ChatViewModel(
                     detected = detected,
                     minVersion = "0.8.8-rc1",
                 )
-                _uiState.update { it.copy(gates = it.gates.copy(steeringSupported = supported)) }
+                _uiState.update {
+                    it.copy(
+                        gates = it.gates.copy(
+                            steeringSupported = supported,
+                            backendVersion = detected?.version,
+                        ),
+                    )
+                }
             }
         }
 
