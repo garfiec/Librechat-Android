@@ -102,6 +102,10 @@ class AgentRepositoryImpl(
     override suspend fun updateAgent(id: String, request: UpdateAgentRequest): Result<Agent> {
         return safeApiCall {
             val agent = agentsApi.updateAgent(id, request)
+            // The RESPONSE body must never be written into the cache: pre-0.8.8-rc1 servers
+            // could answer an update with a stale 200 (upstream da390fa9, "Save reverted" on
+            // web, which cached it). Invalidate-and-refetch means a stale body can at most be
+            // returned to the caller, which reads only its id.
             invalidateCache()
             agent
         }
