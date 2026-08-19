@@ -871,7 +871,7 @@ class StreamingManagerDelegate(
                     // reattach their files belongs.
                     error = when {
                         keyError != null -> null
-                        else -> StreamErrorType.parse(reason.message)?.marker ?: reason.message
+                        else -> StreamErrorType.markerOrText(reason.message)
                     }
                 }
                 comparisonDelegate.endStreaming()

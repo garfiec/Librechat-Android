@@ -92,6 +92,23 @@ enum class StreamErrorType(val wire: String) {
         }
 
         /**
+         * What a display surface should show for a raw error string: this type's [marker] when
+         * the string is recognized, the server's own text when it is not.
+         *
+         * **The single entry point for classification.** A stream error reaches the user two
+         * ways — as the reason a run ended (`StreamEndReason.Error`) and as an in-band `error`
+         * content part on the assistant message — and the second one is not a lesser case: an
+         * rc1 model-not-found failure persists the message with `error: false` and no text, so
+         * the part is the *only* place the failure exists. Classifying at one of the two sites
+         * put actionable copy on the snackbar and raw provider JSON in the thread for the same
+         * error. Route both through here rather than reaching for [parse] directly, so a second
+         * regex home can never be added beside this one.
+         *
+         * Keeping the server's text on no match is the contract, not a fallback: see [parse].
+         */
+        fun markerOrText(rawMessage: String): String = parse(rawMessage)?.marker ?: rawMessage
+
+        /**
          * MIRRORED from upstream `client/src/components/Messages/Content/Error.tsx`:
          * `/langchain\.com\/.*\/MODEL_NOT_FOUND(?:\/|\b)/i`. Registered in `scripts/mirrors.json`
          * as `model-not-found-url-pattern`.

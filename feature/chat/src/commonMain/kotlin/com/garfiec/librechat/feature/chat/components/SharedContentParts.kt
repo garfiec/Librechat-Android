@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.content.MessageContentPart
+import com.garfiec.librechat.core.model.error.StreamErrorType
 import com.garfiec.librechat.core.model.media.resolveImageFilePartUrl
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -129,7 +130,13 @@ internal fun ContentPartDispatcher(
         }
         // Error text stays selectable: copying an error verbatim is how it gets reported.
         ContentType.ERROR -> {
-            ErrorContentPart(errorText = part.error ?: part.text.orEmpty(), modifier = mod)
+            // Classified through the same entry point the stream-end path uses. An in-band error
+            // part is often the ONLY record of the failure — an rc1 model-not-found persists the
+            // message with `error: false` and no text — so rendering it raw put provider JSON and
+            // a LangChain troubleshooting URL in the thread where the actionable sentence goes.
+            // Anything unrecognized still shows the server's own text, unchanged.
+            val raw = part.error ?: part.text.orEmpty()
+            ErrorContentPart(errorText = localizedStreamError(StreamErrorType.markerOrText(raw)), modifier = mod)
         }
         ContentType.AGENT_UPDATE -> DisableSelection {
             val agentUpdate = part.agentUpdate
