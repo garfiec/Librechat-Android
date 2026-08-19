@@ -17,6 +17,7 @@ import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BannerRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
+import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.ToolFavoritesRepository
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
@@ -57,6 +58,7 @@ class NavHostViewModel(
     private val connectivityObserver: ConnectivityObserver,
     private val endpointTokenRepository: EndpointTokenRepository,
     private val toolFavoritesRepository: ToolFavoritesRepository,
+    private val fileRepository: FileRepository,
     private val resumePinStore: ResumePinStore,
     private val activeAccountProvider: ActiveAccountProvider,
     private val accountRoster: AccountRoster,
@@ -220,6 +222,11 @@ class NavHostViewModel(
                 // keeps the old set on any non-404 error, so without this drop a flaky incoming
                 // server would keep rendering the previous account's pins in the tool picker.
                 toolFavoritesRepository.clear()
+                // Same singleton-state hazard, one repository over: the usage-hold probe verdict
+                // describes the server being left. A 404 discovered there would otherwise suppress
+                // the queued-attachment TTL touch on the incoming server, whose files the reaper
+                // then collects out from under a queued send.
+                fileRepository.clear()
                 // A resume pin names another account's run; keeping it would replay that
                 // account's agent/tool config into a resume on this one.
                 resumePinStore.clear()

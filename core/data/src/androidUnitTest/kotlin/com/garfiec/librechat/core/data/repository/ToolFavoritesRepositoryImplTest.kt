@@ -42,14 +42,75 @@ class ToolFavoritesRepositoryImplTest {
     }
 
     @Test
-    fun `a build predating the routes never calls them`() = runTest {
-        val repository = repository(DetectedBackend("0.8.7", BackendBuildClass.DEV, "2026-07-04"))
+    fun `a tagged build below the routes never calls them`() = runTest {
+        // An OFFICIAL build reports the version of its tag, so falling short of 0.8.8-rc1 is
+        // proof rather than evidence — nothing to discover, and no request worth spending.
+        val repository = repository(DetectedBackend("0.8.7", BackendBuildClass.OFFICIAL, "2026-06-26"))
 
         val result = repository.refresh()
 
         assertThat(result).isInstanceOf(Result.Success::class.java)
         assertThat(repository.isSupported.value).isFalse()
         coVerify(exactly = 0) { api.getToolFavorites() }
+    }
+
+    @Test
+    fun `a dev build reporting the previous release is asked rather than assumed`() = runTest {
+        // Upstream bumps package.json at rc prep, so a 0.8.8-cycle dev build still says "0.8.7".
+        // A plain version compare read that as "too old" and rendered the picker with no star
+        // column at all on the self-hosted servers most likely to have the routes.
+        coEvery { api.getToolFavorites() } returns
+            listOf(ToolFavorite(ToolFavoriteItemType.MCP, "jira"))
+        val repository = repository(DetectedBackend("0.8.7", BackendBuildClass.DEV, "2026-07-04"))
+
+        repository.refresh()
+
+        assertThat(repository.isSupported.value).isTrue()
+        coVerify(exactly = 1) { api.getToolFavorites() }
+    }
+
+    @Test
+    fun `a server with no resolvable build commit is asked too`() = runTest {
+        // Null detection is dominated by servers built PAST the app's commit-map pin — newer
+        // than us, not older.
+        coEvery { api.getToolFavorites() } returns emptyList()
+        val repository = repository(null)
+
+        repository.refresh()
+
+        assertThat(repository.isSupported.value).isTrue()
+        coVerify(exactly = 1) { api.getToolFavorites() }
+    }
+
+    @Test
+    fun `a 404 is asked once, not on every picker open`() = runTest {
+        coEvery { api.getToolFavorites() } throws ApiException(404, "Not Found")
+        val repository = repository(null)
+
+        repository.refresh()
+        repository.refresh()
+        repository.refresh()
+
+        // The route answered definitively the first time. isSupported cannot carry that verdict —
+        // it also reads false before any probe — so re-asking is what happens without the latch.
+        assertThat(repository.isSupported.value).isFalse()
+        coVerify(exactly = 1) { api.getToolFavorites() }
+    }
+
+    @Test
+    fun `the next server gets its own probe`() = runTest {
+        coEvery { api.getToolFavorites() } throws ApiException(404, "Not Found")
+        val repository = repository(null)
+        repository.refresh()
+
+        repository.clear()
+        coEvery { api.getToolFavorites() } returns emptyList()
+        repository.refresh()
+
+        // Without the reset in clear(), one server's 404 would decide for every account switched
+        // to afterwards — the repository is an app-wide singleton.
+        assertThat(repository.isSupported.value).isTrue()
+        coVerify(exactly = 2) { api.getToolFavorites() }
     }
 
     @Test

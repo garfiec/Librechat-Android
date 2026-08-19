@@ -29,15 +29,34 @@ class ToolFavoritesRepositoryImpl(
     /** Serializes toggles so two rapid stars can't roll each other back. */
     private val writeMutex = Mutex()
 
-    override suspend fun refresh(): Result<Set<ToolFavorite>> {
-        // The routes shipped in v0.8.8-rc1 (#13952), so a plain version compare decides. Fails
-        // closed on an unresolved server (null DetectedBackend): no probe, no stars — the 404
-        // fallback below still covers a server the commit map cannot classify.
-        if (!BackendVersion.supportsFeature(
+    /**
+     * Set once a probe has 404'd, so the picker does not re-ask a server that has already
+     * answered. [_isSupported] cannot serve this: it is also false before the first probe and
+     * after a [clear], and re-probing on every picker open is exactly what it would cause.
+     * Reset by [clear] on account/server switch.
+     */
+    private var routeMissingByProbe = false
+
+    /**
+     * True only when the routes are KNOWN absent: a build commit that resolved to a tag below
+     * v0.8.8-rc1 (#13952), or a probe that already 404'd.
+     *
+     * A server the version gate cannot place is NOT ruled out, and that is the change from a
+     * plain version compare. Support here is discoverable by asking — one GET, no rate limiter,
+     * a 404 that means exactly one thing — so a dev build reporting the previous release, or a
+     * server built past this app's commit-map pin, gets asked instead of assumed. Guessing wrong
+     * in the old direction cost a working feature: the picker rendered with no star column at all
+     * on the self-hosted servers most likely to have it.
+     */
+    private fun favoritesRuledOut(): Boolean =
+        routeMissingByProbe ||
+            BackendVersion.featureSupport(
                 configRepository.detectedBackend.value,
                 minVersion = "0.8.8-rc1",
-            )
-        ) {
+            ).isRuledOut
+
+    override suspend fun refresh(): Result<Set<ToolFavorite>> {
+        if (favoritesRuledOut()) {
             _isSupported.value = false
             _favorites.value = emptySet()
             return Result.Success(emptySet())
@@ -57,6 +76,7 @@ class ToolFavoritesRepositoryImpl(
                 if ((result.exception as? ApiException)?.statusCode == HTTP_NOT_FOUND) {
                     _isSupported.value = false
                     _favorites.value = emptySet()
+                    routeMissingByProbe = true
                     Logger.d { "Tool favorites unsupported on this server" }
                 }
                 result
@@ -114,6 +134,9 @@ class ToolFavoritesRepositoryImpl(
     override fun clear() {
         _favorites.value = emptySet()
         _isSupported.value = false
+        // The verdict belonged to the server being left. Keeping it would carry one server's 404
+        // onto the next account, which is the same singleton-state bug the pins above have.
+        routeMissingByProbe = false
     }
 
     private companion object {

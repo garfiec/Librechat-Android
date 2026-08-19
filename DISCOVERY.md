@@ -296,7 +296,9 @@ GET    /api/share?cursor&pageSize&sortBy&sortDirection&search   (NO isPublic —
 
 ### v0.8.8-line partial sync (untagged dev commit 6c97a7f4, 2026-07-23) — endpoint / shape changes
 These landed upstream on the post-v0.8.7 `dev` branch (package.json still reports 0.8.7; the
-target commit is untagged). Date-gated paths use `BackendVersion.supportsFeature`.
+target commit is untagged). Date-gated paths use `BackendVersion.supportsFeature`; paths where
+support can be discovered by asking use `BackendVersion.featureSupport` and probe once instead
+(see VERSION_GATES.md — a dev build reporting 0.8.7 is not evidence of an old server).
 ```
 # Newly-discovered / revised request contracts
 POST   <generation endpoint>             + top-level `clientRequestId` (uuid) idempotency key (#14344,
@@ -371,7 +373,9 @@ POST   /api/agents/chat/steer/cancel      { conversationId, steerId } → { remo
 POST   /api/endpoints/context-projection  REMOVED (#13953, landing commit 376370d6, 2026-06-25). The gauge is
                                             now computed client-side / seeded from the on_context_usage SSE, so
                                             the POST 404s on the 0.8.8 line. Mobile version-gates the call OFF
-                                            (supportsFeature minVersion 0.8.8-rc1, landedDate 2026-06-26 — one day
+                                            (supportsFeature minVersion 0.8.8-rc1 — deliberately two-state, since
+                                            the ungated branch just issues a POST whose 404 is discarded; was
+                                            landedDate 2026-06-26 — one day
                                             past the landing, because three commits merged earlier that same day
                                             and the date gate is day-granular; see VERSION_GATES.md);
                                             < 0.8.8 backends keep the POST path. Inverts the >= 0.8.7 enable gate. (BUILT)
@@ -422,9 +426,13 @@ DELETE /api/user/settings/favorites/tools/:itemType/:itemId  → { ok: true }
                                             and 100 favorites per user, 400 otherwise. This is the real backend
                                             that replaced the v0.8.6 "skill favorites" client stubs; mobile now
                                             builds against it, so that backend-gap ledger entry is CLOSED.
-                                            Gate: supportsFeature("0.8.8-rc1", landedDate 2026-07-05), plus a
-                                            404 fallback that turns pinning off rather than reporting a failure.
-                                            (#13952, landedDate 2026-07-05)
+                                            Gate: featureSupport("0.8.8-rc1").isRuledOut — suppressed only for a
+                                            server PLACED below rc1 (a tag). A server the commit map cannot place,
+                                            and a dev build still reporting 0.8.7, are probed instead: one GET, no
+                                            rate limiter, and a 404 that turns pinning off rather than reporting a
+                                            failure — latched so the picker does not re-ask on every open, reset on
+                                            account switch. (#13952, landed 2026-07-05; the landedDate fallback was
+                                            dropped at the rc1 sync and the probe replaced it 2026-08-18)
 POST   /api/share/:shareId/fork           { targetMessageIndex? } → 201 with the forked conversation. Continues
                                             a SHARED conversation as the caller's own copy — distinct from the
                                             existing POST /api/convos/fork mobile already calls. Wired through
@@ -448,8 +456,11 @@ POST   /api/files/usage                   { file_ids } → { held } (was { marke
                                             the repository chunks rather than forfeiting a whole batch. Exempt
                                             from the upload rate limiter ONLY on the 0.8.8 line that added it —
                                             older servers limit every POST under /api/files except /speech, so
-                                            the call is version-gated (supportsFeature 0.8.8-rc1, landedDate
-                                            2026-07-14); error code FILES_USAGE_FAILED. NOW METERED by its own
+                                            the call is version-gated (featureSupport 0.8.8-rc1: suppressed only
+                                            for a server PLACED below rc1; an unplaceable server or a dev build
+                                            reporting 0.8.7 gets exactly ONE touch and a 404 latches it off, since
+                                            withholding it lets the reaper take a queued attachment out from under
+                                            the send); error code FILES_USAGE_FAILED. NOW METERED by its own
                                             per-user limiter — FILE_USAGE_USER_MAX (default 120) per
                                             FILE_USAGE_USER_WINDOW (default 15 min), 429 { message: "Too many
                                             file usage requests…" } — and a breach LOGS A FILE_UPLOAD_LIMIT

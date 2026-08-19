@@ -271,8 +271,9 @@ class MessageQueueHoldRenewalTest {
 
     /**
      * `markFilesUsed` already no-ops when the route is absent, but the loop would still wake every
-     * interval for the ViewModel's whole life. A null `DetectedBackend` fails the gate closed, so
-     * this is also the cold-start state.
+     * interval for the ViewModel's whole life. The repository answers false only for a server it
+     * can PROVE lacks the route — a build commit resolved to a tag below v0.8.8-rc1, or a touch
+     * that already 404'd.
      */
     @Test
     fun `no heartbeat starts when the server has no usage route`() = heartbeatTest {
@@ -282,6 +283,28 @@ class MessageQueueHoldRenewalTest {
         elapse(90.minutes)
 
         assertThat(renewedBatches).isEmpty()
+    }
+
+    /**
+     * The answer this loop started on can change exactly once. A server the version gate cannot
+     * place is touched anyway, on the chance it has the route, and that touch's 404 is what
+     * settles it — after the heartbeat is already running. Asking only before the loop starts
+     * would leave it waking every interval for the ViewModel's whole life against a route the
+     * server has already refused.
+     */
+    @Test
+    fun `the heartbeat stops once a probe rules the route out`() = heartbeatTest {
+        enqueueQuietly(spec("a", "file-1"))
+
+        elapse(30.minutes)
+        assertThat(renewedBatches).hasSize(1)
+
+        // The enqueue-time touch came back 404: the repository has latched the route off.
+        holdSupported = false
+
+        elapse(120.minutes)
+
+        assertThat(renewedBatches).hasSize(1)
     }
 
     /**

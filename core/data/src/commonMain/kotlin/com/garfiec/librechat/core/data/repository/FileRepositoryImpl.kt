@@ -1,6 +1,8 @@
 package com.garfiec.librechat.core.data.repository
 
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.FeatureSupport
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.onApiDispatcher
 import com.garfiec.librechat.core.common.result.safeApiCall
@@ -14,6 +16,7 @@ import com.garfiec.librechat.core.network.api.FilesApi
 import com.garfiec.librechat.core.network.api.FilesExtApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlin.concurrent.Volatile
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -148,40 +151,79 @@ class FileRepositoryImpl(
     }
 
     /**
-     * Version-gated because the cost of guessing wrong is not a bare 404. Pre-0.8.8 servers apply
-     * `fileUploadIpLimiter` + `fileUploadUserLimiter` to every POST under `/api/files` except
-     * `/speech` — the `/usage` exemption is part of the same 0.8.8-line change that added the
-     * route — so an ungated touch against an older server both 404s and spends real upload quota
-     * (plus a violation score) on a call that can never succeed. The touch is a best-effort TTL
-     * push with send-time marking as its backstop, so suppressing it degrades to the behaviour
-     * mobile had before the route existed.
-     *
-     * The route shipped in v0.8.8-rc1, so a plain version compare decides. Fails closed on an
-     * unresolved server (null DetectedBackend): no touch, and the queued attachment falls back to
-     * send-time marking, exactly as mobile behaved before the route existed.
+     * What a single 404 from `POST /api/files/usage` taught us, on a server the version gate could
+     * not place. `null` until the first such touch settles; false latches the route off for the
+     * rest of this server session, true confirms it. Reset by [clear] on account/server switch —
+     * this repository is an app-wide singleton, so a verdict from the outgoing server would
+     * otherwise decide for the incoming one.
      */
-    override fun supportsUsageHold(): Boolean = BackendVersion.supportsFeature(
+    @Volatile
+    private var usageHoldProbeVerdict: Boolean? = null
+
+    /**
+     * True only when the route is KNOWN to be missing — a build commit that resolved to a tag
+     * below v0.8.8-rc1, or a probe that already 404'd. An unplaceable server is not ruled out.
+     *
+     * Suppressing the touch is not free of consequence in either direction, which is why this
+     * distinguishes the two. Calling a server that lacks the route costs more than a bare 404:
+     * pre-0.8.8 servers apply `fileUploadIpLimiter` + `fileUploadUserLimiter` to every POST under
+     * `/api/files` except `/speech` — the `/usage` exemption is part of the same 0.8.8-line change
+     * that added the route — so the call spends real upload quota (plus a violation score) to
+     * accomplish nothing. But NOT calling a server that has it lets the upload-window reaper
+     * collect an attachment out from under a queued message, and the send then references a file
+     * the server has deleted. The first costs one request; the second loses the attachment.
+     *
+     * So: rule the route out on proof, probe on doubt. A dev build reports the PREVIOUS release
+     * (upstream bumps package.json at rc prep) and a server past this app's commit-map pin
+     * resolves to nothing at all, and both of those populations are more likely to HAVE the route
+     * than to lack it. They each get exactly one touch, and its 404 — the route's own definitive
+     * answer — latches the suppression that a version compare was guessing at.
+     */
+    private fun usageHoldRuledOut(): Boolean =
+        usageHoldProbeVerdict == false || usageHoldSupport().isRuledOut
+
+    private fun usageHoldSupport(): FeatureSupport = BackendVersion.featureSupport(
         configRepository.detectedBackend.value,
         minVersion = "0.8.8-rc1",
     )
 
+    override fun supportsUsageHold(): Boolean = !usageHoldRuledOut()
+
     override suspend fun markFilesUsed(fileIds: List<String>): Result<Unit> {
-        if (!supportsUsageHold()) {
+        if (usageHoldRuledOut()) {
             return Result.Success(Unit)
         }
         val ids = fileIds.filter { it.isNotBlank() }.distinct()
         if (ids.isEmpty()) return Result.Success(Unit)
+        // Whether THIS call is the one discovering the answer. A server the version gate already
+        // placed as PRESENT is not probing: a 404 from it is a proxy or a deployment oddity, not
+        // evidence about the release, and must not permanently disable the hold.
+        val probing = usageHoldProbeVerdict == null && !usageHoldSupport().isPresent
         // The route caps a call at FILES_USAGE_MAX_IDS and 400s the whole batch past it, so
         // chunk rather than let one over-long queue item silently forfeit every touch in it.
         for (chunk in ids.chunked(FILES_USAGE_MAX_IDS)) {
             val result = safeApiCall { filesApi.markFilesUsed(chunk) }
-            if (result is Result.Error) return result
+            if (result is Result.Error) {
+                if (probing && (result.exception as? ApiException)?.statusCode == HTTP_NOT_FOUND) {
+                    usageHoldProbeVerdict = false
+                    // The touch has always been best-effort with send-time marking behind it, so a
+                    // server that simply lacks the route is not a failure to report upward.
+                    return Result.Success(Unit)
+                }
+                return result
+            }
         }
+        if (probing) usageHoldProbeVerdict = true
         return Result.Success(Unit)
+    }
+
+    override fun clear() {
+        usageHoldProbeVerdict = null
     }
 
     private companion object {
         const val POLL_INTERVAL_MS = 2_000L
         const val POLL_MAX_ATTEMPTS = 30
+        const val HTTP_NOT_FOUND = 404
     }
 }
