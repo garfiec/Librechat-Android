@@ -54,8 +54,10 @@ data class ChatRequest(
     /**
      * Verbatim excerpts the user referenced via "Add to chat" (v0.8.7, upstream #13868). The
      * server merges them into the user message as Markdown blockquotes for the model and
-     * persists them on the message, echoing `message.quotes` for display. Omitted (null) on
-     * regenerate/continue/edit — those replay a prior turn — and never sent to assistants
+     * persists them on the message, echoing `message.quotes` for display. Fresh sends drain
+     * the staged pending quotes; regenerate and edit-assistant replay the parent user
+     * message's persisted quotes (web `overrideQuotes` parity — the server rebuilds the user
+     * message from this field); continue and edit-user send none. Never sent to assistants
      * endpoints, which bypass the BaseClient merge.
      */
     val quotes: List<String>? = null,

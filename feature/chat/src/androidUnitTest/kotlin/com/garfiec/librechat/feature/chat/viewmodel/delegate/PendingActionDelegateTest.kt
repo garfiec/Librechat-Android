@@ -129,6 +129,22 @@ class PendingActionDelegateTest {
     }
 
     @Test
+    fun `a null epoch report does not wipe the recorded epoch`() = runTest(UnconfinedTestDispatcher()) {
+        // The server's own SSE `created` frame follows the start POST's synthetic Created on
+        // every fresh send and carries no epoch — it must not un-fence the live run.
+        val (delegate, _) = delegateWith(this)
+        val request = slot<ChatResumeRequest>()
+        coEvery { chatRepository.resumeChat(capture(request)) } returns Result.Success(ChatResumeResponse())
+
+        delegate.onGenerationEpoch(1755400000123L)
+        delegate.onGenerationEpoch(null)
+        delegate.onPendingAction(toolApproval())
+        delegate.submitAnswer("yes")
+
+        assertThat(request.captured.generationCreatedAt).isEqualTo(1755400000123L)
+    }
+
+    @Test
     fun `an unknown generation epoch sends the resume unfenced`() = runTest(UnconfinedTestDispatcher()) {
         // Older servers report no epoch; omitting the field stays legal and must not block the
         // resume. clear() also resets it so a dead run's epoch cannot fence the next one.

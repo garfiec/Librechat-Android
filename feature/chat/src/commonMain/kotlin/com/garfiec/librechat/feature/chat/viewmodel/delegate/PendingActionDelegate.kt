@@ -171,9 +171,14 @@ class PendingActionDelegate(
      * `createdAt` on the reconnect paths — the same two places web feeds its
      * `activeGenerationCreatedAtByConvoId` atom. Null (older server / SSE-only created frame)
      * sends the resume unfenced, which stays legal.
+     *
+     * Null means "this source carries no epoch", never "forget it": on every fresh send the
+     * start POST's synthetic Created (epoch present) is followed by the server's own SSE
+     * `created` frame (no epoch), and letting that second report null the field would send
+     * every live-run resume unfenced. [clear]/[expireNow] are the resets.
      */
     fun onGenerationEpoch(createdAt: Long?) {
-        generationCreatedAt = createdAt
+        if (createdAt != null) generationCreatedAt = createdAt
     }
 
     private fun persistPin(conversationId: String? = handle.state.conversationId) {

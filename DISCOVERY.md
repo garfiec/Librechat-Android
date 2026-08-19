@@ -706,7 +706,8 @@ Quotes (v0.8.7 feature, capture newly built):
   merges the excerpts into the user message as Markdown blockquotes and persists/echoes
   `message.quotes`. Mobile now CAPTURES quotes too — Android selection-toolbar "Add to chat" →
   pending chips → drained onto the next fresh send (or composer-origin queue item). Composer steers
-  leave them staged (server steers never carry quotes); regenerate/continue/edit send none;
+  leave them staged (server steers never carry quotes); regenerate/edit-assistant replay the parent
+  user message's persisted quotes (web `overrideQuotes` parity); continue/edit-user send none;
   assistants endpoints are skipped. Gated `isCompatibleOrNewer(v, "0.8.7")`, fail-closed. (BUILT)
 
 Agent editor:
