@@ -214,6 +214,24 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
   added and wired into `NavHostViewModel`'s account-transition collector beside the existing
   `toolFavoritesRepository.clear()`, since a probe verdict describes one server and these
   repositories are app-wide singletons.
+- **Device verification of the three-state gates (2026-08-18).** `core/data/src/androidInstrumentedTest/
+  .../GateProbeDeviceTest.kt` exercises both probe-and-latch gates against a REAL LibreChat over real
+  HTTP, on a device, once per server identity. It exists because the unit tests can only pin the
+  decision table: they cannot show that a call is actually issued or actually withheld, and the first
+  version of this very test passed while its `POST /api/files/usage` never left the device (the test
+  client lacked the production `contentType` default, so the request died inside ContentNegotiation).
+  It now counts RESPONSES rather than requests, and installs the same `HttpResponseValidator`
+  contract as `LibreChatHttpClient` - without that a 404 comes back as an ordinary response, the
+  repository reads it as a successful touch, and the latch can never fire.
+  Rig: the docker image on `10.0.2.2:3080` with a small logging proxy in front, which (a) records
+  every request so "no call was made" is observed rather than inferred and (b) answers 404 for just
+  the two gated routes on demand, standing in for a server that predates them. Server identity is
+  synthesised with the `BUILD_COMMIT` env var (`packages/api/src/app/build.ts` prefers it over
+  `git rev-parse HEAD`), so one running server can impersonate every population the gate must tell
+  apart - verified on device: the v0.8.8-rc1 tag resolves `RC/0.8.8-rc1`, the v0.8.7 tag resolves
+  `OFFICIAL/0.8.7`, and a commit absent from `BackendCommitMap` resolves to nothing at all. The class
+  self-skips when the rig is absent and detects which of the two rigs is up, so neither half can fail
+  for want of a fixture.
 - **Prerelease parse fix:** `BackendVersion.parse()` now strips semver prerelease (`-rc1`) and
   build-metadata (`+build`) suffixes before splitting. This affects ALL existing gates: previously a
   prerelease server footer (e.g. `0.8.6-rc1`) parsed as `0.8.0`, which would have **falsely failed**
