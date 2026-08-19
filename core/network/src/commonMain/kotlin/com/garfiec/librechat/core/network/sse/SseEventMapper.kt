@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.PendingSteer
+import com.garfiec.librechat.core.model.StreamErrorCodes
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.SubagentPhase
 import com.garfiec.librechat.core.model.content.MessageContentPart
@@ -154,7 +155,10 @@ class SseEventMapper(private val json: Json) {
         // 3. Check for "error" field (may be a string or an object)
         val errorText = root["error"]?.toStringValue()
         if (errorText != null) {
-            return StreamEvent.Error(message = errorText)
+            return StreamEvent.Error(
+                message = errorText,
+                code = if (errorText == GENERATION_RECONCILE_MESSAGE) StreamErrorCodes.GENERATION_RECONCILE else null,
+            )
         }
 
         // 4. Check for LangGraph nested event (has "event" key)
@@ -749,5 +753,28 @@ class SseEventMapper(private val json: Json) {
                 }
             }
         }
+    }
+
+    companion object {
+        /**
+         * MIRRORED SERVER CONSTANT — registered in `scripts/mirrors.json` as
+         * `generation-reconcile-message`. Verbatim from `api/server/routes/agents/index.js`'s
+         * `onDone`. Re-verify on every upstream bump; see the failure mode below.
+         *
+         * A run that was replaced or terminalized between the status snapshot and the attach ends
+         * with a `{final:true, reconcile:true, …}` frame, which the route **rewrites to an
+         * ordinary `event: error`** for protocol-v1 clients like this one. `final: true` there is
+         * a `writeEvent` *option* consumed by telemetry, never a body field, so the payload
+         * carries only this sentence and `generationProtocolVersion` — and the genuine-error frame
+         * on the same route carries `generationProtocolVersion` too. The literal message is
+         * therefore the ONLY thing on the wire that separates a benign reconciliation, whose
+         * assistant reply is already saved server-side, from a real stream failure.
+         *
+         * Failure mode if upstream rewords it: the reply still loads (the reload runs on every
+         * terminal stream error), but it loads under an alarming error banner. Silent — nothing
+         * fails to decode.
+         */
+        const val GENERATION_RECONCILE_MESSAGE =
+            "Generation state changed; reconnect to load the saved response."
     }
 }

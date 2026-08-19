@@ -1,9 +1,11 @@
 package com.garfiec.librechat.core.data.repository
 
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.safeApiCall
 import com.garfiec.librechat.core.model.FileReference
+import com.garfiec.librechat.core.model.error.ServerErrorCode
 import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.request.AddedConversation
@@ -19,6 +21,7 @@ import com.garfiec.librechat.core.model.response.SteerResponse
 import com.garfiec.librechat.core.network.api.ChatApi
 import com.garfiec.librechat.core.network.sse.SseClient
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -81,7 +84,22 @@ class ChatRepositoryImpl(
             ephemeralAgent = ephemeralAgent,
             isTemporary = isTemporary,
         )
-        val startResponse = chatApi.startChat(endpoint, ChatPayloadBuilder.toBody(json, request, modelParams))
+        // A send whose parent response is still being written now 409s ("Cannot submit a
+        // follow-up while the selected parent response is still being saved"), which an
+        // immediate send after an abort or a stream end reaches legitimately. It clears in
+        // milliseconds, so retrying is the correct handling; surfacing it would tell the user
+        // their message failed when nothing is wrong.
+        //
+        // Retried ONLY when the 409 carries no `code`. That is the discriminator, not a message
+        // match: every other 409 on this route is coded (RESOURCE_RECOVERY_REQUIRED needs the
+        // user to reattach files, RUN_REPLACED is a deduplication, GENERATION_PREDECESSOR_MISMATCH
+        // and RECOVERY_PAYLOAD_MISMATCH answer request fields mobile does not send), and retrying
+        // any of them would either loop or paper over something the user must act on.
+        val startResponse = retryWhileThrowing(
+            retryable = { it.statusCode == HTTP_CONFLICT && it.errorCode == null },
+        ) {
+            chatApi.startChat(endpoint, ChatPayloadBuilder.toBody(json, request, modelParams))
+        }
         val streamId = startResponse.conversationId
 
         // Emit a Created event from the POST response so the ViewModel
@@ -102,7 +120,14 @@ class ChatRepositoryImpl(
         isTemporary: Boolean,
         claimSteers: (List<PendingSteer>) -> Unit,
     ): Result<ChatAbortResponse> =
-        when (val result = safeApiCall { chatApi.abortChat(streamId, isTemporary) }) {
+        when (
+            val result = retryWhile(
+                // The run acknowledged the stop but has not reached a point where it can be
+                // stopped. The server explicitly asks to be asked again (`Retry-After: 1`), so
+                // reporting a stop failure here would be a lie the user has to act on.
+                retryable = { it.statusCode == HTTP_CONFLICT && it.errorCode == ServerErrorCode.RUN_STILL_ACTIVE },
+            ) { safeApiCall { chatApi.abortChat(streamId, isTemporary) } }
+        ) {
             // Claimed here, not at the call site: the server dropped its copy writing this ack.
             is Result.Success -> {
                 claimSteers(result.data.pendingSteers)
@@ -130,7 +155,21 @@ class ChatRepositoryImpl(
     ): ChatStatusResponse {
         // Throws rather than returning a Result, so it never gets safeApiCall's dispatcher hop;
         // take it explicitly (#326).
-        val status = withContext(dispatcher) { chatApi.getChatStatus(conversationId) }
+        //
+        // 503 SERVER_NOT_READY is retried here rather than at the three call sites, because all
+        // three read this answer as "the run is gone" and act on it — one ends the stream as
+        // ResumeFailed, one silently declines to resume, one abandons a network recovery. The
+        // status route answers it while the generation epoch is still settling or while the
+        // terminal owner is mid-persist, both of which resolve within about a second, so letting
+        // it escape means giving up on a run that is still alive.
+        val status = withContext(dispatcher) {
+            retryWhileThrowing(
+                retryable = {
+                    it.statusCode == HTTP_SERVICE_UNAVAILABLE &&
+                        it.errorCode == ServerErrorCode.SERVER_NOT_READY
+                },
+            ) { chatApi.getChatStatus(conversationId) }
+        }
         // Before returning, so no staleness guard at the call site can sit between the read and
         // the claim. The server already deleted its copy answering this request.
         claimSteers(status.unrecoveredSteers)
@@ -141,4 +180,70 @@ class ChatRepositoryImpl(
         val streamUrl = "api/agents/chat/stream/$conversationId"
         emitAll(sseClient.connect(streamUrl, resume = true, connectivityFlow = connectivityObserver.isConnected))
     }.flowOn(dispatcher)
+
+    /**
+     * Runs [block] again while it fails with a transient, server-nominated retryable error.
+     *
+     * The generation routes gained several outcomes that are explicitly "ask me again in a
+     * moment" — 409 `RUN_STILL_ACTIVE` on abort, 503 `SERVER_NOT_READY` on status — each carrying
+     * `Retry-After: 1`. They are races inside the server's own generation fencing, not failures,
+     * and treating them as failures abandons a run that is still alive.
+     *
+     * Bounded at [MAX_TRANSIENT_RETRIES] extra attempts, and the wait honours the server's
+     * `Retry-After` when it sent one, clamped so a hostile or confused value cannot park the
+     * caller. Exhausting the budget returns the last error, so every existing failure path stays
+     * reachable — this only changes how quickly it is reached.
+     */
+    private suspend fun <T> retryWhile(
+        retryable: (ApiException) -> Boolean,
+        block: suspend () -> Result<T>,
+    ): Result<T> {
+        var attempt = 0
+        while (true) {
+            val result = block()
+            val exception = (result as? Result.Error)?.exception as? ApiException
+            if (exception == null || !retryable(exception) || attempt >= MAX_TRANSIENT_RETRIES) {
+                return result
+            }
+            attempt++
+            delay(retryDelayMillis(exception))
+        }
+    }
+
+    /** [retryWhile] for the one call that reports failure by throwing rather than by `Result`. */
+    private suspend fun <T> retryWhileThrowing(
+        retryable: (ApiException) -> Boolean,
+        block: suspend () -> T,
+    ): T {
+        var attempt = 0
+        while (true) {
+            try {
+                return block()
+            } catch (e: ApiException) {
+                if (!retryable(e) || attempt >= MAX_TRANSIENT_RETRIES) throw e
+                attempt++
+                delay(retryDelayMillis(e))
+            }
+        }
+    }
+
+    private fun retryDelayMillis(exception: ApiException): Long =
+        (exception.retryAfterSeconds?.times(1000) ?: DEFAULT_RETRY_DELAY_MS)
+            .coerceIn(DEFAULT_RETRY_DELAY_MS, MAX_RETRY_DELAY_MS)
+
+    private val ApiException.errorCode: String? get() = ServerErrorCode.from(body)
+
+    private companion object {
+        const val HTTP_CONFLICT = 409
+        const val HTTP_SERVICE_UNAVAILABLE = 503
+
+        /**
+         * Extra attempts after the first. Three covers the status route's own three-read epoch
+         * verification with room to spare; more would keep a user staring at a spinner for a
+         * server that is not going to settle.
+         */
+        const val MAX_TRANSIENT_RETRIES = 3
+        const val DEFAULT_RETRY_DELAY_MS = 500L
+        const val MAX_RETRY_DELAY_MS = 2_000L
+    }
 }

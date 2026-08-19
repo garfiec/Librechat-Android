@@ -143,6 +143,7 @@ sealed interface StreamEvent {
 
     data class Error(
         val message: String,
+        /** See [StreamErrorCodes]. Null for an ordinary, untyped stream error. */
         val code: String? = null,
         val isNetworkError: Boolean = false,
     ) : StreamEvent
@@ -235,4 +236,21 @@ sealed interface StreamEvent {
         /** The phase's content pre-mapped to a flat event, or null for lifecycle phases. */
         val inner: StreamEvent? = null,
     ) : StreamEvent
+}
+
+/**
+ * Codes this client assigns to a [StreamEvent.Error] for terminal conditions the wire cannot type.
+ *
+ * These are not server codes. The generation routes carry typed codes on their HTTP responses but
+ * not on their SSE error frames, so a condition that must be told apart from a genuine failure is
+ * recognized at the mapper and named here.
+ */
+object StreamErrorCodes {
+    /**
+     * The turn ended in a server-side reconciliation rather than a failure: the generation was
+     * replaced or had already terminalized, the durable assistant reply exists, and a refetch
+     * loads it. Recognized in `SseEventMapper` — see `GENERATION_RECONCILE_MESSAGE` there for why
+     * the message text is the only signal available to a protocol-v1 client.
+     */
+    const val GENERATION_RECONCILE = "generation_reconcile"
 }

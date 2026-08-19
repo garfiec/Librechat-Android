@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.toSafeError
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Attachment
+import com.garfiec.librechat.core.model.StreamErrorCodes
 import com.garfiec.librechat.core.model.StreamEvent
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.error.parseUserKeyError
@@ -135,6 +136,25 @@ class StreamingManagerDelegate(
          * as [AbortFallback].
          */
         data object ResumeFailed : StreamEndReason
+
+        /**
+         * The server reconciled this generation away — it was replaced, or it terminalized
+         * between the status snapshot and our attach — and told us so through a frame it
+         * rewrites to `event: error` for protocol-v1 clients.
+         *
+         * The distinction from [StreamError] is entirely about what the user is told. The
+         * assistant's reply is **already durable server-side**; the only thing missing is the
+         * final frame that would have carried it. So this reloads, exactly as an error does, but
+         * paints no error banner — there is nothing wrong for the user to act on, and the
+         * server's own wording ("reconnect to load the saved response") describes work this
+         * client is about to do rather than a failure.
+         *
+         * The queue is still held rather than drained. `reconcileReason` is a v2-only field, so a
+         * v1 client cannot tell "your turn finished, here it is" from "your turn was replaced by
+         * a newer one" — and auto-firing the next queued message into the second case sends it
+         * against a parent that is not what the user saw.
+         */
+        data object Reconcile : StreamEndReason
     }
 
     /**
@@ -338,7 +358,13 @@ class StreamingManagerDelegate(
                 handleFinal(event)
             }
             is StreamEvent.Error -> {
-                endStream(StreamEndReason.StreamError(event.message, event.isNetworkError))
+                // A reconciliation is not a failure — the saved reply is sitting on the server
+                // and the reload below fetches it — so it must not reach the user as an error.
+                if (event.code == StreamErrorCodes.GENERATION_RECONCILE) {
+                    endStream(StreamEndReason.Reconcile)
+                } else {
+                    endStream(StreamEndReason.StreamError(event.message, event.isNetworkError))
+                }
             }
             is StreamEvent.Retrying -> {
                 handle.update {
@@ -867,6 +893,27 @@ class StreamingManagerDelegate(
                 queueDelegate.pause()
                 // NO reload — see the reason's KDoc: a refetch here races the server's
                 // post-frame persistence and can lose both halves of the turn.
+            }
+            is StreamEndReason.Reconcile -> {
+                streamJob?.cancel()
+                stopStreamingUpdater()
+                // Clear the partial rather than preserving it: unlike the abort paths, the
+                // authoritative reply IS on the server, and the reload below is about to render
+                // it. Keeping the partial would double it — once as stale streaming text, once
+                // as the fetched message.
+                handle.update {
+                    content = content.copy(
+                        isStreaming = false,
+                        streamingContent = "",
+                        retryInfo = null,
+                        activeToolCalls = emptyList(),
+                        streamingAttachments = emptyList(),
+                    )
+                    // Deliberately does NOT set `error`. See StreamEndReason.Reconcile.
+                }
+                comparisonDelegate.endStreaming(clearContent = true)
+                queueDelegate.pause()
+                handle.state.conversationId?.let(reloadConversation)
             }
             is StreamEndReason.ResumeExpired -> {
                 streamJob?.cancel()

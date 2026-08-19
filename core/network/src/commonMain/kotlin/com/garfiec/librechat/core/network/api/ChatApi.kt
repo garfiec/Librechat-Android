@@ -71,17 +71,24 @@ class ChatApi constructor(
      * client is already collecting, so callers must keep that stream open and let the turn
      * finalize through the normal event flow.
      *
-     * A null [streamId] is sent as an empty abort key, which resolves no job server-side and
-     * falls through to the route's user-scoped fallback: it aborts the caller's most recent
-     * active job. That is what makes Stop work before the `created` event has assigned a
-     * conversation id.
+     * A null [streamId] is sent as `conversationId = "new"` — the placeholder that unlocks the
+     * route's user-scoped fallback, which aborts one of the caller's active jobs. That is what
+     * makes Stop work before the `created` event has assigned a conversation id.
+     *
+     * It must NOT be sent as an empty `abortKey`, which is what this used to do. The route now
+     * validates targets before resolving them and rejects any present-but-zero-length value with
+     * 400 `INVALID_ABORT_TARGET`, and the fallback is gated on the literal `"new"` appearing in
+     * `streamId`/`conversationId` — so the old spelling both fails validation and, were it to
+     * pass, would resolve nothing. `"new"` is equally correct against older servers: they skipped
+     * it when choosing a job id and then took the same fallback unconditionally.
      */
     suspend fun abortChat(streamId: String?, isTemporary: Boolean): ChatAbortResponse =
         client.post {
             url { path("api/agents/chat/abort") }
             setBody(
                 ChatAbortRequest(
-                    abortKey = streamId.orEmpty(),
+                    abortKey = streamId?.takeIf { it.isNotEmpty() },
+                    conversationId = streamId?.takeIf { it.isNotEmpty() } ?: NEW_CONVERSATION_PLACEHOLDER,
                     endpoint = "agents",
                     isTemporary = isTemporary,
                 ),
@@ -134,8 +141,26 @@ class ChatApi constructor(
             setBody(request)
         }.body()
 
+    /**
+     * GET /api/agents/chat/status/:conversationId — is a run still alive for this conversation?
+     *
+     * Can answer **503 `SERVER_NOT_READY` with `Retry-After: 1`**, and does so regardless of the
+     * negotiated generation protocol. That is a transient race — the route re-reads the job up to
+     * three times to check the resume snapshot belongs to the same generation epoch, and reports
+     * not-ready while that has not settled or while the terminal owner is still persisting. It is
+     * NOT evidence the run ended, so a caller must retry it a bounded number of times before
+     * concluding anything; `ChatRepository.checkStreamStatus` owns that loop.
+     */
     suspend fun getChatStatus(conversationId: String): ChatStatusResponse =
         client.get {
             url { path("api/agents/chat/status/$conversationId") }
         }.body()
+
+    companion object {
+        /**
+         * The literal the generation routes accept in place of a conversation id that does not
+         * exist yet. Not a sentinel this app invented — the server matches on this exact string.
+         */
+        const val NEW_CONVERSATION_PLACEHOLDER = "new"
+    }
 }
