@@ -136,6 +136,15 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
     (it only narrows the existing per-agent EDIT probe) even though upstream documents fail-open.
   The one item that WOULD have needed a gate — `POST /api/agents/chat/steer/arm`, a genuinely new route —
   is in the deferred P2 set and was not built.
+- **v0.8.8-rc1 sync (tag v0.8.8-rc1, 2026-08-14):** the four rc-pending `supportsFeature(...,
+  landedDate)` gates (context-projection suppression, mid-run steering, tool-favorites probe,
+  queued-attachment TTL touch) were simplified to plain version compares now that the tag ships —
+  their catalog rows above carry the live form. THREE new gates added (rows above): the
+  shell-script MIME aliases and the `.potx` picker offer at `"0.8.8-rc1"`, and the quote-capture
+  affordance at `"0.8.7"` (its landing tag — the feature predates this sync; only the capture UI is
+  new). Everything else this sync built is self-proving on a received payload (`activity_end_index`,
+  the `{value, annotations}` text form, `PendingAction.expiresAt`, the batched-ask composer flow) or
+  an additive request field older servers ignore (`generationCreatedAt` on resume).
 - **Why steering is gated and HITL pauses are not** — the two 0.8.8 rows look contradictory and are not. A
   pause is *received*: it can only be in state because the server pushed it, which is itself proof of the
   feature, and hiding the card would strand the user on a live cursor that never advances. Steering must be

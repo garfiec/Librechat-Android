@@ -49,3 +49,11 @@ Maps web client component directories to mobile Compose feature modules.
 | react-router-dom | Compose Navigation |
 | React.memo / useMemo | remember / derivedStateOf |
 | useCallback | rememberUpdatedState / LaunchedEffect |
+
+## Deliberate UI Divergences (do NOT "fix" toward upstream)
+
+| Upstream behavior | Mobile divergence | Rationale |
+|-------------------|-------------------|-----------|
+| App-bar model-selector button (`ModelSelectorButton` in the chat header) | Removed — model selection lives in the composer's selector sheet | Mobile chrome budget; long-standing, re-adding it in a sync is a regression |
+| Streaming word fade-in (ae24461146f4/8f1f43f33e73, default ON; cursor CSS deleted) | Streaming cursor KEPT (`StreamingCursor.kt` inline cursor); fade-in NOT adopted | The markdown renderer has no efficient per-word fade path — it would re-render the whole tail per word, the per-flush cost class the cursor work eliminated; cursor is device-approved |
+| Message-row layout reorg (7694428c / d920328b: unified MessageRow, right-aligned user bubbles) | Not ported wholesale; only the in-flight steer chips' right alignment was taken | Standing rule: web layout reorgs are out of sync scope |
