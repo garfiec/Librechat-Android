@@ -47,6 +47,11 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 internal fun McpServerDialog(
     editingServer: McpServer?,
+    /**
+     * The last save was refused with `OAUTH_SECRET_REENTRY_REQUIRED`, so the client secret must
+     * be supplied again before this server can be written.
+     */
+    oauthSecretReentryRequired: Boolean,
     onDismiss: () -> Unit,
     onSave:
     (name: String, description: String?, url: String, type: McpServerType, apiKey: McpApiKeyConfig?, oauth: McpOAuthConfig?) -> Unit,
@@ -238,6 +243,17 @@ internal fun McpServerDialog(
                             label = { Text(stringResource(Res.string.mcp_oauth_client_secret)) },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
+                            // The server refused the save because the stored secret was bound to
+                            // the endpoints it was issued for and one of them changed. Mark THIS
+                            // field, not the dialog: the endpoint edit is what the user wants and
+                            // is correct; the secret is the one thing that has to be supplied
+                            // again, and it is masked, so nothing about it looks wrong.
+                            isError = oauthSecretReentryRequired,
+                            supportingText = if (oauthSecretReentryRequired) {
+                                { Text(stringResource(Res.string.mcp_oauth_secret_reentry_required)) }
+                            } else {
+                                null
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(modifier = Modifier.height(8.dp))

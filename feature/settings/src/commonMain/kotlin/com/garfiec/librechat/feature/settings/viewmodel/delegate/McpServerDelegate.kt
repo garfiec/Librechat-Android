@@ -1,8 +1,10 @@
 package com.garfiec.librechat.feature.settings.viewmodel.delegate
 
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.McpRepository
+import com.garfiec.librechat.core.model.error.ServerErrorCode
 import com.garfiec.librechat.core.model.mcp.McpApiKeyConfig
 import com.garfiec.librechat.core.model.mcp.McpOAuthConfig
 import com.garfiec.librechat.core.model.mcp.McpServer
@@ -65,6 +67,7 @@ class McpServerDelegate(
         oauth: McpOAuthConfig? = null,
     ) {
         stateHandle.scope.launch {
+            stateHandle.update { copy(mcpOAuthSecretReentryRequired = false) }
             val result = mcpRepository.createServer(
                 name = name,
                 description = description,
@@ -79,7 +82,26 @@ class McpServerDelegate(
                     loadMcpServers()
                 }
                 is Result.Error -> {
-                    stateHandle.update { copy(error = result.message ?: "Failed to save MCP server") }
+                    // Second of the two MCP save paths (the other is McpViewModel, behind the
+                    // standalone MCP screen). Both post the same body, so both can be refused for
+                    // the same reason: the stored client secret is bound to the OAuth endpoints
+                    // it was issued for, and editing either invalidates it. Retrying the same
+                    // body never succeeds, so this has to ask for the secret rather than report a
+                    // failure — and it has to do so here as well, or the fix works on one screen.
+                    val exception = result.exception as? ApiException
+                    val reentry = exception?.statusCode == HTTP_BAD_REQUEST &&
+                        ServerErrorCode.from(exception.body) == ServerErrorCode.OAUTH_SECRET_REENTRY_REQUIRED
+                    stateHandle.update {
+                        copy(
+                            mcpOAuthSecretReentryRequired = reentry,
+                            error = if (reentry) {
+                                "This server's OAuth endpoints changed, so the saved client " +
+                                    "secret no longer applies. Enter the client secret again to save."
+                            } else {
+                                result.message ?: "Failed to save MCP server"
+                            },
+                        )
+                    }
                 }
                 is Result.Loading -> { /* no-op */ }
             }
@@ -138,3 +160,6 @@ class McpServerDelegate(
         stateHandle.update { copy(mcpReinitializeMessage = null) }
     }
 }
+
+/** The MCP write routes report a rejected OAuth secret binding with 400. */
+private const val HTTP_BAD_REQUEST = 400

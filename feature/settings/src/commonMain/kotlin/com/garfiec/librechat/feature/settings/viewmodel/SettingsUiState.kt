@@ -229,6 +229,12 @@ data class SettingsUiState(
      * that may no longer re-publish may still revoke.
      */
     val sharedLinksUpdateEnabled: Boolean = true,
+    /**
+     * The last MCP server save was refused with `OAUTH_SECRET_REENTRY_REQUIRED` — the stored
+     * client secret was bound to the OAuth endpoints it was issued for and one of them changed,
+     * so the write keeps failing until the secret is supplied again.
+     */
+    val mcpOAuthSecretReentryRequired: Boolean = false,
 )
 
 internal fun User.toDisplayData() = UserDisplayData(

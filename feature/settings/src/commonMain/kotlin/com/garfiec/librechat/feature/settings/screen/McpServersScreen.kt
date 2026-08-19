@@ -203,6 +203,7 @@ fun McpServersScreen(
     if (uiState.showServerDialog) {
         McpServerDialog(
             editingServer = uiState.editingServer,
+            oauthSecretReentryRequired = uiState.oauthSecretReentryRequired,
             onDismiss = viewModel::dismissServerDialog,
             onSave = { name, description, url, type, apiKey, oauth ->
                 viewModel.saveServer(name, description, url, type, apiKey, oauth)

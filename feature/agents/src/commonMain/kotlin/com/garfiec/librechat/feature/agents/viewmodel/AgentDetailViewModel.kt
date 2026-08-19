@@ -74,9 +74,16 @@ class AgentDetailViewModel(
             }
             when (result) {
                 is Result.Success -> {
+                    // `isEditable` is the server's own EDIT-scope answer where a newer server
+                    // sends one, and it only ever NARROWS the probe's verdict: an explicit false
+                    // hides Edit, while absence (every older server) leaves the probe in charge.
+                    // Deliberately not the other way round — an absent field must never be read
+                    // as permission, or every agent on a pre-field server grows an Edit button
+                    // that 403s on tap.
+                    val serverSaysEditable = result.data.isEditable
                     _uiState.value = _uiState.value.copy(
                         agent = result.data.toDetailDisplayData(),
-                        canEdit = canEdit,
+                        canEdit = canEdit && serverSaysEditable != false,
                         isLoading = false,
                     )
                 }

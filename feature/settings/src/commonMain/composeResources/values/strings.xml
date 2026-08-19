@@ -491,6 +491,7 @@
     <!-- Shared links -->
     <string name="no_shared_links">No shared links</string>
     <string name="no_shared_links_desc">Share a conversation to see it here</string>
+    <string name="mcp_oauth_secret_reentry_required">The OAuth endpoints changed, so the saved secret no longer applies. Enter it again.</string>
     <string name="cd_update_shared_link">Update shared link</string>
     <string name="dialog_title_update_shared_link">Update Shared Link</string>
     <string name="dialog_update_shared_link_message">This republishes "%1$s" with the conversation as it is now. The link stays the same, so anyone who already has it will see the updated content.</string>
