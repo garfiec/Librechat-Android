@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.getOrNull
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.request.DeleteFileEntry
@@ -126,6 +127,7 @@ data class FilesUiState(
 
 class FilesViewModel(
     private val fileRepository: FileRepository,
+    private val configRepository: ConfigRepository,
     private val fileReader: FileReader,
     private val serverDataStore: ServerDataStore,
     private val settingsDataStore: SettingsDataStore,
@@ -220,7 +222,9 @@ class FilesViewModel(
         viewModelScope.launch {
             // Best-effort: a config that fails to load just leaves the picker unrestricted.
             val config = fileRepository.getFileConfig().getOrNull() ?: return@launch
-            _pickerMimeTypes.value = config.pickerMimeTypes()
+            _pickerMimeTypes.value = config.pickerMimeTypes(
+                serverVersion = configRepository.detectedBackendVersion.value,
+            )
         }
         loadFiles()
     }

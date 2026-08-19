@@ -334,6 +334,7 @@ private fun guessMimeType(filename: String): String {
         "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         "ppt" -> "application/vnd.ms-powerpoint"
         "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        "potx" -> "application/vnd.openxmlformats-officedocument.presentationml.template"
         "mp3" -> "audio/mpeg"
         "wav" -> "audio/wav"
         "mp4" -> "video/mp4"

@@ -204,10 +204,12 @@ actual fun ChatScreen(
         uiState.fileUploadConfig,
         uiState.selectedEndpoint,
         uiState.isFileContextAvailable,
+        uiState.gates.backendVersion,
     ) {
         uiState.fileUploadConfig?.pickerMimeTypes(
             endpoint = uiState.selectedEndpoint,
             includeTextRoute = uiState.isFileContextAvailable,
+            serverVersion = uiState.gates.backendVersion,
         ).orEmpty()
     }
     val attachmentActions = rememberChatAttachmentActions(

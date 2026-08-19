@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.files.viewmodel
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
+import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.feature.files.platform.FileReader
@@ -29,6 +30,9 @@ class FilesViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private val fileRepository = mockk<FileRepository>(relaxed = true)
+    private val configRepository = mockk<ConfigRepository>(relaxed = true) {
+        every { detectedBackendVersion } returns MutableStateFlow<String?>(null)
+    }
     private val fileReader = mockk<FileReader>(relaxed = true)
     private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
     private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
@@ -89,6 +93,7 @@ class FilesViewModelTest {
 
     private fun createViewModel() = FilesViewModel(
         fileRepository = fileRepository,
+        configRepository = configRepository,
         fileReader = fileReader,
         serverDataStore = serverDataStore,
         settingsDataStore = settingsDataStore,

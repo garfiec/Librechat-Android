@@ -111,4 +111,27 @@ class PickerMimeTypesTest {
     fun malformedPatternIsUnrestricted() {
         assertEquals(emptyList(), config("^image/(png$").pickerMimeTypes())
     }
+
+    // ---- .potx (v0.8.8-rc1, upstream 6c46fd12) ----
+
+    private val POTX = "application/vnd.openxmlformats-officedocument.presentationml.template"
+
+    @Test
+    fun potxIsOfferedOnAnRc1Server() {
+        val types = config("presentationml").pickerMimeTypes(serverVersion = "0.8.8-rc1")
+        assertContains(types, POTX)
+    }
+
+    @Test
+    fun potxIsWithheldOnPreRc1AndUnknownServers() {
+        // A pre-rc1 default allowlist rejects the upload, so the translated filter must not
+        // offer a file the server will bounce.
+        assertFalse(POTX in config("presentationml").pickerMimeTypes(serverVersion = "0.8.7"))
+        assertFalse(POTX in config("presentationml").pickerMimeTypes())
+        // The sibling pptx type is untouched by the gate.
+        assertContains(
+            config("presentationml").pickerMimeTypes(serverVersion = "0.8.7"),
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+    }
 }

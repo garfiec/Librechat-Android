@@ -29,6 +29,9 @@ object CommonMimeTypes {
         "xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "ppt" to "application/vnd.ms-powerpoint",
         "pptx" to "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        // Resolution only, deliberately ungated: a picked .potx must carry its real type on every
+        // server (the offer is what's version-gated — see PickerMimeTypes).
+        "potx" to "application/vnd.openxmlformats-officedocument.presentationml.template",
         "txt" to "text/plain",
         "csv" to "text/csv",
         "md" to "text/markdown",
