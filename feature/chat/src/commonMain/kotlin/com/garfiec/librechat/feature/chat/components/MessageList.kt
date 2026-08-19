@@ -157,8 +157,13 @@ fun MessageList(
     // Attribution is by the pause's own tool_call_id where the server sends one, so a sibling ask
     // call that is genuinely still running keeps its card instead of being hidden by association.
     val pausedAskToolCallId = pendingAction?.payload?.toolCallId
-    val renderedToolCalls = remember(activeToolCalls, pausedAskToolCallId) {
-        activeToolCalls.withoutUnansweredQuestions(pausedAskToolCallId)
+    // Fallback attribution for payloads without a tool_call_id: the pause's own question text
+    // (a batched pause keeps `question` populated with its first item as a display fallback).
+    val pausedAskQuestion = pendingAction?.payload?.let { payload ->
+        payload.question?.question ?: payload.questions?.firstOrNull()?.question
+    }?.takeIf { it.isNotBlank() }
+    val renderedToolCalls = remember(activeToolCalls, pausedAskToolCallId, pausedAskQuestion) {
+        activeToolCalls.withoutUnansweredQuestions(pausedAskToolCallId, pausedAskQuestion)
     }
     val streamingToolCallCount = if (isStreaming) renderedToolCalls.size else 0
     val totalItemCount = displayMessages.size + streamingToolCallCount + if (isStreaming) 1 else 0

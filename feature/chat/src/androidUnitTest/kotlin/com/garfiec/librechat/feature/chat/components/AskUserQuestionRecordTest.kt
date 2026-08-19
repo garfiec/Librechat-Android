@@ -140,6 +140,44 @@ class AskUserQuestionRecordTest {
         assertThat(calls.withoutUnansweredQuestions().map { it.id }).containsExactly("t1")
     }
 
+    /**
+     * agents SDK <= 3.3.8 omits the pause's `tool_call_id`, but there is still exactly ONE live
+     * pause — dropping every unanswered ask collapsed two parallel asks into one card.
+     */
+    @Test
+    fun `an unattributed pause suppresses only the ask it poses`() {
+        val calls = listOf(
+            ActiveToolCall(id = "t1", name = "ask_user_question", input = """{"question":"Which db?"}"""),
+            ActiveToolCall(id = "t2", name = "ask_user_question", input = """{"question":"Which region?"}"""),
+        )
+
+        val rendered = calls.withoutUnansweredQuestions(pausedQuestion = "Which region?")
+
+        assertThat(rendered.map { it.id }).containsExactly("t1")
+    }
+
+    @Test
+    fun `an unattributed pause with no question match suppresses the first ask only`() {
+        val calls = listOf(
+            ActiveToolCall(id = "t1", name = "ask_user_question", input = """{"question":"A?"}"""),
+            ActiveToolCall(id = "t2", name = "ask_user_question", input = """{"question":"B?"}"""),
+        )
+
+        assertThat(calls.withoutUnansweredQuestions().map { it.id }).containsExactly("t2")
+    }
+
+    @Test
+    fun `an attributed pause never hides the sibling ask`() {
+        val calls = listOf(
+            ActiveToolCall(id = "t1", name = "ask_user_question", input = """{"question":"A?"}"""),
+            ActiveToolCall(id = "t2", name = "ask_user_question", input = """{"question":"B?"}"""),
+        )
+
+        val rendered = calls.withoutUnansweredQuestions(pausedToolCallId = "t2")
+
+        assertThat(rendered.map { it.id }).containsExactly("t1")
+    }
+
     @Test
     fun `an answered question is rendered as its record`() {
         val calls = listOf(

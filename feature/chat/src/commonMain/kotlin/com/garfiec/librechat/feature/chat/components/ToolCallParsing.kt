@@ -459,15 +459,30 @@ internal fun isAskUserQuestionToolCall(toolNameLower: String): Boolean =
  * [pausedToolCallId] is the pause payload's own `tool_call_id`, present from
  * `@librechat/agents` > 3.3.8. When the server names the call, only that call is dropped — a model
  * that emits two ask calls in one turn leaves the other genuinely in flight, and hiding it too
- * would show the user nothing for work that is running. When the field is absent (older server)
- * this falls back to dropping every unanswered ask call, which is what it always did.
+ * would show the user nothing for work that is running.
+ *
+ * When the field is absent (agents SDK <= 3.3.8) there is still exactly ONE live pause, so
+ * exactly one call is suppressed: the one whose args pose [pausedQuestion], falling back to the
+ * first unanswered ask (positional, the order the server paused them in). Dropping *every*
+ * unanswered ask here — the old fallback — collapsed two parallel asks into one card.
  */
 internal fun List<ActiveToolCall>.withoutUnansweredQuestions(
     pausedToolCallId: String? = null,
-): List<ActiveToolCall> = filterNot { call ->
-    isAskUserQuestionToolCall(call.name.lowercase()) &&
-        call.output.isNullOrBlank() &&
-        (pausedToolCallId == null || call.id == pausedToolCallId)
+    pausedQuestion: String? = null,
+): List<ActiveToolCall> {
+    fun isUnansweredAsk(call: ActiveToolCall) =
+        isAskUserQuestionToolCall(call.name.lowercase()) && call.output.isNullOrBlank()
+
+    if (pausedToolCallId != null) {
+        return filterNot { isUnansweredAsk(it) && it.id == pausedToolCallId }
+    }
+    val unanswered = withIndex().filter { isUnansweredAsk(it.value) }
+    if (unanswered.isEmpty()) return this
+    val suppressed = unanswered.firstOrNull { (_, call) ->
+        pausedQuestion != null &&
+            parseAskUserQuestion(call.input)?.question?.takeIf { it.isNotBlank() } == pausedQuestion
+    } ?: unanswered.first()
+    return filterIndexed { index, _ -> index != suppressed.index }
 }
 
 /**
