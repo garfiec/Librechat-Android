@@ -220,4 +220,33 @@ class SearchMatchEnumerationTest {
             assertThat(owners).hasSize(1)
         }
     }
+
+    @Test
+    fun `a late batch label consumed by a finalized phase is not counted`() {
+        // The grouping pass suppresses such a label (it never renders), so counting it would
+        // shift every later occurrence off its on-screen match.
+        val parts = listOf(
+            MessageContentPart(
+                type = ContentType.TOOL_CALL,
+                toolCall = com.garfiec.librechat.core.model.content.AgentToolCall(
+                    id = "t1",
+                    name = "search",
+                    output = "done",
+                ),
+            ),
+            textPart("beta answer"),
+            MessageContentPart(
+                type = ContentType.ACTIVITY_LABEL,
+                activityLabel = "beta batch label",
+            ),
+            MessageContentPart(
+                type = ContentType.ACTIVITY_LABEL,
+                activityLabel = "Phase",
+                activityLabelType = "phase",
+                activityStartIndex = 0,
+                activityEndIndex = 2,
+            ),
+        )
+        assertThat(countMessageOccurrences(message(parts = parts), "beta")).isEqualTo(1)
+    }
 }

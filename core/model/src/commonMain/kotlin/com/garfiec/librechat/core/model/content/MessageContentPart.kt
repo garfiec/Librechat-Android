@@ -47,6 +47,15 @@ data class MessageContentPart(
     @SerialName("activity_label_type") val activityLabelType: String? = null,
     /** Phase labels only: the content index the phase began at. See [activityLabelType]. */
     @SerialName("activity_start_index") val activityStartIndex: Int? = null,
+    /**
+     * Phase labels only: the EXCLUSIVE content index the phase's span ends at (upstream #14768).
+     * The marker itself may trail its span — phases split once their text grows past ~200 chars,
+     * so several phase markers can land in one response, each appended after content the previous
+     * phase does not cover. `[activityStartIndex, activityEndIndex)` is the authoritative span;
+     * the marker's own position says nothing. Absent on pre-rc1 phase labels, whose span ran to
+     * the marker itself.
+     */
+    @SerialName("activity_end_index") val activityEndIndex: Int? = null,
     /** Phase labels only: how many content parts the phase covers from [activityStartIndex]. */
     @SerialName("activity_count") val activityCount: Int? = null,
     /** Phase labels only: the agents that participated in the phase. Telemetry, not rendering. */

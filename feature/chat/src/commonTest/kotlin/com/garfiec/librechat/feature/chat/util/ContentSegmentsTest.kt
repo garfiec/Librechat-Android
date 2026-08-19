@@ -379,12 +379,16 @@ class ContentSegmentsTest {
         text: String?,
         startIndex: Int? = null,
         count: Int? = null,
+        endIndex: Int? = null,
+        pending: Boolean? = null,
     ) = MessageContentPart(
         type = ContentType.ACTIVITY_LABEL,
         activityLabel = text,
         activityLabelType = "phase",
         activityStartIndex = startIndex,
+        activityEndIndex = endIndex,
         activityCount = count,
+        pending = pending,
     )
 
     @Test
@@ -447,5 +451,99 @@ class ContentSegmentsTest {
         // activity_start_index or on the label text being present.
         val segment = onlySegment(listOf(text("answer"), phaseLabel(null)))
         assertEquals(1, segment.groups.size)
+    }
+
+    // ─── exclusive phase end index (v0.8.8-rc1, upstream #14768) ─────
+
+    @Test
+    fun lateBatchLabelConsumedByAFinalizedPhaseIsSuppressed() {
+        // A batch's label can be published AFTER the phase it belongs to closed: it lands at an
+        // index past the phase's exclusive end but before the trailing phase marker. At that
+        // position it describes nothing that precedes it, so rendering it would paint a stray
+        // bare line under the answer (or claim a later batch's tools).
+        val segment = onlySegment(
+            listOf(
+                tool("t1"),
+                tool("t2"),
+                text("Here is the answer."),
+                label("Searched the docs"),
+                phaseLabel("Researching", startIndex = 0, endIndex = 2),
+            ),
+        )
+        val groups = segment.groups
+        assertEquals(2, groups.size, "the consumed label must not render at all")
+        val activity = groups[0] as ContentGroup.Activity
+        assertEquals("", activity.labelText, "the consumed label must not claim the tools either")
+        assertEquals(listOf(0, 1), activity.entries.map { it.index })
+        assertEquals(2, (groups[1] as ContentGroup.Single).entry.index)
+    }
+
+    @Test
+    fun pendingPhaseMarkerConsumesNothing() {
+        // Only a FINALIZED phase owns its span; while the marker is pending the late label must
+        // keep rendering — suppressing on a reservation would hide it forever if the phase fails.
+        val segment = onlySegment(
+            listOf(
+                tool("t1"),
+                text("answer"),
+                label("Searched"),
+                phaseLabel(null, startIndex = 0, endIndex = 1, pending = true),
+            ),
+        )
+        assertTrue(
+            segment.groups.any { g -> g.entries.any { it.index == 2 } },
+            "the batch label must still render while the phase is pending",
+        )
+    }
+
+    @Test
+    fun phaseMarkerWithoutAnEndIndexConsumesNothing() {
+        // Pre-#14768 servers emit phase labels without activity_end_index; every batch label
+        // renders exactly as before — the feature-off shape.
+        val segment = onlySegment(
+            listOf(
+                tool("t1"),
+                text("answer"),
+                label("Searched"),
+                phaseLabel("Researching", startIndex = 0),
+            ),
+        )
+        assertTrue(segment.groups.any { g -> g.entries.any { it.index == 2 } })
+    }
+
+    @Test
+    fun batchLabelInsideThePhaseSpanIsNotConsumed() {
+        // The suppression is scoped by the EXCLUSIVE end index: a label before it belongs to a
+        // batch the phase covers in order, and still claims its block.
+        val segment = onlySegment(
+            listOf(
+                think("planning"),
+                tool("t1"),
+                label("Searched the docs"),
+                text("Here is the answer."),
+                phaseLabel("Researching", startIndex = 0, endIndex = 3),
+            ),
+        )
+        val activity = segment.groups[0] as ContentGroup.Activity
+        assertEquals("Searched the docs", activity.labelText)
+        assertEquals(listOf(0, 1), activity.entries.map { it.index })
+    }
+
+    @Test
+    fun multiplePhaseMarkersLowerTheEarliestEndTogether() {
+        // Phases split after ~200 chars of label text, so one response can carry several phase
+        // markers. The walk keys on the EARLIEST finalized end, exactly like upstream's
+        // findLateActivityLabelsConsumedByPhase.
+        val consumed = findLateBatchLabelsConsumedByPhase(
+            listOf(
+                tool("t1"), // 0
+                text("mid"), // 1
+                label("First batch"), // 2 — consumed: the walk has already lowered the end to 1
+                phaseLabel("Phase one", startIndex = 0, endIndex = 4), // 3 — min(1, 4) keeps 1
+                label("Second batch"), // 4 — consumed: 1 <= 4
+                phaseLabel("Phase two", startIndex = 4, endIndex = 1), // 5 — seen first, end 1
+            ),
+        )
+        assertEquals(setOf(2, 4), consumed)
     }
 }

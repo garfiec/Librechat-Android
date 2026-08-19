@@ -27,6 +27,7 @@ fun groupContentParts(
 ): List<ContentSegment> {
     if (parts.isEmpty()) return emptyList()
 
+    val consumedLateBatchLabels = findLateBatchLabelsConsumedByPhase(parts)
     val segments = mutableListOf<ContentSegment>()
     var pending = mutableListOf<IndexedContentPart>()
     var pendingAuthor: SegmentAuthor? = null
@@ -53,11 +54,23 @@ fun groupContentParts(
         // the reply, or wrapping a span it does not describe. Dropping it here also keeps it out
         // of a comparison lane, which renders every part it is given standalone.
         //
-        // Nested phase groups are the parity fix and are deliberately not attempted here: the
-        // bounds were re-anchored twice after the original PR (#14729, #14741), so the shape to
-        // mirror is not yet settled. Skipping cannot misrender — it renders nothing extra, which
-        // is exactly what a server without the feature does.
+        // Nested phase groups are the parity fix and are deliberately not attempted here. As of
+        // v0.8.8-rc1 the span contract is settled — `[activity_start_index, activity_end_index)`,
+        // exclusive end (#14768) — but the collapsed parent-group UI is still a feature-sized
+        // port. Skipping cannot misrender — it renders nothing extra, which is exactly what a
+        // server without the feature does. The end index IS consumed below, to suppress the
+        // late batch labels a finalized phase span absorbed.
         if (part.isActivityPhaseLabel()) return@forEachIndexed
+        // A per-batch label that a finalized phase span has CONSUMED is dropped for the same
+        // reason. The server can publish a batch's label after the phase it belongs to has
+        // already closed (`activity_end_index` is exclusive and the marker trails its span), so
+        // the label lands at an index past the phase's end while the batch it describes sits
+        // inside the span. At its physical position it would claim whatever precedes it — the
+        // reply's answer text, or a later batch's tools — or render as a stray bare line. Web
+        // folds these into the phase group; with phases unrendered here, suppression is the
+        // feature-off-equivalent shape. Mirrors `findLateActivityLabelsConsumedByPhase`
+        // (client/src/utils/activityLabels.ts).
+        if (index in consumedLateBatchLabels) return@forEachIndexed
         // A steer renders as a full user turn inside the response, so whatever resumes after it
         // has to be re-attributed. The author is read BEFORE this part's own handoff is applied:
         // if the resume point IS an agent update, the pre-handoff author stands and the update
@@ -190,6 +203,39 @@ fun MessageContentPart.isActivityPhaseLabel(): Boolean =
 
 /** Wire value of `activity_label_type` for a parent phase label. */
 private const val ACTIVITY_LABEL_TYPE_PHASE = "phase"
+
+/** Any activity label that is NOT a phase marker — upstream's `getBatchActivityLabelPart`. */
+private fun MessageContentPart.isBatchActivityLabel(): Boolean =
+    type == ContentType.ACTIVITY_LABEL && !isActivityPhaseLabel()
+
+/**
+ * Indices of per-batch labels that a FINALIZED phase span has consumed — batch labels published at
+ * or past the earliest finalized phase's exclusive `activity_end_index` but before that phase's
+ * trailing marker. Mirrors web `findLateActivityLabelsConsumedByPhase`
+ * (client/src/utils/activityLabels.ts): a single backward walk, where each finalized phase marker
+ * (`pending != true`, `activity_end_index` present) lowers the earliest-known phase end, and every
+ * batch label encountered after that (i.e. at a lower index, but still >= the end) is consumed.
+ *
+ * A pending phase marker, or one without `activity_end_index` (pre-#14768 servers), consumes
+ * nothing — the set stays empty and every batch label renders exactly as before, which is the
+ * feature-off shape.
+ */
+internal fun findLateBatchLabelsConsumedByPhase(parts: List<MessageContentPart>): Set<Int> {
+    var earliestPhaseEnd: Int? = null
+    var consumed: MutableSet<Int>? = null
+    for (index in parts.indices.reversed()) {
+        val part = parts[index]
+        val phaseEnd = part
+            .takeIf { it.isActivityPhaseLabel() && it.pending != true }
+            ?.activityEndIndex
+        if (phaseEnd != null) {
+            earliestPhaseEnd = minOf(earliestPhaseEnd ?: index, phaseEnd)
+        } else if (earliestPhaseEnd != null && earliestPhaseEnd <= index && part.isBatchActivityLabel()) {
+            consumed = (consumed ?: mutableSetOf()).also { it += index }
+        }
+    }
+    return consumed ?: emptySet()
+}
 
 /**
  * The user's words from a steer part.
