@@ -64,6 +64,7 @@ import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
 import com.garfiec.librechat.feature.chat.util.hasParallelParts
 import com.garfiec.librechat.feature.chat.util.isImageType
+import com.garfiec.librechat.feature.chat.util.serializeMessageForClipboard
 import com.garfiec.librechat.feature.chat.util.stabilizeMessageInstances
 import com.garfiec.librechat.feature.chat.util.visionUnreadableImageNames
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
@@ -1499,6 +1500,10 @@ class ChatViewModel(
         editingDelegate.regenerateMessage(messageId)
     }
 
+    /**
+     * Text-parts extraction for TTS and the edit prefill. NOT the copy path — whole-message copy
+     * goes through [getMessageClipboardText], which serializes every part.
+     */
     fun getMessageText(messageId: String): String {
         val message = _uiState.value.messages.find { it.messageId == messageId } ?: return ""
         val contentParts = message.content
@@ -1508,6 +1513,15 @@ class ChatViewModel(
             }.joinToString("")
         }
         return message.text
+    }
+
+    /**
+     * The clipboard serialization of a whole message — tool calls, reasoning and media parts as
+     * labeled blocks, not just its text. Mirrors web `serializeMessageForClipboard`.
+     */
+    fun getMessageClipboardText(messageId: String): String {
+        val message = _uiState.value.messages.find { it.messageId == messageId } ?: return ""
+        return serializeMessageForClipboard(message)
     }
 
     fun stopGeneration() = streamingManager.stopGeneration()

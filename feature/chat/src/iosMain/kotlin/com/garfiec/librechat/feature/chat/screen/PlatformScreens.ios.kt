@@ -59,6 +59,7 @@ import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.clipboardHasImage
 import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
+import com.garfiec.librechat.feature.chat.util.copyToClipboard
 import com.garfiec.librechat.feature.chat.util.openCamera
 import com.garfiec.librechat.feature.chat.util.openDocumentPicker
 import com.garfiec.librechat.feature.chat.util.openPhotoPicker
@@ -589,7 +590,9 @@ private fun IosChatBody(
                 showBubbles = showBubbles,
                 useKatex = useKatex,
                 bottomContentPadding = bottomContentPadding,
-                onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
+                onCopyMessage = { messageId ->
+                    copyToClipboard(viewModel.getMessageClipboardText(messageId), "Message")
+                },
                 onShowSecondaryModelSheet = onShowSecondaryModelSheet,
                 onComparisonTabChange = onComparisonTabChange,
                 modifier = topPaddedFill,
@@ -609,7 +612,9 @@ private fun IosChatBody(
                 onSiblingNavigation = viewModel::switchBranch,
                 onEditMessage = viewModel::startEditing,
                 onRegenerateMessage = { messageId -> viewModel.regenerateMessage(messageId) },
-                onCopyMessage = { messageId -> viewModel.getMessageText(messageId) },
+                onCopyMessage = { messageId ->
+                    copyToClipboard(viewModel.getMessageClipboardText(messageId), "Message")
+                },
                 onFeedback = viewModel::submitFeedback,
                 onContinue = { viewModel.continueGeneration() },
                 onReadAloud = viewModel::readAloud,

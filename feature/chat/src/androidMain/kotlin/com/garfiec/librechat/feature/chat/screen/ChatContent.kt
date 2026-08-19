@@ -149,7 +149,7 @@ private fun copyMessageToClipboard(
     clipboardManager: ClipboardManager,
     messageId: String,
 ) {
-    val text = viewModel.getMessageText(messageId)
+    val text = viewModel.getMessageClipboardText(messageId)
     if (text.isNotBlank()) {
         clipboardManager.setPrimaryClip(ClipData.newPlainText("Message", text))
     }
