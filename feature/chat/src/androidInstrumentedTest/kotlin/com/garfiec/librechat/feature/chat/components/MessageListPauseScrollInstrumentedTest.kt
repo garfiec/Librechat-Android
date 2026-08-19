@@ -1,13 +1,25 @@
 package com.garfiec.librechat.feature.chat.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.model.AskUserQuestionItem
 import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.PendingAction
@@ -48,6 +60,10 @@ class MessageListPauseScrollInstrumentedTest {
     private var streamingContent by mutableStateOf(SHORT_STREAM)
     private var questionDescription by mutableStateOf(SHORT_DESCRIPTION)
     private var paused by mutableStateOf(false)
+    private var batched by mutableStateOf(false)
+
+    /** Stands in for the Scaffold's imePadding: raising it shrinks the list's viewport. */
+    private var keyboardInset by mutableStateOf(0.dp)
 
     /**
      * The follower runs off `withFrameNanos`, which leaves Compose permanently non-idle for the
@@ -88,6 +104,54 @@ class MessageListPauseScrollInstrumentedTest {
         assertTrue("the follower chased the pause card by ${moved}px", abs(moved) < STILL_TOLERANCE_PX)
     }
 
+    /**
+     * The keyboard must not cost the user the field they just tapped.
+     *
+     * The viewport-shrink handler jumped to the tail of the last item, which during a pause is the
+     * card — so focusing any field but the last one scrolled it out of sight the moment the
+     * keyboard came up. The inset is raised directly rather than by summoning a real IME, because
+     * the handler keys on the viewport shrinking and nothing else.
+     */
+    @Test
+    fun theKeyboardLeavesTheFocusedAnswerFieldOnScreen() {
+        paused = true
+        batched = true
+        setChat()
+        advanceFrames(SETTLE_FRAMES)
+
+        // Read the card from the top, the way its author intended, and answer the first question.
+        focusAnswerField(index = 0, anchor = FIRST_QUESTION)
+
+        val before = fieldVsViewport(0)
+        assertTrue("the field was already off screen before the keyboard: $before", before.isVisible)
+
+        composeRule.runOnUiThread { keyboardInset = KEYBOARD_HEIGHT }
+        advanceFrames(CHASE_FRAMES)
+
+        val after = fieldVsViewport(0)
+        assertTrue("the keyboard pushed the focused field off screen: $after", after.isVisible)
+    }
+
+    /**
+     * The other half of leaving this to foundation: a field low enough that the keyboard really
+     * does cover it still has to be lifted clear, and nothing in this file does that any more.
+     */
+    @Test
+    fun theKeyboardLiftsTheLastAnswerFieldClear() {
+        paused = true
+        batched = true
+        setChat()
+        advanceFrames(SETTLE_FRAMES)
+
+        focusAnswerField(index = BATCH.lastIndex, anchor = LAST_QUESTION)
+
+        composeRule.runOnUiThread { keyboardInset = KEYBOARD_HEIGHT }
+        advanceFrames(CHASE_FRAMES)
+
+        val after = fieldVsViewport(BATCH.lastIndex)
+        assertTrue("the keyboard covered the focused field: $after", after.isVisible)
+    }
+
     // ── harness ───────────────────────────────────────────────────────────────
 
     private fun setChat() {
@@ -97,6 +161,7 @@ class MessageListPauseScrollInstrumentedTest {
             val markdownCache = remember { ParsedMarkdownCache() }
             CompositionLocalProvider(LocalParsedMarkdownCache provides markdownCache) {
                 LibreChatTheme {
+                    Box(Modifier.fillMaxSize().padding(bottom = keyboardInset)) {
                     MessageList(
                         displayMessages = buildActiveMessagePath(THREAD),
                         isStreaming = true,
@@ -110,9 +175,38 @@ class MessageListPauseScrollInstrumentedTest {
                         // scroll and the test would be measuring that instead of the follower.
                         pendingAction = if (paused) askPause(questionDescription) else null,
                     )
+                    }
                 }
             }
         }
+    }
+
+    private fun focusAnswerField(index: Int, anchor: String) {
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(anchor, substring = true))
+        advanceFrames(FOCUS_FRAMES)
+        composeRule.onAllNodes(hasSetTextAction())[index].performClick()
+        advanceFrames(FOCUS_FRAMES)
+    }
+
+    /** Where the focused answer field sits relative to the list's own (clipping) bounds. */
+    private fun fieldVsViewport(index: Int): Placement {
+        val field = composeRule.onAllNodes(hasSetTextAction())[index].fetchSemanticsNode().boundsInRoot
+        val list = composeRule.onNode(hasScrollAction()).fetchSemanticsNode().boundsInRoot
+        return Placement(field.top, field.bottom, list.top, list.bottom)
+    }
+
+    data class Placement(
+        val fieldTop: Float,
+        val fieldBottom: Float,
+        val listTop: Float,
+        val listBottom: Float,
+    ) {
+        /**
+         * A node clipped entirely out of the list reports `Rect.Zero`, which satisfies any naive
+         * bounds comparison — so an empty rect has to be rejected outright or this asserts nothing.
+         */
+        val isVisible: Boolean
+            get() = fieldBottom > fieldTop && fieldTop >= listTop && fieldBottom <= listBottom
     }
 
     private fun topOf(text: String): Float =
@@ -141,6 +235,9 @@ class MessageListPauseScrollInstrumentedTest {
         payload = PendingActionPayload(
             type = PendingActionTypes.ASK_USER_QUESTION,
             question = AskUserQuestionRequest(question = QUESTION, description = description),
+            // A batch renders a field per question, which is the only shape that puts a field
+            // anywhere but flush against the bottom of the card.
+            questions = if (batched) BATCH else null,
         ),
     )
 
@@ -181,5 +278,18 @@ class MessageListPauseScrollInstrumentedTest {
         /** Enough frames for the opening scroll to land and for a live follower to show itself. */
         const val SETTLE_FRAMES = 150
         const val CHASE_FRAMES = 150
+        const val FOCUS_FRAMES = 60
+
+        val KEYBOARD_HEIGHT: Dp = 340.dp
+
+        const val FIRST_QUESTION = "Which region should the cluster live in?"
+        const val LAST_QUESTION = "Follow-up question number 4?"
+        val BATCH = (1..4).map { index ->
+            AskUserQuestionItem(
+                id = "q$index",
+                question = if (index == 1) FIRST_QUESTION else "Follow-up question number $index?",
+                description = "Some extra detail for question $index, long enough to take a line.",
+            )
+        }
     }
 }

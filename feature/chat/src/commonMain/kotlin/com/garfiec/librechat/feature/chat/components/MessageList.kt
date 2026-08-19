@@ -39,6 +39,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -179,6 +180,11 @@ fun MessageList(
     // tell our scroll from the user's, so without this the scroll-away detector below scores the
     // follower's own mid-growth scroll as intent and latches, silently killing the follow.
     var programmaticScroll by remember { mutableStateOf(false) }
+
+    // True while the focus sits on something inside the list — an answer field on a pause card.
+    // The keyboard handler below stands down for those; foundation brings a focused node into
+    // view on its own, and unlike this file it knows which node that is.
+    var listHasFocus by remember { mutableStateOf(false) }
 
     // Read through updated state, not the captured parameter: the follower below runs for a whole
     // run inside one LaunchedEffect, so a plain capture would keep reporting whatever was true on
@@ -451,6 +457,16 @@ fun MessageList(
     // shrinks and the user was near the bottom, we scroll down to
     // keep the latest messages visible above the input box.
     //
+    // It runs ONLY while nothing inside the list holds focus. This
+    // exists for the composer, which sits outside the list, so the
+    // list learns about the keyboard from nothing but its own
+    // shrinking viewport. A field INSIDE the list — an answer field
+    // on a pause card — needs no help: foundation scrolls a newly
+    // focused node into view by itself, and it knows where the focus
+    // is, which this does not. Both running means this one wins and
+    // jumps to the tail of the last item, scrolling the user off the
+    // very field they tapped.
+    //
     // This approach is more reliable than observing WindowInsets.ime
     // directly because:
     //  - It fires AFTER the layout has actually resized (no timing
@@ -465,7 +481,7 @@ fun MessageList(
         snapshotFlow {
             listState.layoutInfo.viewportEndOffset
         }.collect { viewportEnd ->
-            if (previousViewportEnd > 0 && viewportEnd < previousViewportEnd) {
+            if (previousViewportEnd > 0 && viewportEnd < previousViewportEnd && !listHasFocus) {
                 // Viewport shrank (e.g., keyboard opened). If user was
                 // near the bottom, scroll to keep them there.
                 val info = listState.layoutInfo
@@ -502,6 +518,7 @@ fun MessageList(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .onFocusChanged { listHasFocus = it.hasFocus }
                 .onGloballyPositioned { listCoordinates = it }
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
