@@ -13,6 +13,7 @@ import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.StreamErrorCodes
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.error.StreamErrorType
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.error.parseUserKeyError
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
@@ -862,7 +863,15 @@ class StreamingManagerDelegate(
                         activeToolCalls = emptyList(),
                         streamingAttachments = emptyList(),
                     )
-                    error = if (keyError != null) null else reason.message
+                    // A typed server error becomes a marker the UI localizes; anything
+                    // unrecognized keeps the server's own text, which is the existing behaviour.
+                    // Without this the payload itself is what reaches the user — a raw
+                    // `{"type":"resource_recovery_required", …}` where a sentence telling them to
+                    // reattach their files belongs.
+                    error = when {
+                        keyError != null -> null
+                        else -> StreamErrorType.parse(reason.message)?.marker ?: reason.message
+                    }
                 }
                 comparisonDelegate.endStreaming()
                 // Don't auto-drain into a failed turn — hold the queue for the user.

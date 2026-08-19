@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.screen
 
+import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.material3.SnackbarDuration
@@ -47,11 +48,14 @@ internal fun ChatScreenEffects(
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        val error = uiState.error
-        if (error != null) {
+    // Resolved OUTSIDE the effect: stringResource is a composable read, and the effect body is
+    // not a composable scope. Passing through anything that is not a typed marker, so the value
+    // is identical to uiState.error for every error that is not one.
+    val errorMessage = uiState.error?.let { localizedStreamError(it) }
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
             snackbarHostState.showSnackbar(
-                message = error,
+                message = errorMessage,
                 actionLabel = "Dismiss",
                 duration = SnackbarDuration.Long,
             )

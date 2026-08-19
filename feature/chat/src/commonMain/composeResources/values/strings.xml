@@ -462,6 +462,18 @@
     <string name="ask_user_question_skip">Skip</string>
     <string name="ask_user_question_multi_select_hint">Pick as many as apply</string>
     <string name="ask_user_question_batch_subtitle">Answer all %1$d questions to continue</string>
+    <!-- Typed stream errors. An unrecognized code keeps the server's own text, so these cover
+         only the codes with something actionable to say. -->
+    <string name="error_resource_recovery_required">The files attached to this conversation could not be restored, so the assistant couldn\'t use them. Attach them again and retry.</string>
+    <string name="error_model_not_found">The selected model is unavailable from this provider. Pick a different model, or ask an administrator to check the provider configuration.</string>
+    <string name="error_missing_model">No model is selected. Choose a model and try again.</string>
+    <string name="error_models_not_loaded">The model list couldn\'t be loaded. Pull to refresh and try again.</string>
+    <string name="error_endpoint_models_not_loaded">This endpoint\'s models couldn\'t be loaded. Pull to refresh and try again.</string>
+    <string name="error_invalid_agent_provider">This agent\'s provider isn\'t allowed on this server. Ask an administrator to enable it.</string>
+    <string name="error_refusal">The model declined to answer this. Rephrasing the request may help.</string>
+    <string name="error_input_length">This message is longer than the model accepts. Shorten it and try again.</string>
+    <string name="error_moderation">This message was flagged by the server\'s moderation. Edit it, or start a new conversation.</string>
+    <string name="error_stream_expired">This reply finished or expired before it could be shown. Reopen the conversation to load it.</string>
     <!-- Durable record of a resolved ask_user_question, shown in place of its tool card -->
     <string name="ask_user_question_record_asked">Asked</string>
     <string name="ask_user_question_record_asking">Asking</string>

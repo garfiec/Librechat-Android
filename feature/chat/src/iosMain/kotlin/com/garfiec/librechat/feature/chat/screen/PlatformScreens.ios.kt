@@ -44,6 +44,7 @@ import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
+import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import com.garfiec.librechat.feature.chat.components.rememberChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.IosChatInput
 import com.garfiec.librechat.feature.chat.components.LandingContent
@@ -178,11 +179,14 @@ actual fun ChatScreen(
     }
 
     // Show errors in snackbar (matches Android behavior)
-    LaunchedEffect(uiState.error) {
-        val error = uiState.error
-        if (error != null) {
+    // Resolved OUTSIDE the effect: stringResource is a composable read, and the effect body is
+    // not a composable scope. Passing through anything that is not a typed marker, so the value
+    // is identical to uiState.error for every error that is not one.
+    val errorMessage = uiState.error?.let { localizedStreamError(it) }
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
             snackbarHostState.showSnackbar(
-                message = error,
+                message = errorMessage,
                 actionLabel = "Dismiss",
                 duration = SnackbarDuration.Long,
             )
