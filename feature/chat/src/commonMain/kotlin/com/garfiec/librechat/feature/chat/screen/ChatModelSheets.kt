@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.screen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import com.garfiec.librechat.feature.chat.components.ModelSelectorSheet
+import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 
@@ -23,6 +24,11 @@ internal fun PrimaryModelSelectorSheet(
     sendBlockMessage: String?,
     onNavigateToProviderKeys: (endpointName: String?) -> Unit,
 ) {
+    // Resolved here, like both snackbar surfaces: `error` carries typed stream markers as well as
+    // sentences, and the model-related codes are precisely the ones that send a user to this sheet
+    // while the snackbar holding the same value is still up. Anything that is not a marker passes
+    // through unchanged.
+    val error = uiState.error?.let { localizedStreamError(it) }
     ModelSelectorSheet(
         endpointConfigs = uiState.endpointConfigs,
         availableModels = uiState.availableModels,
@@ -44,7 +50,7 @@ internal fun PrimaryModelSelectorSheet(
         serverUrl = uiState.serverUrl,
         // Send-block reasons take precedence: when set, the sheet was auto-opened
         // to help the user resolve the block, so surface that context inline.
-        errorMessage = sendBlockMessage ?: uiState.error,
+        errorMessage = sendBlockMessage ?: error,
         onErrorDismiss = {
             viewModel.dismissSendBlockReason()
             viewModel.dismissError()

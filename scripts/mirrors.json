@@ -214,6 +214,48 @@
       "failure_mode": "A key the server cannot resolve. Upstream surfaces it as 'Tool not found' at execution time -- the save succeeds, the agent looks correct, and every per-tool option (defer_loading, allowed_callers, run_in_background, describe_intent) is silently inert."
     },
     {
+      "id": "ask-user-question-max-questions",
+      "upstream": {
+        "file": "packages/api/src/agents/hitl/resume.ts",
+        "symbol": "MAX_ASK_QUESTIONS",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/PendingAction.kt",
+        "symbol": "AskUserQuestionLimits.MAX_QUESTIONS"
+      },
+      "why": "How many questions an ask_user_question batch may carry. Module-private upstream, never exported and never served, but the resume route rejects a batch outside 1..MAX_QUESTIONS -- so the card truncates the rendered list to it.",
+      "failure_mode": "Upstream RAISING the cap is the dangerous direction: the card renders the first four of a five-question batch and submits a four-entry answer map, which the route rejects 400 'Answers are required for every question' on BOTH Send and Skip. The run stays paused with Stop as the only escape, and nothing on this side errors or logs."
+    },
+    {
+      "id": "ask-user-question-max-answer-length",
+      "upstream": {
+        "file": "packages/api/src/agents/hitl/resume.ts",
+        "symbol": "MAX_ASK_ANSWER_LENGTH",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/PendingAction.kt",
+        "symbol": "AskUserQuestionLimits.MAX_ANSWER_LENGTH"
+      },
+      "why": "The per-answer character cap the resume route enforces on both the bare and the batched path. Mirrored because the answer boxes budget against it, so a user cannot compose an answer the route will refuse.",
+      "failure_mode": "Upstream LOWERING it makes a long answer 400 at submit with the run already paused; raising it costs the user characters they were entitled to type. Both are silent -- a stale copy still compiles and still submits."
+    },
+    {
+      "id": "model-not-found-url-pattern",
+      "upstream": {
+        "file": "client/src/components/Messages/Content/Error.tsx",
+        "symbol": "langChainModelNotFoundUrl",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/error/StreamErrorType.kt",
+        "symbol": "StreamErrorType.MODEL_NOT_FOUND_PATTERN"
+      },
+      "why": "MODEL_NOT_FOUND is not one of upstream's typed ErrorTypes -- it arrives as a documentation URL embedded in provider prose, and this regex is the whole of the detection. Nothing on the wire distinguishes it from any other provider sentence. The Kotlin copy spells `\\b` out as a character-class lookahead because Android's Regex is ICU; that divergence is deliberate and is not drift.",
+      "failure_mode": "A reworded upstream link stops matching, so the provider's raw unhelpful sentence reaches the user instead of the 'that model is not available' message -- exactly where a model picker would have fixed it. A widened pattern retitles unrelated provider errors as a missing model."
+    },
+    {
       "id": "generation-reconcile-message",
       "upstream": {
         "file": "api/server/routes/agents/index.js",

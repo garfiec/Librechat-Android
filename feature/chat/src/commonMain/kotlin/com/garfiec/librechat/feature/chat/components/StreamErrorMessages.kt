@@ -15,8 +15,11 @@ import org.jetbrains.compose.resources.stringResource
  * will emit codes this build has never heard of, and none of those may reach the user as a bare
  * identifier or an empty string.
  *
- * Both platform error surfaces call this — the value they render must not depend on which screen
- * the user is on.
+ * **Every surface that renders `ChatUiState.error` calls this** — the two platform snackbars and
+ * both model-selector banners. The value a user sees must not depend on which one is showing it,
+ * and the two are concurrent: `error` is cleared only when the Long snackbar returns, so a selector
+ * opened in that window renders the same value at the same time. The model-related codes are the
+ * ones that send a user to the selector, so that overlap is the expected path, not an edge case.
  */
 @Composable
 internal fun localizedStreamError(raw: String): String {

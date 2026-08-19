@@ -93,7 +93,8 @@ enum class StreamErrorType(val wire: String) {
 
         /**
          * MIRRORED from upstream `client/src/components/Messages/Content/Error.tsx`:
-         * `/langchain\.com\/.*\/MODEL_NOT_FOUND(?:\/|\b)/i`.
+         * `/langchain\.com\/.*\/MODEL_NOT_FOUND(?:\/|\b)/i`. Registered in `scripts/mirrors.json`
+         * as `model-not-found-url-pattern`.
          *
          * A provider embeds this documentation link in an otherwise unhelpful sentence, so it is
          * matched anywhere in the text rather than parsed. `\b` is spelled out as a lookahead on a

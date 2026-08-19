@@ -165,7 +165,13 @@ data class AskUserQuestionItem(
     val isAnswerable: Boolean get() = id.isNotEmpty()
 }
 
-/** Server-side limits on an `ask_user_question` batch, mirrored so the form can respect them. */
+/**
+ * Server-side limits on an `ask_user_question` batch, mirrored so the form can respect them.
+ *
+ * MIRRORED SERVER CONSTANTS — module-private in `packages/api/src/agents/hitl/resume.ts`, so they
+ * are exported nowhere and served nowhere. Registered in `scripts/mirrors.json` as
+ * `ask-user-question-max-questions` and `ask-user-question-max-answer-length`.
+ */
 object AskUserQuestionLimits {
     /** `MAX_ASK_QUESTIONS`. A batch outside 1..4 is rejected as invalid. */
     const val MAX_QUESTIONS = 4

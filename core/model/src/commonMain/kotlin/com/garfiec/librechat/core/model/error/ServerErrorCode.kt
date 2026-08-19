@@ -70,10 +70,30 @@ object ServerErrorCode {
      * array value — a server that answers `{"error":{...}}` must degrade, not crash the caller.
      */
     fun from(body: String?): String? {
-        if (body.isNullOrBlank()) return null
-        val element = runCatching { parser.parseToJsonElement(body) }.getOrNull() ?: return null
-        val obj = element as? JsonObject ?: return null
+        val obj = objectOf(body) ?: return null
         return (obj["code"] as? JsonPrimitive)?.contentOrNull
             ?: (obj["error"] as? JsonPrimitive)?.contentOrNull
+    }
+
+    /**
+     * The `code` on a generation-route error body, WITHOUT [from]'s `error` fallback.
+     *
+     * On those routes the absence of a code is itself a discriminator, so the fallback cannot be
+     * used there. `rejectPreliminaryParentMessageId` (`api/server/controllers/agents/request.js`)
+     * answers a 409 carrying only an English sentence under `error` — the one 409 on the send route
+     * that is a transient race worth retrying — while every coded 409 beside it (`RUN_REPLACED`,
+     * `RESOURCE_RECOVERY_REQUIRED`, `GENERATION_PREDECESSOR_MISMATCH`, `RECOVERY_PAYLOAD_MISMATCH`)
+     * must not be retried. Read through [from], that sentence comes back as a code and the
+     * uncoded case becomes unreachable: nothing fails to decode, and the retry silently never fires.
+     *
+     * The `error` fallback stays on [from] for the MCP controller, whose bodies put the code there.
+     */
+    fun generationCodeOf(body: String?): String? =
+        (objectOf(body)?.get("code") as? JsonPrimitive)?.contentOrNull
+
+    private fun objectOf(body: String?): JsonObject? {
+        if (body.isNullOrBlank()) return null
+        val element = runCatching { parser.parseToJsonElement(body) }.getOrNull() ?: return null
+        return element as? JsonObject
     }
 }

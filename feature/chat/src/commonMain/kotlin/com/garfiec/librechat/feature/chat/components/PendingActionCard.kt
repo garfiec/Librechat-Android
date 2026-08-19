@@ -190,7 +190,7 @@ private fun AskUserQuestionSection(
 
         OutlinedTextField(
             value = freeText,
-            onValueChange = { freeText = it },
+            onValueChange = { freeText = it.take(freeTextBudget(question.options, selected)) },
             enabled = !isResolving,
             modifier = Modifier.fillMaxWidth(),
             label = {
@@ -383,7 +383,7 @@ private fun AskUserQuestionBatchItem(
 
         OutlinedTextField(
             value = freeText,
-            onValueChange = { freeText = it },
+            onValueChange = { freeText = it.take(freeTextBudget(item.options, selected)) },
             enabled = !isResolving,
             modifier = Modifier.fillMaxWidth(),
             label = {
@@ -415,7 +415,28 @@ private fun composeAnswer(
     val chosen = options.map { it.value }.filter { it in selected }
     val typed = freeText.trim()
     return (chosen + typed.takeIf { it.isNotEmpty() }.orEmpty().let { if (it.isEmpty()) emptyList() else listOf(it) })
-        .joinToString(", ")
+        .joinToString(ANSWER_SEPARATOR)
+        // The route rejects an over-length answer with 400 and the run stays paused, so an answer
+        // that cannot be sent is worse than a shortened one. [freeTextBudget] keeps the box inside
+        // the cap while typing; this closes the one gap it cannot — a chip selected after the box
+        // was already filled to the budget computed without it.
+        .take(AskUserQuestionLimits.MAX_ANSWER_LENGTH)
+}
+
+/** Upstream's join for a multi-select answer, and for a chip qualified by free text. */
+private const val ANSWER_SEPARATOR = ", "
+
+/**
+ * How much free text an answer box may still hold without pushing the composed answer past the
+ * server's `MAX_ASK_ANSWER_LENGTH`.
+ *
+ * Budgeted against the chips because they land in the same string. Conservative in the safe
+ * direction: [composeAnswer] trims the typed half, which can only shorten it.
+ */
+private fun freeTextBudget(options: List<AskUserQuestionOption>, selected: Set<String>): Int {
+    val chips = composeAnswer(options, selected, "").length
+    val separator = if (chips == 0) 0 else ANSWER_SEPARATOR.length
+    return (AskUserQuestionLimits.MAX_ANSWER_LENGTH - chips - separator).coerceAtLeast(0)
 }
 
 // ── tool_approval ─────────────────────────────────────────────────────────

@@ -95,8 +95,11 @@ class ChatRepositoryImpl(
         // user to reattach files, RUN_REPLACED is a deduplication, GENERATION_PREDECESSOR_MISMATCH
         // and RECOVERY_PAYLOAD_MISMATCH answer request fields mobile does not send), and retrying
         // any of them would either loop or paper over something the user must act on.
+        //
+        // Read via generationCodeOf, NOT ServerErrorCode.from: this body puts an English sentence
+        // under `error`, which from()'s MCP fallback would hand back as a code.
         val startResponse = retryWhileThrowing(
-            retryable = { it.statusCode == HTTP_CONFLICT && it.errorCode == null },
+            retryable = { it.statusCode == HTTP_CONFLICT && it.generationErrorCode == null },
         ) {
             chatApi.startChat(endpoint, ChatPayloadBuilder.toBody(json, request, modelParams))
         }
@@ -125,7 +128,10 @@ class ChatRepositoryImpl(
                 // The run acknowledged the stop but has not reached a point where it can be
                 // stopped. The server explicitly asks to be asked again (`Retry-After: 1`), so
                 // reporting a stop failure here would be a lie the user has to act on.
-                retryable = { it.statusCode == HTTP_CONFLICT && it.errorCode == ServerErrorCode.RUN_STILL_ACTIVE },
+                retryable = {
+                    it.statusCode == HTTP_CONFLICT &&
+                        it.generationErrorCode == ServerErrorCode.RUN_STILL_ACTIVE
+                },
             ) { safeApiCall { chatApi.abortChat(streamId, isTemporary) } }
         ) {
             // Claimed here, not at the call site: the server dropped its copy writing this ack.
@@ -166,7 +172,7 @@ class ChatRepositoryImpl(
             retryWhileThrowing(
                 retryable = {
                     it.statusCode == HTTP_SERVICE_UNAVAILABLE &&
-                        it.errorCode == ServerErrorCode.SERVER_NOT_READY
+                        it.generationErrorCode == ServerErrorCode.SERVER_NOT_READY
                 },
             ) { chatApi.getChatStatus(conversationId) }
         }
@@ -231,7 +237,12 @@ class ChatRepositoryImpl(
         (exception.retryAfterSeconds?.times(1000) ?: DEFAULT_RETRY_DELAY_MS)
             .coerceIn(DEFAULT_RETRY_DELAY_MS, MAX_RETRY_DELAY_MS)
 
-    private val ApiException.errorCode: String? get() = ServerErrorCode.from(body)
+    /**
+     * The code on a generation-route error body. Every predicate here reads it through this one
+     * accessor, so none of them can pick up `ServerErrorCode.from`'s `error` fallback — on these
+     * routes an uncoded body is a distinct outcome, not a body whose code lives elsewhere.
+     */
+    private val ApiException.generationErrorCode: String? get() = ServerErrorCode.generationCodeOf(body)
 
     private companion object {
         const val HTTP_CONFLICT = 409
