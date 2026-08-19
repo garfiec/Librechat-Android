@@ -1,6 +1,5 @@
 package com.garfiec.librechat.feature.chat.screen
 
-import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.material3.SnackbarDuration
@@ -13,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.garfiec.librechat.feature.chat.components.localizedStreamError
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 

@@ -67,15 +67,32 @@ class McpServerDelegate(
         oauth: McpOAuthConfig? = null,
     ) {
         stateHandle.scope.launch {
+            // Which server the dialog was opened on decides the route, not the shape of the body:
+            // an edit is a PATCH against the stored identifier. Posting it as a create asks the
+            // server to add a second server under a name it already holds, and skips the secret
+            // re-binding check that the branch below exists to report.
+            val editing = stateHandle.state.editingMcpServer?.name
             stateHandle.update { copy(mcpOAuthSecretReentryRequired = false) }
-            val result = mcpRepository.createServer(
-                name = name,
-                description = description,
-                url = url,
-                type = type,
-                apiKey = apiKey,
-                oauth = oauth,
-            )
+            val result = if (editing != null) {
+                mcpRepository.updateServer(
+                    serverName = editing,
+                    name = name,
+                    description = description,
+                    url = url,
+                    type = type,
+                    apiKey = apiKey,
+                    oauth = oauth,
+                )
+            } else {
+                mcpRepository.createServer(
+                    name = name,
+                    description = description,
+                    url = url,
+                    type = type,
+                    apiKey = apiKey,
+                    oauth = oauth,
+                )
+            }
             when (result) {
                 is Result.Success -> {
                     dismissMcpServerDialog()
@@ -83,11 +100,11 @@ class McpServerDelegate(
                 }
                 is Result.Error -> {
                     // Second of the two MCP save paths (the other is McpViewModel, behind the
-                    // standalone MCP screen). Both post the same body, so both can be refused for
-                    // the same reason: the stored client secret is bound to the OAuth endpoints
-                    // it was issued for, and editing either invalidates it. Retrying the same
-                    // body never succeeds, so this has to ask for the secret rather than report a
-                    // failure — and it has to do so here as well, or the fix works on one screen.
+                    // standalone MCP screen). Both reach the same update route, so both can be
+                    // refused for the same reason: the stored client secret is bound to the OAuth
+                    // endpoints it was issued for, and editing either invalidates it. Retrying the
+                    // same body never succeeds, so this has to ask for the secret rather than
+                    // report a failure — and here as well, or the fix works on one screen only.
                     val exception = result.exception as? ApiException
                     val reentry = exception?.statusCode == HTTP_BAD_REQUEST &&
                         ServerErrorCode.from(exception.body) == ServerErrorCode.OAUTH_SECRET_REENTRY_REQUIRED

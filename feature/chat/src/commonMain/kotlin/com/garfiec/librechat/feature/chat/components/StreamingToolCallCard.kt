@@ -68,6 +68,18 @@ fun StreamingToolCallCard(
     // rest of the run instead of reappearing only when the message finalizes. An unanswered one
     // never reaches here — `withoutUnansweredQuestions` drops it while the pause card owns it.
     if (isAskUserQuestionToolCall(toolCall.name.lowercase())) {
+        // A batched ask reads its questions from `questions[]` and its answers from the output's
+        // `{"answers": {…}}` map; neither is visible to the single-question parse below.
+        val batch = remember(toolCall.input) { parseAskUserQuestionBatch(toolCall.input) }
+        if (batch.isNotEmpty()) {
+            val answers = remember(toolCall.output) { parseAskUserAnswers(toolCall.output) }
+            AskUserQuestionBatchRecordCard(
+                questions = batch,
+                answers = answers,
+                modifier = modifier,
+            )
+            return
+        }
         val question = remember(toolCall.input) { parseAskUserQuestion(toolCall.input) }
         AskUserQuestionRecordCard(
             question = question,

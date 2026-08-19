@@ -80,7 +80,14 @@ class AgentDetailViewModel(
                     // Deliberately not the other way round — an absent field must never be read
                     // as permission, or every agent on a pre-field server grows an Edit button
                     // that 403s on tap.
-                    val serverSaysEditable = result.data.isEditable
+                    //
+                    // It is read from the LIST's answer, not from this agent: upstream stamps the
+                    // field in `getListAgents` only, so both endpoints loaded above return it null
+                    // on every server and reading it off `result.data` narrows nothing. The agent's
+                    // own copy is still preferred where it exists, since `getAgent` can serve a
+                    // list-projection row straight from the cache.
+                    val serverSaysEditable =
+                        result.data.isEditable ?: agentRepository.listedEditVerdict(agentId)
                     _uiState.value = _uiState.value.copy(
                         agent = result.data.toDetailDisplayData(),
                         canEdit = canEdit && serverSaysEditable != false,

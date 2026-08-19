@@ -304,11 +304,17 @@ data class ChatUiState(
      *
      * Tool-approval pauses are excluded: they take decisions, not prose, so free text there is a
      * genuine follow-up.
+     *
+     * So is a multi-question batch ([PendingAction.isSingleAnswerAsk]): the resume route wants one
+     * answer per question id there and rejects a body missing any of them, so the composer's lone
+     * field cannot resolve that pause however it is routed. Claiming the send for it would trade
+     * the wrong-destination bug for a 400 the user cannot act on — the card, which renders a field
+     * per question, stays the only way through, and the composer keeps steering/queueing.
      */
     val duringRunSendTarget: DuringRunSendTarget
         get() {
             val pause = renderablePendingAction
-            if (pause != null && pause.isAskUserQuestion && !isResolvingPendingAction) {
+            if (pause != null && pause.isSingleAnswerAsk && !isResolvingPendingAction) {
                 return DuringRunSendTarget.ANSWER_PAUSE
             }
             return when (effectiveDuringRunAction) {

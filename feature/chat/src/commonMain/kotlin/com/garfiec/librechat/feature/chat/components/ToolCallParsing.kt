@@ -561,7 +561,7 @@ internal fun parseAskUserQuestion(raw: String?): AskUserQuestionRequest? {
     return (parsed as? JsonObject)?.toAskUserQuestion()
 }
 
-private fun JsonObject.toAskUserQuestion(): AskUserQuestionRequest? {
+internal fun JsonObject.toAskUserQuestion(): AskUserQuestionRequest? {
     val question = stringField("question") ?: return null
     val options = (this["options"] as? JsonArray).orEmpty().mapNotNull { element ->
         val option = element as? JsonObject ?: return@mapNotNull null
@@ -577,7 +577,7 @@ private fun JsonObject.toAskUserQuestion(): AskUserQuestionRequest? {
     )
 }
 
-private fun JsonObject.stringField(key: String): String? =
+internal fun JsonObject.stringField(key: String): String? =
     (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
 /** How an answer reads back against the question that was asked. */

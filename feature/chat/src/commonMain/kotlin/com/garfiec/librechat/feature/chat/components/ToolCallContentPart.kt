@@ -110,6 +110,22 @@ internal fun ToolCallDispatcher(
     // A settled `ask_user_question` call is a Q&A exchange, not a tool run — render the record
     // rather than the call. Its arguments carry the question and options, its output the answer.
     if (isAskUserQuestionToolCall(toolNameLower)) {
+        // A batch first: its args carry no top-level `question`, so the single-question parse
+        // returns null for one and the card would render the answers map as the answer text.
+        val batch = remember(toolCall) {
+            parseAskUserQuestionBatch(toolCall?.args)
+                .ifEmpty { parseAskUserQuestionBatch(toolCall?.function?.arguments) }
+        }
+        if (batch.isNotEmpty()) {
+            val answers = remember(output) { parseAskUserAnswers(output) }
+            AskUserQuestionBatchRecordCard(
+                questions = batch,
+                answers = answers,
+                modifier = modifier,
+                failed = toolCall?.inputValidationError == true,
+            )
+            return
+        }
         val question = remember(toolCall) {
             parseAskUserQuestion(toolCall?.args) ?: parseAskUserQuestion(toolCall?.function?.arguments)
         }

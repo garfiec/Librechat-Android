@@ -1045,7 +1045,15 @@ class ChatViewModel(
                 val answer = state.inputText.trim()
                 if (answer.isEmpty()) return
                 clearComposer()
-                answerPendingQuestion(answer)
+                // A one-question batch still resolves through the batched channel: the route reads
+                // the PAYLOAD to pick which body it accepts, and a pause carrying `questions`
+                // rejects the bare `answer` this would otherwise send.
+                val batchedId = state.renderablePendingAction?.soleAskQuestionId
+                if (batchedId != null) {
+                    answerPendingQuestions(mapOf(batchedId to answer))
+                } else {
+                    answerPendingQuestion(answer)
+                }
             }
 
             DuringRunSendTarget.STEER -> steerMessage()

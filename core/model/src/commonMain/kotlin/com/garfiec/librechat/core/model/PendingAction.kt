@@ -37,6 +37,26 @@ data class PendingAction(
 
     /** True when this pause asks the user a clarifying question. */
     val isAskUserQuestion: Boolean get() = payload?.type == PendingActionTypes.ASK_USER_QUESTION
+
+    /**
+     * The question id a single free-text answer resolves this batch through, or null.
+     *
+     * Non-null only for a batch of exactly one answerable question — the one batch shape a lone
+     * text field can cover, submitted as `answers = {id: text}` rather than as a bare `answer`,
+     * which the batched branch of the resume route rejects outright.
+     */
+    val soleAskQuestionId: String?
+        get() = payload?.questions?.singleOrNull()?.takeIf { it.isAnswerable }?.id
+
+    /**
+     * True when one free-text field carries everything this pause needs to resolve.
+     *
+     * A real multi-question batch is false: the route requires an answer per id and 400s on a body
+     * missing any of them, so a single field cannot resolve it no matter what is typed. Only the
+     * card, which renders a field per question, can.
+     */
+    val isSingleAnswerAsk: Boolean
+        get() = isAskUserQuestion && (payload?.questions == null || soleAskQuestionId != null)
 }
 
 /** Wire values of the `payload.type` discriminator. */

@@ -616,17 +616,21 @@ Continues the range above; `package.json` still reports 0.8.7 and the commit is 
 - MCP tool keys embed `normalizeServerName(server)` (non-`[a-zA-Z0-9_.-]` → `_`, ends trimmed,
   hashed to `server_<n>` if nothing survives), but `GET /api/mcp/servers` still reports the RAW
   configured name. Registered as a mirror. (BUILT)
-- MCP server create/update can answer **400 `MCP_OAUTH_SECRET_REENTRY_REQUIRED`**: the stored client
-  secret is bound to the authorization/token endpoint it was issued for, so changing either
-  invalidates it and every retry of the same body fails identically. `handleMCPError` puts the code
-  under **`error`**, not `code` as the generation routes do. (BUILT)
+- `PATCH /api/mcp/servers/:serverName` can answer **400 `MCP_OAUTH_SECRET_REENTRY_REQUIRED`**: the
+  stored client secret is bound to the authorization/token endpoint it was issued for, so changing
+  either invalidates it and every retry of the same body fails identically. Raised from
+  `ServerConfigsDB.update` alone — the create route never runs the check, so an edit sent as a
+  create cannot produce it. `handleMCPError` puts the code under **`error`**, not `code` as the
+  generation routes do. (BUILT — edit-mode saves now PATCH; they used to POST a create.)
 
 **Additive decode surface.** `isShared` on list-fetched conversations (derived per request, never
 persisted, absent from single-conversation payloads — so null means *unknown*); `adminPanelURL`
 (admin-gated, so its PRESENCE is the admin signal and it must never be cached across accounts) plus
 `langfuseFanoutEnabled` / `langfuseConnectionAccess` on `/api/config`; `isEditable` on agent list
-rows (upstream documents fail-OPEN, this client applies it fail-CLOSED — it only narrows the
-existing per-agent EDIT probe); `owner_contact` **no longer carries `email`** (security advisory);
+rows **only** — `getListAgents` stamps it and neither `GET /api/agents/:id` nor `/expanded` carries
+it, so the list read records the verdict for the detail screen to narrow its own per-agent EDIT
+probe with (upstream documents fail-OPEN, this client applies it fail-CLOSED);
+`owner_contact` **no longer carries `email`** (security advisory);
 `flowId` / `oauthTimeout` / `failureReason` / `missingUserVars` / `authorizationState` on the MCP
 reinitialize response, plus `authorizationState` per server and `oauthTimeout` on the envelope of
 `GET /api/mcp/connection/status`. (BUILT)
@@ -644,6 +648,15 @@ compares `getExplicitPort(clientDomain)` against `specUrl.port || protocol defau
 `servers[0].url` verbatim can never mismatch — including an explicit default port, which WHATWG
 strips from both sides. The actions route LOGS `Port mismatch:` / `Domain mismatch:` and returns a
 fixed generic sentence, so that text never reaches a client.
+
+**Mirrors (Phase 0).** The 12 mirrors registered before this sync were checked over
+91adcf3f→db431210 and one reported DRIFT: `memory-storage-error-types`, a **file-mode** watch on
+`packages/api/src/agents/memory.ts`. Examined and dismissed — the change is `registerMemoryTools`
+gaining a `toolNames` field in its return type; the two literals the entry guards
+(`errorType: 'already_exceeded'` and `'would_exceed'`) are byte-identical at both revisions, so
+nothing was owed on the Kotlin side. A file-mode entry reports any churn in its file by design, so
+expect this one to fire again on the next unrelated edit and re-verify the two literals rather than
+the file. Six further mirrors were registered during this sync (18 in total).
 
 ### Other
 ```

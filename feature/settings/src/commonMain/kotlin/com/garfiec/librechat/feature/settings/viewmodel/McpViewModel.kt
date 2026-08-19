@@ -152,15 +152,31 @@ class McpViewModel(
         oauth: McpOAuthConfig? = null,
     ) {
         viewModelScope.launch {
+            // An edit addresses the stored server (PATCH), a new one does not (POST). Only the
+            // update route re-binds the OAuth client secret to the endpoints being saved, so
+            // sending an edit as a create skips that check and collides with the existing name.
+            val editing = _uiState.value.editingServer?.name
             _uiState.value = _uiState.value.copy(oauthSecretReentryRequired = false)
-            val result = mcpRepository.createServer(
-                name = name,
-                description = description,
-                url = url,
-                type = type,
-                apiKey = apiKey,
-                oauth = oauth,
-            )
+            val result = if (editing != null) {
+                mcpRepository.updateServer(
+                    serverName = editing,
+                    name = name,
+                    description = description,
+                    url = url,
+                    type = type,
+                    apiKey = apiKey,
+                    oauth = oauth,
+                )
+            } else {
+                mcpRepository.createServer(
+                    name = name,
+                    description = description,
+                    url = url,
+                    type = type,
+                    apiKey = apiKey,
+                    oauth = oauth,
+                )
+            }
             when (result) {
                 is Result.Success -> {
                     dismissServerDialog()

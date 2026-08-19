@@ -11,10 +11,17 @@ import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
+import com.garfiec.librechat.core.model.AskUserQuestionItem
+import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.EndpointConfig
+import com.garfiec.librechat.core.model.PendingAction
+import com.garfiec.librechat.core.model.PendingActionPayload
+import com.garfiec.librechat.core.model.PendingActionTypes
 import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.request.ChatResumeRequest
 import com.garfiec.librechat.core.model.request.SteerRequest
+import com.garfiec.librechat.core.model.response.ChatResumeResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.model.response.SteerResponse
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
@@ -24,6 +31,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
@@ -136,6 +144,8 @@ class ChatViewModelDuringRunSendTest {
         coEvery { conversationRepository.getConversation(any(), any()) } returns Result.Error(message = "test")
         coEvery { chatRepository.steerChat(any()) } returns
             Result.Success(SteerResponse(status = "queued", steerId = "steer-1"))
+        coEvery { chatRepository.resumeChat(any()) } returns
+            Result.Success(ChatResumeResponse(status = "resuming"))
 
         // The conversation opens onto a live run: `resumeActiveStreamIfNeeded` sees active=true and
         // flips `isStreaming` on. `resumedStream` is a hot flow the test drives: left alone the run
@@ -283,6 +293,53 @@ class ChatViewModelDuringRunSendTest {
             runCurrent()
 
             coVerify(exactly = 0) { chatRepository.steerChat(any()) }
+            assertThat(vm.uiState.value.messageQueue.map { it.text }).containsExactly(TEXT)
+        }
+
+    /**
+     * The composer, not the card, is the input the user reaches for — and the resume route picks
+     * the body it accepts off the pause's PAYLOAD. A pause carrying `questions` rejects a bare
+     * `answer` outright, so a composer send that took the single-question path here would 400 and
+     * leave the run paused with Stop as the only escape.
+     *
+     * Driven through `sendDuringRun` rather than the delegate: the defect was in the ROUTING, and
+     * `PendingActionDelegate` submits whichever channel it is handed.
+     */
+    @Test
+    fun `answering a one-question batch from the composer submits the batched channel`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic"))
+            runCurrent()
+            assertThat(vm.uiState.value.pendingAction).isNotNull()
+
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            val request = slot<ChatResumeRequest>()
+            coVerify(exactly = 1) { chatRepository.resumeChat(capture(request)) }
+            assertThat(request.captured.answers).isEqualTo(mapOf("topic" to TEXT))
+            assertThat(request.captured.answer).isNull()
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+        }
+
+    /**
+     * One field cannot cover ids it never showed, and a body missing any of them is a 400. So the
+     * composer must not claim the send for a real batch — the card is the only input that can
+     * resolve it, and the text keeps its ordinary during-run destination.
+     */
+    @Test
+    fun `a multi-question batch is not answerable from the composer`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            resumedStream.emit(pendingBatch("topic", "depth"))
+            runCurrent()
+            assertThat(vm.uiState.value.pendingAction).isNotNull()
+
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            coVerify(exactly = 0) { chatRepository.resumeChat(any()) }
             assertThat(vm.uiState.value.messageQueue.map { it.text }).containsExactly(TEXT)
         }
 
@@ -440,6 +497,21 @@ class ChatViewModelDuringRunSendTest {
 
             assertThat(vm.uiState.value.justSettledMessageId).isEqualTo(SETTLED_ID)
         }
+
+    /** A live pause carrying a batched `ask_user_question`, as the SSE stream announces one. */
+    private fun pendingBatch(vararg ids: String) = StreamEvent.PendingActionRequested(
+        PendingAction(
+            actionId = "act_1",
+            conversationId = CONVERSATION_ID,
+            payload = PendingActionPayload(
+                type = PendingActionTypes.ASK_USER_QUESTION,
+                // Upstream keeps `question` populated with the first item as a display fallback
+                // even on a batch, so a build reading it would see a single-question pause here.
+                question = AskUserQuestionRequest(question = "Which one?"),
+                questions = ids.map { AskUserQuestionItem(id = it, question = "Which $it?") },
+            ),
+        ),
+    )
 
     private fun duringRunTest(
         preference: DuringRunAction,

@@ -67,6 +67,7 @@ internal fun AskUserQuestionRecordCard(
     answer: String,
     modifier: Modifier = Modifier,
     failed: Boolean = false,
+    header: String? = null,
 ) {
     val display = remember(question, answer) { askAnswerDisplay(question, answer) }
     val answered = answer.isNotBlank() && !failed
@@ -140,6 +141,13 @@ internal fun AskUserQuestionRecordCard(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
+                    header?.takeIf { it.isNotBlank() }?.let { heading ->
+                        Text(
+                            text = heading,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (questionText != null) {
                         Text(
                             text = questionText,
@@ -200,6 +208,40 @@ internal fun AskUserQuestionRecordCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The durable record of a *batched* `ask_user_question` — one row per question the agent asked in
+ * that call, each with the answer stamped against its own id.
+ *
+ * The single-question record cannot stand in for this. A batch's arguments carry no top-level
+ * `question` and its output is a `{"answers": {…}}` map rather than a sentence, so that card
+ * rendered an unlabeled exchange whose answer was the raw JSON — on every reload, permanently.
+ *
+ * A question the answers map does not name reads as unanswered rather than borrowing a neighbour's
+ * words, matching upstream `AskUserQuestionCall`: the two are joined by id, and a batch resolved
+ * through any client covers every id or is not accepted at all.
+ */
+@Composable
+internal fun AskUserQuestionBatchRecordCard(
+    questions: List<AskUserQuestionEntry>,
+    answers: Map<String, String>,
+    modifier: Modifier = Modifier,
+    failed: Boolean = false,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        questions.forEach { entry ->
+            AskUserQuestionRecordCard(
+                question = entry.question,
+                answer = answers[entry.id].orEmpty(),
+                failed = failed,
+                header = entry.header,
+            )
         }
     }
 }

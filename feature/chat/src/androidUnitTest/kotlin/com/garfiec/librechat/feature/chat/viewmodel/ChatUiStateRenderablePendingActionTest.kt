@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
+import com.garfiec.librechat.core.model.AskUserQuestionItem
 import com.garfiec.librechat.core.model.AskUserQuestionRequest
 import com.garfiec.librechat.core.model.PendingAction
 import com.garfiec.librechat.core.model.PendingActionPayload
@@ -118,5 +119,42 @@ class ChatUiStateRenderablePendingActionTest {
     @Test
     fun `with no pause the composer keeps its ordinary during-run behaviour`() {
         assertThat(pausedState(null).duringRunSendTarget).isEqualTo(DuringRunSendTarget.QUEUE)
+    }
+
+    private fun askUserQuestions(vararg ids: String) = PendingAction(
+        actionId = "act_1",
+        payload = PendingActionPayload(
+            type = PendingActionTypes.ASK_USER_QUESTION,
+            // Upstream keeps `question` populated with the first item even on a batch, so a
+            // batched pause that branched on it would look single-question here.
+            question = AskUserQuestionRequest(question = "Which one?"),
+            questions = ids.map { AskUserQuestionItem(id = it, question = "Which $it?") },
+        ),
+    )
+
+    /**
+     * One field cannot answer questions it never showed. The batched resume branch requires an
+     * answer per id and 400s on a body missing any of them, so claiming the send here would swap
+     * a message delivered late for a rejection the user cannot act on — the card is the only input
+     * that can resolve this pause.
+     */
+    @Test
+    fun `a multi-question batch leaves the composer queueing`() {
+        val target = pausedState(askUserQuestions("topic", "depth")).duringRunSendTarget
+        assertThat(target).isEqualTo(DuringRunSendTarget.QUEUE)
+    }
+
+    /** A batch of one is answerable from a single field — as `answers`, never as a bare answer. */
+    @Test
+    fun `a one-question batch still takes the composer's send`() {
+        val target = pausedState(askUserQuestions("topic")).duringRunSendTarget
+        assertThat(target).isEqualTo(DuringRunSendTarget.ANSWER_PAUSE)
+    }
+
+    /** An id-less item can never be submitted, so its batch is not composer-answerable either. */
+    @Test
+    fun `a one-question batch with no usable id leaves the composer queueing`() {
+        val target = pausedState(askUserQuestions("")).duringRunSendTarget
+        assertThat(target).isEqualTo(DuringRunSendTarget.QUEUE)
     }
 }

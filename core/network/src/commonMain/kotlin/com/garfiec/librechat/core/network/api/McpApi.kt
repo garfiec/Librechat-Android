@@ -14,6 +14,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -107,33 +108,12 @@ class McpApi constructor(
         apiKey: McpApiKeyConfig? = null,
         oauth: McpOAuthConfig? = null,
     ): McpServer {
-        val configMap = buildMap<String, Any> {
-            put("url", url)
-            put("type", type.serialName)
-            put("title", name)
-            if (!description.isNullOrBlank()) put("description", description)
-            if (apiKey != null) {
-                put("apiKey", buildMap {
-                    put("source", apiKey.source.serialName)
-                    put("authorization_type", apiKey.authorizationType.serialName)
-                    if (!apiKey.key.isNullOrBlank()) put("key", apiKey.key)
-                    if (!apiKey.customHeader.isNullOrBlank()) put("custom_header", apiKey.customHeader)
-                })
-            }
-            if (oauth != null) {
-                put("oauth", buildMap {
-                    if (!oauth.authorizationUrl.isNullOrBlank()) put("authorization_url", oauth.authorizationUrl)
-                    if (!oauth.tokenUrl.isNullOrBlank()) put("token_url", oauth.tokenUrl)
-                    if (!oauth.clientId.isNullOrBlank()) put("client_id", oauth.clientId)
-                    if (!oauth.clientSecret.isNullOrBlank()) put("client_secret", oauth.clientSecret)
-                    if (!oauth.scope.isNullOrBlank()) put("scope", oauth.scope)
-                })
-            }
-        }
         val response: JsonObject = client.post {
             url { path("api/mcp/servers") }
-            setBody(mapOf("config" to configMap))
+            setBody(mapOf("config" to serverConfigBody(name, description, url, type, apiKey, oauth)))
         }.body()
+        // The create route generates the identifier and answers with it; the caller's `name` is
+        // only the title it asked for.
         val serverName = response["serverName"]?.jsonPrimitive?.contentOrNull ?: name
         return McpServer(
             name = serverName,
@@ -144,6 +124,75 @@ class McpApi constructor(
             apiKey = apiKey,
             oauth = oauth,
         )
+    }
+
+    /**
+     * Edits an existing DB-backed server — `PATCH /api/mcp/servers/:serverName`.
+     *
+     * Same `{config}` body as the create route and the same validation, but a different server-side
+     * path: only this one compares the submitted OAuth endpoints against the stored client secret,
+     * which is what raises `MCP_OAUTH_SECRET_REENTRY_REQUIRED`. Sending an edit as a create instead
+     * skips that check entirely and asks the server to add a second server under a name it already
+     * holds.
+     *
+     * [serverName] is the stored identifier, not the title: it addresses the record and cannot be
+     * changed here, so a renamed title rides in the body while the path stays put.
+     */
+    suspend fun updateServer(
+        serverName: String,
+        name: String,
+        description: String? = null,
+        url: String,
+        type: McpServerType,
+        apiKey: McpApiKeyConfig? = null,
+        oauth: McpOAuthConfig? = null,
+    ): McpServer {
+        val response: JsonObject = client.patch {
+            url { path("api/mcp/servers/$serverName") }
+            setBody(mapOf("config" to serverConfigBody(name, description, url, type, apiKey, oauth)))
+        }.body()
+        // The update route answers with the parsed config alone — the name is the one in the path.
+        return McpServer(
+            name = serverName,
+            url = response["url"]?.jsonPrimitive?.contentOrNull ?: url,
+            type = type,
+            title = response["title"]?.jsonPrimitive?.contentOrNull,
+            description = description,
+            apiKey = apiKey,
+            oauth = oauth,
+        )
+    }
+
+    /** The `config` object both write routes validate against the same schema. */
+    private fun serverConfigBody(
+        name: String,
+        description: String?,
+        url: String,
+        type: McpServerType,
+        apiKey: McpApiKeyConfig?,
+        oauth: McpOAuthConfig?,
+    ): Map<String, Any> = buildMap {
+        put("url", url)
+        put("type", type.serialName)
+        put("title", name)
+        if (!description.isNullOrBlank()) put("description", description)
+        if (apiKey != null) {
+            put("apiKey", buildMap {
+                put("source", apiKey.source.serialName)
+                put("authorization_type", apiKey.authorizationType.serialName)
+                if (!apiKey.key.isNullOrBlank()) put("key", apiKey.key)
+                if (!apiKey.customHeader.isNullOrBlank()) put("custom_header", apiKey.customHeader)
+            })
+        }
+        if (oauth != null) {
+            put("oauth", buildMap {
+                if (!oauth.authorizationUrl.isNullOrBlank()) put("authorization_url", oauth.authorizationUrl)
+                if (!oauth.tokenUrl.isNullOrBlank()) put("token_url", oauth.tokenUrl)
+                if (!oauth.clientId.isNullOrBlank()) put("client_id", oauth.clientId)
+                if (!oauth.clientSecret.isNullOrBlank()) put("client_secret", oauth.clientSecret)
+                if (!oauth.scope.isNullOrBlank()) put("scope", oauth.scope)
+            })
+        }
     }
 
     suspend fun deleteServer(serverName: String) {
