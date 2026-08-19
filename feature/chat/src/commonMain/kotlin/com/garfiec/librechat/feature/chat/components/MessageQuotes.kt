@@ -27,7 +27,8 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Renders the verbatim excerpts a user referenced on a turn (v0.8.7 `message.quotes`).
  * Display-only: each excerpt is a left-accented "quote" block above the user's text.
- * Quotes are created on the web client; mobile has no creation affordance yet.
+ * Created on web, and on Android via the selection toolbar's "Add to chat"
+ * (`AddToChatSelectionMenu` → `PendingQuoteChipsSection`); iOS still displays only.
  */
 @Composable
 internal fun MessageQuotes(

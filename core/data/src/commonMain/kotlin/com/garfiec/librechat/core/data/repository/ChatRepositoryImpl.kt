@@ -60,6 +60,7 @@ class ChatRepositoryImpl(
         ephemeralAgent: EphemeralAgent?,
         isTemporary: Boolean,
         modelParams: JsonObject?,
+        quotes: List<String>?,
     ): Flow<StreamEvent> = flow {
         // Phase 1: POST to start the chat - get back a streamId (= conversationId)
         val request = ChatPayloadBuilder.build(
@@ -83,6 +84,7 @@ class ChatRepositoryImpl(
             addedConvo = addedConvo,
             ephemeralAgent = ephemeralAgent,
             isTemporary = isTemporary,
+            quotes = quotes,
         )
         // A send whose parent response is still being written now 409s ("Cannot submit a
         // follow-up while the selected parent response is still being saved"), which an

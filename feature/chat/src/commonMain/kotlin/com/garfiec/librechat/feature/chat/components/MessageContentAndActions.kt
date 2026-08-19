@@ -301,7 +301,7 @@ internal fun MessageContentAndActions(
         SelectionContainer {
             Column {
                 // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
-                // text. Created on web; mobile displays them (no creation affordance yet).
+                // text. Created on web and via Android's selection-toolbar "Add to chat".
                 // Selectable: a quote is conversation text the user pulled forward, not chrome.
                 val quotes = message.quotes
                 if (isUser && !quotes.isNullOrEmpty()) {

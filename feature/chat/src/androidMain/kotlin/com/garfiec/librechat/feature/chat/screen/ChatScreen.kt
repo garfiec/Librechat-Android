@@ -521,6 +521,8 @@ actual fun ChatScreen(
                 duringRunAction = uiState.effectiveDuringRunAction,
                 duringRunSendTarget = uiState.duringRunSendTarget,
                 pendingSteers = uiState.pendingSteers,
+                pendingQuotes = uiState.pendingQuotes,
+                onRemoveQuote = viewModel::removePendingQuote,
                 onCancelSteer = viewModel::cancelSteer,
                 onSetDuringRunAction = viewModel::setDuringRunAction,
                 attachedFiles = attachedFiles,

@@ -1161,8 +1161,11 @@ class ChatViewModel(
 
     private fun enqueueNow(text: String) {
         val spec = buildSendSpec(text) ?: return
+        // Composer-origin queue takes the staged quotes with it (web takeComposerContext): they
+        // pair with THIS queued message instead of gluing onto whatever the user sends next.
+        val withQuotes = spec.copy(quotes = takePendingQuotes(spec.endpoint))
         clearComposer()
-        enqueueSpec(spec)
+        enqueueSpec(withQuotes)
     }
 
     /**
@@ -1225,7 +1228,8 @@ class ChatViewModel(
             // The upload wait is async — bail if the edit was cancelled (or replaced) meanwhile,
             // so we don't reinsert a duplicate after cancelQueuedEdit already restored the item.
             if (_uiState.value.editingQueuedItem != session) return@withUploadGate
-            val edited = buildSendSpec(text)?.copy(localId = session.original.localId)
+            val edited = buildSendSpec(text)
+                ?.copy(localId = session.original.localId, quotes = session.original.quotes)
             if (edited != null) {
                 queueDelegate.reinsert(session.originalIndex, edited)
             } else {
@@ -1347,7 +1351,51 @@ class ChatViewModel(
 
     private fun sendNow(text: String) {
         val spec = buildSendSpec(text) ?: return
-        doSendWithSpec(spec, clearComposerOnSend = true)
+        doSendWithSpec(
+            spec.copy(quotes = takePendingQuotes(spec.endpoint)),
+            clearComposerOnSend = true,
+        )
+    }
+
+    /**
+     * Atomically takes (and clears) the staged quote chips for a send on [endpoint] — the
+     * fresh-submit / composer-queue drain of web's `pendingQuotesByConvoId` atom. Assistants
+     * endpoints take nothing and leave the chips staged: they bypass the server-side merge, and
+     * a selection staged elsewhere must not silently ride along (web's `quotesSupported` guard).
+     * Regenerate/continue/edit never call this — those flows replay a prior turn.
+     */
+    private fun takePendingQuotes(endpoint: String): List<String> {
+        val assistants = endpoint.equals("assistants", ignoreCase = true) ||
+            endpoint.equals("azureAssistants", ignoreCase = true)
+        if (assistants) return emptyList()
+        var taken: List<String> = emptyList()
+        _uiState.update {
+            taken = it.composer.pendingQuotes
+            if (taken.isEmpty()) it else it.copy(composer = it.composer.copy(pendingQuotes = emptyList()))
+        }
+        return taken
+    }
+
+    /** Stages a selected excerpt as a pending quote chip (selection toolbar "Add to chat"). */
+    fun addPendingQuote(text: String) {
+        val excerpt = text.trim()
+        if (excerpt.isEmpty()) return
+        _uiState.update {
+            it.copy(composer = it.composer.copy(pendingQuotes = it.composer.pendingQuotes + excerpt))
+        }
+    }
+
+    /** Removes one staged quote chip (its ×). */
+    fun removePendingQuote(index: Int) {
+        _uiState.update {
+            val quotes = it.composer.pendingQuotes
+            if (index !in quotes.indices) return@update it
+            it.copy(
+                composer = it.composer.copy(
+                    pendingQuotes = quotes.filterIndexed { i, _ -> i != index },
+                ),
+            )
+        }
     }
 
     /**
@@ -1418,6 +1466,9 @@ class ChatViewModel(
             sender = "User",
             createdAt = Clock.System.now().toString(),
             files = fileRefs.takeIf { it.isNotEmpty() },
+            // The server persists and echoes them; painting them optimistically keeps the user
+            // bubble's quote blocks from popping in a turn later.
+            quotes = spec.quotes.takeIf { it.isNotEmpty() },
         )
         val isNewChat = conversationId == null
         _uiState.update {
@@ -1479,6 +1530,7 @@ class ChatViewModel(
             ephemeralAgent = spec.ephemeralAgent,
             isTemporary = spec.isTemporary,
             modelParams = spec.modelParamsPayload,
+            quotes = spec.quotes.takeIf { it.isNotEmpty() },
         )
         streamingManager.launchStream(stream) {
             // Safety net: if the flow ends without Final or Error, clear streaming

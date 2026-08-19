@@ -40,6 +40,8 @@ interface ChatRepository {
         ephemeralAgent: EphemeralAgent? = null,
         isTemporary: Boolean = false,
         modelParams: JsonObject? = null,
+        /** Quoted excerpts riding this turn (v0.8.7); null/empty sends none. */
+        quotes: List<String>? = null,
     ): Flow<StreamEvent>
 
     /**

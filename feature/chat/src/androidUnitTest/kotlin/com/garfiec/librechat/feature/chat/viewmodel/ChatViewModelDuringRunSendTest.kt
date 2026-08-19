@@ -159,6 +159,7 @@ class ChatViewModelDuringRunSendTest {
             chatRepository.startChat(
                 any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
                 any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(),
             )
         } returns MutableSharedFlow()
     }
@@ -461,6 +462,7 @@ class ChatViewModelDuringRunSendTest {
                 chatRepository.startChat(
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
                     any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                    any(),
                 )
             }
         }
@@ -513,6 +515,113 @@ class ChatViewModelDuringRunSendTest {
 
             assertThat(vm.uiState.value.justSettledMessageId).isEqualTo(SETTLED_ID)
         }
+
+    // ─── pending quotes (v0.8.7 "Add to chat", SYNC A11) ─────────────
+
+    /** Captures the `quotes` argument of every `startChat` the ViewModel fires. */
+    private fun captureStartChatQuotes(): MutableList<List<String>?> {
+        val captured = mutableListOf<List<String>?>()
+        every {
+            chatRepository.startChat(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                captureNullable(captured),
+            )
+        } returns MutableSharedFlow()
+        return captured
+    }
+
+    @Test
+    fun `a fresh send drains the staged quotes onto the request`() =
+        duringRunTest(
+            DuringRunAction.QUEUE,
+            arrange = {
+                // No live run: this is the plain fresh-submit path.
+                coEvery { chatRepository.checkStreamStatus(eq(CONVERSATION_ID), any()) } returns
+                    ChatStatusResponse(active = false)
+            },
+        ) { vm ->
+            val captured = captureStartChatQuotes()
+            vm.addPendingQuote("the selected excerpt")
+            vm.onInputChanged("about this part")
+            vm.sendMessage()
+            runCurrent()
+
+            assertThat(captured.last()).containsExactly("the selected excerpt")
+            // Atomic take: the chips are gone the moment the send owns them.
+            assertThat(vm.uiState.value.pendingQuotes).isEmpty()
+        }
+
+    @Test
+    fun `a queued message carries the staged quotes through its drain`() =
+        duringRunTest(DuringRunAction.QUEUE) { vm ->
+            val captured = captureStartChatQuotes()
+            vm.addPendingQuote("the selected excerpt")
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            // Composer-origin queue takes the chips with it (web takeComposerContext): they pair
+            // with THIS item, not with whatever the user sends next.
+            assertThat(vm.uiState.value.messageQueue.single().quotes)
+                .containsExactly("the selected excerpt")
+            assertThat(vm.uiState.value.pendingQuotes).isEmpty()
+
+            resumedStream.emit(
+                StreamEvent.Final(
+                    requestMessage = null,
+                    responseMessage = com.garfiec.librechat.core.model.Message(
+                        messageId = SETTLED_ID,
+                        conversationId = CONVERSATION_ID,
+                        text = "done",
+                        isCreatedByUser = false,
+                    ),
+                    conversation = null,
+                ),
+            )
+            runCurrent()
+
+            assertThat(vm.uiState.value.messageQueue).isEmpty()
+            assertThat(captured.last()).containsExactly("the selected excerpt")
+        }
+
+    @Test
+    fun `a composer steer leaves the staged quotes for the next real send`() =
+        duringRunTest(DuringRunAction.STEER) { vm ->
+            // Web parity: server steers never carry quotes, so a composer-origin steer must not
+            // consume them — they stay staged and ride the next fresh submit instead.
+            vm.addPendingQuote("the selected excerpt")
+            vm.onInputChanged(TEXT)
+            vm.sendDuringRun()
+            runCurrent()
+
+            coVerify(exactly = 1) { chatRepository.steerChat(SteerRequest(CONVERSATION_ID, TEXT)) }
+            assertThat(vm.uiState.value.pendingQuotes).containsExactly("the selected excerpt")
+        }
+
+    @Test
+    fun `quote capture is gated on server version and endpoint`() {
+        val gatedOn = ChatUiState(
+            gates = FeatureGatesState(backendVersion = "0.8.7"),
+            selection = ModelSelectionState(selectedEndpoint = "anthropic"),
+        )
+        assertThat(gatedOn.quoteCaptureAvailable).isTrue()
+
+        // Pre-0.8.7 servers ignore the field and would silently drop the excerpts; unknown
+        // versions fail CLOSED for the same reason.
+        assertThat(
+            gatedOn.copy(gates = FeatureGatesState(backendVersion = "0.8.6")).quoteCaptureAvailable,
+        ).isFalse()
+        assertThat(
+            gatedOn.copy(gates = FeatureGatesState(backendVersion = null)).quoteCaptureAvailable,
+        ).isFalse()
+        // Assistants endpoints bypass the server-side merge (web quotesSupported).
+        assertThat(
+            gatedOn.copy(
+                selection = ModelSelectionState(selectedEndpoint = "assistants"),
+            ).quoteCaptureAvailable,
+        ).isFalse()
+    }
 
     /** A live pause carrying a batched `ask_user_question`, as the SSE stream announces one. */
     private fun pendingBatch(vararg ids: String) = StreamEvent.PendingActionRequested(

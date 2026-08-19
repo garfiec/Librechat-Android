@@ -37,6 +37,7 @@ object ChatPayloadBuilder {
         addedConvo: AddedConversation? = null,
         ephemeralAgent: EphemeralAgent? = null,
         isTemporary: Boolean = false,
+        quotes: List<String>? = null,
     ): ChatRequest {
         val resolvedParentMessageId = parentMessageId ?: NO_PARENT
 
@@ -57,6 +58,7 @@ object ChatPayloadBuilder {
             isRegenerate = isRegenerate,
             isContinued = isContinued,
             webSearch = if (webSearch) true else null,
+            quotes = quotes?.takeIf { it.isNotEmpty() },
             files = files?.takeIf { it.isNotEmpty() },
             addedConvo = addedConvo,
             ephemeralAgent = ephemeralAgent,

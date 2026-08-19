@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
 import androidx.compose.runtime.Immutable
+import com.garfiec.librechat.core.common.BackendVersion
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
@@ -104,6 +105,24 @@ data class ChatUiState(
     val sendBlockReason: SendBlockReason? get() = composer.sendBlockReason
     val editingQueuedItem: QueuedEditSession? get() = composer.editingQueuedItem
     val isAwaitingUploadSend: Boolean get() = composer.isAwaitingUploadSend
+    val pendingQuotes: List<String> get() = composer.pendingQuotes
+
+    /**
+     * Whether the "Add to chat" quote affordance is offered (v0.8.7, upstream #13868).
+     *
+     * Fail-CLOSED on an unknown backend version: a pre-0.8.7 server ignores the request's
+     * `quotes` field, so the excerpts would be silently dropped — offering the affordance there
+     * is worse than hiding it. Also off on assistants endpoints, which bypass the server-side
+     * blockquote merge (web's `quotesSupported` guard).
+     */
+    val quoteCaptureAvailable: Boolean
+        get() = quotesSupportedOnEndpoint &&
+            gates.backendVersion?.let { BackendVersion.isCompatibleOrNewer(it, "0.8.7") } == true
+
+    /** Web's `quotesSupported`: everything except the assistants endpoints. */
+    val quotesSupportedOnEndpoint: Boolean
+        get() = !selectedEndpoint.equals("assistants", ignoreCase = true) &&
+            !selectedEndpoint.equals("azureAssistants", ignoreCase = true)
 
     /**
      * True while picked files exist but are not yet in the attachment tray — mid-intake, or staged

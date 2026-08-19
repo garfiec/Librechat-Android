@@ -156,6 +156,8 @@
     <string name="tool_mcp_desc">Model Context Protocol servers</string>
     <string name="cd_web_search_enabled">Web Search enabled</string>
     <string name="cd_quoted_excerpt">Quoted excerpt</string>
+    <string name="cd_remove_quote">Remove quote</string>
+    <string name="selection_add_to_chat">Add to chat</string>
     <string name="cd_code_enabled">Code interpreter enabled</string>
     <string name="cd_file_search_enabled">File Search enabled</string>
 

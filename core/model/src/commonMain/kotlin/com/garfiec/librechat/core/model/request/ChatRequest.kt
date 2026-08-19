@@ -51,6 +51,14 @@ data class ChatRequest(
     val key: String? = null,
     val extra: JsonObject? = null,
     @SerialName("web_search") val webSearch: Boolean? = null,
+    /**
+     * Verbatim excerpts the user referenced via "Add to chat" (v0.8.7, upstream #13868). The
+     * server merges them into the user message as Markdown blockquotes for the model and
+     * persists them on the message, echoing `message.quotes` for display. Omitted (null) on
+     * regenerate/continue/edit — those replay a prior turn — and never sent to assistants
+     * endpoints, which bypass the BaseClient merge.
+     */
+    val quotes: List<String>? = null,
     val files: List<FileReference>? = null,
     val addedConvo: AddedConversation? = null,
     val ephemeralAgent: EphemeralAgent? = null,
