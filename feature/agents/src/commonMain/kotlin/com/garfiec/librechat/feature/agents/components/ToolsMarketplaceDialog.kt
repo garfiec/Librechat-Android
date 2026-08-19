@@ -51,6 +51,8 @@ import com.garfiec.librechat.feature.agents.components.model.MarketplaceBuiltinL
 import com.garfiec.librechat.feature.agents.components.model.MarketplaceItem
 import com.garfiec.librechat.feature.agents.components.model.MarketplaceKind
 import com.garfiec.librechat.feature.agents.resources.Res
+import com.garfiec.librechat.feature.agents.resources.builtin_ask_user
+import com.garfiec.librechat.feature.agents.resources.builtin_ask_user_desc
 import com.garfiec.librechat.feature.agents.resources.builtin_code_interpreter
 import com.garfiec.librechat.feature.agents.resources.builtin_code_interpreter_desc
 import com.garfiec.librechat.feature.agents.resources.builtin_file_context
@@ -343,6 +345,7 @@ private fun MarketplaceBuiltinLabel.titleRes() = when (this) {
     MarketplaceBuiltinLabel.FILE_SEARCH -> Res.string.builtin_file_search
     MarketplaceBuiltinLabel.WEB_SEARCH -> Res.string.builtin_web_search
     MarketplaceBuiltinLabel.FILE_CONTEXT -> Res.string.builtin_file_context
+    MarketplaceBuiltinLabel.ASK_USER_QUESTION -> Res.string.builtin_ask_user
 }
 
 private fun MarketplaceBuiltinLabel.descriptionRes() = when (this) {
@@ -350,4 +353,5 @@ private fun MarketplaceBuiltinLabel.descriptionRes() = when (this) {
     MarketplaceBuiltinLabel.FILE_SEARCH -> Res.string.builtin_file_search_desc
     MarketplaceBuiltinLabel.WEB_SEARCH -> Res.string.builtin_web_search_desc
     MarketplaceBuiltinLabel.FILE_CONTEXT -> Res.string.builtin_file_context_desc
+    MarketplaceBuiltinLabel.ASK_USER_QUESTION -> Res.string.builtin_ask_user_desc
 }

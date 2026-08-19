@@ -303,6 +303,8 @@
     <string name="builtin_web_search_desc">Searches the web and cites what it used.</string>
     <string name="builtin_file_context">File Context</string>
     <string name="builtin_file_context_desc">Puts whole attached files in the agent's context.</string>
+    <string name="builtin_ask_user">Ask User</string>
+    <string name="builtin_ask_user_desc">Pauses the run to ask you a clarifying question.</string>
 
     <!-- Agent contact (v0.8.8) -->
     <string name="agent_contact_title">Contact</string>

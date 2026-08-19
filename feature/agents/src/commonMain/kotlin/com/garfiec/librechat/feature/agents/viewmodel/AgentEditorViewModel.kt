@@ -122,6 +122,18 @@ data class AgentEditorUiState(
     val fileContextEnabled: Boolean = false,
     /** Whether code interpreter is available on this server (from agents endpoint capabilities). */
     val isCodeInterpreterAvailable: Boolean = true,
+    /**
+     * Whether generic plugin tools are offered — the agents endpoint's `tools` capability,
+     * fail-open on an empty capabilities list like the sibling gates. Mirrors web's
+     * `buildCatalog`, which only walks `regularTools` under `enabled.has('tools')`.
+     */
+    val isGenericToolsAvailable: Boolean = true,
+    /**
+     * Whether `ask_user_question` may be offered — its OWN capability (like execute_code), not
+     * the generic `tools` one, fail-open on empty. The catalog additionally requires
+     * `/api/agents/tools` to list the plugin, which is what hides it on pre-feature servers.
+     */
+    val isAskUserQuestionAvailable: Boolean = true,
     /** Whether web search is configured on this server (startupConfig.webSearch != null). */
     val isWebSearchAvailable: Boolean = false,
     /** Whether chain (sequential multi-agent) is enabled in the agents endpoint capabilities. */
