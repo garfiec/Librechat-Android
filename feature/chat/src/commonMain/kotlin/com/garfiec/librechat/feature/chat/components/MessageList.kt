@@ -147,10 +147,10 @@ fun MessageList(
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    // Track whether the user's finger is currently touching the list.
-    // This is more reliable than isScrollInProgress which only covers flings.
+    // Stands the follower down while a finger rests on the list. Deliberately NOT a scroll-away
+    // signal on its own — see the detector below.
     var isTouching by remember { mutableStateOf(false) }
-    val nearBottomThresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
+    val nearBottomThresholdPx = with(LocalDensity.current) { NEAR_BOTTOM_BUFFER.toPx() }
     // Height (px) of the floating top bar occluding the list's top edge. The search fine-tune adds
     // this so a focused match settles below the bar rather than flush against (or under) it. Zero
     // for callers without an overlaid bar (e.g. comparison panes), leaving their behavior unchanged.
@@ -191,7 +191,10 @@ fun MessageList(
     // the frame the run started — which is always "no pause".
     val isAwaitingHumanReview by rememberUpdatedState(pendingAction != null)
 
-    val isNearBottom by remember {
+    // Keyed on the threshold, which is derived from LocalDensity: a keyless remember holds the
+    // first composition's pixel value while the layout numbers it is compared against stay live,
+    // so the buffer is measured in stale units after a density or font-scale change.
+    val isNearBottom by remember(nearBottomThresholdPx) {
         derivedStateOf {
             val info = listState.layoutInfo
             val lastItem = info.visibleItemsInfo.lastOrNull()
@@ -199,17 +202,31 @@ fun MessageList(
             if (lastItem == null || itemCount == 0) {
                 true
             } else {
+                // Measured from the follower's OWN rest target, not from viewportEndOffset: that
+                // baseline sits a whole bottom reserve below where the list can actually rest
+                // (composer height plus the reading gap — 184dp at the floor, more once queued
+                // ghost rows stack). Measure from it and the effective slack becomes
+                // [NEAR_BOTTOM_BUFFER] PLUS that reserve, so the pin re-grabs the list after a
+                // scroll-up of a quarter screen.
+                val restOffset = info.viewportEndOffset - info.afterContentPadding
                 lastItem.index >= itemCount - 2 &&
-                    (lastItem.offset + lastItem.size - info.viewportEndOffset) < nearBottomThresholdPx
+                    (lastItem.offset + lastItem.size - restOffset) < nearBottomThresholdPx
             }
         }
     }
 
-    // Detect user scroll-away: when user touches/flings away from bottom, set the flag.
+    // Detect user scroll-away: when the user drags or flings away from the bottom, set the flag.
     // When they return to the bottom (manually or via FAB), clear it.
+    //
+    // Intent is a SCROLL, not a touch — do not add [isTouching] back to this term. A bare
+    // pointer-down moves nothing, but the follower stands down for as long as a finger is on the
+    // list, so the tail runs away on its own at streaming speed under a resting finger; that drift
+    // would score as scroll-away, and a long-press to select text would end the follow for the
+    // rest of the run. A drag holds the scroll session for its whole duration, mid-drag pauses
+    // included, so gesture latching loses nothing without the touch term.
     LaunchedEffect(Unit) {
         snapshotFlow {
-            (isTouching || (listState.isScrollInProgress && !programmaticScroll)) to isNearBottom
+            (listState.isScrollInProgress && !programmaticScroll) to isNearBottom
         }
             .collect { (userIsScrolling, nearBottom) ->
                 if (userIsScrolling && !nearBottom) {
@@ -772,6 +789,14 @@ private const val FOLLOW_MIN_STEP_PX = 0.5f
 
 /** Distance below which the list counts as settled at the bottom and the follower idles. */
 private const val FOLLOW_SETTLE_PX = 0.5f
+
+/**
+ * Slack below the list's resting position within which the follower keeps its pin. A gesture that
+ * leaves it hands the list to the user for the rest of the run; settling back inside it re-arms the
+ * follow. Larger and a deliberate scroll-up gets yanked back to the tail; smaller and a slight
+ * gesture near the tail ends the follow when the user meant to stay pinned.
+ */
+private val NEAR_BOTTOM_BUFFER = 80.dp
 
 /** Reading gap held below the last line, on top of the caller-measured bar reserve. */
 private val MESSAGE_LIST_BOTTOM_GAP = 24.dp
