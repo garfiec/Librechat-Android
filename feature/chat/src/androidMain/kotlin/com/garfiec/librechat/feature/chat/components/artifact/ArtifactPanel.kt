@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.garfiec.librechat.feature.chat.components.web.rememberWebAssetBaseUrl
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.data.repository.ArtifactShortcutRepository
 import kotlinx.coroutines.launch
@@ -50,6 +51,7 @@ actual fun ArtifactPreviewSurface(
 ) {
     val bgColor = MaterialTheme.colorScheme.surface.toArgb()
     var isLoading by remember { mutableStateOf(true) }
+    val assetBase = rememberWebAssetBaseUrl() ?: return
 
     val html = remember(content, type, isDarkTheme) {
         ArtifactWebContent.buildHtml(content, type, isDarkTheme, inline = false)
@@ -122,14 +124,14 @@ actual fun ArtifactPreviewSurface(
                             Logger.w { "SSL error in artifact WebView: ${error?.primaryError}" }
                         }
                     }
-                    loadDataWithBaseURL("https://cdn.jsdelivr.net", html, "text/html", "UTF-8", null)
+                    loadDataWithBaseURL(assetBase, html, "text/html", "UTF-8", null)
                     loadedHtml = html
                 }
             },
             update = { webView ->
                 webView.setBackgroundColor(bgColor)
                 if (html != loadedHtml) {
-                    webView.loadDataWithBaseURL("https://cdn.jsdelivr.net", html, "text/html", "UTF-8", null)
+                    webView.loadDataWithBaseURL(assetBase, html, "text/html", "UTF-8", null)
                     loadedHtml = html
                 }
             },

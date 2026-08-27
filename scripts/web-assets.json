@@ -1,0 +1,189 @@
+{
+  "$comment": [
+    "Registry of third-party web assets vendored into the app.",
+    "",
+    "The artifact/diagram/math renderers are WebViews. Everything they execute ships",
+    "inside the APK and the iOS bundle -- nothing is fetched at runtime. That is a hard",
+    "requirement, not a preference: F-Droid rejects apps that download executable code",
+    "without explicit opt-in consent, and a CDN <script src> is exactly that.",
+    "",
+    "It also removes a failure mode that produced no error anywhere. While these were",
+    "hot-linked, an unversioned CDN URL silently served whatever the CDN resolved that",
+    "day: marked's `highlight` option was deleted upstream in v5 and the callback simply",
+    "stopped being called, and @babel/standalone drifted onto a new major. Neither broke",
+    "a build or a test -- they broke on user devices. Pinned files in git turn that class",
+    "of breakage into a reviewable diff.",
+    "",
+    "Every entry is a version PIN. Bumping one is a deliberate act with a device test,",
+    "not a background upgrade -- see .claude/skills/update-web-assets.",
+    "",
+    "Read and written by scripts/vendor-web-assets.py:",
+    "    scripts/vendor-web-assets.py --check      verify the tree matches the lock (CI)",
+    "    scripts/vendor-web-assets.py --sync       re-download every pin",
+    "    scripts/vendor-web-assets.py --outdated   ask npm what newer versions exist",
+    "    scripts/vendor-web-assets.py --bump ID V  repin one asset and re-download it",
+    "",
+    "source.type:",
+    "  npm  -- extracted from the package's official registry tarball. Preferred: the",
+    "          bytes are the publisher's own, and --outdated can see past them.",
+    "  url  -- a pinned URL, for the one build with no npm equivalent (see tailwind).",
+    "",
+    "A file entry may carry its own `url` to pull one file from outside the tarball,",
+    "for packages that ship no LICENSE on npm (mermaid).",
+    "",
+    "LICENSE files are vendored alongside the code, not optional: MIT and BSD-3 both",
+    "require the notice to travel with the distribution, and hot-linking was the only",
+    "reason we were not already distributing it."
+  ],
+  "version": 1,
+  "dest": "feature/chat/src/commonMain/composeResources/files/web",
+  "manifest_kt": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/web/VendoredWebAssets.kt",
+  "manifest_package": "com.garfiec.librechat.feature.chat.components.web",
+  "assets": [
+    {
+      "id": "katex",
+      "dir": "katex",
+      "version": "0.16.21",
+      "license": "MIT",
+      "source": { "type": "npm", "package": "katex" },
+      "used_by": [
+        "androidMain/components/LatexBlock.kt",
+        "iosMain/components/PlatformMediaComponents.ios.kt"
+      ],
+      "why": "Renders LaTeX in ordinary chat messages. Highest-traffic asset here: it loads whenever a message contains math, with no user action.",
+      "pin_reason": "Version the renderers were written against. KaTeX is API-stable across patches; bump freely after a device check.",
+      "files": [
+        { "from": "dist/katex.min.js", "to": "katex.min.js" },
+        { "from": "dist/katex.min.css", "to": "katex.min.css" },
+        { "from": "dist/fonts/*.woff2", "to": "fonts/" },
+        { "from": "LICENSE", "to": "LICENSE" }
+      ]
+    },
+    {
+      "id": "mermaid",
+      "dir": "mermaid",
+      "version": "10.9.8",
+      "license": "MIT",
+      "source": { "type": "npm", "package": "mermaid" },
+      "used_by": [
+        "androidMain/components/MermaidDiagram.kt",
+        "commonMain/components/artifact/MermaidWebContent.kt",
+        "iosMain/components/PlatformMediaComponents.ios.kt"
+      ],
+      "why": "Renders ```mermaid blocks in chat messages and mermaid artifacts.",
+      "pin_reason": "MUST stay on the v10 line. v11+ ships ESM-only, which fails in Android WebView under loadDataWithBaseURL with \"Unexpected token '{'\". --outdated will report v11 as available; do not take it without first proving an ESM entry point loads in the oldest supported WebView.",
+      "files": [
+        { "from": "dist/mermaid.min.js", "to": "mermaid.min.js" },
+        {
+          "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/v10.9.8/LICENSE",
+          "to": "LICENSE",
+          "note": "mermaid's npm tarball ships no LICENSE file; taken from the matching git tag."
+        }
+      ]
+    },
+    {
+      "id": "marked",
+      "dir": "marked",
+      "version": "15.0.12",
+      "license": "MIT",
+      "source": { "type": "npm", "package": "marked" },
+      "used_by": ["commonMain/components/artifact/MarkdownWebContent.kt"],
+      "why": "Parses markdown artifacts to HTML.",
+      "pin_reason": "Vendors lib/marked.umd.js, the published UMD build, which exists in both v15 and v18 and is the stable path forward. The old CDN URL pointed at a root marked.min.js that recent releases stopped shipping -- jsDelivr was silently serving v15 while npm latest was v18.",
+      "files": [
+        { "from": "lib/marked.umd.js", "to": "marked.umd.js" },
+        { "from": "LICENSE.md", "to": "LICENSE.md" }
+      ]
+    },
+    {
+      "id": "marked-highlight",
+      "dir": "marked-highlight",
+      "version": "2.2.4",
+      "license": "MIT",
+      "source": { "type": "npm", "package": "marked-highlight" },
+      "used_by": ["commonMain/components/artifact/MarkdownWebContent.kt"],
+      "why": "The supported way to feed highlight.js into marked. marked deleted its built-in `highlight` option in v5; without this extension the callback is silently never invoked.",
+      "pin_reason": "Tracks marked's major. Re-check compatibility whenever marked is bumped.",
+      "files": [
+        { "from": "lib/index.umd.js", "to": "marked-highlight.umd.js" },
+        { "from": "LICENSE", "to": "LICENSE" }
+      ]
+    },
+    {
+      "id": "highlight",
+      "dir": "highlight",
+      "version": "11.12.0",
+      "license": "BSD-3-Clause",
+      "source": { "type": "npm", "package": "@highlightjs/cdn-assets" },
+      "used_by": ["commonMain/components/artifact/MarkdownWebContent.kt"],
+      "why": "Syntax highlighting inside markdown artifacts.",
+      "pin_reason": "Deliberately @highlightjs/cdn-assets, NOT the `highlight.js` package. The main package ships CommonJS only -- its lib/*.js end in `module.exports` and call `require()`, so in a WebView <script> they throw and never define `hljs`. cdn-assets is the team's browser build. Only the two themes the renderer selects are vendored; the package carries 258.",
+      "files": [
+        { "from": "highlight.min.js", "to": "highlight.min.js" },
+        { "from": "styles/github.min.css", "to": "github.min.css" },
+        { "from": "styles/github-dark.min.css", "to": "github-dark.min.css" },
+        { "from": "LICENSE", "to": "LICENSE" }
+      ]
+    },
+    {
+      "id": "tailwind",
+      "dir": "tailwind",
+      "version": "3.4.17",
+      "license": "MIT",
+      "source": { "type": "url", "url": "https://cdn.tailwindcss.com/3.4.17" },
+      "repo": "https://github.com/tailwindlabs/tailwindcss/tree/v3.4.17",
+      "used_by": ["commonMain/components/artifact/ArtifactWebContent.kt"],
+      "why": "In-browser JIT compiler so HTML and React artifacts can use Tailwind utility classes.",
+      "pin_reason": "The only asset here with no npm equivalent: Tailwind v3 never published a browser build, so this is the Play CDN artifact from Tailwind Labs' own host, pinned to an immutable version path. Source for it is tailwindlabs/tailwindcss v3.4.17 (MIT). @tailwindcss/browser on npm is v4 only, and v4 renamed or dropped utilities that model-generated artifacts still emit (bg-opacity-*, flex-shrink-*, the default border color), so moving to it is a behaviour change to make deliberately, not a provenance cleanup to do quietly.",
+      "files": [
+        { "url": "https://cdn.tailwindcss.com/3.4.17", "to": "tailwind.min.js" },
+        {
+          "url": "https://raw.githubusercontent.com/tailwindlabs/tailwindcss/v3.4.17/LICENSE",
+          "to": "LICENSE"
+        }
+      ]
+    },
+    {
+      "id": "babel",
+      "dir": "babel",
+      "version": "7.28.4",
+      "license": "MIT",
+      "source": { "type": "npm", "package": "@babel/standalone" },
+      "used_by": ["commonMain/components/artifact/ArtifactWebContent.kt"],
+      "why": "Compiles a React artifact's JSX in the WebView before it is imported as a module.",
+      "pin_reason": "Pinned to the 7.x line the runner was written against. The old URL carried no version at all and had already drifted onto Babel 8, which nothing here was tested against.",
+      "files": [
+        { "from": "babel.min.js", "to": "babel.min.js" },
+        { "from": "LICENSE", "to": "LICENSE" }
+      ]
+    },
+    {
+      "id": "react",
+      "dir": "react",
+      "version": "18.3.1",
+      "license": "MIT",
+      "source": { "type": "npm", "package": "react" },
+      "used_by": ["commonMain/components/artifact/ArtifactWebContent.kt"],
+      "why": "The React runtime a React artifact renders against.",
+      "pin_reason": "React 18. The UMD production build is vendored because npm ships no browser-ready ESM for React 18 -- that gap is the entire reason the old code reached for esm.sh. The runner bridges UMD globals back into the import map, so artifacts still `import React from 'react'` unchanged. React 19 dropped UMD builds entirely; moving to it means solving module delivery first.",
+      "files": [
+        { "from": "umd/react.production.min.js", "to": "react.production.min.js" },
+        { "from": "LICENSE", "to": "LICENSE" }
+      ]
+    },
+    {
+      "id": "react-dom",
+      "dir": "react-dom",
+      "version": "18.3.1",
+      "license": "MIT",
+      "source": { "type": "npm", "package": "react-dom" },
+      "used_by": ["commonMain/components/artifact/ArtifactWebContent.kt"],
+      "why": "React's DOM renderer, providing createRoot.",
+      "pin_reason": "Must match the react pin exactly. Two copies of React in one page break hooks with \"invalid hook call\".",
+      "files": [
+        { "from": "umd/react-dom.production.min.js", "to": "react-dom.production.min.js" },
+        { "from": "LICENSE", "to": "LICENSE" }
+      ]
+    }
+  ]
+}

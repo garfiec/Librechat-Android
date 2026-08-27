@@ -1,8 +1,11 @@
 package com.garfiec.librechat.feature.chat.components.artifact
 
 /**
- * Builds an HTML page that renders a Mermaid diagram using the Mermaid.js CDN.
- * Includes zoom controls and theme support.
+ * Builds an HTML page that renders a Mermaid diagram. Includes zoom controls and
+ * theme support.
+ *
+ * Mermaid is the copy bundled in the app, referenced relative to the document base
+ * URL the platform WebView host supplies (see `webAssetBaseUrl`).
  *
  * Uses mermaid v10 (UMD build) because v11+ ships ESM-only, which fails in
  * Android WebView's `loadDataWithBaseURL` with "Unexpected token '{'".
@@ -31,7 +34,7 @@ object MermaidWebContent {
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:;">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'unsafe-inline'; img-src data:;">
                 <style>
                     html, body { max-width: 100%; overflow-x: hidden; }
                     body {
@@ -131,7 +134,7 @@ object MermaidWebContent {
                         };
                     }
                 </script>
-                <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+                <script src="mermaid/mermaid.min.js"></script>
                 <script>
                     var scale = 1;
                     function zoom(delta) {

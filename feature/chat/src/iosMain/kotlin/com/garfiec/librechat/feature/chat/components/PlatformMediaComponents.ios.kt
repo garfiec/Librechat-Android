@@ -80,6 +80,8 @@ import platform.CoreMedia.CMTimeGetSeconds
 import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
+import com.garfiec.librechat.feature.chat.components.web.loadVendoredHtml
+import com.garfiec.librechat.feature.chat.components.web.rememberWebAssetBaseUrl
 import platform.Foundation.NSURL
 import platform.Foundation.create
 import platform.Foundation.writeToFile
@@ -462,6 +464,12 @@ private fun KatexWebView(
 
     var contentHeight by remember { mutableStateOf(initialHeight) }
 
+    val assetBase = rememberWebAssetBaseUrl() ?: return
+
+    // The height measurement below recomposes this view, so an unguarded `update` would
+    // reload on a recomposition its own navigation triggered.
+    var loadedHtml by remember { mutableStateOf("") }
+
     UIKitView(
         modifier = modifier
             .height(contentHeight),
@@ -487,11 +495,15 @@ private fun KatexWebView(
                     }
                 }
             }
-            webView.loadHTMLString(html, baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"))
+            webView.loadVendoredHtml(html, assetBase)
+            loadedHtml = html
             webView
         },
         update = { webView ->
-            webView.loadHTMLString(html, baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"))
+            if (html != loadedHtml) {
+                webView.loadVendoredHtml(html, assetBase)
+                loadedHtml = html
+            }
         },
     )
 }
@@ -516,7 +528,8 @@ private fun buildKatexHtml(latex: String, displayMode: Boolean, textColor: Strin
         <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; img-src data:;">
+            <link rel="stylesheet" href="katex/katex.min.css">
             <style>
                 body {
                     margin: 0; padding: 0;
@@ -535,7 +548,7 @@ private fun buildKatexHtml(latex: String, displayMode: Boolean, textColor: Strin
         </head>
         <body>
             <div id="output"></div>
-            <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+            <script src="katex/katex.min.js"></script>
             <script>
                 try {
                     katex.render("$escapedLatex", document.getElementById('output'), {
@@ -682,17 +695,25 @@ private fun MermaidWKWebView(
     val theme = if (isDarkTheme) "dark" else "default"
     val html = remember(escapedCode, theme) { buildMermaidHtml(escapedCode, theme) }
 
+    val assetBase = rememberWebAssetBaseUrl() ?: return
+
+    var loadedHtml by remember { mutableStateOf("") }
+
     UIKitView(
         modifier = modifier,
         factory = {
             val config = WKWebViewConfiguration()
             val webView = WKWebView(frame = cValue { }, configuration = config)
             webView.setOpaque(false)
-            webView.loadHTMLString(html, baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"))
+            webView.loadVendoredHtml(html, assetBase)
+            loadedHtml = html
             webView
         },
         update = { webView ->
-            webView.loadHTMLString(html, baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"))
+            if (html != loadedHtml) {
+                webView.loadVendoredHtml(html, assetBase)
+                loadedHtml = html
+            }
         },
     )
 }
@@ -703,6 +724,7 @@ private fun buildMermaidHtml(escapedCode: String, theme: String): String {
         <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'unsafe-inline'; img-src data:;">
             <style>
                 body {
                     margin: 0; padding: 8px;
@@ -716,7 +738,7 @@ private fun buildMermaidHtml(escapedCode: String, theme: String): String {
         </head>
         <body>
             <div class="mermaid" id="diagram"></div>
-            <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+            <script src="mermaid/mermaid.min.js"></script>
             <script>
                 mermaid.initialize({ startOnLoad: false, theme: '$theme', securityLevel: 'strict', flowchart: { useMaxWidth: true } });
                 try {

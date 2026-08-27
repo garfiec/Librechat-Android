@@ -65,4 +65,15 @@ Each module has its own `CLAUDE.md` with specific guidance.
 - **`UPSTREAM_VERSION`** — Tracks which official tag/commit this mobile build is based on. Updated by the `/sync-upstream` skill.
 - **`backendTargetVersion`** (root `version.properties`) — single source of truth for the targeted backend; must match the tag in `UPSTREAM_VERSION` (without `v` prefix). A core/common Gradle task code-generates `BackendVersion.SUPPORTED_BACKEND_VERSION` from it, and `release.yml` reads it for release notes. Edit the property, not the constant.
 - **`/sync-upstream`** — Claude Code skill to diff upstream releases, identify gaps, propose changes, and implement them with user approval. Uses Agent Teams (investigator, android-expert, implementer, verifier).
+- **`scripts/web-assets.json`** — registry of the third-party JavaScript the artifact/diagram/math
+  WebViews execute (KaTeX, mermaid, marked, highlight.js, Tailwind, Babel, React). All of it is
+  **vendored into the app**; none of it is fetched at render time. This is required for F-Droid,
+  which rejects apps that download executable code without explicit opt-in consent — a
+  `<script src="https://cdn…">` in a WebView is exactly that. It also closes a silent-drift hole:
+  an unversioned CDN URL served whatever the CDN resolved that day, and two libraries had already
+  broken that way without failing a build or a test. `scripts/vendor-web-assets.py` downloads the
+  pins and CI verifies the tree against a sha256 lock. **Repin via `/update-web-assets`**, never by
+  editing a vendored file. Adding a new WebView dependency means adding a registry entry in the
+  same PR. See `feature/chat/CLAUDE.md` for how a page resolves them per platform.
+
 - **`scripts/mirrors.json`** — registry of upstream constants the client copies by hand, because the server never serves them (which providers take documents natively, which MIME types the parser extracts, which feedback reasons the write route accepts). These drift **silently**: nothing fails to decode and nothing errors, so a sync's ordinary diff sweep reads them as inert constant edits. `scripts/check-mirrors.py` diffs each watched region between two upstream revisions and names the Kotlin file to reconcile; `/sync-upstream` runs it at Phase 0. **Adding a hardcoded mirror means adding a registry entry in the same PR** — a mirror nobody registered is one nobody will notice going stale.

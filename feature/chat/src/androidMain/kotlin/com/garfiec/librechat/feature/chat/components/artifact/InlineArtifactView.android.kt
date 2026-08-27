@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.garfiec.librechat.feature.chat.components.web.rememberWebAssetBaseUrl
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.components.web.configureLazyListWebView
@@ -48,6 +49,8 @@ actual fun InlineArtifactView(
         ArtifactWebContent.buildHtml(artifact.content, artifact.type, isDarkTheme, inline = true)
     }
     var loadedHtml by remember { mutableStateOf("") }
+
+    val assetBase = rememberWebAssetBaseUrl() ?: return
 
     val cache = LocalMermaidRenderCache.current
 
@@ -109,14 +112,14 @@ actual fun InlineArtifactView(
                         val receiver = MermaidBridgeReceiver(cache, mermaidKey)
                         addJavascriptInterface(MermaidJsBridge(receiver), "MermaidBridge")
                     }
-                    loadDataWithBaseURL("https://cdn.jsdelivr.net", html, "text/html", "UTF-8", null)
+                    loadDataWithBaseURL(assetBase, html, "text/html", "UTF-8", null)
                     loadedHtml = html
                 }
             },
             update = { webView ->
                 webView.setBackgroundColor(bgArgb)
                 if (html != loadedHtml) {
-                    webView.loadDataWithBaseURL("https://cdn.jsdelivr.net", html, "text/html", "UTF-8", null)
+                    webView.loadDataWithBaseURL(assetBase, html, "text/html", "UTF-8", null)
                     loadedHtml = html
                 }
             },

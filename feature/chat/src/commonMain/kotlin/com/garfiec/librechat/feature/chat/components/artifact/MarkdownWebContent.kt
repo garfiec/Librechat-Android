@@ -1,8 +1,14 @@
 package com.garfiec.librechat.feature.chat.components.artifact
 
 /**
- * Builds an HTML page that renders Markdown content using marked.js (GFM)
- * with highlight.js for code syntax highlighting.
+ * Builds an HTML page that renders Markdown content using marked (GFM) with
+ * highlight.js for code syntax highlighting. Both are the copies bundled in the app,
+ * referenced relative to the document base URL the platform WebView host supplies
+ * (see `webAssetBaseUrl`).
+ *
+ * Highlighting goes through the marked-highlight extension because marked removed
+ * its built-in `highlight` option in v5 — passing one to `setOptions` is accepted
+ * and then silently never called.
  */
 object MarkdownWebContent {
 
@@ -24,8 +30,8 @@ object MarkdownWebContent {
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; img-src data: blob: https:;">
-                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/$hlTheme.min.css">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline' file:; img-src data: blob: https:;">
+                <link rel="stylesheet" href="highlight/$hlTheme.min.css">
                 <style>
                     html, body { max-width: 100%; overflow-x: hidden; }
                     body {
@@ -104,13 +110,14 @@ object MarkdownWebContent {
             </head>
             <body>
                 <div id="content"></div>
-                <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-                <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/core.min.js"></script>
-                <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/common.min.js"></script>
+                <script src="marked/marked.umd.js"></script>
+                <script src="marked-highlight/marked-highlight.umd.js"></script>
+                <script src="highlight/highlight.min.js"></script>
                 <script>
-                    marked.setOptions({
-                        gfm: true,
-                        breaks: true,
+                    // langPrefix must stay 'hljs language-': the theme stylesheet keys off .hljs,
+                    // so dropping it highlights the tokens and leaves the block unstyled.
+                    marked.use(markedHighlight.markedHighlight({
+                        langPrefix: 'hljs language-',
                         highlight: function(code, lang) {
                             if (lang && hljs.getLanguage(lang)) {
                                 try { return hljs.highlight(code, { language: lang }).value; }
@@ -119,7 +126,8 @@ object MarkdownWebContent {
                             try { return hljs.highlightAuto(code).value; }
                             catch (e) { return code; }
                         }
-                    });
+                    }));
+                    marked.setOptions({ gfm: true, breaks: true });
                     const md = `$escapedContent`;
                     document.getElementById('content').innerHTML = marked.parse(md);
                 </script>
