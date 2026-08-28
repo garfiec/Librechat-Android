@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.garfiec.librechat.feature.chat.components.web.rememberWebAssetBaseUrl
 import co.touchlab.kermit.Logger
 
 /**
@@ -51,20 +52,24 @@ private fun argbToCss(argb: Int): String {
 }
 
 /**
- * Builds the minimal HTML page that loads KaTeX from CDN and renders a LaTeX expression.
+ * Builds the minimal HTML page that loads the bundled KaTeX and renders a LaTeX expression.
+ *
+ * `internal` rather than private so `VendoredAssetReferenceTest` can assert that every
+ * referenced path is one the vendoring script actually ships — a wrong relative path here
+ * renders a blank box with no error anywhere in Kotlin.
  *
  * @param escapedLatex The LaTeX string already escaped via [escapeForJs].
  * @param displayMode true for block/display mode (centered, large), false for inline mode.
  * @param textColorCss CSS color string for the rendered math text.
  */
-private fun buildKatexHtml(escapedLatex: String, displayMode: Boolean, textColorCss: String): String {
+internal fun buildKatexHtml(escapedLatex: String, displayMode: Boolean, textColorCss: String): String {
     return """
 <!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src data:;">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; img-src data:;">
+<link rel="stylesheet" href="katex/katex.min.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -83,7 +88,7 @@ private fun buildKatexHtml(escapedLatex: String, displayMode: Boolean, textColor
 </head>
 <body>
 <div id="math"></div>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+<script src="katex/katex.min.js"></script>
 <script>
 try {
   katex.render("$escapedLatex", document.getElementById("math"), {
@@ -168,6 +173,7 @@ private fun KatexLatexBlock(
     val html = remember(escapedLatex, textColorCss) {
         buildKatexHtml(escapedLatex, displayMode = true, textColorCss = textColorCss)
     }
+    val assetBase = rememberWebAssetBaseUrl() ?: return
 
     AndroidView(
         modifier = modifier
@@ -207,7 +213,7 @@ private fun KatexLatexBlock(
                     }
                 }
                 loadDataWithBaseURL(
-                    "https://cdn.jsdelivr.net",
+                    assetBase,
                     html,
                     "text/html",
                     "UTF-8",
@@ -217,7 +223,7 @@ private fun KatexLatexBlock(
         },
         update = { webView ->
             webView.loadDataWithBaseURL(
-                "https://cdn.jsdelivr.net",
+                assetBase,
                 html,
                 "text/html",
                 "UTF-8",
@@ -243,6 +249,7 @@ private fun KatexLatexInline(
     val html = remember(escapedLatex, textColorCss) {
         buildKatexHtml(escapedLatex, displayMode = false, textColorCss = textColorCss)
     }
+    val assetBase = rememberWebAssetBaseUrl() ?: return
 
     AndroidView(
         modifier = modifier,
@@ -279,7 +286,7 @@ private fun KatexLatexInline(
                     }
                 }
                 loadDataWithBaseURL(
-                    "https://cdn.jsdelivr.net",
+                    assetBase,
                     html,
                     "text/html",
                     "UTF-8",
@@ -289,7 +296,7 @@ private fun KatexLatexInline(
         },
         update = { webView ->
             webView.loadDataWithBaseURL(
-                "https://cdn.jsdelivr.net",
+                assetBase,
                 html,
                 "text/html",
                 "UTF-8",

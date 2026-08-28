@@ -32,6 +32,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6.3.0
 
+      # The WebView renderers execute these files. Nothing else notices if one is
+      # hand-edited, replaced, or left behind by a repin -- the app just runs it.
+      - name: Verify vendored web assets
+        run: scripts/vendor-web-assets.py --check
+
       - name: Run lint
         run: ./gradlew detekt detektMetadataCommonMain :app:lint --continue
 

@@ -9,12 +9,12 @@ import kotlin.test.assertTrue
 /**
  * Guards the React-artifact renderer in [ArtifactWebContent.buildHtml].
  *
- * React artifacts are compiled in-browser and loaded as a real ES module; the
- * artifact's own `import`/`export` statements run verbatim against a generated
- * import map that points every bare specifier at an ESM CDN. The load-bearing
- * properties: (1) React resolves to a single pinned instance, (2) ANY npm
- * package the model imports gets an import-map entry with no per-library code,
- * and (3) the source round-trips through the embedding untouched.
+ * React artifacts are compiled in-browser and loaded as a real ES module; the artifact's
+ * own `import`/`export` statements run verbatim against an import map the runner builds
+ * over the bundled React/ReactDOM UMD globals. The load-bearing properties: (1) every
+ * script the page executes ships with the app, (2) React resolves to a single instance,
+ * (3) a package that is not bundled fails by name rather than reaching the network, and
+ * (4) the source round-trips through the embedding untouched.
  */
 class ReactArtifactRenderTest {
 
@@ -30,19 +30,45 @@ class ReactArtifactRenderTest {
     }
 
     @Test
-    fun `import map pins react and react-dom to a single esm instance`() {
+    fun `every script the page loads is bundled with the app`() {
         val html = build("export default function App() { return <div/>; }")
-        assertTrue(html.contains("\"react\": \"https://esm.sh/react@18.3.1\""), "react not pinned")
-        assertTrue(html.contains("\"react/jsx-runtime\": \"https://esm.sh/react@18.3.1/jsx-runtime\""))
-        assertTrue(
-            html.contains("\"react-dom/client\": \"https://esm.sh/react-dom@18.3.1/client?external=react\""),
-            "react-dom/client must externalize react to avoid a duplicate React",
-        )
+        assertTrue(html.contains("""<script src="react/react.production.min.js">"""))
+        assertTrue(html.contains("""<script src="react-dom/react-dom.production.min.js">"""))
+        assertTrue(html.contains("""<script src="babel/babel.min.js">"""))
+        assertTrue(html.contains("""<script src="tailwind/tailwind.min.js">"""))
     }
 
     @Test
-    fun `arbitrary libraries resolve generically via the esm cdn`() {
-        // Three unrelated libraries, none special-cased — proves general-purpose.
+    fun `the page may not reach any remote origin`() {
+        // Not a style preference: a remote <script src> here is what F-Droid's inclusion
+        // policy forbids, and it is invisible in a passing render because the CDN answers.
+        val html = build(
+            """
+            import { LineChart } from 'recharts';
+            export default function App() { return <LineChart/>; }
+            """.trimIndent(),
+        )
+        val csp = Regex("""content="(default-src[^"]*)"""").find(html)!!.groupValues[1]
+        val scriptSrc = csp.split(";").map { it.trim() }.first { it.startsWith("script-src") }
+        assertFalse(scriptSrc.contains("http"), "CSP still allows remote script: $scriptSrc")
+        assertFalse(html.contains("https://cdn."), "page references a CDN")
+        assertFalse(html.contains("esm.sh"), "page references the ESM CDN")
+        assertFalse(html.contains("unpkg.com"), "page references unpkg")
+    }
+
+    @Test
+    fun `react resolves to the single bundled instance`() {
+        val html = build("export default function App() { return <div/>; }")
+        // Both come off the same window.React / window.ReactDOM the UMD scripts defined,
+        // so there is no way for a second copy to exist and break hooks.
+        assertTrue(html.contains("'react': globalModule('React', window.React)"))
+        assertTrue(html.contains("'react-dom': globalModule('ReactDOM', window.ReactDOM)"))
+        assertTrue(html.contains("'react-dom/client': moduleUrl(DOM_CLIENT)"))
+        assertTrue(html.contains("'react/jsx-runtime': moduleUrl(JSX_RUNTIME)"))
+    }
+
+    @Test
+    fun `an unbundled package fails by name instead of loading from a cdn`() {
         val html = build(
             """
             import { Plus } from 'lucide-react';
@@ -51,15 +77,24 @@ class ReactArtifactRenderTest {
             export default function App() { return <Plus/>; }
             """.trimIndent(),
         )
-        assertTrue(html.contains("\"lucide-react\": \"https://esm.sh/lucide-react?external=react,react-dom\""))
-        assertTrue(html.contains("\"recharts\": \"https://esm.sh/recharts?external=react,react-dom\""))
+        // Each specifier carries the names it is imported under. Those names are what the stub
+        // declares as exports, and declaring them is what lets the explanation below run at all:
+        // named imports are resolved while the module graph links, before any code executes, so
+        // a stub exporting nothing is rejected with "does not provide an export named 'X'" and
+        // the package is never named. A namespace import binds to whatever exists, so
+        // @radix-ui/react-dialog correctly needs none.
         assertTrue(
-            html.contains("\"@radix-ui/react-dialog\": \"https://esm.sh/@radix-ui/react-dialog?external=react,react-dom\""),
+            html.contains(
+                """[["lucide-react",["Plus"]],["recharts",["LineChart"]],""" +
+                    """["@radix-ui/react-dialog",[]]]""",
+            ),
+            "unbundled specifiers are not routed to the naming stub with their imported names",
         )
+        assertTrue(html.contains("an npm package that is not "), "stub carries no explanation")
     }
 
     @Test
-    fun `relative and url imports are left out of the import map`() {
+    fun `relative and url imports are left for the browser to resolve`() {
         val html = build(
             """
             import { helper } from './utils';
@@ -68,9 +103,24 @@ class ReactArtifactRenderTest {
             export default function App() { return <div/>; }
             """.trimIndent(),
         )
-        assertFalse(html.contains("esm.sh/./utils"), "relative import should not be mapped")
-        assertFalse(html.contains("esm.sh/https://"), "url import should not be mapped")
-        assertFalse(html.contains("\"./styles.css\""))
+        val missing = Regex("""\[([^\]]*)\]\.forEach""").find(html)!!.groupValues[1]
+        assertFalse(missing.contains("./utils"), "relative import should not be mapped")
+        assertFalse(missing.contains("example.com"), "url import should not be mapped")
+        assertFalse(missing.contains("./styles.css"), "relative css should not be mapped")
+    }
+
+    @Test
+    fun `a specifier that is not a package name is dropped rather than embedded`() {
+        // The specifier list is interpolated into a script, and its contents come from
+        // model output. Anything outside the npm name charset never reaches the page.
+        val html = build(
+            """
+            import x from 'evil'/*"];window.stolen=1;//*/;
+            export default function App() { return <div/>; }
+            """.trimIndent(),
+        )
+        val missing = Regex("""(\[.*\])\.forEach""").find(html)!!.groupValues[1]
+        assertFalse(missing.contains("window.stolen"), "injected script escaped the specifier list")
     }
 
     @Test
@@ -99,9 +149,13 @@ class ReactArtifactRenderTest {
     @Test
     fun `runner compiles jsx and loads the artifact as a module`() {
         val html = build("export default function App() { return <div/>; }")
-        assertTrue(html.contains("""<script type="module">"""), "module runner missing")
         assertTrue(html.contains("Babel.transform("), "jsx is not compiled")
         assertTrue(html.contains("runtime: 'automatic'"), "automatic runtime lets JSX work without importing React")
         assertTrue(html.contains("createRoot(root).render"), "component is not mounted")
+        // The import map has to be in the document before the first dynamic import, which
+        // is the whole reason the runner is a classic script wrapping an async IIFE.
+        val mapAt = html.indexOf("mapTag.type = 'importmap'")
+        val importAt = html.indexOf("await import('react')")
+        assertTrue(mapAt in 1 until importAt, "import map is injected after the first import")
     }
 }

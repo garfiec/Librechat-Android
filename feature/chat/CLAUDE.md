@@ -363,16 +363,63 @@ existing upload/usage path already handles them.
   reloads its WebView on every content change (mermaid recreates its view outright). The real
   preview mounts once, at settle, where the streaming→final swap replaces the subtree anyway.
 - Supported types: `text/html`, `image/svg+xml`, `application/vnd.react`, `application/vnd.mermaid`, `text/markdown`/`text/md`, `text/plain`, `application/vnd.code-html`
-- `MermaidWebContent` renders Mermaid diagrams via CDN mermaid.js with zoom controls and dark theme
-- `MarkdownWebContent` renders Markdown via CDN marked.js + highlight.js with GFM and syntax highlighting
-- HTML/React/SVG templates include Tailwind CDN, theme CSS vars, and error handling
-- React artifacts compile in-browser (Babel) and load as a real ES module; the artifact's `import`/`export` run verbatim against a generated import map that resolves every bare package via an ESM CDN (no source rewriting, no per-library handling)
+- `MermaidWebContent` renders Mermaid diagrams with zoom controls and dark theme
+- `MarkdownWebContent` renders Markdown (marked + highlight.js) with GFM and syntax highlighting
+- HTML/React/SVG templates include Tailwind, theme CSS vars, and error handling
+- React artifacts compile in-browser (Babel) and load as a real ES module; the artifact's `import`/`export` run verbatim against an import map the runner builds over the bundled React/ReactDOM globals (no source rewriting)
 - `ArtifactPanel` supports fullscreen Dialog mode, version switching, loading indicator, and WebView error overlay
 - `ArtifactButton` shows type-specific icons and subtitle (e.g. "Mermaid Diagram", "React Component")
 - `ContentPartRenderer` wires `groupArtifactVersions()` to pass version lists to ArtifactButton/ArtifactPanel
 - `ArtifactVersionNav` provides prev/next arrows with "v2/3" indicator
 - `ArtifactDownloadHelper` shares artifacts via FileProvider temp file + system share sheet. Maps 25+ language extensions including `.mmd` for Mermaid. Sanitizes filenames to 100 chars
 - **Gotcha**: FileProvider authority must match app's declared authority in AndroidManifest
+
+### Everything a WebView executes is bundled (no CDNs)
+
+Every script and stylesheet these renderers load ships inside the APK and the iOS bundle.
+Nothing is fetched at render time. That is a **hard requirement**, not a preference:
+F-Droid's inclusion policy rejects apps that download executable code without explicit
+opt-in consent, and a `<script src="https://cdn…">` in a WebView is exactly that. It is
+also why the CSPs in these documents name no remote origin — `img-src https:` is the one
+deliberate exception, because a remote `<img>` in an artifact is content the user asked to
+see rather than code the app chose to run.
+
+What is vendored, at which version, and why each pin sits where it does is in
+`scripts/web-assets.json`; `scripts/vendor-web-assets.py` moves the bytes and CI runs
+`--check` against a sha256 lock. Repin through **`/update-web-assets`**, never by editing a
+vendored file. ~2.5 MB compressed in the APK, mermaid and Babel being two thirds of it.
+
+**How a page finds its assets.** Each document references its scripts *relatively*
+(`katex/katex.min.js`), so the only platform-specific part is the document base URL, from
+`webAssetBaseUrl()` (`components/web/`). Android resolves Compose Resources in place and
+serves `file:///android_asset/…` — which stays readable with `allowFileAccess = false`, so
+that setting stays off. iOS **cannot**: WKWebView will not load local subresources for a
+page passed to `loadHTMLString`, whatever base URL it gets, so the assets are copied out of
+the read-only framework bundle into caches on first use and pages are written next to them
+and loaded via `loadFileURL(…, allowingReadAccessTo:)` (`loadVendoredHtml`). The generated
+`VendoredWebAssets.FILES` manifest is what tells the copier what to copy, and the copy's
+completion marker is written last so a crash mid-copy redoes it rather than trusting it.
+Both hosts render nothing until the base URL resolves: a page loaded against a wrong base
+renders unstyled and scriptless instead of failing.
+
+**React's module problem.** React 18 publishes no browser-ready ESM — only CommonJS and
+UMD — which is the entire reason this used to resolve `import 'react'` through esm.sh. The
+UMD builds load as plain scripts and the runner generates small blob modules re-exporting
+`window.React` / `window.ReactDOM`, then injects an import map pointing at them *before*
+the first dynamic import (hence the classic-script-wrapping-an-async-IIFE shape — a
+`type="module"` runner would have resolved its own imports too early). A bare specifier
+that is **not** one of the bundled four resolves to a module that throws naming the
+package. Third-party npm imports (recharts, lucide-react) therefore no longer work; that
+is the known cost of this pass, and the follow-up is an opt-in consent toggle that maps
+them back to a CDN for users who accept it.
+
+**Two things this replaced were silently broken**, which is the argument for pinning in
+general: markdown syntax highlighting had never worked (marked deleted its `highlight`
+option in v5 and ignores one passed to `setOptions`; separately the CDN URL served
+CommonJS that cannot define `hljs` in a browser), and the unversioned Babel URL had drifted
+onto a major version nothing here was tested against. Neither broke a build or a test.
+`VendoredAssetReferenceTest` now pins both halves — no remote origin, and every referenced
+path exists in the manifest.
 
 ## Media Players
 - `VideoContentPlayer` uses ExoPlayer (media3) — 16:9 aspect ratio Card, lifecycle-aware release

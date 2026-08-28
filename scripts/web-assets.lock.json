@@ -1,0 +1,145 @@
+{
+  "assets": {
+    "babel": {
+      "bytes": 3070652,
+      "files": {
+        "LICENSE": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+        "babel.min.js": "254d0fe4bd4a17bcceb0623a467de5f69e9938ee07de3bff9851dcb94adeb03d"
+      },
+      "license": "MIT",
+      "source": {
+        "package": "@babel/standalone",
+        "type": "npm"
+      },
+      "version": "7.28.4"
+    },
+    "highlight": {
+      "bytes": 133392,
+      "files": {
+        "LICENSE": "6c081431591d9df696c82dc598fe1423765b8a299b200ed00b281afd0f64c490",
+        "github-dark.min.css": "9f208d022102b1d0c7aebfecd8e42ca7997d5de636649d2b31ea63093d809019",
+        "github.min.css": "3a9a5def8b9c311e5ae43abde85c63133185eed4f0d9f67fea4b00a8308cf066",
+        "highlight.min.js": "8ab71eb09c51f501e5e25157d9cff100e46cc29bcbfc744d0b746d451fca7f53"
+      },
+      "license": "BSD-3-Clause",
+      "source": {
+        "package": "@highlightjs/cdn-assets",
+        "type": "npm"
+      },
+      "version": "11.12.0"
+    },
+    "katex": {
+      "bytes": 560825,
+      "files": {
+        "LICENSE": "766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3",
+        "fonts/KaTeX_AMS-Regular.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
+        "fonts/KaTeX_Caligraphic-Bold.woff2": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c",
+        "fonts/KaTeX_Caligraphic-Regular.woff2": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b",
+        "fonts/KaTeX_Fraktur-Bold.woff2": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f",
+        "fonts/KaTeX_Fraktur-Regular.woff2": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc",
+        "fonts/KaTeX_Main-Bold.woff2": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021",
+        "fonts/KaTeX_Main-BoldItalic.woff2": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b",
+        "fonts/KaTeX_Main-Italic.woff2": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267",
+        "fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+        "fonts/KaTeX_Math-BoldItalic.woff2": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1",
+        "fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+        "fonts/KaTeX_SansSerif-Bold.woff2": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62",
+        "fonts/KaTeX_SansSerif-Italic.woff2": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a",
+        "fonts/KaTeX_SansSerif-Regular.woff2": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342",
+        "fonts/KaTeX_Script-Regular.woff2": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b",
+        "fonts/KaTeX_Size1-Regular.woff2": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe",
+        "fonts/KaTeX_Size2-Regular.woff2": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd",
+        "fonts/KaTeX_Size3-Regular.woff2": "73d591271b1604960cb10bb90fee021670af7297017e0e98480b332d11f51995",
+        "fonts/KaTeX_Size4-Regular.woff2": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0",
+        "fonts/KaTeX_Typewriter-Regular.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
+        "katex.min.css": "f787891b550d554c214aa8902f39ac46df2dbd48fdec500a2040a5dce1e8ab58",
+        "katex.min.js": "863811e2baa0849c77bc92d26d44f4d0a4843c2a8ab52c462017dea57316e4d8"
+      },
+      "license": "MIT",
+      "source": {
+        "package": "katex",
+        "type": "npm"
+      },
+      "version": "0.16.21"
+    },
+    "marked": {
+      "bytes": 76326,
+      "files": {
+        "LICENSE.md": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+        "marked.umd.js": "d7931d1cd7bf727dd756c871637edcc9e0f8538003b927368400ec1ee47a9dd9"
+      },
+      "license": "MIT",
+      "source": {
+        "package": "marked",
+        "type": "npm"
+      },
+      "version": "15.0.12"
+    },
+    "marked-highlight": {
+      "bytes": 4372,
+      "files": {
+        "LICENSE": "a846b93fda6af8008a89d1394d827afc60d62eebb70c68efbfeeafe0b01928ed",
+        "marked-highlight.umd.js": "504b6fcb34e884d6b25e08a0d5f13fa5cfe383098440c20093ef00be0c96a463"
+      },
+      "license": "MIT",
+      "source": {
+        "package": "marked-highlight",
+        "type": "npm"
+      },
+      "version": "2.2.4"
+    },
+    "mermaid": {
+      "bytes": 3338946,
+      "files": {
+        "LICENSE": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80",
+        "mermaid.min.js": "8d607d7ef1d077a8aa202e18e62212bfa992c68bfeabc5cf45d51a128fe6675d"
+      },
+      "license": "MIT",
+      "source": {
+        "package": "mermaid",
+        "type": "npm"
+      },
+      "version": "10.9.8"
+    },
+    "react": {
+      "bytes": 11837,
+      "files": {
+        "LICENSE": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+        "react.production.min.js": "d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"
+      },
+      "license": "MIT",
+      "source": {
+        "package": "react",
+        "type": "npm"
+      },
+      "version": "18.3.1"
+    },
+    "react-dom": {
+      "bytes": 132921,
+      "files": {
+        "LICENSE": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+        "react-dom.production.min.js": "35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"
+      },
+      "license": "MIT",
+      "source": {
+        "package": "react-dom",
+        "type": "npm"
+      },
+      "version": "18.3.1"
+    },
+    "tailwind": {
+      "bytes": 408350,
+      "files": {
+        "LICENSE": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
+        "tailwind.min.js": "176e894661aa9cdc9a5cba6c720044cbbf7b8bd80d1c9a142a7c24b1b6c50d15"
+      },
+      "license": "MIT",
+      "source": {
+        "type": "url",
+        "url": "https://cdn.tailwindcss.com/3.4.17"
+      },
+      "version": "3.4.17"
+    }
+  },
+  "version": 1
+}

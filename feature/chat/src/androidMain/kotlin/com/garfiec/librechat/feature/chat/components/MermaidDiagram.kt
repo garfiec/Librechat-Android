@@ -48,6 +48,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import co.touchlab.kermit.Logger
+import com.garfiec.librechat.feature.chat.components.web.rememberWebAssetBaseUrl
 import com.garfiec.librechat.feature.chat.components.web.safelyDestroyWebView
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
@@ -193,6 +194,7 @@ private fun MermaidWebView(
     val html = remember(escapedCode, theme) {
         buildMermaidHtml(escapedCode, theme)
     }
+    val assetBase = rememberWebAssetBaseUrl() ?: return
 
     var loadedHtml by remember { mutableStateOf("") }
 
@@ -223,7 +225,7 @@ private fun MermaidWebView(
                     }
                 }
                 loadDataWithBaseURL(
-                    "https://cdn.jsdelivr.net",
+                    assetBase,
                     html,
                     "text/html",
                     "UTF-8",
@@ -236,7 +238,7 @@ private fun MermaidWebView(
             webView.setBackgroundColor(bgColor)
             if (html != loadedHtml) {
                 webView.loadDataWithBaseURL(
-                    "https://cdn.jsdelivr.net",
+                    assetBase,
                     html,
                     "text/html",
                     "UTF-8",
@@ -249,13 +251,18 @@ private fun MermaidWebView(
     )
 }
 
-private fun buildMermaidHtml(escapedCode: String, theme: String): String {
+/**
+ * `internal` rather than private so `VendoredAssetReferenceTest` can assert that every
+ * referenced path is one the vendoring script actually ships — a wrong relative path here
+ * renders a blank box with no error anywhere in Kotlin.
+ */
+internal fun buildMermaidHtml(escapedCode: String, theme: String): String {
     return """
         <!DOCTYPE html>
         <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:;">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'unsafe-inline'; img-src data:;">
             <style>
                 html, body { max-width: 100%; }
                 body {
@@ -316,7 +323,7 @@ private fun buildMermaidHtml(escapedCode: String, theme: String): String {
                     };
                 }
             </script>
-            <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+            <script src="mermaid/mermaid.min.js"></script>
             <script>
                 mermaid.initialize({
                     startOnLoad: false,

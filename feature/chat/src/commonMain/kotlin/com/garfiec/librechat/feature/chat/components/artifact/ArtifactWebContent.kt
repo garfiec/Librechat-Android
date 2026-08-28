@@ -86,9 +86,9 @@ object ArtifactWebContent {
 
         if (hasHtmlTag) {
             val themeStyle = """
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'unsafe-inline'; img-src data: blob: https:; connect-src https://cdn.tailwindcss.com;">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'unsafe-inline'; img-src data: blob: https:;">
                 <style>:root { --bg: $bgColor; --fg: $fgColor; } html, body { max-width: 100%; overflow-x: hidden; } body { background: var(--bg); color: var(--fg); margin: 0; padding: 0; } img, svg, video, iframe { max-width: 100%; height: auto; }</style>
-                <script src="https://cdn.tailwindcss.com"></script>
+                <script src="tailwind/tailwind.min.js"></script>
             """.trimIndent()
             return if (content.contains("<head>", ignoreCase = true)) {
                 content.replaceFirst(
@@ -112,8 +112,8 @@ object ArtifactWebContent {
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'unsafe-inline'; img-src data: blob: https:; connect-src https://cdn.tailwindcss.com;">
-                <script src="https://cdn.tailwindcss.com"></script>
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'unsafe-inline'; img-src data: blob: https:;">
+                <script src="tailwind/tailwind.min.js"></script>
                 <style>
                     :root { --bg: $bgColor; --fg: $fgColor; }
                     html, body { max-width: 100%; overflow-x: hidden; }
@@ -161,61 +161,97 @@ object ArtifactWebContent {
     }
 
     // Security note: React artifacts intentionally render unsanitized, model-generated
-    // JSX/JS. The preview runs in a sandboxed WebView under a CSP that restricts script
-    // and network origins to the ESM CDN + Tailwind. Imports are resolved at runtime via
-    // a generated import map pointing at an ESM CDN, so ANY npm package the model reaches
-    // for resolves without per-library handling — mirroring the web app's Sandpack bundler.
-    private const val ESM_CDN = "https://esm.sh"
+    // JSX/JS. The preview runs in a sandboxed WebView under a CSP that permits no remote
+    // origin at all: React, ReactDOM, Babel and Tailwind are the copies bundled with the
+    // app, referenced relative to the document base URL the platform host supplies.
+    //
+    // React 18 publishes no browser-ready ESM build, only CommonJS and UMD, so the UMD
+    // builds load as plain scripts and the import map points at small generated modules
+    // re-exporting those globals — see `feature/chat/CLAUDE.md`, "React's module problem".
+    // The version is not named here: it is whichever build scripts/web-assets.json pins.
 
-    /** React version pinned across the import map so the runner, the artifact
-     *  module, and every externalized library dep resolve to one React instance
-     *  (mismatched copies break hooks with "invalid hook call"). */
-    private const val REACT_PIN = "18.3.1"
-
-    /** Captures the module specifier of every `import … from 'X'` and bare
+    /** Captures the module specifier of every `import ... from 'X'` and bare
      *  side-effect `import 'X'`. */
     private val MODULE_SPECIFIER = Regex("""(?:from|import)\s*['"]([^'"]+)['"]""")
 
-    /** Always-present entries so React itself resolves to a single pinned copy;
-     *  react-dom and all third-party libs externalize onto these via `?external`. */
-    private val CORE_IMPORTS = linkedMapOf(
-        "react" to "$ESM_CDN/react@$REACT_PIN",
-        "react/jsx-runtime" to "$ESM_CDN/react@$REACT_PIN/jsx-runtime",
-        "react-dom" to "$ESM_CDN/react-dom@$REACT_PIN?external=react",
-        "react-dom/client" to "$ESM_CDN/react-dom@$REACT_PIN/client?external=react",
+    /** Specifiers the runner satisfies from the bundled UMD globals. */
+    private val CORE_IMPORTS = setOf(
+        "react",
+        "react/jsx-runtime",
+        "react-dom",
+        "react-dom/client",
     )
 
+    /** npm package names only. Anything else is dropped rather than embedded: these
+     *  strings come from model output and are interpolated into a script. */
+    private val SAFE_SPECIFIER = Regex("""^[A-Za-z0-9@][A-Za-z0-9@/._-]*${'$'}""")
+
     /**
-     * Builds an import map covering every bare module specifier the artifact
-     * imports. Relative (`./`, `/`) and absolute-URL specifiers are left untouched.
-     * Each bare package maps to the ESM CDN with React/ReactDOM externalized so it
-     * shares the single pinned instance. This is the general-purpose mechanism:
-     * the model can import any npm package and it resolves with no special-casing.
+     * Every bare module specifier the artifact imports that the bundle cannot satisfy.
+     * Relative (`./`, `/`) and absolute-URL specifiers are left alone -- the browser
+     * resolves those itself.
      */
-    private fun buildReactImportMap(content: String): String {
-        val entries = LinkedHashMap(CORE_IMPORTS)
+    private fun missingSpecifiers(content: String): List<String> =
         MODULE_SPECIFIER.findAll(content)
             .map { it.groupValues[1] }
             .filter { spec ->
-                // Bare npm specifiers only: skip relative ('.'/'..'), absolute and
-                // protocol-relative ('/', '//') paths, and any URL scheme ('http:',
-                // 'data:', 'node:', …) — none of which a valid package name contains.
                 spec.isNotBlank() &&
                     !spec.startsWith(".") &&
                     !spec.startsWith("/") &&
                     !spec.contains(":") &&
-                    spec !in CORE_IMPORTS
+                    spec !in CORE_IMPORTS &&
+                    SAFE_SPECIFIER.matches(spec)
             }
-            .forEach { spec -> entries[spec] = "$ESM_CDN/$spec?external=react,react-dom" }
-        val imports = entries.entries.joinToString(",\n      ") { (k, v) -> "\"$k\": \"$v\"" }
-        return "{\n    \"imports\": {\n      $imports\n    }\n  }"
+            .distinct()
+            .toList()
+
+    /** Captures the import clause and specifier of `import <clause> from 'X'`. */
+    private val IMPORT_CLAUSE = Regex("""import\s+([^'"]+?)\s+from\s*['"]([^'"]+)['"]""")
+
+    /** A binding inside `{ ... }`, keeping the imported name rather than the local alias. */
+    private val NAMED_BINDING =
+        Regex("""([A-Za-z_${'$'}][A-Za-z0-9_${'$'}]*)(?:\s+as\s+[A-Za-z_${'$'}][A-Za-z0-9_${'$'}]*)?""")
+
+    /**
+     * The export names each unbundled specifier is imported under.
+     *
+     * A stub module has to *declare* these even though it only ever throws. A module's
+     * named imports are resolved during linking, which happens before any of its code
+     * runs, so a stub that exports nothing is rejected with "does not provide an export
+     * named 'X'" and the message explaining that the package is not bundled -- the whole
+     * point of the stub -- never gets the chance to execute.
+     *
+     * Namespace imports (`import * as X`) need no entry; they bind to whatever the module
+     * exports, including nothing.
+     */
+    private fun missingModuleExports(content: String, missing: Set<String>): Map<String, List<String>> {
+        val exports = mutableMapOf<String, MutableSet<String>>()
+        for (match in IMPORT_CLAUSE.findAll(content)) {
+            val spec = match.groupValues[2]
+            if (spec !in missing) continue
+            val names = exports.getOrPut(spec) { mutableSetOf() }
+            val clause = match.groupValues[1]
+            val braces = clause.substringAfter('{', "").substringBefore('}', "")
+            if (braces.isNotBlank()) {
+                NAMED_BINDING.findAll(braces).forEach { names += it.groupValues[1] }
+            }
+            // Anything before the brace or the `* as` is a default import.
+            val head = clause.substringBefore('{').substringBefore('*').trim().trimEnd(',').trim()
+            if (head.isNotEmpty()) names += "default"
+        }
+        return exports.mapValues { (_, names) -> names.toList() }
     }
 
     @OptIn(ExperimentalEncodingApi::class)
     private fun buildReactHtml(content: String, bgColor: String, fgColor: String): String {
-        val importMap = buildReactImportMap(content)
-        // Embed the source as base64 so arbitrary JSX — including `</script>`,
-        // backticks, or `${'$'}{...}` — round-trips with zero HTML/JS escaping
+        val missing = missingSpecifiers(content)
+        val missingExports = missingModuleExports(content, missing.toSet())
+        val missingJson = missing.joinToString(",") { spec ->
+            val names = missingExports[spec].orEmpty().joinToString(",") { "\"" + it + "\"" }
+            "[\"" + spec + "\",[" + names + "]]"
+        }
+        // Embed the source as base64 so arbitrary JSX -- including `</script>`,
+        // backticks, or `${'$'}{...}` -- round-trips with zero HTML/JS escaping
         // hazards. The runner decodes, compiles JSX, and imports it as a real
         // ES module so the artifact's own `import`/`export` statements work
         // verbatim against the import map (no source rewriting).
@@ -226,10 +262,11 @@ object ArtifactWebContent {
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' blob: https://esm.sh https://unpkg.com https://cdn.tailwindcss.com; style-src 'unsafe-inline' https:; img-src data: blob: https:; font-src data: https:; connect-src https://esm.sh https://cdn.tailwindcss.com;">
-                <script type="importmap">$importMap</script>
-                <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-                <script src="https://cdn.tailwindcss.com"></script>
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: file:; style-src 'unsafe-inline'; img-src data: blob: https:; font-src data: file:;">
+                <script src="react/react.production.min.js"></script>
+                <script src="react-dom/react-dom.production.min.js"></script>
+                <script src="babel/babel.min.js"></script>
+                <script src="tailwind/tailwind.min.js"></script>
                 <style>
                     :root { --bg: $bgColor; --fg: $fgColor; }
                     html, body { max-width: 100%; overflow-x: hidden; }
@@ -252,9 +289,10 @@ object ArtifactWebContent {
             <body>
                 <div id="root"></div>
                 <div id="error-display"></div>
-                <script type="module">
-                    const root = document.getElementById('root');
-                    const errDiv = document.getElementById('error-display');
+                <script>
+                (function () {
+                    var root = document.getElementById('root');
+                    var errDiv = document.getElementById('error-display');
                     function showError(msg) {
                         if (root.hasChildNodes()) return;
                         errDiv.style.display = 'block';
@@ -264,29 +302,134 @@ object ArtifactWebContent {
                     window.addEventListener('unhandledrejection', function(e) {
                         showError((e.reason && e.reason.message) || String(e.reason));
                     });
-                    try {
-                        const ReactNS = await import('react');
-                        const React = ReactNS.default || ReactNS;
-                        const { createRoot } = await import('react-dom/client');
-                        const source = new TextDecoder().decode(
-                            Uint8Array.from(atob('$sourceB64'), function(c) { return c.charCodeAt(0); })
-                        );
-                        const compiled = Babel.transform(source, {
-                            presets: [['react', { runtime: 'automatic', development: false }]],
-                            filename: 'artifact.jsx',
-                            sourceType: 'module',
-                        }).code;
-                        const blobUrl = URL.createObjectURL(new Blob([compiled], { type: 'text/javascript' }));
-                        const mod = await import(blobUrl);
-                        const Component = mod.default ||
-                            Object.values(mod).find(function(v) { return typeof v === 'function'; });
-                        if (!Component) {
-                            throw new Error('No React component is exported. Add `export default`.');
+
+                    // Module code is strict mode, so the strict-only reserved words are
+                    // just as fatal here as the ordinary ones: a single
+                    // `export const static = …` is a syntax error that fails the whole
+                    // module, not only that one binding.
+                    var RESERVED = ['default','class','function','const','let','var','import','export',
+                        'new','delete','typeof','in','of','do','if','else','return','switch','case',
+                        'break','continue','for','while','with','try','catch','finally','throw','this',
+                        'super','void','yield','await','enum','null','true','false','instanceof',
+                        'extends','debugger','implements','interface','package','private','protected',
+                        'public','static','arguments','eval'];
+
+                    // Only plain ASCII identifiers can be re-exported by name; anything
+                    // else stays reachable through the module's default export.
+                    function isSafeName(k) {
+                        if (!k || RESERVED.indexOf(k) !== -1) return false;
+                        for (var i = 0; i < k.length; i++) {
+                            var c = k.charCodeAt(i);
+                            var ok = (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95 ||
+                                (i > 0 && c >= 48 && c <= 57);
+                            if (!ok) return false;
                         }
-                        createRoot(root).render(React.createElement(Component));
-                    } catch (e) {
-                        showError((e && e.message) || String(e));
+                        return true;
                     }
+
+                    function moduleUrl(source) {
+                        return URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+                    }
+
+                    // Re-exports a UMD global as an ES module, naming each export so
+                    // `import { useState } from 'react'` binds like it would from npm.
+                    function globalModule(globalName, obj) {
+                        var lines = ['const m = window.' + globalName + ';', 'export default m;'];
+                        Object.keys(obj).forEach(function (k) {
+                            if (isSafeName(k)) lines.push('export const ' + k + ' = m.' + k + ';');
+                        });
+                        return moduleUrl(lines.join('\n'));
+                    }
+
+                    // The stub declares the names the artifact imports from it, then throws.
+                    // Declaring them is not decoration: named imports are resolved while the
+                    // module graph links, before any code runs, so a stub that exports nothing
+                    // is rejected with "does not provide an export named 'X'" and the message
+                    // below -- the entire reason the stub exists -- never executes.
+                    function missingModule(spec, names) {
+                        var lines = [];
+                        names.forEach(function (n) {
+                            if (n === 'default') lines.push('export default undefined;');
+                            else if (isSafeName(n)) lines.push('export const ' + n + ' = undefined;');
+                        });
+                        lines.push('throw new Error(' + JSON.stringify(
+                            'This artifact imports "' + spec + '", an npm package that is not ' +
+                            'bundled with the app, so it cannot be loaded.'
+                        ) + ');');
+                        return moduleUrl(lines.join('\n'));
+                    }
+
+                    // Babel's automatic runtime compiles JSX to jsx()/jsxs() imported from
+                    // react/jsx-runtime, which React 18's UMD build does not expose.
+                    //
+                    // `children` is handed to createElement as ONE argument, never spread
+                    // into positional ones. Spreading looks equivalent and is not: an array
+                    // of length 1 (a `.map()` over a single-item list) collapses to a lone
+                    // child, which React reconciles by position instead of by key, so the
+                    // element remounts and loses its state the moment the list grows to two
+                    // — and a large generated list overflows the argument limit outright.
+                    var JSX_RUNTIME = [
+                        'const R = window.React;',
+                        'export const Fragment = R.Fragment;',
+                        'export function jsx(type, props, key) {',
+                        '  const p = Object.assign({}, props);',
+                        '  const children = p.children;',
+                        '  delete p.children;',
+                        '  if (key !== undefined) p.key = key;',
+                        '  if (children === undefined) return R.createElement(type, p);',
+                        '  return R.createElement(type, p, children);',
+                        '}',
+                        'export const jsxs = jsx;',
+                        'export const jsxDEV = jsx;'
+                    ].join('\n');
+
+                    var DOM_CLIENT = [
+                        'const m = window.ReactDOM;',
+                        'export const createRoot = m.createRoot;',
+                        'export const hydrateRoot = m.hydrateRoot;',
+                        'export default { createRoot: m.createRoot, hydrateRoot: m.hydrateRoot };'
+                    ].join('\n');
+
+                    var imports = {
+                        'react': globalModule('React', window.React),
+                        'react/jsx-runtime': moduleUrl(JSX_RUNTIME),
+                        'react-dom': globalModule('ReactDOM', window.ReactDOM),
+                        'react-dom/client': moduleUrl(DOM_CLIENT)
+                    };
+                    [$missingJson].forEach(function (e) { imports[e[0]] = missingModule(e[0], e[1]); });
+
+                    // Injected before the first dynamic import, which is the only ordering
+                    // requirement -- no module has been resolved yet at this point.
+                    var mapTag = document.createElement('script');
+                    mapTag.type = 'importmap';
+                    mapTag.textContent = JSON.stringify({ imports: imports });
+                    document.head.appendChild(mapTag);
+
+                    (async function () {
+                        try {
+                            var ReactNS = await import('react');
+                            var React = ReactNS.default || ReactNS;
+                            var createRoot = (await import('react-dom/client')).createRoot;
+                            var source = new TextDecoder().decode(
+                                Uint8Array.from(atob('$sourceB64'), function(c) { return c.charCodeAt(0); })
+                            );
+                            var compiled = Babel.transform(source, {
+                                presets: [['react', { runtime: 'automatic', development: false }]],
+                                filename: 'artifact.jsx',
+                                sourceType: 'module',
+                            }).code;
+                            var mod = await import(moduleUrl(compiled));
+                            var Component = mod.default ||
+                                Object.values(mod).find(function(v) { return typeof v === 'function'; });
+                            if (!Component) {
+                                throw new Error('No React component is exported. Add `export default`.');
+                            }
+                            createRoot(root).render(React.createElement(Component));
+                        } catch (e) {
+                            showError((e && e.message) || String(e));
+                        }
+                    })();
+                })();
                 </script>
             </body>
             </html>

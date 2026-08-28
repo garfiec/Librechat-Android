@@ -12,6 +12,8 @@ import com.garfiec.librechat.feature.chat.components.shareArtifact
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.cValue
 import platform.Foundation.NSURL
+import com.garfiec.librechat.feature.chat.components.web.loadVendoredHtml
+import com.garfiec.librechat.feature.chat.components.web.rememberWebAssetBaseUrl
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 
@@ -35,6 +37,9 @@ actual fun ArtifactPreviewSurface(
     // version-nav swipes and shell animations otherwise re-trigger loadHTMLString and
     // flash the WebView.
     var loadedHtml by remember { mutableStateOf("") }
+
+    val assetBase = rememberWebAssetBaseUrl() ?: return
+
     UIKitView(
         modifier = modifier.fillMaxSize(),
         factory = {
@@ -46,19 +51,13 @@ actual fun ArtifactPreviewSurface(
                 configuration = config,
             )
             webView.setOpaque(false)
-            webView.loadHTMLString(
-                html,
-                baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"),
-            )
+            webView.loadVendoredHtml(html, assetBase)
             loadedHtml = html
             webView
         },
         update = { webView ->
             if (html != loadedHtml) {
-                webView.loadHTMLString(
-                    html,
-                    baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"),
-                )
+                webView.loadVendoredHtml(html, assetBase)
                 loadedHtml = html
             }
         },

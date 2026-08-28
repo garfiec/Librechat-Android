@@ -18,6 +18,8 @@ import kotlinx.cinterop.cValue
 import kotlinx.cinterop.useContents
 import platform.Foundation.NSURL
 import platform.UIKit.UIScreen
+import com.garfiec.librechat.feature.chat.components.web.loadVendoredHtml
+import com.garfiec.librechat.feature.chat.components.web.rememberWebAssetBaseUrl
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 
@@ -49,6 +51,8 @@ actual fun InlineArtifactView(
         UIScreen.mainScreen.bounds.useContents { size.height * INLINE_MAX_HEIGHT_FRACTION }.dp
     }
 
+    val assetBase = rememberWebAssetBaseUrl() ?: return
+
     val uiKitViewBlock: @Composable () -> Unit = {
         var loadedHtml by remember { mutableStateOf("") }
 
@@ -66,19 +70,13 @@ actual fun InlineArtifactView(
                     val webView = WKWebView(frame = cValue { }, configuration = config)
                     webView.setOpaque(false)
                     webView.scrollView.setScrollEnabled(false)
-                    webView.loadHTMLString(
-                        html,
-                        baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"),
-                    )
+                    webView.loadVendoredHtml(html, assetBase)
                     loadedHtml = html
                     webView
                 },
                 update = { webView ->
                     if (html != loadedHtml) {
-                        webView.loadHTMLString(
-                            html,
-                            baseURL = NSURL.URLWithString("https://cdn.jsdelivr.net"),
-                        )
+                        webView.loadVendoredHtml(html, assetBase)
                         loadedHtml = html
                     }
                 },
