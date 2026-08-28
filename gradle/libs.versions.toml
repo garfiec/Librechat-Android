@@ -39,7 +39,7 @@ paging = "3.5.0"
 browser = "1.10.0"
 
 # Markdown
-markdown-renderer = "0.40.2"
+markdown-renderer = "0.43.0"
 
 # Media
 media3 = "1.10.1"
