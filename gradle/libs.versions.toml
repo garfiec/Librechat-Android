@@ -11,7 +11,7 @@ androidx-core = "1.18.0"
 lifecycle = "2.10.0"
 lifecycle-kmp = "2.10.0"
 navigation3-kmp = "1.1.1"
-lifecycle-viewmodel-nav3-kmp = "2.11.0-beta01"
+lifecycle-viewmodel-nav3-kmp = "2.11.0"
 
 # DI
 koin = "4.2.2"
