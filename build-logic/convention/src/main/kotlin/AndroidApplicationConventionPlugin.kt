@@ -14,7 +14,18 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("org.jetbrains.kotlinx.kover")
 
             val appVersion = readAppVersion(target)
-            val release = readReleaseSigning(target)
+            // Read through `providers`, not `hasProperty`: only the provider is a tracked
+            // configuration-cache input, and an untracked read would let a cached *signed*
+            // configuration be reused here. Presence is the signal, not the value — callers
+            // may pass it bare. See docs/RELEASING.md "Unsigned release builds".
+            val unsignedRelease = providers.gradleProperty("unsignedRelease").isPresent
+            val release = if (unsignedRelease) null else readReleaseSigning(target)
+            if (unsignedRelease) {
+                logger.lifecycle(
+                    "-PunsignedRelease: the release APK will be UNSIGNED " +
+                        "(app/build/outputs/apk/release/app-release-unsigned.apk).",
+                )
+            }
 
             extensions.configure<KotlinAndroidProjectExtension> {
                 jvmToolchain(BuildConstants.JVM_TOOLCHAIN_VERSION)
@@ -59,10 +70,14 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                         // Use the real release key when credentials are present (CI release
                         // builds, or a local keystore.properties); otherwise fall back to the
                         // debug key so local `assembleRelease` and CI checks still work.
-                        signingConfig = if (release != null) {
-                            signingConfigs.getByName("release")
-                        } else {
-                            signingConfigs.getByName("debug")
+                        // `unsignedRelease` must stay the first branch: it deliberately
+                        // outranks credentials so the path stays testable with a
+                        // keystore.properties in place. A null config is what makes AGP emit
+                        // `app-release-unsigned.apk`.
+                        signingConfig = when {
+                            unsignedRelease -> null
+                            release != null -> signingConfigs.getByName("release")
+                            else -> signingConfigs.getByName("debug")
                         }
                         proguardFiles(
                             getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -125,8 +140,10 @@ private data class ReleaseSigning(
 /**
  * Resolves release signing credentials from environment variables (CI) first, then a
  * local `keystore.properties` at the repo root. Returns null when any field is missing,
- * which signals the caller to fall back to debug signing — keeping the keystore out of
- * the repo while letting local `assembleRelease` and CI lint/test checks run unsigned.
+ * which signals the caller to fall back to the *debug* key — keeping the keystore out of
+ * the repo while letting local `assembleRelease` and CI lint/test checks still produce an
+ * installable APK. `-PunsignedRelease` is the only way to get an APK with no signature
+ * at all.
  */
 private fun readReleaseSigning(target: Project): ReleaseSigning? {
     val propsFile = target.rootProject.file("keystore.properties")

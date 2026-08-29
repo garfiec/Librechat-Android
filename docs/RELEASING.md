@@ -131,16 +131,53 @@ keyPassword=...
 Then `./gradlew :app:assembleRelease` produces a signed APK. Without env vars or this file,
 release builds fall back to the debug key so local builds and CI checks still work.
 
+### Unsigned release builds
+
+```bash
+./gradlew :app:assembleRelease -PunsignedRelease
+```
+
+Produces `app/build/outputs/apk/release/app-release-unsigned.apk` with no signature at all,
+for packagers that apply their own. The flag outranks any credentials present, so it can be
+tested without moving `keystore.properties` aside — and because the output filename changes,
+the two builds can never be confused for one another. Note the "will be UNSIGNED" banner is
+printed at configuration time, so a configuration-cache hit skips it; the filename is the
+reliable signal.
+
+This exists for F-Droid, whose buildserver has no credentials and would otherwise get a
+release APK quietly signed with the committed *debug* key. Its build recipe requests the flag
+with `gradleprops: [unsignedRelease]`. Nothing in the repo hardcodes that relationship — the
+flag is just "build unsigned", equally usable by any downstream packager.
+
+It is a hedge, not a requirement. fdroidserver does **not** insist on an unsigned build: its
+`verify_apks` strips and ignores any signature found on the rebuilt APK, and
+`AllowedAPKSigningKeys` is checked against the downloaded reference binary rather than the
+rebuild. Building unsigned removes one variable from that comparison — which, under
+`Binaries:`, is the step that publishes nothing at all when it fails. Do not restate this as
+"F-Droid requires an unsigned APK"; it does not.
+
+The release workflow exercises this path on every cut (see below), since nothing else does.
+Ordinary CI deliberately does not: a release cut is the only time the unsigned build matters,
+and that job already pays for one R8 run, so the check is nearly free there and would be a
+second full shrink on every pull request.
+
 ## Cutting a release
 
 1. Actions → **Release** → *Run workflow* → choose the bump (`patch` for a stable
    release, or `prepatch`/`rc`/`finalize` for the candidate flow). Year/month are
    derived from the current UTC date automatically.
-2. The job bumps `version.properties`, builds a signed universal APK, signs a SLSA
-   build-provenance attestation for it, and **only then** commits + tags `vYYYY.MM.P` and creates
+2. The job bumps `version.properties`, builds a signed universal APK, **asserts it carries the
+   published signing certificate**, re-verifies that the unsigned build path still works, signs a
+   SLSA build-provenance attestation, and **only then** commits + tags `vYYYY.MM.P` and creates
    a **draft** GitHub Release with auto-generated notes and a `.sha256` checksum. Candidate
-   versions are flagged as pre-releases automatically. If the build fails, nothing is committed
+   versions are flagged as pre-releases automatically. If any step fails, nothing is committed
    or tagged — just re-run after fixing it.
+
+   The certificate assertion compares against the fingerprint published in the README. It
+   exists because a swapped or rotated keystore secret is otherwise undetectable here: the
+   checksum, the attestation and the draft release would all faithfully describe a
+   wrongly-signed binary, and Android refuses in-place updates across a key change, so every
+   existing install would be stranded.
 3. A **secondary `ios` job** (macOS runner) then checks out the freshly tagged commit, builds
    an **unsigned device IPA**, attests it, and attaches `switchboard-vX.ipa` + `.sha256` to the
    same draft. It uses **no secrets and no Apple account** (sideload installers re-sign on the
