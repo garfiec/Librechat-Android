@@ -2,9 +2,10 @@ name: Release
 
 # Manual, one-button release. Versions are calver (YYYY.MM.PATCH); year/month come
 # from the current UTC date automatically, so the only choice is stable vs candidate.
-# The job bumps version.properties, builds a signed universal APK, and ONLY THEN
-# commits + tags it and publishes a draft GitHub Release with auto-generated notes —
-# so a failed build never leaves an orphaned tag or a burned version on the branch.
+# The job bumps version.properties, commits + tags LOCALLY, builds a signed universal
+# APK from that tagged commit, and ONLY THEN pushes and publishes a draft GitHub Release
+# with auto-generated notes — so a failed build never leaves an orphaned tag or a burned
+# version on the branch, while the APK still carries its own tag's commit SHA.
 # Review the draft, then publish it; Obtainium/IzzyOnDroid pick up published releases.
 on:
   workflow_dispatch:
@@ -128,6 +129,21 @@ jobs:
             exit 1
           fi
 
+      # Must run BEFORE the build: the APK bakes `git rev-parse HEAD` into
+      # BuildConfig.GIT_SHA (core/common/build.gradle.kts), so building first ships a binary
+      # carrying its tag's *parent* SHA, which can never be reproduced from the tag. Nothing
+      # is published until "Push the release commit & tag" below; until then the commit and
+      # tag are local to the runner and die with it.
+      - name: Commit & tag locally
+        env:
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          git commit -m "chore(release): $TAG"
+          git tag -a "$TAG" -m "Release $TAG"
+
       - name: Build signed release APK
         env:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -216,18 +232,15 @@ jobs:
         with:
           subject-path: ${{ steps.artifacts.outputs.apk }}
 
-      # Commit + tag the bump ONLY after a signed APK exists, so a failed build never
-      # leaves an orphaned tag or a burned version on the branch. --atomic makes the
-      # branch push and the tag push all-or-nothing.
-      - name: Commit, tag & push
+      # Deliberately last: everything that can fail has already run, so a failed build leaves
+      # no orphaned tag and burns no version on the branch. The provenance attestation above
+      # is already in Sigstore's public log by this point, but it is keyed to the APK's digest
+      # rather than to the tag, so a run that dies here still publishes no release. --atomic
+      # makes the branch push and the tag push all-or-nothing.
+      - name: Push the release commit & tag
         env:
           TAG: ${{ steps.bump.outputs.tag }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add version.properties
-          git commit -m "chore(release): $TAG"
-          git tag -a "$TAG" -m "Release $TAG"
           git push --atomic origin "HEAD:${{ github.ref_name }}" "refs/tags/$TAG"
 
       # Assemble the full release body ourselves so we can put shields.io badges at the

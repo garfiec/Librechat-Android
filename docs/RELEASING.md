@@ -166,12 +166,19 @@ second full shrink on every pull request.
 1. Actions → **Release** → *Run workflow* → choose the bump (`patch` for a stable
    release, or `prepatch`/`rc`/`finalize` for the candidate flow). Year/month are
    derived from the current UTC date automatically.
-2. The job bumps `version.properties`, builds a signed universal APK, **asserts it carries the
-   published signing certificate**, re-verifies that the unsigned build path still works, signs a
-   SLSA build-provenance attestation, and **only then** commits + tags `vYYYY.MM.P` and creates
-   a **draft** GitHub Release with auto-generated notes and a `.sha256` checksum. Candidate
-   versions are flagged as pre-releases automatically. If any step fails, nothing is committed
-   or tagged — just re-run after fixing it.
+2. The job bumps `version.properties`, commits and tags `vYYYY.MM.P` **locally**, builds a
+   signed universal APK, **asserts it carries the published signing certificate**, re-verifies
+   that the unsigned build path still works, signs a SLSA build-provenance attestation, and
+   **only then pushes** the commit and tag and creates a **draft** GitHub Release with
+   auto-generated notes and a `.sha256` checksum. Candidate versions are flagged as
+   pre-releases automatically. If any step fails, nothing is pushed — the commit and tag exist
+   only on the runner and die with it, so just re-run after fixing it.
+
+   The tag is created *before* the build on purpose: `BuildConfig.GIT_SHA` is stamped from
+   `git rev-parse HEAD` at build time, so building first shipped a binary carrying the SHA of
+   the commit *preceding* its own tag. Rebuilding from the tag then produced a different string
+   in the dex, which made the release impossible to reproduce byte-for-byte — a prerequisite for
+   F-Droid publishing our developer-signed APK rather than re-signing with its own key.
 
    The certificate assertion compares against the fingerprint published in the README. It
    exists because a swapped or rotated keystore secret is otherwise undetectable here: the
