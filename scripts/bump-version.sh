@@ -24,9 +24,9 @@
 #
 # A version with an -rcN suffix is treated as a pre-release: the release workflow
 # marks the GitHub Release as a pre-release so Obtainium ignores it unless the user
-# opts in. versionCode is NOT stored here — it is derived from versionName at build
-# time by the Android convention plugin (YEAR*10000 + MONTH*100 + PATCH), which
-# strips the suffix, so an -rcN and its final release share a versionCode.
+# opts in. versionCode is rewritten alongside versionName as YEAR*10000 + MONTH*100 +
+# PATCH; the Android convention plugin re-derives it and fails the build on a mismatch.
+# The suffix is stripped, so an -rcN and its final release share a versionCode.
 #
 # Set BUMP_DATE=YYYY-MM to override the current date (for testing).
 #
@@ -139,16 +139,35 @@ esac
 new_name="${new_core}${pre}"
 tag="v${new_name}"
 
+# Written out rather than left implicit because F-Droid's update detection needs a literal
+# (see version.properties); the Gradle plugin re-derives it and fails the build on a mismatch.
+IFS='.' read -r code_year code_month code_patch <<< "$new_core"
+new_code=$(( 10#$code_year * 10000 + 10#$code_month * 100 + 10#$code_patch ))
+
 # Rewrite version.properties, preserving the header comments (and, by writing
 # through the original file rather than mv-ing a mktemp over it, its file mode).
 tmp="$(mktemp)"
+saw_code=false
 while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" == versionName=* ]]; then
     printf '%s\n' "versionName=${new_name}"
+  elif [[ "$line" == versionCode=* ]]; then
+    saw_code=true
+    printf '%s\n' "versionCode=${new_code}"
   else
     printf '%s\n' "$line"
   fi
 done < "$PROPS" > "$tmp"
+
+# Only an existing line is rewritten, so a versionCode dropped by a bad merge would leave
+# none — and the Gradle cross-check tolerates absence, so the build stays green while
+# F-Droid, which can only read the literal, silently stops offering updates.
+if ! $saw_code; then
+  rm -f "$tmp"
+  echo "versionCode= line missing from $PROPS; restore it (expected versionCode=${new_code})" >&2
+  exit 1
+fi
+
 cat "$tmp" > "$PROPS"
 rm -f "$tmp"
 

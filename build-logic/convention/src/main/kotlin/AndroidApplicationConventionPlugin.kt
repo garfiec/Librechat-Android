@@ -98,7 +98,8 @@ private data class AppVersion(val name: String, val code: Int)
 /**
  * Reads `versionName` (calver `YYYY.MM.PATCH`) from version.properties and derives a
  * monotonic `versionCode` from it as `YEAR * 10_000 + MONTH * 100 + PATCH`, so the
- * code is a deterministic function of the name with nothing to track separately:
+ * code is a deterministic function of the name and the `versionCode` line in that file
+ * is a cross-check rather than a second source of truth:
  * `2026.06.0` -> 20260600, `2026.06.1` -> 20260601. MONTH and PATCH must each be
  * <= 99 to stay monotonic; the build fails fast if either overflows. Pre-calver
  * semver releases used the same packing (`0.1.3` -> 103), so codes stayed monotonic
@@ -127,7 +128,18 @@ private fun readAppVersion(target: Project): AppVersion {
         "versionName '$name' exceeds the YYYYMMPP versionCode scheme: MONTH and PATCH " +
             "must each be <= 99 (got month=$month, patch=$patch)."
     }
-    return AppVersion(name = name, code = year * 10_000 + month * 100 + patch)
+    val derived = year * 10_000 + month * 100 + patch
+    // Compare the raw text, not `toIntOrNull()`: parsing first would fold an unparseable
+    // value into the same null the absent case uses, so `versionCode=oops` would pass the
+    // check while a packager reading the literal for update detection matched nothing and
+    // silently stopped offering updates.
+    val declared = props.getProperty("versionCode")?.trim()
+    check(declared == null || declared.toIntOrNull() == derived) {
+        "version.properties is inconsistent: versionName '$name' packs to $derived but " +
+            "versionCode says '$declared'. Run scripts/bump-version.sh rather than editing " +
+            "either line by hand."
+    }
+    return AppVersion(name = name, code = derived)
 }
 
 private data class ReleaseSigning(

@@ -9,6 +9,7 @@ The app version is calendar-based — **`YYYY.MM.PATCH`** (zero-padded month, e.
 
 ```properties
 versionName=2026.06.0      # calver YYYY.MM.PATCH — bumped by the release workflow
+versionCode=20260600       # packed from versionName; written by the same bump
 backendTargetVersion=0.8.6 # LibreChat backend this build targets (best-tested)
 ```
 
@@ -18,6 +19,25 @@ backendTargetVersion=0.8.6 # LibreChat backend this build targets (best-tested)
 - `AndroidApplicationConventionPlugin` reads `versionName` and **derives** `versionCode` as
   `YEAR*10000 + MONTH*100 + PATCH`: `2026.06.0` → `20260600`, `2026.06.1` → `20260601`.
   Monotonic as the date advances; limits are MONTH ≤ 99 (trivially true), PATCH ≤ 99.
+  An `-rcN` suffix is stripped first, so a candidate and the stable it is promoted to
+  share a versionCode.
+- `version.properties` **also spells the code out**, and `scripts/bump-version.sh` writes both
+  lines together — refusing the bump if the `versionCode=` line is missing. The derivation
+  above stays authoritative: the plugin re-derives the code and **fails the build** if the
+  literal disagrees, so the two cannot drift. The literal exists because F-Droid's update
+  detection is regex-only and cannot evaluate the packing; without a number in a file it
+  cannot see new releases at all. **The literal alone is not enough**: fdroidserver's default
+  scan (`common.manifest_paths`) only reads `AndroidManifest.xml`, `build.gradle` and
+  `build.gradle.kts` *under the app module*, so it never sees a root `version.properties`.
+  Reaching it requires the fdroiddata recipe to say so explicitly:
+
+  ```yaml
+  UpdateCheckMode: Tags
+  UpdateCheckData: version.properties|versionCode=(\d+)|version.properties|versionName=(.+)
+  ```
+
+  Without that field the app builds and publishes fine but is never offered as an update, so
+  it belongs in the RFP alongside `Binaries` and `AllowedAPKSigningKeys`.
 - The About screen reads the *installed* version via `AppInfo` (package metadata), so it can never drift.
 - This is the **app's** version and is intentionally independent of `backendTargetVersion`.
 - `backendTargetVersion` is the **single source of truth** for the LibreChat backend the app
@@ -162,6 +182,14 @@ and that job already pays for one R8 run, so the check is nearly free there and 
 second full shrink on every pull request.
 
 ## Cutting a release
+
+> **Before dispatching:** add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`
+> for the version you are about to cut, and commit it to the branch first. Nothing in the
+> workflow writes it, and F-Droid/IzzyOnDroid read the file **from the tagged commit** — the
+> release commit contains only `version.properties`, so a changelog added afterwards is not
+> reachable from the tag and never appears. The filename is the versionCode
+> (`2026.08.4` → `20260804`), which `scripts/bump-version.sh` computes as
+> `YEAR*10000 + MONTH*100 + PATCH` from today's UTC date; see `fastlane/README.md`.
 
 1. Actions → **Release** → *Run workflow* → choose the bump (`patch` for a stable
    release, or `prepatch`/`rc`/`finalize` for the candidate flow). Year/month are

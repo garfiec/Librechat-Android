@@ -38,18 +38,18 @@ A third-party native mobile client for [LibreChat](https://www.librechat.ai/) (A
 | Feature | Phone | Tablet / Foldable |
 |---|---|---|
 | **Server Connect** — Point the app at any self-hosted LibreChat server | <img src="docs/screenshots/server-url-phone.png" width="280"> | <img src="docs/screenshots/server-url-tablet.png" width="380"> |
-| **Home Screen** — Clean welcome screen with voice input and quick access | <img src="docs/screenshots/home-phone.png" width="280"> | <img src="docs/screenshots/home-tablet.png" width="380"> |
+| **Home Screen** — Clean welcome screen with voice input and quick access | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-home.png" width="280"> | <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/01-home.png" width="380"> |
 | **Conversations Sidebar** — Swipe to open your chat history with search, tags, and date grouping | <img src="docs/screenshots/sidebar-phone.gif" width="280"> | <img src="docs/screenshots/sidebar-tablet.gif" width="380"> |
 | **Predictive Back** — Native Android back gesture with peek animation | <img src="docs/screenshots/predictive-back-phone.gif" width="280"> | <img src="docs/screenshots/predictive-back-tablet.gif" width="380"> |
-| **Mermaid Diagrams** — Interactive flowcharts and diagrams rendered in-chat | <img src="docs/screenshots/mermaid-phone.png" width="280"> | <img src="docs/screenshots/mermaid-tablet.png" width="380"> |
-| **LaTeX Math** — Beautifully typeset equations and formulas | <img src="docs/screenshots/latex-phone.png" width="280"> | <img src="docs/screenshots/latex-tablet.png" width="380"> |
-| **Code Blocks** — Syntax-highlighted code with language badge and copy button | <img src="docs/screenshots/code-phone.png" width="280"> | <img src="docs/screenshots/code-tablet.png" width="380"> |
+| **Mermaid Diagrams** — Interactive flowcharts and diagrams rendered in-chat | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/04-mermaid.png" width="280"> | <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/04-mermaid.png" width="380"> |
+| **LaTeX Math** — Beautifully typeset equations and formulas | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05-latex.png" width="280"> | <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/05-latex.png" width="380"> |
+| **Code Blocks** — Syntax-highlighted code with language badge and copy button | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-code.png" width="280"> | <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/03-code.png" width="380"> |
 | **Tables** — Clean, scrollable data tables | <img src="docs/screenshots/table-phone.png" width="280"> | <img src="docs/screenshots/table-tablet.png" width="380"> |
-| **Extended Thinking** — See the model's reasoning process | <img src="docs/screenshots/thinking-phone.png" width="280"> | <img src="docs/screenshots/thinking-tablet.png" width="380"> |
-| **Chat Media** — Browse all media shared in the current chat in one place | <img src="docs/screenshots/chat-media-phone.png" width="280"> | <img src="docs/screenshots/chat-media-tablet.png" width="380"> |
+| **Extended Thinking** — See the model's reasoning process | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06-thinking.png" width="280"> | <img src="docs/screenshots/thinking-tablet.png" width="380"> |
+| **Chat Media** — Browse all media shared in the current chat in one place | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/07-chat-media.png" width="280"> | <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/06-chat-media.png" width="380"> |
 | **Chat Options** — Attach files, switch models, toggle tools, and tune parameters | <img src="docs/screenshots/chat-options-phone.png" width="280"> | <img src="docs/screenshots/chat-options-tablet.png" width="380"> |
-| **Model Selection** — Searchable bottom sheet with models grouped by provider | <img src="docs/screenshots/model-selection-phone.png" width="280"> | <img src="docs/screenshots/model-selection-tablet.png" width="380"> |
-| **Settings** — Theme, language, layout, and personalization options | <img src="docs/screenshots/settings-phone.png" width="280"> | <img src="docs/screenshots/settings-tablet.png" width="380"> |
+| **Model Selection** — Searchable bottom sheet with models grouped by provider | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02-model-selection.png" width="280"> | <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/02-model-selection.png" width="380"> |
+| **Settings** — Theme, language, layout, and personalization options | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/08-settings.png" width="280"> | <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/07-settings.png" width="380"> |
 
 ## Install (Android)
 

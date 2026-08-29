@@ -1,0 +1,36 @@
+Switchboard is a third-party native client for LibreChat, the open-source chat platform you run on your own server. It is not affiliated with the official LibreChat project. Point it at any self-hosted LibreChat instance — no backend changes required.
+
+You need your own LibreChat server to use this app. There is no hosted service and no default server.
+
+Why not just use the web app in a browser?
+
+* Smoother and faster — a real native app rather than a website in a wrapper, so scrolling, typing and watching responses stream all feel snappier.
+* Built for touch — swipe to switch accounts, swipe back, comfortable tap targets, and a layout that adapts to tablets and foldables.
+* Integrated with your phone — share text, images and files into the app, pin a generated artifact to your home screen, get shortcuts to the models you use most, and save or share images through the system menus.
+* Works offline — your chat list and any conversation you have opened are stored on the device, so you can keep reading with poor or no signal.
+* Multiple accounts — sign in to different accounts on different servers and switch instantly, with storage scoped per account.
+* Dictation prefers your device — voice typing uses your phone's on-device recogniser on Android 12 and later, instead of a server.
+
+Features
+
+* Chat — real-time streaming, message branching and sibling navigation, stop/regenerate/fork, markdown with syntax highlighting, LaTeX maths, copyable code blocks, file attachments and tool-call progress cards.
+* Artifacts — Mermaid, SVG, HTML, React and Markdown artifacts open in a viewer sheet, or full screen if you prefer, and each type can be switched on to render inline instead. Any artifact can be pinned to the home screen.
+* Models — searchable picker grouped by endpoint, starred models sorted first, and a comparison mode that runs two models on the same prompt: side by side on wider screens, swipe between them on narrow ones.
+* Agents — marketplace with search and categories, plus MCP server configuration.
+* Conversations — paginated list with date grouping, tags, search, rename, archive, delete, share, duplicate and export.
+* Media — full-screen viewer with pinch-to-zoom and swiping between images; attach from the device or reuse server files without re-uploading.
+* Themes — pick any accent colour and the whole app regenerates a Material 3 palette around it; system/light/dark modes, plus wallpaper-based colours on Android 12+.
+* Voice — dictation, live and on-device on Android 12 and later, and text-to-speech playback.
+* Accessibility — semantic headings, content descriptions, comfortable touch targets, and live regions that announce streaming replies.
+
+Privacy
+
+All chat traffic goes to the LibreChat server you configure. The app contains no analytics, no crash reporting and no advertising, and every script its renderers execute is bundled in the APK rather than fetched from a CDN.
+
+Some images come from other hosts, none of them carrying your chat messages: web-search result cards load site icons from Google or an address your server supplies; model icons and profile avatars load from whatever addresses your server's configuration supplies, which are often vendor or CDN URLs; attachments and generated images load straight from object storage when your server uses one; and generated HTML, React or Markdown artifacts may load images from any address they reference.
+
+Dictation is the one thing that can carry content elsewhere: where your phone has no on-device recogniser, or it fails, voice typing falls back to the network one, which sends that audio to whichever service your phone uses. You can instead send audio to your own LibreChat server.
+
+Compatibility
+
+Built against LibreChat v0.8.8-rc1. Earlier v0.8.x servers are expected to work, with features gated on what your server reports; newer releases on a best-effort basis until the next sync.
