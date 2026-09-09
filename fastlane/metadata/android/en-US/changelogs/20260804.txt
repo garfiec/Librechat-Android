@@ -1,0 +1,2 @@
+Fixed the streaming follow-scroll re-grabbing the view after a small scroll up, so you can
+read back through a response while it is still being written.

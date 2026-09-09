@@ -14,7 +14,18 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("org.jetbrains.kotlinx.kover")
 
             val appVersion = readAppVersion(target)
-            val release = readReleaseSigning(target)
+            // Read through `providers`, not `hasProperty`: only the provider is a tracked
+            // configuration-cache input, and an untracked read would let a cached *signed*
+            // configuration be reused here. Presence is the signal, not the value — callers
+            // may pass it bare. See docs/RELEASING.md "Unsigned release builds".
+            val unsignedRelease = providers.gradleProperty("unsignedRelease").isPresent
+            val release = if (unsignedRelease) null else readReleaseSigning(target)
+            if (unsignedRelease) {
+                logger.lifecycle(
+                    "-PunsignedRelease: the release APK will be UNSIGNED " +
+                        "(app/build/outputs/apk/release/app-release-unsigned.apk).",
+                )
+            }
 
             extensions.configure<KotlinAndroidProjectExtension> {
                 jvmToolchain(BuildConstants.JVM_TOOLCHAIN_VERSION)
@@ -59,10 +70,14 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                         // Use the real release key when credentials are present (CI release
                         // builds, or a local keystore.properties); otherwise fall back to the
                         // debug key so local `assembleRelease` and CI checks still work.
-                        signingConfig = if (release != null) {
-                            signingConfigs.getByName("release")
-                        } else {
-                            signingConfigs.getByName("debug")
+                        // `unsignedRelease` must stay the first branch: it deliberately
+                        // outranks credentials so the path stays testable with a
+                        // keystore.properties in place. A null config is what makes AGP emit
+                        // `app-release-unsigned.apk`.
+                        signingConfig = when {
+                            unsignedRelease -> null
+                            release != null -> signingConfigs.getByName("release")
+                            else -> signingConfigs.getByName("debug")
                         }
                         proguardFiles(
                             getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -83,7 +98,8 @@ private data class AppVersion(val name: String, val code: Int)
 /**
  * Reads `versionName` (calver `YYYY.MM.PATCH`) from version.properties and derives a
  * monotonic `versionCode` from it as `YEAR * 10_000 + MONTH * 100 + PATCH`, so the
- * code is a deterministic function of the name with nothing to track separately:
+ * code is a deterministic function of the name and the `versionCode` line in that file
+ * is a cross-check rather than a second source of truth:
  * `2026.06.0` -> 20260600, `2026.06.1` -> 20260601. MONTH and PATCH must each be
  * <= 99 to stay monotonic; the build fails fast if either overflows. Pre-calver
  * semver releases used the same packing (`0.1.3` -> 103), so codes stayed monotonic
@@ -112,7 +128,18 @@ private fun readAppVersion(target: Project): AppVersion {
         "versionName '$name' exceeds the YYYYMMPP versionCode scheme: MONTH and PATCH " +
             "must each be <= 99 (got month=$month, patch=$patch)."
     }
-    return AppVersion(name = name, code = year * 10_000 + month * 100 + patch)
+    val derived = year * 10_000 + month * 100 + patch
+    // Compare the raw text, not `toIntOrNull()`: parsing first would fold an unparseable
+    // value into the same null the absent case uses, so `versionCode=oops` would pass the
+    // check while a packager reading the literal for update detection matched nothing and
+    // silently stopped offering updates.
+    val declared = props.getProperty("versionCode")?.trim()
+    check(declared == null || declared.toIntOrNull() == derived) {
+        "version.properties is inconsistent: versionName '$name' packs to $derived but " +
+            "versionCode says '$declared'. Run scripts/bump-version.sh rather than editing " +
+            "either line by hand."
+    }
+    return AppVersion(name = name, code = derived)
 }
 
 private data class ReleaseSigning(
@@ -125,8 +152,10 @@ private data class ReleaseSigning(
 /**
  * Resolves release signing credentials from environment variables (CI) first, then a
  * local `keystore.properties` at the repo root. Returns null when any field is missing,
- * which signals the caller to fall back to debug signing — keeping the keystore out of
- * the repo while letting local `assembleRelease` and CI lint/test checks run unsigned.
+ * which signals the caller to fall back to the *debug* key — keeping the keystore out of
+ * the repo while letting local `assembleRelease` and CI lint/test checks still produce an
+ * installable APK. `-PunsignedRelease` is the only way to get an APK with no signature
+ * at all.
  */
 private fun readReleaseSigning(target: Project): ReleaseSigning? {
     val propsFile = target.rootProject.file("keystore.properties")

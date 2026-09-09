@@ -9,6 +9,7 @@ The app version is calendar-based — **`YYYY.MM.PATCH`** (zero-padded month, e.
 
 ```properties
 versionName=2026.06.0      # calver YYYY.MM.PATCH — bumped by the release workflow
+versionCode=20260600       # packed from versionName; written by the same bump
 backendTargetVersion=0.8.6 # LibreChat backend this build targets (best-tested)
 ```
 
@@ -18,6 +19,25 @@ backendTargetVersion=0.8.6 # LibreChat backend this build targets (best-tested)
 - `AndroidApplicationConventionPlugin` reads `versionName` and **derives** `versionCode` as
   `YEAR*10000 + MONTH*100 + PATCH`: `2026.06.0` → `20260600`, `2026.06.1` → `20260601`.
   Monotonic as the date advances; limits are MONTH ≤ 99 (trivially true), PATCH ≤ 99.
+  An `-rcN` suffix is stripped first, so a candidate and the stable it is promoted to
+  share a versionCode.
+- `version.properties` **also spells the code out**, and `scripts/bump-version.sh` writes both
+  lines together — refusing the bump if the `versionCode=` line is missing. The derivation
+  above stays authoritative: the plugin re-derives the code and **fails the build** if the
+  literal disagrees, so the two cannot drift. The literal exists because F-Droid's update
+  detection is regex-only and cannot evaluate the packing; without a number in a file it
+  cannot see new releases at all. **The literal alone is not enough**: fdroidserver's default
+  scan (`common.manifest_paths`) only reads `AndroidManifest.xml`, `build.gradle` and
+  `build.gradle.kts` *under the app module*, so it never sees a root `version.properties`.
+  Reaching it requires the fdroiddata recipe to say so explicitly:
+
+  ```yaml
+  UpdateCheckMode: Tags
+  UpdateCheckData: version.properties|versionCode=(\d+)|version.properties|versionName=(.+)
+  ```
+
+  Without that field the app builds and publishes fine but is never offered as an update, so
+  it belongs in the RFP alongside `Binaries` and `AllowedAPKSigningKeys`.
 - The About screen reads the *installed* version via `AppInfo` (package metadata), so it can never drift.
 - This is the **app's** version and is intentionally independent of `backendTargetVersion`.
 - `backendTargetVersion` is the **single source of truth** for the LibreChat backend the app
@@ -131,16 +151,68 @@ keyPassword=...
 Then `./gradlew :app:assembleRelease` produces a signed APK. Without env vars or this file,
 release builds fall back to the debug key so local builds and CI checks still work.
 
+### Unsigned release builds
+
+```bash
+./gradlew :app:assembleRelease -PunsignedRelease
+```
+
+Produces `app/build/outputs/apk/release/app-release-unsigned.apk` with no signature at all,
+for packagers that apply their own. The flag outranks any credentials present, so it can be
+tested without moving `keystore.properties` aside — and because the output filename changes,
+the two builds can never be confused for one another. Note the "will be UNSIGNED" banner is
+printed at configuration time, so a configuration-cache hit skips it; the filename is the
+reliable signal.
+
+This exists for F-Droid, whose buildserver has no credentials and would otherwise get a
+release APK quietly signed with the committed *debug* key. Its build recipe requests the flag
+with `gradleprops: [unsignedRelease]`. Nothing in the repo hardcodes that relationship — the
+flag is just "build unsigned", equally usable by any downstream packager.
+
+It is a hedge, not a requirement. fdroidserver does **not** insist on an unsigned build: its
+`verify_apks` strips and ignores any signature found on the rebuilt APK, and
+`AllowedAPKSigningKeys` is checked against the downloaded reference binary rather than the
+rebuild. Building unsigned removes one variable from that comparison — which, under
+`Binaries:`, is the step that publishes nothing at all when it fails. Do not restate this as
+"F-Droid requires an unsigned APK"; it does not.
+
+The release workflow exercises this path on every cut (see below), since nothing else does.
+Ordinary CI deliberately does not: a release cut is the only time the unsigned build matters,
+and that job already pays for one R8 run, so the check is nearly free there and would be a
+second full shrink on every pull request.
+
 ## Cutting a release
+
+> **Before dispatching:** add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`
+> for the version you are about to cut, and commit it to the branch first. Nothing in the
+> workflow writes it, and F-Droid/IzzyOnDroid read the file **from the tagged commit** — the
+> release commit contains only `version.properties`, so a changelog added afterwards is not
+> reachable from the tag and never appears. The filename is the versionCode
+> (`2026.08.4` → `20260804`), which `scripts/bump-version.sh` computes as
+> `YEAR*10000 + MONTH*100 + PATCH` from today's UTC date; see `fastlane/README.md`.
 
 1. Actions → **Release** → *Run workflow* → choose the bump (`patch` for a stable
    release, or `prepatch`/`rc`/`finalize` for the candidate flow). Year/month are
    derived from the current UTC date automatically.
-2. The job bumps `version.properties`, builds a signed universal APK, signs a SLSA
-   build-provenance attestation for it, and **only then** commits + tags `vYYYY.MM.P` and creates
-   a **draft** GitHub Release with auto-generated notes and a `.sha256` checksum. Candidate
-   versions are flagged as pre-releases automatically. If the build fails, nothing is committed
-   or tagged — just re-run after fixing it.
+2. The job bumps `version.properties`, commits and tags `vYYYY.MM.P` **locally**, builds a
+   signed universal APK, **asserts it carries the published signing certificate**, re-verifies
+   that the unsigned build path still works, signs a SLSA build-provenance attestation, and
+   **only then pushes** the commit and tag and creates a **draft** GitHub Release with
+   auto-generated notes and a `.sha256` checksum. Candidate versions are flagged as
+   pre-releases automatically. If any step fails, nothing is pushed — the commit and tag exist
+   only on the runner and die with it, so just re-run after fixing it.
+
+   The tag is created *before* the build on purpose: `BuildConfig.GIT_SHA` is stamped from
+   `git rev-parse HEAD` at build time, so building first shipped a binary carrying the SHA of
+   the commit *preceding* its own tag. Rebuilding from the tag then produced a different string
+   in the dex, which made the release impossible to reproduce byte-for-byte — a prerequisite for
+   F-Droid publishing our developer-signed APK rather than re-signing with its own key.
+
+   The certificate assertion compares against the fingerprint published in the README. It
+   exists because a swapped or rotated keystore secret is otherwise undetectable here: the
+   checksum, the attestation and the draft release would all faithfully describe a
+   wrongly-signed binary, and Android refuses in-place updates across a key change, so every
+   existing install would be stranded.
 3. A **secondary `ios` job** (macOS runner) then checks out the freshly tagged commit, builds
    an **unsigned device IPA**, attests it, and attaches `switchboard-vX.ipa` + `.sha256` to the
    same draft. It uses **no secrets and no Apple account** (sideload installers re-sign on the
