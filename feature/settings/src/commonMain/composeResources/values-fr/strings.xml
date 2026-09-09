@@ -253,9 +253,9 @@
     <string name="inline_artifact_svg">Images SVG</string>
     <string name="inline_artifact_svg_desc">Afficher les images vectorielles SVG en ligne</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">Afficher les pages HTML en ligne (charge Tailwind depuis le CDN)</string>
+    <string name="inline_artifact_html_desc">Afficher les pages HTML en ligne</string>
     <string name="inline_artifact_react">Composants React</string>
-    <string name="inline_artifact_react_desc">Afficher les composants React en ligne (charge React + Babel depuis le CDN)</string>
+    <string name="inline_artifact_react_desc">Afficher les composants React en ligne</string>
     <string name="inline_artifact_markdown">Documents Markdown</string>
     <string name="inline_artifact_markdown_desc">Afficher les artefacts Markdown en ligne avec des blocs de code à coloration syntaxique</string>
 

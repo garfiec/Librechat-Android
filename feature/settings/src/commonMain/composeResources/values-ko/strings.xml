@@ -253,9 +253,9 @@
     <string name="inline_artifact_svg">SVG 이미지</string>
     <string name="inline_artifact_svg_desc">SVG 벡터 그래픽을 인라인으로 렌더링</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">HTML 페이지를 인라인으로 렌더링 (CDN에서 Tailwind 로드)</string>
+    <string name="inline_artifact_html_desc">HTML 페이지를 인라인으로 렌더링</string>
     <string name="inline_artifact_react">React 컴포넌트</string>
-    <string name="inline_artifact_react_desc">React 컴포넌트를 인라인으로 렌더링 (CDN에서 React + Babel 로드)</string>
+    <string name="inline_artifact_react_desc">React 컴포넌트를 인라인으로 렌더링</string>
     <string name="inline_artifact_markdown">Markdown 문서</string>
     <string name="inline_artifact_markdown_desc">구문 강조된 코드 블록과 함께 Markdown 아티팩트를 인라인으로 렌더링</string>
 

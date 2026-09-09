@@ -253,9 +253,9 @@
     <string name="inline_artifact_svg">صور SVG</string>
     <string name="inline_artifact_svg_desc">عرض رسومات SVG المتجهة بشكل مضمّن</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">عرض صفحات HTML بشكل مضمّن (يحمّل Tailwind من CDN)</string>
+    <string name="inline_artifact_html_desc">عرض صفحات HTML بشكل مضمّن</string>
     <string name="inline_artifact_react">مكوّنات React</string>
-    <string name="inline_artifact_react_desc">عرض مكوّنات React بشكل مضمّن (يحمّل React + Babel من CDN)</string>
+    <string name="inline_artifact_react_desc">عرض مكوّنات React بشكل مضمّن</string>
     <string name="inline_artifact_markdown">مستندات Markdown</string>
     <string name="inline_artifact_markdown_desc">عرض عناصر Markdown التفاعلية بشكل مضمّن مع كتل أكواد مميزة بالتلوين النحوي</string>
 

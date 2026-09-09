@@ -253,9 +253,9 @@
     <string name="inline_artifact_svg">Изображения SVG</string>
     <string name="inline_artifact_svg_desc">Отображать векторную графику SVG встроенно</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">Отображать страницы HTML встроенно (загружает Tailwind из CDN)</string>
+    <string name="inline_artifact_html_desc">Отображать страницы HTML встроенно</string>
     <string name="inline_artifact_react">Компоненты React</string>
-    <string name="inline_artifact_react_desc">Отображать компоненты React встроенно (загружает React + Babel из CDN)</string>
+    <string name="inline_artifact_react_desc">Отображать компоненты React встроенно</string>
     <string name="inline_artifact_markdown">Документы Markdown</string>
     <string name="inline_artifact_markdown_desc">Отображать артефакты Markdown встроенно с подсветкой синтаксиса в блоках кода</string>
 

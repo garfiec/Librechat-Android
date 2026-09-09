@@ -253,9 +253,9 @@
     <string name="inline_artifact_svg">SVG-Bilder</string>
     <string name="inline_artifact_svg_desc">SVG-Vektorgrafiken eingebettet rendern</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">HTML-Seiten eingebettet rendern (lädt Tailwind vom CDN)</string>
+    <string name="inline_artifact_html_desc">HTML-Seiten eingebettet rendern</string>
     <string name="inline_artifact_react">React-Komponenten</string>
-    <string name="inline_artifact_react_desc">React-Komponenten eingebettet rendern (lädt React + Babel vom CDN)</string>
+    <string name="inline_artifact_react_desc">React-Komponenten eingebettet rendern</string>
     <string name="inline_artifact_markdown">Markdown-Dokumente</string>
     <string name="inline_artifact_markdown_desc">Markdown-Artefakte eingebettet mit syntaxhervorgehobenen Codeblöcken rendern</string>
 

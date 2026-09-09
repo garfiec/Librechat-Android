@@ -253,9 +253,9 @@
     <string name="inline_artifact_svg">SVG画像</string>
     <string name="inline_artifact_svg_desc">SVGベクター画像をインラインでレンダリング</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">HTMLページをインラインでレンダリング（TailwindをCDNから読み込み）</string>
+    <string name="inline_artifact_html_desc">HTMLページをインラインでレンダリング</string>
     <string name="inline_artifact_react">Reactコンポーネント</string>
-    <string name="inline_artifact_react_desc">Reactコンポーネントをインラインでレンダリング（React + BabelをCDNから読み込み）</string>
+    <string name="inline_artifact_react_desc">Reactコンポーネントをインラインでレンダリング</string>
     <string name="inline_artifact_markdown">Markdownドキュメント</string>
     <string name="inline_artifact_markdown_desc">構文ハイライト付きのコードブロックでMarkdownアーティファクトをインラインでレンダリング</string>
 
