@@ -277,9 +277,9 @@
     <string name="inline_artifact_svg">SVG images</string>
     <string name="inline_artifact_svg_desc">Render SVG vector graphics inline</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">Render HTML pages inline (loads Tailwind from CDN)</string>
+    <string name="inline_artifact_html_desc">Render HTML pages inline</string>
     <string name="inline_artifact_react">React components</string>
-    <string name="inline_artifact_react_desc">Render React components inline (loads React + Babel from CDN)</string>
+    <string name="inline_artifact_react_desc">Render React components inline</string>
     <string name="inline_artifact_markdown">Markdown documents</string>
     <string name="inline_artifact_markdown_desc">Render Markdown artifacts inline with syntax-highlighted code blocks</string>
 

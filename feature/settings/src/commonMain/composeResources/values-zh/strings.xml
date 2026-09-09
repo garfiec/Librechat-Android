@@ -253,9 +253,9 @@
     <string name="inline_artifact_svg">SVG 图片</string>
     <string name="inline_artifact_svg_desc">内嵌渲染 SVG 矢量图形</string>
     <string name="inline_artifact_html">HTML</string>
-    <string name="inline_artifact_html_desc">内嵌渲染 HTML 页面（从 CDN 加载 Tailwind）</string>
+    <string name="inline_artifact_html_desc">内嵌渲染 HTML 页面</string>
     <string name="inline_artifact_react">React 组件</string>
-    <string name="inline_artifact_react_desc">内嵌渲染 React 组件（从 CDN 加载 React + Babel）</string>
+    <string name="inline_artifact_react_desc">内嵌渲染 React 组件</string>
     <string name="inline_artifact_markdown">Markdown 文档</string>
     <string name="inline_artifact_markdown_desc">内嵌渲染 Markdown artifact，并对代码块进行语法高亮</string>
 
