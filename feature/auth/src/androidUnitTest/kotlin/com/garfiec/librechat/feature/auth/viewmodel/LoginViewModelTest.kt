@@ -1,14 +1,12 @@
 package com.garfiec.librechat.feature.auth.viewmodel
 
 import com.garfiec.librechat.core.common.result.Result
-import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.config.StartupConfig
-import com.garfiec.librechat.feature.auth.oauth.OAuthLauncher
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.every
@@ -32,8 +30,6 @@ class LoginViewModelTest {
 
     private val authRepository = mockk<AuthRepository>(relaxed = true)
     private val configRepository = mockk<ConfigRepository>(relaxed = true)
-    private val oAuthLauncher = mockk<OAuthLauncher>(relaxed = true)
-    private val serverDataStore = mockk<ServerDataStore>(relaxed = true)
     private val accountSwitcher = mockk<AccountSwitcher>(relaxed = true)
 
     private val configFlow = MutableStateFlow<StartupConfig?>(null)
@@ -56,8 +52,6 @@ class LoginViewModelTest {
     private fun createViewModel() = LoginViewModel(
         authRepository = authRepository,
         configRepository = configRepository,
-        oAuthLauncher = oAuthLauncher,
-        serverDataStore = serverDataStore,
         accountSwitcher = accountSwitcher,
     )
 

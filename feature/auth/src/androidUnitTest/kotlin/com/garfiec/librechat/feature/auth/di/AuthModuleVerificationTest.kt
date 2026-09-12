@@ -9,7 +9,7 @@ import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ServerRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.network.client.SecureTokenStorage
-import com.garfiec.librechat.feature.auth.oauth.OAuthLauncher
+import com.garfiec.librechat.feature.auth.oauth.OAuthCookieStore
 import org.junit.Test
 import org.koin.test.verify.verify
 
@@ -26,7 +26,7 @@ class AuthModuleVerificationTest {
                 ConfigRepository::class,
                 UserRepository::class,
                 SecureTokenStorage::class,
-                OAuthLauncher::class,
+                OAuthCookieStore::class,
                 AccountSwitcher::class,
                 // ServerUrlViewModel's addAccount mode flag, injected via parametersOf.
                 Boolean::class,

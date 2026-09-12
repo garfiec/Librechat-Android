@@ -1,10 +1,10 @@
 package com.garfiec.librechat.feature.auth.di
 
-import com.garfiec.librechat.feature.auth.oauth.AndroidOAuthLauncher
-import com.garfiec.librechat.feature.auth.oauth.OAuthLauncher
+import com.garfiec.librechat.feature.auth.oauth.AndroidOAuthCookieStore
+import com.garfiec.librechat.feature.auth.oauth.OAuthCookieStore
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual val authPlatformModule: Module = module {
-    single<OAuthLauncher> { AndroidOAuthLauncher(get()) }
+    single<OAuthCookieStore> { AndroidOAuthCookieStore() }
 }
