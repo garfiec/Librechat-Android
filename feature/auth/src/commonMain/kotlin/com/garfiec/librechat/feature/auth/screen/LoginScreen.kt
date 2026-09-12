@@ -33,8 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.feature.auth.resources.*
 import com.garfiec.librechat.feature.auth.resources.Res
@@ -49,17 +47,13 @@ fun LoginScreen(
     modifier: Modifier = Modifier,
     onNavigateToForgotPassword: () -> Unit = {},
     onNavigateToTwoFactor: (String) -> Unit = {},
+    onNavigateToSso: (String) -> Unit = {},
     onBack: (() -> Unit)? = null,
     viewModel: LoginViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
     val currentOnNavigateToTwoFactor by rememberUpdatedState(onNavigateToTwoFactor)
-
-    // Check for OAuth result when returning from Chrome Custom Tab
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.checkOAuthResult()
-    }
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -198,7 +192,7 @@ fun LoginScreen(
 
                 socialLogins.forEach { provider ->
                     OutlinedButton(
-                        onClick = { viewModel.launchOAuth(provider) },
+                        onClick = { onNavigateToSso(provider) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !uiState.isLoading,
                     ) {

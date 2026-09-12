@@ -16,9 +16,12 @@
 - `TwoFactor(val tempToken: String)` data class carries the nav argument directly
 
 ## OAuth Flow
-- `OAuthManager` opens Chrome Custom Tabs to `{serverUrl}/api/oauth/{provider}`
-- On return (Activity.onResume), `CookieManager.getCookie()` extracts `refreshToken=` cookie
-- Cookie is cleared after extraction to prevent stale reads
+- Social logins open an in-app WebView (`SsoLoginScreen` + `SsoWebView` expect/actual) on the `SsoLogin(provider)` route — NOT Custom Tabs
+- WebView loads `{serverUrl}/oauth/{provider}` (router mounted at `/oauth`, index.js:302 — NOT `/api/oauth`) with a browser UA string (ua-parser middleware 403s WebView agents)
+- On OAuth success the SERVER sets the httpOnly `refreshToken` cookie on its own origin; page events (doUpdateVisitedHistory/onPageFinished; WKNavigationDelegate on iOS) read the native cookie store scoped to the server's origin
+- `SsoLoginViewModel` consumes the token once (guard flag), clears the cookie via `OAuthCookieStore.clearRefreshTokenCookie(serverUrl)`, then calls `authRepository.loginWithOAuthToken`
+- Stale cookie is wiped on screen entry (fresh identity boundary)
+- Provider failure redirects to `{DOMAIN_CLIENT}/login?...&error=...` — surfaced as error state
 - Supported providers configured by server: Google, GitHub, Discord, Facebook, Apple, OpenID
 
 ## Token Storage
@@ -28,12 +31,12 @@
 - Token refresh is an explicit POST, not automatic cookie-based
 
 ## ViewModels
-- One ViewModel per screen: `ServerUrlViewModel`, `LoginViewModel`, `RegisterViewModel`, `ForgotPasswordViewModel`, `TwoFactorViewModel`
+- One ViewModel per screen: `ServerUrlViewModel`, `LoginViewModel`, `RegisterViewModel`, `ForgotPasswordViewModel`, `TwoFactorViewModel`, `SsoLoginViewModel`
 - All use `AuthRepository` from `:core:data`
 
 ## Key Implementation Notes
 - If server URL is already stored, skip ServerUrl screen on launch
-- Social logins must use Custom Tabs, not WebView (cookie sharing requirement)
+- Social logins use the in-app `SsoLogin` WebView flow (server sets the httpOnly cookie on its own origin; Custom Tabs/`ASWebAuthenticationSession` cannot read that store)
 - `openidAutoRedirect` from server config triggers automatic redirect instead of showing login form
 - LDAP mode: show "Username" field instead of "Email" (check server config)
 
