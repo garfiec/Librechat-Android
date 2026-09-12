@@ -7,6 +7,7 @@ import com.garfiec.librechat.feature.auth.screen.LoginScreen
 import com.garfiec.librechat.feature.auth.screen.RegisterScreen
 import com.garfiec.librechat.feature.auth.screen.ResetPasswordScreen
 import com.garfiec.librechat.feature.auth.screen.ServerUrlScreen
+import com.garfiec.librechat.feature.auth.screen.SsoLoginScreen
 import com.garfiec.librechat.feature.auth.screen.TermsScreen
 import com.garfiec.librechat.feature.auth.screen.TwoFactorScreen
 import com.garfiec.librechat.feature.auth.screen.VerifyEmailScreen
@@ -33,6 +34,11 @@ import org.koin.core.parameter.parametersOf
 @Serializable data object AddAccountServerUrl : AuthRoute
 
 @Serializable data object AddAccountLogin : AuthRoute
+
+/** In-app WebView SSO sign-in for a social provider (google, github, discord, facebook, apple,
+ *  openid). The WebView completes the provider round-trip and the server-side OAuth callback on
+ *  its own origin, where the `refreshToken` cookie is captured. */
+@Serializable data class SsoLogin(val provider: String) : AuthRoute
 
 /** True for the routes that constitute an in-progress add-account flow. Follow-on screens reached
  *  from add-mode login (register, 2FA, forgot password) are shared routes and intentionally
@@ -82,6 +88,7 @@ fun EntryProviderScope<NavKey>.authEntries(
             onNavigateToTwoFactor = { tempToken ->
                 onNavigate(TwoFactor(tempToken = tempToken))
             },
+            onNavigateToSso = { provider -> onNavigate(SsoLogin(provider)) },
             onBack = onBack,
         )
     }
@@ -93,6 +100,15 @@ fun EntryProviderScope<NavKey>.authEntries(
             onNavigateToTwoFactor = { tempToken ->
                 onNavigate(TwoFactor(tempToken = tempToken))
             },
+            onNavigateToSso = { provider -> onNavigate(SsoLogin(provider)) },
+        )
+    }
+    entry<SsoLogin> { key ->
+        SsoLoginScreen(
+            provider = key.provider,
+            onLoginSuccess = onAuthComplete,
+            onBack = onBack,
+            viewModel = koinViewModel(parameters = { parametersOf(key.provider) }),
         )
     }
     entry<Register> {
@@ -142,6 +158,7 @@ val authSerializersModule = SerializersModule {
         subclass(Login::class, Login.serializer())
         subclass(AddAccountServerUrl::class, AddAccountServerUrl.serializer())
         subclass(AddAccountLogin::class, AddAccountLogin.serializer())
+        subclass(SsoLogin::class, SsoLogin.serializer())
         subclass(Register::class, Register.serializer())
         subclass(ForgotPassword::class, ForgotPassword.serializer())
         subclass(TwoFactor::class, TwoFactor.serializer())
